@@ -2,14 +2,7 @@
 
 Dette repoet er klart for GitHub Pages.
 
-## Publiser steg-for-steg
-1. Opprett et nytt repo på GitHub (f.eks. `broeyterute`).
-2. Last opp **index.html** og **README.md** fra denne ZIP-en til **rot** av repoet.
-3. Gå til **Settings → Pages**.
-   - **Build and deployment → Source**: `Deploy from a branch`
-   - **Branch**: `main`
-   - **Folder**: `/ (root)`
-   - Klikk **Save**.
+
 4. Vent ~1 minutt og åpne: `https://<brukernavn>.github.io/<repo-navn>/`
 
 ## Feilsøking
