@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brøyterute – Dal/Råholt (v7.1 SAFE)</title>
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+      .then(()=>console.log('Service worker registrert'))
+      .catch(err=>console.error('SW-feil',err));
+    }
+    window.onload = () => {
+      document.getElementById('status').textContent = '✅ JavaScript kjører – alt fungerer!';
+    };
+  </script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { color: #0f9d58; }
+    #status { margin-top: 20px; font-weight: bold; color: #333; }
+  </style>
+</head>
+<body>
+  <h1>Brøyterute – Dal/Råholt</h1>
+  <p>✅ Siden er klar! Last opp denne som <b>index.html</b> i <code>docs/</code>-mappa på GitHub.</p>
+  <p>Når du åpner <a href="https://oysgjer.github.io/Broyt/">https://oysgjer.github.io/Broyt/</a>, vil du se denne bekreftelsen hvis alt fungerer.</p>
+  <p id="status">Laster…</p>
+</body>
+</html>
