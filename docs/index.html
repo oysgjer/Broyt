@@ -122,6 +122,12 @@ function act(a){let cur=d.stops.find(s=>!s.f);if(!cur)return;if(a==="nav"){windo
 if(a==="done")cur.f=true;if(a==="block")cur.b=true;if(a==="next"){cur.f=true;};W(d);renderWork();}
 $("#add").onclick=()=>{d.stops.push({n:$("#addr").value,t:$("#taskSel").value});$("#addr").value="";W(d);renderList();}
 function renderList(){$("#list").innerHTML=d.stops.map((s,i)=>`<div class='item${s.f?' disabled':''}'><b>${i+1}. ${s.n}</b><br><span>${s.t}</span> ${s.f?'✅':''}</div>`).join("")}
+window.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("btnStart").addEventListener("click",()=>{
+    show("work");
+    renderWork();
+  });
+});
 </script>
 </body>
 </html>
