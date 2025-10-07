@@ -143,27 +143,134 @@ document.getElementById('doneNewRound').addEventListener('click',()=>{document.g
 function showEquipModal(){document.getElementById('eq_plog').checked=!!equipment.plog;document.getElementById('eq_fres').checked=!!equipment.fres;document.getElementById('eq_stro').checked=!!equipment.stro;document.getElementById('equipBg').style.display='flex'}
 document.getElementById('equipSave').addEventListener('click',()=>{equipment={plog:document.getElementById('eq_plog').checked,fres:document.getElementById('eq_fres').checked,stro:document.getElementById('eq_stro').checked};saveEquipment();document.getElementById('equipBg').style.display='none';renderAll()});
 async function sendZip(){const obj=await buildZip();await shareOrDownloadZip(obj.zipBlob,obj.fileName)}
-async function buildZip(){const round=state.round,startedAt=new Date(state.startedAt),finishedAt=new Date();let lines=[['Runde','Start','Slutt','Sjåfør','Navn','Oppgave','Status','Detaljer','Kommentar','Antall bilder','Starttid','Sluttid','Svc:plog','Svc:fres','Svc:stro','Svc:annet','Svc:notat'].join(',')];state.stops.forEach(s=>{lines.push([round,startedAt.toISOString(),finishedAt.toISOString(),csvEscape(state.driver||''),csvEscape(s.name),csvEscape(s.task),s.status,csvEscape(s.details||''),csvEscape(s.comment||''),(s.photos?s.photos.length:0),s.startedAt?new Date(s.startedAt).toISOString():'',s.finishedAt?new Date(s.finishedAt).toISOString():'',state.service.plog,state.service.fres,state.service.stro,state.service.other,csvEscape(state.service.notes||'')].join(','))});const csv=lines.join('\n');const {jsPDF}=window.jspdf;const pdf=new jsPDF();pdf.setFontSize(12);pdf.text('Brøyterute – Runde '+round,14,14);pdf.text('Start: '+startedAt.toLocaleString('no-NO')+'  Slutt: '+finishedAt.toLocaleString('no-NO'),14,22);if(state.driver)pdf.text('Sjåfør: '+state.driver,14,30);if(state.service&&(state.service.plog||state.service.fres||state.service.stro||state.service.other||state.service.notes)){let svc='Service: '+(state.service.plog?'plog ':'')+(state.service.fres?'fres ':'')+(state.service.stro?'strøkasse ':'')+(state.service.other?'annet ':'');pdf.text(svc.trim(),14,38);if(state.service.notes)pdf.text('Notat: '+state.service.notes,14,46)}let y=(state.service&&(state.service.plog||state.service.fres||state.service.stro||state.service.other||state.service.notes))?56:38;state.stops.forEach((st,i)=>{const line=(i+1)+'. '+st.name+' — '+st.task+' — '+(st.status==='done'?'Ferdig':st.status==='blocked'?'Stoppet':st.status==='ongoing'?'Pågår':'Ikke utført')+(st.details?(' — '+st.details):'')+(st.comment?(' — '+st.comment):'');const arr=pdf.splitTextToSize(line,180);if(y+arr.length*6>280){pdf.addPage();y=20}pdf.text(arr,14,y);y+=arr.length*6+2});const pdfBlob=pdf.output('blob');const zip=new JSZip();zip.file('broeyting_dokumentasjon_runde'+round+'.csv',csv);zip.file('broeyting_rapport_runde'+round+'.pdf',pdfBlob);let idx=1;state.stops.forEach(st=>{if(st.photos&&st.photos.length){st.photos.forEach((p,i)=>{const base64=(p.dataUrl.split(',')[1]||'');zip.file('bilder/'+String(idx).padStart(2,'0')+'_'+safeName(st.name)+'_'+(i+1)+'.jpg',base64,{base64:true})})}idx++});const blob=await zip.generateAsync({type:'blob'});return{zipBlob:blob,fileName:'broeyting_dokumentasjon_runde'+round+'.zip'}}
-async function shareOrDownloadZip(zipBlob,fileName){const file=new File([zipBlob],fileName,{type:'application/zip'});if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'Brøyterapport',text:'ZIP med CSV, PDF og bilder.'});return}catch(e){}}downloadBlob(zipBlob,fileName);window.location.href='mailto:?subject='+encodeURIComponent('Brøyterapport '+fileName)+'&body='+encodeURIComponent('ZIP er lastet ned. Legg den ved e-posten.')}
-async function resetCache(){try{if('serviceWorker'in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister()}if('caches'in window){const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)))}localStorage.removeItem(LS_KEY);const url=new URL(location.href);url.searchParams.set('bust',Date.now());location.replace(url.toString())}catch(e){alert('Kunne ikke nullstille cache.')}}
-function csvEscape(s){return'"'+String(s).replace(/"/g,'""')+'"'}function safeName(s){return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')}
-function downloadBlob(b,f){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-function haversineMeters(aLat,aLng,bLat,bLng){const toRad=v=>v*Math.PI/180,R=6371000,dLat=toRad(bLat-aLat),dLng=toRad(bLng-aLng);const s1=Math.sin(dLat/2)**2+Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(s1))}
-function isCompatible(stop){const t=stop.task||'';const needP=/Brøyte/.test(t),needF=/Frese/.test(t),needS=/Strø/.test(t);if(needP&&!equipment.plog)return false;if(needF&&!equipment.fres)return false;if(needS&&!equipment.stro)return false;return true}
-function labelStatus(s){return s==='done'?'Ferdig':(s==='blocked'?'Stoppet':(s==='ongoing'?'Pågår':'Ikke utført'))}
-function statusClass(s){return s==='done'?'b-green':(s==='blocked'?'b-red':(s==='ongoing'?'b-blue':'b-yellow'))}
-function renderRegister(){const list=document.getElementById('list');list.innerHTML='';state.stops.forEach((s,i)=>{const disabled=!isCompatible(s);const el=document.createElement('div');el.className='item'+(disabled?' disabled':'');el.innerHTML='<div class="row" style="justify-content:space-between;align-items:center;"><div style="min-width:240px"><div class="name"><input data-f="name" type="text" value="'+escapeHtml(s.name)+'" style="width:100%;height:42px;border:1px solid var(--cardBorder);border-radius:10px;padding:0 10px;background:transparent;color:inherit"></div><div class="muted">Oppgave: <select data-f="task" style="background:transparent;color:inherit;border:1px solid var(--cardBorder);border-radius:10px;padding:6px 8px"><option'+(s.task==='Brøyte'?' selected':'')+'>Brøyte</option><option'+(s.task==='Frese'?' selected':'')+'>Frese</option><option'+(s.task==='Strø'?' selected':'')+'>Strø</option><option'+(s.task==='Brøyte og strø'?' selected':'')+'>Brøyte og strø</option><option'+(s.task==='Frese og strø'?' selected':'')+'>Frese og strø</option><option'+(s.task==='Brøytestikker'?' selected':'')+'>Brøytestikker</option></select></div>'+(disabled?'<div class="hint">⚠️ Ikke kompatibel med valgt utstyr i dag</div>':'')+'</div><div><span class="'+statusClass(s.status)+'">'+labelStatus(s.status)+'</span></div></div><div class="rowbtns"><button class="btn s" data-act="ongoing">▶️ Pågår</button><button class="btn s" style="background:var(--green);color:#fff" data-act="done">✅ Ferdig</button><button class="btn s" style="background:var(--red);color:#fff" data-act="blocked">⛔ Ikke mulig</button><button class="btn s" data-act="photo">📷 Foto</button><button class="btn s" data-act="nav">🧭 Naviger</button><button class="btn s" data-act="up">↑</button><button class="btn s" data-act="down">↓</button></div>';el.querySelector('[data-f="name"]').addEventListener('input',e=>{s.name=e.target.value;saveState()});el.querySelector('[data-f="name"]').addEventListener('blur',()=>ensureCoords(s));el.querySelector('[data-f="task"]').addEventListener('change',e=>{s.task=e.target.value;if(s.task!=='Brøytestikker')s.details='';saveState();renderAll()});el.querySelector('[data-act="ongoing"]').addEventListener('click',()=>{if(!s.startedAt)s.startedAt=Date.now();s.status='ongoing';saveState();renderAll()});el.querySelector('[data-act="done"]').addEventListener('click',()=>{if(s.task==='Brøytestikker'){const n=prompt('Antall brøytestikker?',(s.details||'').replace(/\D/g,''));if(n===null)return;s.details='Brøytestikker: '+(parseInt(n||'0',10)||0)}if(!s.startedAt)s.startedAt=Date.now();s.finishedAt=Date.now();s.status='done';saveState();renderAll()});el.querySelector('[data-act="blocked"]').addEventListener('click',()=>{const r=prompt('Hvorfor ikke mulig å utføre? (valgfritt)')||'';s.status='blocked';if(!s.startedAt)s.startedAt=Date.now();s.finishedAt=Date.now();if(r)s.details=(s.details?s.details+' · ':'')+'Årsak: '+r;saveState();renderAll()});el.querySelector('[data-act="photo"]').addEventListener('click',()=>{pendingPhotoStopId=s.id;document.getElementById('fileInput').click()});el.querySelector('[data-act="nav"]').addEventListener('click',()=>openGoogleMapsTo(s.name));el.querySelector('[data-act="up"]').addEventListener('click',()=>{if(i>0){const t=state.stops[i-1];state.stops[i-1]=state.stops[i];state.stops[i]=t;saveState();renderAll();refreshMarkers()}});el.querySelector('[data-act="down"]').addEventListener('click',()=>{if(i<state.stops.length-1){const t=state.stops[i+1];state.stops[i+1]=state.stops[i];state.stops[i]=t;saveState();renderAll();refreshMarkers()}});list.appendChild(el)})}
-function startNewRound(){state.round+=1;state.startedAt=Date.now();state.stops.forEach(s=>{s.status='pending';s.startedAt=null;s.finishedAt=null;s.details=(s.task==='Brøytestikker')?'':s.details;s.photos=[];s.comment='';s._askedCheckin=false});state.service={plog:false,fres:false,stro:false,other:false,notes:''};saveState();renderAll()}
-function renderAll(){document.getElementById('roundInfo').textContent='Runde '+state.round+' – Startet '+new Date(state.startedAt).toLocaleString('no-NO')+(state.driver?' – Sjåfør: '+state.driver:'');const cur=getCurrent(),nxt=cur?getNextAfter(cur.id):null;document.getElementById('curName').textContent=cur?cur.name:'—';document.getElementById('curTask').textContent=cur?cur.task:'—';const stEl=document.getElementById('curStatus');stEl.textContent=cur?labelStatus(cur.status):'—';stEl.className=(cur?statusClass(cur.status):'b-yellow');document.getElementById('curNext').textContent=nxt?nxt.name:'—';document.getElementById('compatHint').style.display=(cur&&!isCompatible(cur))?'block':'none';const g=document.getElementById('curPhotos');g.innerHTML='';if(cur&&cur.photos&&cur.photos.length){cur.photos.forEach(p=>{const img=document.createElement('img');img.src=p.dataUrl;img.alt='foto';g.appendChild(img)})}renderRegister();const anyPending=state.stops.some(s=>s.status!=='done'&&s.status!=='blocked');if(!anyPending&&document.getElementById('doneBg').style.display!=='flex'){document.getElementById('doneBg').style.display='flex'}}
-if(!state.stops.length){['AMFI Eidsvoll (Råholt)','Råholt barneskole','Råholt ungdomsskole','Dal stasjon','Høybråten'].forEach(n=>state.stops.push(mkStop(n,'Brøyte')));saveState()}
-state.stops.forEach(s=>{if(!s.lat||!s.lng)ensureCoords(s)});
-try{if(sessionStorage.getItem(NAV_FLAG)==='1'){sessionStorage.removeItem(NAV_FLAG)}}catch(e){}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderAll()});renderAll();
-function getCurrent(){for(let i=0;i<state.stops.length;i++){const s=state.stops[i];if(s.status!=='done'&&s.status!=='blocked'&&isCompatible(s))return s}for(let j=0;j<state.stops.length;j++){const t=state.stops[j];if(t.status!=='done'&&t.status!=='blocked')return t}return null}
-function getNextAfter(id){let seen=false,fallback=null;for(let i=0;i<state.stops.length;i++){const s=state.stops[i];if(s.id===id){seen=true;continue}if(seen&&s.status!=='done'&&s.status!=='blocked'){if(isCompatible(s))return s;if(!fallback)fallback=s}}return fallback}
-function openGoogleMapsTo(address){try{sessionStorage.setItem(NAV_FLAG,'1')}catch(e){}window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address)}
-function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
-})();
+async function buildZip(){const round=state.round,startedAt=new Date(state.startedAt),finishedAt=new Date();let lines=[['Runde','Start','Slutt','Sjåfør','Navn','Oppgave','Status','Detaljer','Kommentar','Antall bilder','Starttid','Sluttid','Svc:plog','Svc:fres','Svc:stro','Svc:annet','Svc:notat'].join(',')];state.stops.forEach(s=>{lines.push([round,startedAt.toISOString(),finishedAt.toISOString(),csvEscape(state.driver||''),csvEscape(s.name),csvEscape(s.task),s.status,csvEscape(s.details||''),csvEscape(
+
+
+
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brøyterute – Romerike Trefelling (V9.3)</title>
+<meta name="theme-color" content="#0f9d58">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+  :root{
+    --bg:#111;--fg:#f4f6f8;--muted:#b8c0c7;
+    --card:#1a1a1a;--cardBorder:#2a2a2a;
+    --green:#0f9d58;--red:#c21d03;--blue:#0061fe;--orange:#ff9800;--gray:#2f3337;
+  }
+  .light{--bg:#f5f6f7;--fg:#111;--muted:#666;--card:#fff;--cardBorder:#e6e6e6;}
+  *{box-sizing:border-box}html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  body{background:var(--bg);color:var(--fg)}#app{min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
+  header{background:#0b0b0b;color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px}
+  header h1{font-size:16px;margin:0}.spacer{flex:1}.nav{display:flex;gap:8px}
+  .nav .tab{border:none;border-radius:12px;padding:8px 12px;background:#2a2a2a;color:#fff;cursor:pointer}
+  .nav .tab.active{background:var(--green)}.btn.s{height:38px;font-size:14px;border-radius:10px;border:1px solid var(--cardBorder);background:#222;color:#fff;cursor:pointer}
+  .page{display:none;padding:14px}.page.active{display:block}.card{background:var(--card);border:1px solid var(--cardBorder);border-radius:16px;padding:14px}
+  .stack{display:flex;flex-direction:column;gap:12px}.title-lg{font-size:26px;font-weight:700}
+  .muted{color:var(--muted)}.row{display:flex;gap:10px;flex-wrap:wrap}.btn{border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer}
+  .btn-green{background:var(--green);color:#fff}.btn-red{background:var(--red);color:#fff}.btn-blue{background:var(--blue);color:#fff}.btn-gray{background:var(--gray);color:#fff}
+  .b-green{color:#9f9}.b-blue{color:#9cf}.b-yellow{color:#ffb}.b-red{color:#f99}
+  .field input[type=text]{flex:1;height:44px;border:1px solid var(--cardBorder);border-radius:10px;padding:0 10px;background:transparent;color:inherit}
+  .check{display:flex;align-items:center;gap:8px;background:#171717;border:1px solid var(--cardBorder);padding:8px 10px;border-radius:10px}
+  .item{background:var(--card);border:1px solid var(--cardBorder);border-radius:12px;padding:10px;margin-bottom:8px}
+  .disabled{opacity:.5}.footer{background:#0b0b0b;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;font-size:12px}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <h1>Brøyterute – Romerike Trefelling</h1>
+  <div class="spacer"></div>
+  <div class="nav">
+    <button class="tab active" data-tab="home">Hjem</button>
+    <button class="tab" data-tab="work">Under arbeid</button>
+    <button class="tab" data-tab="register">Adresse-register</button>
+    <button class="tab" data-tab="service">Service</button>
+  </div>
+</header>
+
+<!-- HJEM -->
+<div id="page-home" class="page active">
+ <div class="card stack">
+  <h2>Innstillinger</h2>
+  <div class="field"><label style="min-width:90px">Sjåfør</label><input id="driver" type="text" placeholder="Skriv inn navnet ditt"></div>
+  <div class="row">
+   <label class="check"><input id="eq_plog" type="checkbox"> Plog</label>
+   <label class="check"><input id="eq_fres" type="checkbox"> Fres</label>
+   <label class="check"><input id="eq_stro" type="checkbox"> Strøkasse</label>
+  </div>
+  <button id="btnStart" class="btn btn-green">Start runde →</button>
+ </div>
+</div>
+
+<!-- UNDER ARBEID -->
+<div id="page-work" class="page">
+ <div class="card stack">
+  <div id="driverLbl" class="muted"></div>
+  <h2 id="curName" class="title-lg">—</h2>
+  <div class="muted">Oppgave: <span id="curTask">—</span></div>
+  <div class="muted">Neste: <span id="curNext">—</span></div>
+  <div class="row">
+   <button id="ongo" class="btn btn-gray">▶️ Pågår</button>
+   <button id="done" class="btn btn-green">✅ Ferdig</button>
+   <button id="block" class="btn btn-red">⛔ Ikke mulig</button>
+   <button id="nav" class="btn btn-blue">🧭 Naviger</button>
+   <button id="next" class="btn btn-gray">🔁 Neste</button>
+  </div>
+ </div>
+</div>
+
+<!-- ADRESSER -->
+<div id="page-register" class="page">
+ <div id="list"></div>
+ <div class="card stack">
+  <div class="row">
+   <input id="addr" type="text" placeholder="Adresse / område" style="flex:2">
+   <select id="taskSel" style="flex:1">
+     <option>Brøyte</option><option>Frese</option><option>Strø</option>
+     <option>Brøyte og strø</option><option>Frese og strø</option><option>Brøytestikker</option>
+   </select>
+   <button id="add" class="btn btn-green">+ Legg til</button>
+  </div>
+ </div>
+</div>
+
+<!-- SERVICE -->
+<div id="page-service" class="page">
+ <div class="card stack">
+  <h2>Service / Vedlikehold</h2>
+  <div class="row">
+   <label class="check"><input id="svc_plog" type="checkbox"> Smurt plog</label>
+   <label class="check"><input id="svc_fres" type="checkbox"> Smurt fres</label>
+   <label class="check"><input id="svc_stro" type="checkbox"> Smurt strøkasse</label>
+   <label class="check"><input id="svc_other" type="checkbox"> Annet</label>
+  </div>
+  <textarea id="svcNotes" placeholder="Anmerkninger …" style="width:100%;min-height:80px;border-radius:10px;padding:8px"></textarea>
+ </div>
+</div>
+
+<div class="footer"><div id="pos">—</div><div>Versjon 9.3</div></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const S=()=>JSON.parse(localStorage.getItem('broyte')||'{"stops":[]}'),W=s=>localStorage.setItem('broyte',JSON.stringify(s));
+let d=S();if(!d.stops.length)d={stops:[{n:"AMFI Eidsvoll",t:"Brøyte"},{n:"Råholt barneskole",t:"Brøyte og strø"}]};
+const $=id=>document.getElementById(id);
+const pages=["home","work","register","service"];
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{pages.forEach(p=>$("#page-"+p).classList.remove("active"));$(".tab.active")?.classList.remove("active");b.classList.add("active");$("#page-"+b.dataset.tab).classList.add("active");if(b.dataset.tab==="register")renderList();});
+$("#driver").oninput=e=>{d.driver=e.target.value;W(d);}
+$("#btnStart").onclick=()=>{show("work");renderWork();}
+function show(p){pages.forEach(x=>$("#page-"+x).classList.remove("active"));$("#page-"+p).classList.add("active");document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===p));}
+function renderWork(){const cur=d.stops.find(s=>!s.f);const nxt=d.stops.find((s,i)=>!s.f&&i>d.stops.indexOf(cur));$("#driverLbl").textContent="Sjåfør: "+(d.driver||"—");$("#curName").textContent=cur?cur.n:"—";$("#curTask").textContent=cur?cur.t:"—";$("#curNext").textContent=nxt?nxt.n:"—";}
+["ongo","done","block","nav","next"].forEach(id=>$(id).onclick=()=>act(id));
+function act(a){let cur=d.stops.find(s=>!s.f);if(!cur)return;if(a==="nav"){window.open("https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(cur.n));return;}
+if(a==="done")cur.f=true;if(a==="block")cur.b=true;if(a==="next"){cur.f=true;};W(d);renderWork();}
+$("#add").onclick=()=>{d.stops.push({n:$("#addr").value,t:$("#taskSel").value});$("#addr").value="";W(d);renderList();}
+function renderList(){$("#list").innerHTML=d.stops.map((s,i)=>`<div class='item${s.f?' disabled':''}'><b>${i+1}. ${s.n}</b><br><span>${s.t}</span> ${s.f?'✅':''}</div>`).join("")}
 </script>
 </body>
 </html>
