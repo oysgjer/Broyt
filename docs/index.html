@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Brøyterute – V8.2.1 Lokal</title>
+<title>Brøyterute – V8.2.2 Lokal</title>
 <meta name="theme-color" content="#0f9d58">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -11,35 +11,58 @@
 <style>
   :root{ --btnH:48px; --pad:10px; }
   html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f7f7f9; color:#111; }
-  #app { min-height:100%; display:grid; grid-template-rows:auto auto 1fr auto; }
+  #app { min-height:100%; display:grid; grid-template-rows:auto auto auto 1fr auto; }
+
+  /* Header */
   header { background:#111; color:#fff; padding:10px 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   header h1 { font-size:16px; margin:0; }
   .subtitle { font-size:12px; opacity:.8; }
-  .tabs { display:flex; gap:6px; margin-left:auto; }
-  .tab { background:#2a2a2a; color:#fff; border:none; border-radius:10px; height:34px; padding:0 10px; }
-  .tab.active { background:#0f9d58; }
-  .topbar { background:#fff; padding:8px 12px; display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:center; border-bottom:1px solid #e6e6e6; }
-  .topbar input[type="text"], .topbar select { height:42px; border-radius:10px; border:1px solid #ccc; padding:0 10px; font-size:16px; }
-  .btn { height:42px; border:none; border-radius:10px; padding:0 10px; font-size:15px; }
+
+  /* Top bars */
+  .topbar, .bar { background:#fff; padding:8px 12px; border-bottom:1px solid #e6e6e6; }
+  .topbar { display:grid; grid-template-columns:1.2fr 0.8fr auto; gap:8px; align-items:center; }
+  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .bar .spacer { flex:1 }
+
+  /* Controls */
+  .btn { height:42px; border:none; border-radius:10px; padding:0 12px; font-size:15px; }
   .btn.primary { background:#0f9d58; color:#fff; }
   .btn.blue { background:#0061fe; color:#fff; }
   .btn.red { background:#c21d03; color:#fff; }
   .btn.gray { background:#eee; color:#111; border:1px solid #ccc; }
-  .btn.small { height:34px; font-size:13px; }
-  .bar { background:#fff; padding:8px 12px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #e6e6e6; flex-wrap:wrap; }
-  .bar .spacer { flex:1 }
+  .btn.small { height:34px; font-size:13px; padding:0 10px; }
+
+  .topbar input[type="text"], .topbar select {
+    height:42px; border-radius:10px; border:1px solid #ccc; padding:0 10px; font-size:16px;
+  }
+
+  /* Layout */
   .content { display:grid; grid-template-columns:1fr; }
   #listWrap { padding:8px 12px; }
   #mapWrap { border-top:1px solid #eee; }
   #map { width:100%; height:320px; }
-  table { width:100%; border-collapse:collapse; background:#fff; table-layout: fixed; }
+
+  /* Table – mobilvennlig og mer plass til NAVN */
+  table { width:100%; border-collapse:collapse; background:#fff; table-layout:fixed; }
   th, td { border-bottom:1px solid #eee; padding:8px 6px; vertical-align:middle; }
-  th.seq, td.seq { width: 40px; text-align:center; font-weight:700; }
-  th.name, td.name { width:auto; word-break:break-word; }
-  th.task, td.task { width:140px; }
-  th.det, td.det { width:160px; }
-  th.sta, td.sta { width:74px; }
-  th.act, td.act { width:260px; }
+  th.seq, td.seq { width:44px; text-align:center; font-weight:700; }
+  th.name, td.name { width:auto; }
+  th.task, td.task { width:128px; }
+  th.det, td.det { width:150px; }
+  th.sta, td.sta { width:76px; }
+  th.act, td.act { width:230px; }
+
+  /* NAVN-celle */
+  .name .title {
+    white-space: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius:8px;
+    padding:2px 4px;
+    background:#fafafa;
+  }
+  .name input[type="text"] { width:100%; min-height:40px; border:1px solid #ddd; border-radius:8px; padding:6px 8px; margin-top:6px; }
+
   .rowbtns { display:flex; gap:6px; flex-wrap:wrap; }
   .footer { background:#111; color:#fff; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
   .badge { padding:3px 8px; border-radius:999px; font-size:12px; display:inline-block; }
@@ -47,20 +70,37 @@
   .b-yellow{ background:#fff3cd; color:#856404; }
   .b-red{ background:#f8d7da; color:#721c24; }
   .b-blue{ background:#e1f0ff; color:#084298; }
+
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin:8px 12px; }
+  .chip { background:#f1f1f1; border:1px solid #ddd; border-radius:16px; padding:4px 8px; font-size:12px; }
+  .thumbs { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+  .thumbs img { width:36px; height:36px; object-fit:cover; border-radius:6px; border:1px solid #ddd; }
+  .small { font-size:12px; color:#666; }
+  .muted { color:#888; }
+
+  /* Valgt rad (for store knapper) */
+  tr.selected { outline:3px solid #12b886; outline-offset:-3px; }
+
+  /* Store knapper nederst */
+  .bigbar {
+    position: sticky; bottom:0; left:0; right:0; z-index:5;
+    background:#fff; border-top:1px solid #e5e5e5; padding:8px 8px;
+    display:none;
+  }
+  .bigbar.show { display:block; }
+  .bigrow { display:flex; gap:8px; }
+  .bigrow .btn { flex:1; height:58px; font-size:17px; border-radius:12px; }
+
+  /* Modaler */
   .modalBg { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:10; }
   .modal { background:#fff; border-radius:12px; width:min(640px,92vw); padding:14px; }
   .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
   .row label { display:flex; align-items:center; gap:8px; background:#f7f7f7; border:1px solid #eee; border-radius:10px; padding:8px 10px; }
-  textarea, input[type="text"] { width:100%; min-height:44px; border:1px solid #ccc; border-radius:10px; padding:8px 10px; }
-  .small { font-size: 12px; color:#666; }
-  .chips { display:flex; gap:6px; flex-wrap:wrap; margin:8px 12px; }
-  .chip { background:#f1f1f1; border:1px solid #ddd; border-radius:16px; padding:4px 8px; font-size:12px; }
-  .thumbs { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
-  .thumbs img { width:36px; height:36px; object-fit:cover; border-radius:6px; border:1px solid #ddd; }
-  .muted { color:#888; }
+  textarea { width:100%; min-height:80px; border:1px solid #ccc; border-radius:10px; padding:8px 10px; }
+
   @media (min-width: 920px){
     .content { grid-template-columns: 1fr 420px; }
-    #map { height: calc(100vh - 280px); }
+    #map { height: calc(100vh - 320px); }
     #mapWrap { border-left:1px solid #eee; border-top:none; }
   }
 </style>
@@ -71,10 +111,6 @@
     <div>
       <h1>Brøyterute</h1>
       <div class="subtitle" id="roundInfo">Runde 1 – Startet …</div>
-    </div>
-    <div class="tabs">
-      <button class="tab active" data-tab="route">Rute</button>
-      <button class="tab" data-tab="reports" disabled>Rapporter</button>
     </div>
   </header>
 
@@ -94,6 +130,8 @@
   <div class="bar">
     <button id="optBtn" class="btn gray">Optimaliser</button>
     <button id="fitAllBtn" class="btn gray">Vis alle på kart</button>
+    <button id="trackToggle" class="btn blue">Sporing: På</button>
+    <button id="gloveToggle" class="btn gray">Store knapper: Av</button>
     <div class="spacer"></div>
     <button id="exportBtn" class="btn gray">Eksporter rute</button>
     <button id="importBtn" class="btn gray">Importer rute</button>
@@ -112,7 +150,7 @@
         <tbody></tbody>
       </table>
       <div class="chips">
-        <span class="chip">Tips: Bruk “📷 Foto” på raden for å dokumentere.</span>
+        <span class="chip">Tips: Trykk én gang på en rad for å velge den – store knapper virker på valgt rad.</span>
         <span class="chip">Status “Pågår” registrerer starttid.</span>
       </div>
     </div>
@@ -121,9 +159,22 @@
     </div>
   </div>
 
+  <!-- Store hanskevennlige knapper -->
+  <div id="bigBar" class="bigbar">
+    <div class="bigrow">
+      <button id="bOngoing" class="btn gray">▶️ Pågår</button>
+      <button id="bDone" class="btn primary">✅ Ferdig</button>
+      <button id="bBlocked" class="btn red">⛔ Ikke mulig</button>
+    </div>
+    <div class="bigrow" style="margin-top:8px">
+      <button id="bNav" class="btn gray">🧭 Naviger</button>
+      <button id="bPhoto" class="btn gray">📷 Foto</button>
+    </div>
+  </div>
+
   <div class="footer">
     <div>Live posisjon: <span id="posTxt">—</span></div>
-    <div>Neste: <span id="nextTxt">—</span> <span class="muted">| Versjon 8.2.1 – Lokal (Oktober 2025) – Oppdatert 07.10.2025</span></div>
+    <div>Neste: <span id="nextTxt">—</span> <span class="muted">| Versjon 8.2.2 – Lokal (Oktober 2025)</span></div>
   </div>
 </div>
 
@@ -169,12 +220,15 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 (function(){
-  // ---- State & Storage ----
-  const LS_KEY = 'broyte_v8_2_1_local_state';
+  const LS_KEY = 'broyte_v8_2_2_local_state';
   const DRV_KEY = 'broyte_driver_name';
   const state = loadState() || seedState();
   let map, markers = [];
   let pendingPhotoStopId = null;
+  let watchId = null;
+  let trackingOn = true;
+  let gloveOn = false;
+  let selectedIndex = -1;
 
   function seedState(){
     return {
@@ -198,7 +252,6 @@
   function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
   function loadState(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||''); }catch(e){ return null; } }
 
-  // ---- Driver prompt once
   if (!state.driver){
     const nm = prompt('Sjåførnavn (valgfritt, brukes i rapport):') || '';
     state.driver = nm.trim();
@@ -206,7 +259,6 @@
     saveState();
   }
 
-  // ---- Map ----
   map = L.map('map').setView([60.283, 11.187], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
 
@@ -229,7 +281,6 @@
   }
   document.getElementById('fitAllBtn').addEventListener('click', fitAll);
 
-  // ---- Render table ----
   function render(){
     document.getElementById('roundInfo').textContent =
       `Runde ${state.round} – Startet ${new Date(state.startedAt).toLocaleString('no-NO')}` +
@@ -239,10 +290,11 @@
     tb.innerHTML = '';
     state.stops.forEach((s, i)=>{
       const tr = document.createElement('tr');
+      if (i===selectedIndex) tr.classList.add('selected');
       tr.innerHTML = `
         <td class="seq">${i+1}</td>
         <td class="name">
-          <div contenteditable="true" data-f="name">${s.name}</div>
+          <div class="title" contenteditable="true" data-f="name">${escapeHtml(s.name)}</div>
           <input data-f="comment" type="text" placeholder="Kommentar…" value="${s.comment?escapeHtml(s.comment):''}">
           <div class="thumbs">${(s.photos||[]).map(p=>`<img src="${p.dataUrl}" alt="foto">`).join('')}</div>
           <div class="small muted">${s.startedAt?('Start: '+new Date(s.startedAt).toLocaleTimeString('no-NO')):''} ${s.finishedAt?(' · Ferdig: '+new Date(s.finishedAt).toLocaleTimeString('no-NO')):''}</div>
@@ -266,43 +318,23 @@
           </div>
         </td>
       `;
+      tr.addEventListener('click', (ev)=>{
+        if (!(ev.target instanceof HTMLButtonElement) && !(ev.target.tagName==='SELECT' || ev.target.tagName==='INPUT' || ev.target.isContentEditable)){
+          selectedIndex = i; render();
+        }
+      });
       tr.querySelector('[data-f="name"]').addEventListener('input', e=>{ s.name = e.target.innerText.trim(); saveState(); });
       tr.querySelector('[data-f="name"]').addEventListener('blur', ()=> ensureCoords(s));
       tr.querySelector('[data-f="task"]').addEventListener('change', e=>{ s.task = e.target.value; if (s.task!=='Brøytestikker') s.details=''; saveState(); render(); });
       tr.querySelector('[data-f="comment"]').addEventListener('input', e=>{ s.comment = e.target.value; saveState(); });
 
-      tr.querySelector('[data-act="ongoing"]').addEventListener('click', ()=>{
-        if (!s.startedAt) s.startedAt = Date.now();
-        s.status='ongoing'; saveState(); render();
-      });
-      tr.querySelector('[data-act="done"]').addEventListener('click', ()=>{
-        if (s.task==='Brøytestikker') {
-          const n = prompt('Antall brøytestikker? ', (s.details||'').replace(/\D/g,''));
-          if (n===null) return;
-          const num = parseInt(n||'0',10)||0;
-          s.details = `Brøytestikker: ${num}`;
-        }
-        if (!s.startedAt) s.startedAt = Date.now();
-        s.finishedAt = Date.now();
-        s.status='done'; saveState(); render();
-        const next = state.stops.find(x=>x.status!=='done' && x.status!=='blocked');
-        if (next && next.name) openGoogleMapsTo(next.name);
-      });
-      tr.querySelector('[data-act="blocked"]').addEventListener('click', ()=>{
-        const reason = prompt('Hvorfor ikke mulig å utføre? (valgfritt)') || '';
-        s.status='blocked';
-        if (!s.startedAt) s.startedAt = Date.now();
-        s.finishedAt = Date.now();
-        if (reason) s.details = (s.details? s.details+' · ' : '') + 'Årsak: ' + reason;
-        saveState(); render();
-      });
-      tr.querySelector('[data-act="photo"]').addEventListener('click', ()=>{
-        pendingPhotoStopId = s.id;
-        document.getElementById('fileInput').click();
-      });
-      tr.querySelector('[data-act="nav"]').addEventListener('click', ()=> openGoogleMapsTo(s.name) );
-      tr.querySelector('[data-act="up"]').addEventListener('click', ()=>{ if (i>0){ const tmp=state.stops[i-1]; state.stops[i-1]=state.stops[i]; state.stops[i]=tmp; saveState(); render(); refreshMarkers(); }});
-      tr.querySelector('[data-act="down"]').addEventListener('click', ()=>{ if (i<state.stops.length-1){ const tmp=state.stops[i+1]; state.stops[i+1]=state.stops[i]; state.stops[i]=tmp; saveState(); render(); refreshMarkers(); }});
+      tr.querySelector('[data-act="ongoing"]').addEventListener('click', (e)=>{ e.stopPropagation(); setOngoing(i); });
+      tr.querySelector('[data-act="done"]').addEventListener('click', (e)=>{ e.stopPropagation(); setDone(i); });
+      tr.querySelector('[data-act="blocked"]').addEventListener('click', (e)=>{ e.stopPropagation(); setBlocked(i); });
+      tr.querySelector('[data-act="photo"]').addEventListener('click', (e)=>{ e.stopPropagation(); doPhoto(i); });
+      tr.querySelector('[data-act="nav"]').addEventListener('click', (e)=>{ e.stopPropagation(); doNav(i); });
+      tr.querySelector('[data-act="up"]').addEventListener('click', (e)=>{ e.stopPropagation(); if (i>0){ const tmp=state.stops[i-1]; state.stops[i-1]=state.stops[i]; state.stops[i]=tmp; saveState(); render(); refreshMarkers(); }});
+      tr.querySelector('[data-act="down"]').addEventListener('click', (e)=>{ e.stopPropagation(); if (i<state.stops.length-1){ const tmp=state.stops[i+1]; state.stops[i+1]=state.stops[i]; state.stops[i]=tmp; saveState(); render(); refreshMarkers(); }});
       tb.appendChild(tr);
     });
     document.getElementById('nextTxt').textContent = state.stops.find(s=>s.status!=='done' && s.status!=='blocked')?.name || '—';
@@ -310,7 +342,38 @@
   }
   function labelStatus(s){ return s==='done'?'Ferdig':(s==='blocked'?'Stoppet':(s==='ongoing'?'Pågår':'Venter')); }
 
-  // ---- Add, optimize ----
+  function setOngoing(i){
+    const s = state.stops[i]; if (!s) return;
+    if (!s.startedAt) s.startedAt = Date.now();
+    s.status='ongoing'; saveState(); render();
+  }
+  function setDone(i){
+    const s = state.stops[i]; if (!s) return;
+    if (s.task==='Brøytestikker') {
+      const n = prompt('Antall brøytestikker? ', (s.details||'').replace(/\D/g,'')); if (n===null) return;
+      const num = parseInt(n||'0',10)||0; s.details = `Brøytestikker: ${num}`;
+    }
+    if (!s.startedAt) s.startedAt = Date.now();
+    s.finishedAt = Date.now(); s.status='done'; saveState(); render();
+    const next = state.stops.find(x=>x.status!=='done' && x.status!=='blocked');
+    if (next && next.name) openGoogleMapsTo(next.name);
+  }
+  function setBlocked(i){
+    const s = state.stops[i]; if (!s) return;
+    const reason = prompt('Hvorfor ikke mulig å utføre? (valgfritt)') || '';
+    s.status='blocked'; if (!s.startedAt) s.startedAt = Date.now(); s.finishedAt = Date.now();
+    if (reason) s.details = (s.details? s.details+' · ' : '') + 'Årsak: ' + reason;
+    saveState(); render();
+  }
+  function doNav(i){
+    const s = state.stops[i]; if (!s) return;
+    openGoogleMapsTo(s.name);
+  }
+  function doPhoto(i){
+    const s = state.stops[i]; if (!s) return;
+    pendingPhotoStopId = s.id; document.getElementById('fileInput').click();
+  }
+
   document.getElementById('addBtn').addEventListener('click', async ()=>{
     const name = document.getElementById('addr').value.trim();
     const task = document.getElementById('taskSel').value;
@@ -318,7 +381,7 @@
     const st = mkStop(name, task);
     state.stops.push(st);
     document.getElementById('addr').value='';
-    saveState(); render();
+    saveState(); selectedIndex = state.stops.length-1; render();
     ensureCoords(st);
   });
   document.getElementById('optBtn').addEventListener('click', ()=>{
@@ -326,7 +389,6 @@
     saveState(); render(); refreshMarkers(); fitAll();
   });
 
-  // ---- Export / Import routes ----
   document.getElementById('exportBtn').addEventListener('click', ()=>{
     const data = JSON.stringify({round:state.round, startedAt:state.startedAt, stops:state.stops}, null, 2);
     downloadBlob(new Blob([data], {type:'application/json'}), `broyterute_rute_round${state.round}.json`);
@@ -339,44 +401,35 @@
       const js = JSON.parse(txt);
       if (Array.isArray(js.stops)){
         state.stops = js.stops.map(s=>({ ...mkStop(s.name||'', s.task||'Brøyte'), ...s }));
-        saveState(); render(); refreshMarkers(); fitAll();
+        saveState(); selectedIndex = 0; render(); refreshMarkers(); fitAll();
         alert('Rute importert.');
       } else alert('Filen mangler stops[].');
     }catch(err){ alert('Kunne ikke lese JSON.'); }
     e.target.value='';
   });
 
-  // ---- Finish choice ----
-  const choiceBg = mkElById('choiceBg');
-  mkElById('doneBtn').addEventListener('click', ()=> choiceBg.style.display='flex');
-  mkElById('chCancel').addEventListener('click', ()=> choiceBg.style.display='none');
-  mkElById('chService').addEventListener('click', ()=>{ choiceBg.style.display='none'; mkElById('svcBg').style.display='flex'; });
-  mkElById('chNewRound').addEventListener('click', ()=>{
-    choiceBg.style.display='none'; startNewRound();
-  });
-  mkElById('chJustFinish').addEventListener('click', async ()=>{
-    choiceBg.style.display='none';
-    await exportReport(); // nedlasting
-    alert('Rapport lastet ned (ZIP+CSV+PDF). Du kan sende den videre på e-post fra telefonen.');
-  });
+  const choiceBg = byId('choiceBg');
+  byId('doneBtn').addEventListener('click', ()=> choiceBg.style.display='flex');
+  byId('chCancel').addEventListener('click', ()=> choiceBg.style.display='none');
+  byId('chService').addEventListener('click', ()=>{ choiceBg.style.display='none'; byId('svcBg').style.display='flex'; });
+  byId('chNewRound').addEventListener('click', ()=>{ choiceBg.style.display='none'; startNewRound(); });
+  byId('chJustFinish').addEventListener('click', async ()=>{ choiceBg.style.display='none'; await exportReport(); alert('Rapport lastet ned (ZIP+CSV+PDF).'); });
 
-  // ---- Service ----
-  mkElById('svcCancel').addEventListener('click', ()=>{ mkElById('svcBg').style.display='none'; });
-  mkElById('svcSave').addEventListener('click', async ()=>{
-    mkElById('svcBg').style.display='none';
+  byId('svcCancel').addEventListener('click', ()=>{ byId('svcBg').style.display='none'; });
+  byId('svcSave').addEventListener('click', async ()=>{
+    byId('svcBg').style.display='none';
     state.service = {
-      plog: mkElById('plog').checked,
-      fres: mkElById('fres').checked,
-      stro: mkElById('stro').checked,
-      other: mkElById('other').checked,
-      notes: mkElById('svcNotes').value.trim()
+      plog: byId('plog').checked,
+      fres: byId('fres').checked,
+      stro: byId('stro').checked,
+      other: byId('other').checked,
+      notes: byId('svcNotes').value.trim()
     };
     saveState();
     await exportReport();
     alert('Service lagret og rapport lastet ned. Klar for ny runde.');
   });
 
-  // ---- Photos ----
   document.getElementById('fileInput').addEventListener('change', (e)=>{
     const file = e.target.files && e.target.files[0];
     if (!file || !pendingPhotoStopId) return;
@@ -394,7 +447,6 @@
     reader.readAsDataURL(file);
   });
 
-  // ---- Geocoding + auto check-in ----
   async function geocodeNameToCoords(name){
     try{
       const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(name), { headers: { 'Accept-Language':'no' } });
@@ -409,18 +461,14 @@
       if (c){ stop.lat=c.lat; stop.lng=c.lng; saveState(); refreshMarkers(); }
     }
   }
-  function haversineMeters(aLat, aLng, bLat, bLng){
-    const toRad = d => d * Math.PI / 180;
-    const R = 6371000;
-    const dLat = toRad(bLat - aLat);
-    const dLng = toRad(bLng - aLng);
-    const s1 = Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;
-    return 2 * R * Math.asin(Math.sqrt(s1));
-  }
-  if ('geolocation' in navigator) {
-    navigator.geolocation.watchPosition((pos)=>{
+
+  const trackBtn = byId('trackToggle');
+  function startTracking(){
+    if (!('geolocation' in navigator)) return;
+    if (watchId!==null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition((pos)=>{
       const {latitude, longitude, accuracy} = pos.coords;
-      mkElById('posTxt').textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)} (±${Math.round(accuracy)} m)`;
+      byId('posTxt').textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)} (±${Math.round(accuracy)} m)`;
       const next = state.stops.find(x=>x.status!=='done' && x.status!=='blocked');
       if (next && next.lat && next.lng){
         const dist = haversineMeters(latitude, longitude, next.lat, next.lng);
@@ -437,15 +485,46 @@
         }
       }
     }, ()=>{}, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+    trackBtn.textContent = 'Sporing: På';
+    trackBtn.classList.remove('gray'); trackBtn.classList.add('blue');
+  }
+  function stopTracking(){
+    if (watchId!==null) navigator.geolocation.clearWatch(watchId);
+    watchId = null; byId('posTxt').textContent = '—';
+    trackBtn.textContent = 'Sporing: Av';
+    trackBtn.classList.remove('blue'); trackBtn.classList.add('gray');
+  }
+  trackBtn.addEventListener('click', ()=>{
+    if (watchId===null) startTracking(); else stopTracking();
+  });
+
+  function haversineMeters(aLat, aLng, bLat, bLng){
+    const toRad = d => d * Math.PI / 180;
+    const R = 6371000;
+    const dLat = toRad(bLat - aLat);
+    const dLng = toRad(bLng - aLng);
+    const s1 = Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(s1));
   }
 
-  // ---- Open Google Maps ----
+  const bigBar = byId('bigBar');
+  const gloveBtn = byId('gloveToggle');
+  gloveBtn.addEventListener('click', ()=>{
+    gloveOn = !gloveOn;
+    if (gloveOn){ bigBar.classList.add('show'); gloveBtn.textContent='Store knapper: På'; }
+    else { bigBar.classList.remove('show'); gloveBtn.textContent='Store knapper: Av'; }
+  });
+  byId('bOngoing').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); setOngoing(selectedIndex); });
+  byId('bDone').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); setDone(selectedIndex); });
+  byId('bBlocked').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); setBlocked(selectedIndex); });
+  byId('bNav').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); doNav(selectedIndex); });
+  byId('bPhoto').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); doPhoto(selectedIndex); });
+
   function openGoogleMapsTo(address){
     const url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(address);
     window.open(url, '_blank');
   }
 
-  // ---- Export (CSV + ZIP + PDF + clipboard) ----
   async function exportReport(){
     const round = state.round;
     const startedAt = new Date(state.startedAt);
@@ -453,26 +532,16 @@
     const csvLines = [
       ['Runde','Start','Slutt','Sjåfør','Navn','Oppgave','Status','Detaljer','Kommentar','Antall bilder','Starttid','Sluttid','Service:plog','Service:fres','Service:stro','Service:annet','Service:notes'].join(','),
       ...state.stops.map(s=>[
-        round,
-        startedAt.toISOString(),
-        finishedAt.toISOString(),
-        csvEscape(state.driver||''),
-        csvEscape(s.name),
-        csvEscape(s.task),
-        s.status,
-        csvEscape(s.details||''),
-        csvEscape(s.comment||''),
-        (s.photos||[]).length,
-        s.startedAt? new Date(s.startedAt).toISOString(): '',
+        round, startedAt.toISOString(), finishedAt.toISOString(),
+        csvEscape(state.driver||''), csvEscape(s.name), csvEscape(s.task),
+        s.status, csvEscape(s.details||''), csvEscape(s.comment||''),
+        (s.photos||[]).length, s.startedAt? new Date(s.startedAt).toISOString(): '',
         s.finishedAt? new Date(s.finishedAt).toISOString(): '',
-        state.service.plog,
-        state.service.fres,
-        state.service.stro,
-        state.service.other,
+        state.service.plog, state.service.fres, state.service.stro, state.service.other,
         csvEscape(state.service.notes||'')
       ].join(','))
     ];
-    const csv = csvLines.join('\\n');
+    const csv = csvLines.join('\n');
 
     try{ await navigator.clipboard.writeText(csv); }catch(_){}
 
@@ -529,22 +598,15 @@
     render();
   }
 
-  // ---- Utils ----
-  function mkElById(id){ return document.getElementById(id); }
+  function byId(id){ return document.getElementById(id); }
   function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, ch => ({
-      '&':'&amp;',
-      '<':'&lt;',
-      '>':'&gt;',
-      '"':'&quot;',
-      "'":'&#039;'
-    })[ch]);
+    return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
   }
 
-  // ---- Init ----
   render();
   state.stops.forEach(s => { if (!s.lat||!s.lng) ensureCoords(s); });
-
-})();</script>
+  startTracking();
+})();
+</script>
 </body>
 </html>
