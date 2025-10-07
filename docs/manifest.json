@@ -1,9 +1,10 @@
 {
   "name": "Brøyterute",
-  "short_name": "Brøyterute",
-  "start_url": ".",
+  "short_name": "Brøyte",
+  "start_url": "./?v=8.3",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#111111",
+  "background_color": "#ffffff",
   "theme_color": "#0f9d58",
   "icons": [
     {

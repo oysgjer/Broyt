@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Brøyterute – V8.2.2 Lokal</title>
+<title>Brøyterute – V8.3 Lokal</title>
 <meta name="theme-color" content="#0f9d58">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -20,7 +20,7 @@
 
   /* Top bars */
   .topbar, .bar { background:#fff; padding:8px 12px; border-bottom:1px solid #e6e6e6; }
-  .topbar { display:grid; grid-template-columns:1.2fr 0.8fr auto; gap:8px; align-items:center; }
+  .topbar { display:grid; grid-template-columns:1.4fr 0.6fr auto; gap:8px; align-items:center; }
   .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .bar .spacer { flex:1 }
 
@@ -42,26 +42,26 @@
   #mapWrap { border-top:1px solid #eee; }
   #map { width:100%; height:320px; }
 
-  /* Table – mobilvennlig og mer plass til NAVN */
+  /* Table – fokus på NAVN (adresse) */
   table { width:100%; border-collapse:collapse; background:#fff; table-layout:fixed; }
-  th, td { border-bottom:1px solid #eee; padding:8px 6px; vertical-align:middle; }
+  th, td { border-bottom:1px solid #eee; padding:10px 8px; vertical-align:middle; }
   th.seq, td.seq { width:44px; text-align:center; font-weight:700; }
   th.name, td.name { width:auto; }
-  th.task, td.task { width:128px; }
-  th.det, td.det { width:150px; }
-  th.sta, td.sta { width:76px; }
-  th.act, td.act { width:230px; }
+  th.task, td.task { width:120px; }
+  th.det, td.det { width:140px; }
+  th.sta, td.sta { width:70px; }
+  th.act, td.act { width:210px; }
 
-  /* NAVN-celle */
+  /* NAVN-celle – stor, tydelig, bryter linje normalt */
   .name .title {
-    white-space: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border-radius:8px;
-    padding:2px 4px;
-    background:#fafafa;
+    white-space: normal;
+    word-break: break-word;
+    font-size:18px;
+    font-weight:700;
+    line-height:1.2;
+    margin-bottom:6px;
   }
-  .name input[type="text"] { width:100%; min-height:40px; border:1px solid #ddd; border-radius:8px; padding:6px 8px; margin-top:6px; }
+  .name input[type="text"] { width:100%; min-height:40px; border:1px solid #ddd; border-radius:8px; padding:6px 8px; }
 
   .rowbtns { display:flex; gap:6px; flex-wrap:wrap; }
   .footer { background:#111; color:#fff; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -133,9 +133,8 @@
     <button id="trackToggle" class="btn blue">Sporing: På</button>
     <button id="gloveToggle" class="btn gray">Store knapper: Av</button>
     <div class="spacer"></div>
-    <button id="exportBtn" class="btn gray">Eksporter rute</button>
-    <button id="importBtn" class="btn gray">Importer rute</button>
-    <button id="doneBtn" class="btn primary">Ferdig (runde)</button>
+    <button id="sendZipBtn" class="btn primary">Del rapport (ZIP)</button>
+    <button id="doneBtn" class="btn gray">Ferdig (runde)</button>
   </div>
 
   <div class="content">
@@ -174,7 +173,7 @@
 
   <div class="footer">
     <div>Live posisjon: <span id="posTxt">—</span></div>
-    <div>Neste: <span id="nextTxt">—</span> <span class="muted">| Versjon 8.2.2 – Lokal (Oktober 2025)</span></div>
+    <div>Neste: <span id="nextTxt">—</span> <span class="muted">| Versjon 8.3 – Lokal (Oktober 2025)</span></div>
   </div>
 </div>
 
@@ -220,14 +219,13 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 (function(){
-  const LS_KEY = 'broyte_v8_2_2_local_state';
+  const LS_KEY = 'broyte_v8_3_local_state';
   const DRV_KEY = 'broyte_driver_name';
+  const DEFAULT_EMAIL = 'oysgjer@gmail.com'; // kan endres av deg senere
   const state = loadState() || seedState();
   let map, markers = [];
   let pendingPhotoStopId = null;
   let watchId = null;
-  let trackingOn = true;
-  let gloveOn = false;
   let selectedIndex = -1;
 
   function seedState(){
@@ -259,6 +257,7 @@
     saveState();
   }
 
+  // MAP
   map = L.map('map').setView([60.283, 11.187], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
 
@@ -281,6 +280,7 @@
   }
   document.getElementById('fitAllBtn').addEventListener('click', fitAll);
 
+  // RENDER
   function render(){
     document.getElementById('roundInfo').textContent =
       `Runde ${state.round} – Startet ${new Date(state.startedAt).toLocaleString('no-NO')}` +
@@ -342,6 +342,7 @@
   }
   function labelStatus(s){ return s==='done'?'Ferdig':(s==='blocked'?'Stoppet':(s==='ongoing'?'Pågår':'Venter')); }
 
+  // Rad-handlinger
   function setOngoing(i){
     const s = state.stops[i]; if (!s) return;
     if (!s.startedAt) s.startedAt = Date.now();
@@ -374,6 +375,7 @@
     pendingPhotoStopId = s.id; document.getElementById('fileInput').click();
   }
 
+  // Legg til / Optimaliser
   document.getElementById('addBtn').addEventListener('click', async ()=>{
     const name = document.getElementById('addr').value.trim();
     const task = document.getElementById('taskSel').value;
@@ -389,32 +391,15 @@
     saveState(); render(); refreshMarkers(); fitAll();
   });
 
-  document.getElementById('exportBtn').addEventListener('click', ()=>{
-    const data = JSON.stringify({round:state.round, startedAt:state.startedAt, stops:state.stops}, null, 2);
-    downloadBlob(new Blob([data], {type:'application/json'}), `broyterute_rute_round${state.round}.json`);
-  });
-  document.getElementById('importBtn').addEventListener('click', ()=> document.getElementById('importFile').click());
-  document.getElementById('importFile').addEventListener('change', async (e)=>{
-    const f = e.target.files?.[0]; if (!f) return;
-    const txt = await f.text();
-    try{
-      const js = JSON.parse(txt);
-      if (Array.isArray(js.stops)){
-        state.stops = js.stops.map(s=>({ ...mkStop(s.name||'', s.task||'Brøyte'), ...s }));
-        saveState(); selectedIndex = 0; render(); refreshMarkers(); fitAll();
-        alert('Rute importert.');
-      } else alert('Filen mangler stops[].');
-    }catch(err){ alert('Kunne ikke lese JSON.'); }
-    e.target.value='';
-  });
-
+  // Ferdig-runde
   const choiceBg = byId('choiceBg');
   byId('doneBtn').addEventListener('click', ()=> choiceBg.style.display='flex');
   byId('chCancel').addEventListener('click', ()=> choiceBg.style.display='none');
   byId('chService').addEventListener('click', ()=>{ choiceBg.style.display='none'; byId('svcBg').style.display='flex'; });
   byId('chNewRound').addEventListener('click', ()=>{ choiceBg.style.display='none'; startNewRound(); });
-  byId('chJustFinish').addEventListener('click', async ()=>{ choiceBg.style.display='none'; await exportReport(); alert('Rapport lastet ned (ZIP+CSV+PDF).'); });
+  byId('chJustFinish').addEventListener('click', async ()=>{ choiceBg.style.display='none'; await exportAndShareZip(); });
 
+  // Service
   byId('svcCancel').addEventListener('click', ()=>{ byId('svcBg').style.display='none'; });
   byId('svcSave').addEventListener('click', async ()=>{
     byId('svcBg').style.display='none';
@@ -426,10 +411,10 @@
       notes: byId('svcNotes').value.trim()
     };
     saveState();
-    await exportReport();
-    alert('Service lagret og rapport lastet ned. Klar for ny runde.');
+    await exportAndShareZip();
   });
 
+  // Foto
   document.getElementById('fileInput').addEventListener('change', (e)=>{
     const file = e.target.files && e.target.files[0];
     if (!file || !pendingPhotoStopId) return;
@@ -447,6 +432,7 @@
     reader.readAsDataURL(file);
   });
 
+  // Geokoding
   async function geocodeNameToCoords(name){
     try{
       const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(name), { headers: { 'Accept-Language':'no' } });
@@ -462,6 +448,7 @@
     }
   }
 
+  // Sporing på/av
   const trackBtn = byId('trackToggle');
   function startTracking(){
     if (!('geolocation' in navigator)) return;
@@ -473,8 +460,7 @@
       if (next && next.lat && next.lng){
         const dist = haversineMeters(latitude, longitude, next.lat, next.lng);
         if (dist < 60 && !next._askedCheckin){
-          next._askedCheckin = true;
-          saveState();
+          next._askedCheckin = true; saveState();
           const ok = confirm(`Du er ved "${next.name}". Sjekk inn nå?`);
           if (ok){
             if (!next.startedAt) next.startedAt = Date.now();
@@ -497,7 +483,6 @@
   trackBtn.addEventListener('click', ()=>{
     if (watchId===null) startTracking(); else stopTracking();
   });
-
   function haversineMeters(aLat, aLng, bLat, bLng){
     const toRad = d => d * Math.PI / 180;
     const R = 6371000;
@@ -507,12 +492,12 @@
     return 2 * R * Math.asin(Math.sqrt(s1));
   }
 
+  // Store knapper (hansker)
   const bigBar = byId('bigBar');
   const gloveBtn = byId('gloveToggle');
   gloveBtn.addEventListener('click', ()=>{
-    gloveOn = !gloveOn;
-    if (gloveOn){ bigBar.classList.add('show'); gloveBtn.textContent='Store knapper: På'; }
-    else { bigBar.classList.remove('show'); gloveBtn.textContent='Store knapper: Av'; }
+    if (bigBar.classList.contains('show')) { bigBar.classList.remove('show'); gloveBtn.textContent='Store knapper: Av'; }
+    else { bigBar.classList.add('show'); gloveBtn.textContent='Store knapper: På'; }
   });
   byId('bOngoing').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); setOngoing(selectedIndex); });
   byId('bDone').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); setDone(selectedIndex); });
@@ -520,12 +505,37 @@
   byId('bNav').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); doNav(selectedIndex); });
   byId('bPhoto').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); doPhoto(selectedIndex); });
 
+  // Åpne Google Maps
   function openGoogleMapsTo(address){
     const url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(address);
     window.open(url, '_blank');
   }
 
-  async function exportReport(){
+  // Eksport & Del ZIP (Web Share med fallback)
+  document.getElementById('sendZipBtn').addEventListener('click', exportAndShareZip);
+
+  async function exportAndShareZip(){
+    const {zipBlob, fileName} = await buildZip();
+    const file = new File([zipBlob], fileName, {type:'application/zip'});
+    const shareText = `Brøyterute – Runde ${state.round}\nSjåfør: ${state.driver||'-'}\nStart: ${new Date(state.startedAt).toLocaleString('no-NO')}`;
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files:[file], title:'Brøyterute-rapport', text: shareText });
+        alert('Delt! (E-post/SMS/Drive osv. etter valg)');
+        return;
+      } catch (e) {
+        // fallthrough to download
+      }
+    }
+    // Fallback: Last ned, og åpne e-postklient uten vedlegg (brukeren må legge ved fila manuelt)
+    downloadBlob(file, fileName);
+    const mailto = `mailto:${encodeURIComponent(DEFAULT_EMAIL)}?subject=${encodeURIComponent('Brøyterute-rapport '+fileName)}&body=${encodeURIComponent('Hei,\n\nSe vedlagt zip fra brøyterunden.\n\nHvis vedlegg mangler, bruk zip-fila som nettopp ble lastet ned: '+fileName+'\n\nMvh')}`;
+    window.location.href = mailto;
+    alert('ZIP lastet ned. E-postklient åpnes – legg ved fila manuelt hvis ikke automatisk.');
+  }
+
+  async function buildZip(){
     const round = state.round;
     const startedAt = new Date(state.startedAt);
     const finishedAt = new Date();
@@ -542,8 +552,6 @@
       ].join(','))
     ];
     const csv = csvLines.join('\n');
-
-    try{ await navigator.clipboard.writeText(csv); }catch(_){}
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF();
@@ -576,7 +584,7 @@
       idx++;
     }
     const blob = await zip.generateAsync({type:"blob"});
-    downloadBlob(blob, `broeyting_dokumentasjon_runde${round}.zip`);
+    return { zipBlob: blob, fileName: `broeyting_dokumentasjon_runde${round}.zip` };
   }
 
   function csvEscape(s){ return '"' + String(s).replace(/"/g,'""') + '"'; }
@@ -603,10 +611,18 @@
     return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
   }
 
+  // Init
   render();
   state.stops.forEach(s => { if (!s.lat||!s.lng) ensureCoords(s); });
-  startTracking();
+  startTracking(); // default På
 })();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+    });
+  }
 </script>
 </body>
 </html>

@@ -1,5 +1,38 @@
-const CACHE_NAME = 'broyterute-v8-2-local-2025-10-07';
-const CORE = ['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(CORE))); self.skipWaiting();});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>k!==CACHE_NAME&&caches.delete(k))))); self.clients.claim();});
-self.addEventListener('fetch',e=>{const u=new URL(e.request.url); if(u.origin===location.origin){e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));}});
+const CACHE_NAME = 'broyterute-v8-3-2025-10-07';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.map((k) => {
+      if (k !== CACHE_NAME && k.startsWith('broyterute-')) return caches.delete(k);
+    }))).then(() => self.clients.claim())
+  );
+});
+
+// Cache-first for same-origin GET; do not intercept cross-origin (e.g., map tiles/CDNs).
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+
+  event.respondWith(
+    caches.match(req).then((hit) => hit || fetch(req).then((resp) => {
+      const copy = resp.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+      return resp;
+    }).catch(() => caches.match('./index.html')))
+  );
+});
