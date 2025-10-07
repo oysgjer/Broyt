@@ -1,4 +1,4 @@
-const CACHE_NAME = 'broyterute-v8-4-2025-10-07';
+const CACHE_NAME = 'broyterute-v8-4b-2025-10-07';
 const ASSETS = [
   './',
   './index.html',
