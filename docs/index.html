@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Brøyterute – Romerike Trefelling (V9.3.2)</title>
+<title>Brøyterute – Romerike Trefelling (V9.3.3)</title>
 <meta name="theme-color" content="#0f9d58">
 <style>
   :root{
@@ -66,7 +66,9 @@
         <label><input id="eq_fres" type="checkbox"> Fres</label>
         <label><input id="eq_stro" type="checkbox"> Strøkasse</label>
       </div>
-      <div class="row" style="justify-content:flex-end">
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button id="btnRoundByEquip" type="button" class="btn btn-blue">Start ny runde (etter utstyr)</button>
+        <button id="btnResetAll" type="button" class="btn btn-red">Nullstill alle status</button>
         <button id="btnStart" type="button" class="btn btn-green">Start runde →</button>
       </div>
     </div>
@@ -120,154 +122,105 @@
 
   <div class="footer">
     <div id="pos">—</div>
-    <div>Versjon 9.3.2</div>
+    <div>Versjon 9.3.3</div>
   </div>
 </div>
-
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-  // ------- Utils -------
-  function $(id){ return document.getElementById(id); }
-  function save(){ localStorage.setItem('broyte_state', JSON.stringify(state)); }
-  function load(){ try{ return JSON.parse(localStorage.getItem('broyte_state')||''); }catch(e){ return null; } }
-  function show(tab){
-    ['home','work','register','service'].forEach(p=>{
-      var page = $('page-'+p);
-      if(page) page.classList.toggle('active', p===tab);
-      var tabBtn = document.querySelector('.tab[data-tab="'+p+'"]');
-      if(tabBtn) tabBtn.classList.toggle('active', p===tab);
-    });
-  }
+/* --- Brøyterute V9.3.3 logikk --- */
+document.addEventListener('DOMContentLoaded',function(){
+  const $=id=>document.getElementById(id);
+  const save=()=>localStorage.setItem('broyte_state',JSON.stringify(state));
+  const load=()=>{try{return JSON.parse(localStorage.getItem('broyte_state')||'');}catch(e){return null;}};
+  const show=t=>['home','work','register','service'].forEach(p=>{
+      $('page-'+p).classList.toggle('active',p===t);
+      document.querySelector('.tab[data-tab="'+p+'"]').classList.toggle('active',p===t);
+  });
+  const taskNeeds=(t,type)=>{
+    if(type==='plog')return/Brøyte/.test(t);
+    if(type==='fres')return/Frese/.test(t);
+    if(type==='stro')return/Strø/.test(t);
+    return false;
+  };
+  const isCompatible=s=>{
+    const t=s.t||'';
+    if(taskNeeds(t,'plog')&&!state.equipment.plog)return false;
+    if(taskNeeds(t,'fres')&&!state.equipment.fres)return false;
+    if(taskNeeds(t,'stro')&&!state.equipment.stro)return false;
+    return true;
+  };
 
-  // ------- State (med trygg seed) -------
-  var state = load() || {
+  let state=load()||{
     driver:'',
     equipment:{plog:true,fres:false,stro:false},
     stops:[
-      {n:'AMFI Eidsvoll (Råholt)', t:'Brøyte', f:false, b:false},
-      {n:'Råholt barneskole', t:'Brøyte og strø', f:false, b:false},
-      {n:'Råholt ungdomsskole', t:'Frese', f:false, b:false},
-      {n:'Dal stasjon', t:'Strø', f:false, b:false}
+      {n:'AMFI Eidsvoll (Råholt)',t:'Brøyte',f:false,b:false},
+      {n:'Råholt barneskole',t:'Brøyte og strø',f:false,b:false},
+      {n:'Råholt ungdomsskole',t:'Frese',f:false,b:false},
+      {n:'Dal stasjon',t:'Strø',f:false,b:false}
     ]
   };
 
-  // ------- Tabs -------
-  document.querySelectorAll('.tab').forEach(btn=>{
-    btn.addEventListener('click', function(){
-      var tab=this.getAttribute('data-tab');
-      show(tab);
-      if(tab==='register') renderList();
-      if(tab==='work') renderWork();
-    });
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{show(b.dataset.tab);if(b.dataset.tab==='register')renderList();if(b.dataset.tab==='work')renderWork();});
+  $('driver').value=state.driver||'';$('driver').oninput=e=>{state.driver=e.target.value.trim();save();};
+  ['plog','fres','stro'].forEach(k=>{
+    $('eq_'+k).checked=!!state.equipment[k];
+    $('eq_'+k).onchange=e=>{state.equipment[k]=e.target.checked;save();};
   });
 
-  // ------- Home / innstillinger -------
-  if($('driver')) $('driver').value = state.driver || '';
-  if($('driver')) $('driver').addEventListener('input', function(){ state.driver=this.value.trim(); save(); });
-  if($('eq_plog')) {$('eq_plog').checked=!!state.equipment.plog; $('eq_plog').addEventListener('change', e=>{ state.equipment.plog=e.target.checked; save(); });}
-  if($('eq_fres')) {$('eq_fres').checked=!!state.equipment.fres; $('eq_fres').addEventListener('change', e=>{ state.equipment.fres=e.target.checked; save(); });}
-  if($('eq_stro')) {$('eq_stro').checked=!!state.equipment.stro; $('eq_stro').addEventListener('change', e=>{ state.equipment.stro=e.target.checked; save(); });}
+  $('btnStart').onclick=()=>{show('work');renderWork();};
+  $('btnRoundByEquip').onclick=()=>{
+    if(!confirm('Nullstille status for adresser som matcher valgt utstyr?'))return;
+    state.stops.forEach(s=>{if(isCompatible(s)){s.f=s.b=false;}});
+    save();show('work');renderWork();alert('Ny runde for valgt utstyr.');
+  };
+  $('btnResetAll').onclick=()=>{
+    if(!confirm('Nullstille status for ALLE adresser?'))return;
+    state.stops.forEach(s=>{s.f=s.b=false;});save();show('work');renderWork();
+  };
 
-  if($('btnStart')) $('btnStart').addEventListener('click', function(){
-    // Tving visning av "Under arbeid"
-    show('work');
-    renderWork();
-  });
-
-  // ------- Under arbeid -------
-  function getCurrent(){
-    for(var i=0;i<state.stops.length;i++){
-      var s=state.stops[i];
-      if(!s.f && !s.b) return s;
-    }
+  const getCurrent=()=>{
+    for(let s of state.stops)if(!s.f&&!s.b&&isCompatible(s))return s;
+    for(let s of state.stops)if(!s.f&&!s.b)return s;
     return null;
-  }
-  function getNext(){
-    var curFound=false;
-    for(var i=0;i<state.stops.length;i++){
-      var s=state.stops[i];
-      if(!s.f && !s.b){
-        if(!curFound){ curFound=true; continue; }
-        return s;
-      }
-    }
-    return null;
-  }
-  function renderWork(){
-    var cur=getCurrent(), nxt=getNext();
-    if($('driverLbl')) $('driverLbl').textContent = 'Sjåfør: ' + (state.driver||'—');
-    if($('curName'))  $('curName').textContent  = cur?cur.n:'—';
-    if($('curTask'))  $('curTask').textContent  = cur?cur.t:'—';
-    if($('curNext'))  $('curNext').textContent  = nxt?nxt.n:'—';
-  }
+  };
+  const renderWork=()=>{
+    const c=getCurrent();
+    $('driverLbl').textContent='Sjåfør: '+(state.driver||'—');
+    $('curName').textContent=c?c.n:'—';
+    $('curTask').textContent=c?c.t:'—';
+    $('curNext').textContent=(state.stops.find((s,i)=>s===c?state.stops[i+1]:false)||{}).n||'—';
+  };
 
-  function markDone(s){ s.f=true; save(); }
-  function markBlocked(s){ s.b=true; save(); }
+  const markDone=s=>{s.f=true;save();};
+  $('done').onclick=()=>{
+    const c=getCurrent();if(!c)return;
+    if(c.t==='Brøytestikker'){const n=prompt('Antall brøytestikker?','');if(n===null)return;c.details='Brøytestikker: '+(+n||0);}
+    markDone(c);renderWork();
+    const nxt=getCurrent();
+    if(nxt)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(nxt.n);
+    else alert('Ingen flere adresser. Gå til Hjem for ny runde.');
+  };
+  $('block').onclick=()=>{
+    const c=getCurrent();if(!c)return;
+    const r=prompt('Hvorfor ikke mulig å utføre?','')||'';if(r)c.details=(c.details?c.details+' · ':'')+'Årsak: '+r;
+    c.b=true;save();renderWork();
+  };
+  $('nav').onclick=()=>{const c=getCurrent();if(c)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(c.n);};
+  $('next').onclick=()=>{
+    const c=getCurrent();if(!c)return;
+    if(confirm('Markere ferdig før neste?'))markDone(c);
+    renderWork();const nxt=getCurrent();if(nxt)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(nxt.n);
+  };
 
-  if($('ongo')) $('ongo').addEventListener('click', function(){ renderWork(); });
-  if($('done')) $('done').addEventListener('click', function(){
-    var cur=getCurrent(); if(!cur) return;
-    if(cur.t==='Brøytestikker'){
-      var n=prompt('Antall brøytestikker?','');
-      if(n===null) return;
-      cur.details='Brøytestikker: '+(parseInt(n||'0',10)||0);
-    }
-    markDone(cur); renderWork();
-    var next=getCurrent();
-    if(next && next.n){
-      window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(next.n);
-    }
-  });
-  if($('block')) $('block').addEventListener('click', function(){
-    var cur=getCurrent(); if(!cur) return;
-    var r=prompt('Hvorfor ikke mulig å utføre? (valgfritt)','')||'';
-    if(r) cur.details=(cur.details?cur.details+' · ':'')+'Årsak: '+r;
-    markBlocked(cur); renderWork();
-  });
-  if($('nav')) $('nav').addEventListener('click', function(){
-    var cur=getCurrent(); if(!cur) return;
-    window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(cur.n);
-  });
-  if($('next')) $('next').addEventListener('click', function(){
-    var cur=getCurrent(); if(!cur) return;
-    if(confirm('Vil du markere denne som ferdig før du går videre?')){
-      markDone(cur);
-    }
-    renderWork();
-    var nxt=getCurrent();
-    if(nxt && nxt.n){
-      window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(nxt.n);
-    }
-  });
+  const renderList=()=>{
+    $('list').innerHTML=state.stops.map((s,i)=>`<div class='item${s.f?' disabled':''}'><b>${i+1}. ${s.n}</b><br>${s.t}${s.f?'✅':''}</div>`).join('');
+  };
+  $('add').onclick=()=>{
+    const n=$('addr').value.trim();if(!n)return;
+    state.stops.push({n,t:$('taskSel').value,f:false,b:false});$('addr').value='';save();renderList();
+  };
 
-  // ------- Register -------
-  function renderList(){
-    var el=$('list'); if(!el) return;
-    var html='';
-    for(var i=0;i<state.stops.length;i++){
-      var s=state.stops[i];
-      html += "<div class='item"+(s.f?' disabled':'')+"'>"
-           +  "<b>"+(i+1)+". "+escapeHtml(s.n)+"</b><br>"
-           +  "<span>"+escapeHtml(s.t)+"</span> "+(s.f?'✅':'')
-           + "</div>";
-    }
-    el.innerHTML = html;
-  }
-  if($('add')) $('add').addEventListener('click', function(){
-    var a=$('addr'), t=$('taskSel'); if(!a||!t) return;
-    var name=(a.value||'').trim(); if(!name) return;
-    state.stops.push({n:name,t:t.value,f:false,b:false});
-    a.value=''; save(); renderList();
-  });
-
-  // ------- Footer (enkel status) -------
-  if($('pos')) $('pos').textContent='Klar';
-
-  // Små hjelpere
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(ch){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])||ch;}); }
-
-  // Start trygt på Hjem, men dersom du ønsker auto-videre, fjern kommentaren under:
-  // if (state.driver) { show('work'); renderWork(); }
+  $('pos').textContent='Klar';
 });
 </script>
 </body>
