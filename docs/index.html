@@ -2,225 +2,230 @@
 <html lang="no">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Brøyterute – Romerike Trefelling (V9.3.3)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Brøyterute – Romerike Trefelling (V9.4)</title>
 <meta name="theme-color" content="#0f9d58">
 <style>
-  :root{
-    --bg:#111; --fg:#f4f6f8; --muted:#b8c0c7;
-    --card:#1a1a1a; --cardBorder:#2a2a2a;
-    --green:#0f9d58; --red:#c21d03; --blue:#0061fe; --gray:#2f3337;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  body{background:var(--bg);color:var(--fg)}
-  #app{min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
-  header{background:#0b0b0b;color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px}
-  header h1{font-size:16px;margin:0}
-  .spacer{flex:1}
-  .nav{display:flex;gap:8px}
-  .nav .tab{border:none;border-radius:12px;padding:8px 12px;background:#2a2a2a;color:#fff;cursor:pointer}
-  .nav .tab.active{background:var(--green)}
-  .page{display:none;padding:14px}
-  .page.active{display:block}
-  .card{background:var(--card);border:1px solid var(--cardBorder);border-radius:16px;padding:14px}
-  .stack{display:flex;flex-direction:column;gap:12px}
-  .row{display:flex;gap:10px;flex-wrap:wrap}
-  .title-lg{font-size:26px;font-weight:700}
-  .muted{color:var(--muted)}
-  .btn{border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer}
-  .btn.s{height:38px;font-size:14px;border:1px solid var(--cardBorder);background:#222;color:#fff}
-  .btn-green{background:var(--green);color:#fff}
-  .btn-red{background:var(--red);color:#fff}
-  .btn-blue{background:var(--blue);color:#fff}
-  .btn-gray{background:var(--gray);color:#fff}
-  .item{background:var(--card);border:1px solid var(--cardBorder);border-radius:12px;padding:10px;margin-bottom:8px}
-  .item.disabled{opacity:.5}
-  .footer{background:#0b0b0b;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;font-size:12px}
-  input,select,textarea{background:transparent;color:inherit;border:1px solid var(--cardBorder);border-radius:10px;padding:8px}
+:root{
+ --bg:#111;--fg:#f4f6f8;--muted:#b8c0c7;
+ --card:#1a1a1a;--cardBorder:#2a2a2a;
+ --green:#0f9d58;--red:#c21d03;--blue:#0061fe;--gray:#2f3337;
+}
+*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{background:var(--bg);color:var(--fg)}
+#app{min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
+header{background:#0b0b0b;color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px}
+header h1{font-size:16px;margin:0}
+.spacer{flex:1}
+.nav{display:flex;gap:8px}
+.nav .tab{border:none;border-radius:12px;padding:8px 12px;background:#2a2a2a;color:#fff;cursor:pointer}
+.nav .tab.active{background:var(--green)}
+.page{display:none;padding:14px}
+.page.active{display:block}
+.card{background:var(--card);border:1px solid var(--cardBorder);border-radius:16px;padding:14px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.title-lg{font-size:26px;font-weight:700}
+.muted{color:var(--muted)}
+.btn{border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-gray{background:var(--gray);color:#fff}
+.item{background:var(--card);border:1px solid var(--cardBorder);border-radius:12px;padding:10px;margin-bottom:8px}
+.item.disabled{opacity:.5}
+.footer{background:#0b0b0b;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;font-size:12px}
+input,select,textarea{background:transparent;color:inherit;border:1px solid var(--cardBorder);border-radius:10px;padding:8px}
+.hanske .btn{font-size:22px;padding:14px 20px;border-radius:18px}
+.thumbs img{width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid #444;margin-right:4px}
 </style>
 </head>
 <body>
 <div id="app">
-  <header>
-    <h1>Brøyterute – Romerike Trefelling</h1>
-    <div class="spacer"></div>
-    <div class="nav">
-      <button type="button" class="tab active" data-tab="home">Hjem</button>
-      <button type="button" class="tab" data-tab="work">Under arbeid</button>
-      <button type="button" class="tab" data-tab="register">Adresse-register</button>
-      <button type="button" class="tab" data-tab="service">Service</button>
-    </div>
-  </header>
-
-  <!-- HJEM -->
-  <div id="page-home" class="page active">
-    <div class="card stack">
-      <h2>Innstillinger</h2>
-      <div class="row">
-        <label style="min-width:90px;align-self:center">Sjåfør</label>
-        <input id="driver" type="text" placeholder="Skriv inn navnet ditt" style="flex:1;min-width:220px">
-      </div>
-      <div class="row">
-        <label><input id="eq_plog" type="checkbox"> Plog</label>
-        <label><input id="eq_fres" type="checkbox"> Fres</label>
-        <label><input id="eq_stro" type="checkbox"> Strøkasse</label>
-      </div>
-      <div class="row" style="justify-content:flex-end;gap:8px">
-        <button id="btnRoundByEquip" type="button" class="btn btn-blue">Start ny runde (etter utstyr)</button>
-        <button id="btnResetAll" type="button" class="btn btn-red">Nullstill alle status</button>
-        <button id="btnStart" type="button" class="btn btn-green">Start runde →</button>
-      </div>
-    </div>
+<header>
+  <h1>Brøyterute – Romerike Trefelling</h1>
+  <div class="spacer"></div>
+  <div class="nav">
+    <button class="tab active" data-tab="home">Hjem</button>
+    <button class="tab" data-tab="work">Under arbeid</button>
+    <button class="tab" data-tab="register">Adresse-register</button>
+    <button class="tab" data-tab="service">Service</button>
   </div>
+</header>
 
-  <!-- UNDER ARBEID -->
-  <div id="page-work" class="page">
-    <div class="card stack">
-      <div id="driverLbl" class="muted">Sjåfør: —</div>
-      <h2 id="curName" class="title-lg">—</h2>
-      <div class="muted">Oppgave: <span id="curTask">—</span></div>
-      <div class="muted">Neste: <span id="curNext">—</span></div>
-      <div class="row">
-        <button id="ongo"  type="button" class="btn btn-gray">▶️ Pågår</button>
-        <button id="done"  type="button" class="btn btn-green">✅ Ferdig</button>
-        <button id="block" type="button" class="btn btn-red">⛔ Ikke mulig</button>
-        <button id="nav"   type="button" class="btn btn-blue">🧭 Naviger</button>
-        <button id="next"  type="button" class="btn btn-gray">🔁 Neste</button>
-      </div>
+<!-- HJEM -->
+<div id="page-home" class="page active">
+  <div class="card stack">
+    <h2>Innstillinger</h2>
+    <div class="row">
+      <label style="min-width:90px;align-self:center">Sjåfør</label>
+      <input id="driver" type="text" placeholder="Skriv inn navnet ditt" style="flex:1;min-width:220px">
     </div>
-  </div>
-
-  <!-- REGISTER -->
-  <div id="page-register" class="page">
-    <div id="list"></div>
-    <div class="card stack">
-      <div class="row">
-        <input id="addr" type="text" placeholder="Adresse / område" style="flex:2">
-        <select id="taskSel" style="flex:1">
-          <option>Brøyte</option><option>Frese</option><option>Strø</option>
-          <option>Brøyte og strø</option><option>Frese og strø</option><option>Brøytestikker</option>
-        </select>
-        <button id="add" type="button" class="btn btn-green">+ Legg til</button>
-      </div>
+    <div class="row">
+      <label><input id="eq_plog" type="checkbox"> Plog</label>
+      <label><input id="eq_fres" type="checkbox"> Fres</label>
+      <label><input id="eq_stro" type="checkbox"> Strøkasse</label>
     </div>
-  </div>
-
-  <!-- SERVICE -->
-  <div id="page-service" class="page">
-    <div class="card stack">
-      <h2>Service / Vedlikehold</h2>
-      <div class="row">
-        <label><input id="svc_plog" type="checkbox"> Smurt plog</label>
-        <label><input id="svc_fres" type="checkbox"> Smurt fres</label>
-        <label><input id="svc_stro" type="checkbox"> Smurt strøkasse</label>
-        <label><input id="svc_other" type="checkbox"> Annet</label>
-      </div>
-      <textarea id="svcNotes" placeholder="Anmerkninger …" style="width:100%;min-height:100px"></textarea>
+    <div class="row">
+      <label><input id="autoCheck" type="checkbox" checked> Automatisk sjekk-inn</label>
+      <label><input id="bigBtn" type="checkbox"> Hanske-modus</label>
     </div>
-  </div>
-
-  <div class="footer">
-    <div id="pos">—</div>
-    <div>Versjon 9.3.3</div>
+    <div class="row" style="justify-content:flex-end;gap:8px">
+      <button id="btnRoundByEquip" class="btn btn-blue">Start ny runde (etter utstyr)</button>
+      <button id="btnResetAll" class="btn btn-red">Nullstill alle</button>
+      <button id="btnStart" class="btn btn-green">Start runde →</button>
+    </div>
   </div>
 </div>
+
+<!-- UNDER ARBEID -->
+<div id="page-work" class="page">
+  <div class="card stack">
+    <div id="driverLbl" class="muted">Sjåfør: —</div>
+    <h2 id="curName" class="title-lg">—</h2>
+    <div class="muted">Oppgave: <span id="curTask">—</span></div>
+    <div class="muted">Neste: <span id="curNext">—</span></div>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="row">
+      <button id="ongo" class="btn btn-gray">▶️ Pågår</button>
+      <button id="done" class="btn btn-green">✅ Ferdig</button>
+      <button id="block" class="btn btn-red">⛔ Ikke mulig</button>
+      <button id="photo" class="btn btn-gray">📷 Foto</button>
+      <button id="nav" class="btn btn-blue">🧭 Naviger</button>
+      <button id="next" class="btn btn-gray">🔁 Neste</button>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTER -->
+<div id="page-register" class="page">
+  <div id="list"></div>
+  <div class="card stack">
+    <div class="row">
+      <input id="addr" type="text" placeholder="Adresse / område" style="flex:2">
+      <select id="taskSel" style="flex:1">
+        <option>Brøyte</option><option>Frese</option><option>Strø</option>
+        <option>Brøyte og strø</option><option>Frese og strø</option><option>Brøytestikker</option>
+      </select>
+      <button id="add" class="btn btn-green">+ Legg til</button>
+    </div>
+  </div>
+</div>
+
+<!-- SERVICE -->
+<div id="page-service" class="page">
+  <div class="card stack">
+    <h2>Service / Vedlikehold</h2>
+    <div class="row">
+      <label><input id="svc_plog" type="checkbox"> Smurt plog</label>
+      <label><input id="svc_fres" type="checkbox"> Smurt fres</label>
+      <label><input id="svc_stro" type="checkbox"> Smurt strøkasse</label>
+      <label><input id="svc_other" type="checkbox"> Annet</label>
+    </div>
+    <textarea id="svcNotes" placeholder="Anmerkninger …" style="width:100%;min-height:100px"></textarea>
+    <button id="svcSave" class="btn btn-green">📤 Lagre og send rapport</button>
+  </div>
+</div>
+
+<div class="footer">
+  <div id="pos">—</div>
+  <div>Versjon 9.4 (Oktober 2025)</div>
+</div>
+<input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
+</div>
 <script>
-/* --- Brøyterute V9.3.3 logikk --- */
-document.addEventListener('DOMContentLoaded',function(){
-  const $=id=>document.getElementById(id);
-  const save=()=>localStorage.setItem('broyte_state',JSON.stringify(state));
-  const load=()=>{try{return JSON.parse(localStorage.getItem('broyte_state')||'');}catch(e){return null;}};
-  const show=t=>['home','work','register','service'].forEach(p=>{
-      $('page-'+p).classList.toggle('active',p===t);
-      document.querySelector('.tab[data-tab="'+p+'"]').classList.toggle('active',p===t);
-  });
-  const taskNeeds=(t,type)=>{
-    if(type==='plog')return/Brøyte/.test(t);
-    if(type==='fres')return/Frese/.test(t);
-    if(type==='stro')return/Strø/.test(t);
-    return false;
-  };
-  const isCompatible=s=>{
-    const t=s.t||'';
-    if(taskNeeds(t,'plog')&&!state.equipment.plog)return false;
-    if(taskNeeds(t,'fres')&&!state.equipment.fres)return false;
-    if(taskNeeds(t,'stro')&&!state.equipment.stro)return false;
-    return true;
-  };
+document.addEventListener('DOMContentLoaded',()=>{
+const $=id=>document.getElementById(id);
+const save=()=>localStorage.setItem('broyte_state',JSON.stringify(state));
+const load=()=>{try{return JSON.parse(localStorage.getItem('broyte_state')||'');}catch{return null;}};
+const show=t=>['home','work','register','service'].forEach(p=>{
+ $('page-'+p).classList.toggle('active',p===t);
+ document.querySelector('.tab[data-tab="'+p+'"]').classList.toggle('active',p===t);
+});
+let state=load()||{driver:'',equipment:{plog:true,fres:false,stro:false},
+autoCheck:true,stops:[{n:'AMFI Eidsvoll (Råholt)',t:'Brøyte',f:false,b:false,p:[]},
+{n:'Råholt barneskole',t:'Brøyte og strø',f:false,b:false,p:[]}]};
 
-  let state=load()||{
-    driver:'',
-    equipment:{plog:true,fres:false,stro:false},
-    stops:[
-      {n:'AMFI Eidsvoll (Råholt)',t:'Brøyte',f:false,b:false},
-      {n:'Råholt barneskole',t:'Brøyte og strø',f:false,b:false},
-      {n:'Råholt ungdomsskole',t:'Frese',f:false,b:false},
-      {n:'Dal stasjon',t:'Strø',f:false,b:false}
-    ]
-  };
+function compat(s){
+ const t=s.t||'';
+ if(/Brøyte/.test(t)&&!state.equipment.plog)return false;
+ if(/Frese/.test(t)&&!state.equipment.fres)return false;
+ if(/Strø/.test(t)&&!state.equipment.stro)return false;
+ return true;
+}
 
-  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{show(b.dataset.tab);if(b.dataset.tab==='register')renderList();if(b.dataset.tab==='work')renderWork();});
-  $('driver').value=state.driver||'';$('driver').oninput=e=>{state.driver=e.target.value.trim();save();};
-  ['plog','fres','stro'].forEach(k=>{
-    $('eq_'+k).checked=!!state.equipment[k];
-    $('eq_'+k).onchange=e=>{state.equipment[k]=e.target.checked;save();};
-  });
+['home','work','register','service'].forEach(p=>{
+ document.querySelector(`.tab[data-tab="${p}"]`).onclick=()=>{show(p);if(p==='work')renderWork();if(p==='register')renderList();}
+});
+$('driver').value=state.driver;$('driver').oninput=e=>{state.driver=e.target.value;save();};
+['plog','fres','stro'].forEach(k=>{$('eq_'+k).checked=state.equipment[k];$('eq_'+k).onchange=e=>{state.equipment[k]=e.target.checked;save();};});
+$('autoCheck').checked=state.autoCheck;$('autoCheck').onchange=e=>{state.autoCheck=e.target.checked;save();};
+$('bigBtn').onchange=e=>{document.body.classList.toggle('hanske',e.target.checked);};
 
-  $('btnStart').onclick=()=>{show('work');renderWork();};
-  $('btnRoundByEquip').onclick=()=>{
-    if(!confirm('Nullstille status for adresser som matcher valgt utstyr?'))return;
-    state.stops.forEach(s=>{if(isCompatible(s)){s.f=s.b=false;}});
-    save();show('work');renderWork();alert('Ny runde for valgt utstyr.');
-  };
-  $('btnResetAll').onclick=()=>{
-    if(!confirm('Nullstille status for ALLE adresser?'))return;
-    state.stops.forEach(s=>{s.f=s.b=false;});save();show('work');renderWork();
-  };
+$('btnStart').onclick=()=>{show('work');renderWork();};
+$('btnRoundByEquip').onclick=()=>{
+ if(!confirm('Nullstille status for adresser som matcher utstyr?'))return;
+ state.stops.forEach(s=>{if(compat(s)){s.f=false;s.b=false;}});
+ save();show('work');renderWork();
+};
+$('btnResetAll').onclick=()=>{
+ if(!confirm('Nullstille alle status?'))return;
+ state.stops.forEach(s=>{s.f=false;s.b=false;});save();renderWork();
+};
 
-  const getCurrent=()=>{
-    for(let s of state.stops)if(!s.f&&!s.b&&isCompatible(s))return s;
-    for(let s of state.stops)if(!s.f&&!s.b)return s;
-    return null;
-  };
-  const renderWork=()=>{
-    const c=getCurrent();
-    $('driverLbl').textContent='Sjåfør: '+(state.driver||'—');
-    $('curName').textContent=c?c.n:'—';
-    $('curTask').textContent=c?c.t:'—';
-    $('curNext').textContent=(state.stops.find((s,i)=>s===c?state.stops[i+1]:false)||{}).n||'—';
-  };
+const cur=()=>state.stops.find(s=>!s.f&&!s.b&&compat(s))||state.stops.find(s=>!s.f&&!s.b);
+const nxt=()=>{const i=state.stops.indexOf(cur());return state.stops.slice(i+1).find(s=>!s.f&&!s.b&&compat(s))||null;};
+function renderWork(){
+ const c=cur(),n=nxt();
+ $('driverLbl').textContent='Sjåfør: '+(state.driver||'—');
+ $('curName').textContent=c?c.n:'—';$('curTask').textContent=c?c.t:'—';$('curNext').textContent=n?n.n:'—';
+ $('thumbs').innerHTML=c&&c.p?c.p.map(x=>`<img src="${x}">`).join(''):'';
+}
+$('done').onclick=()=>{const c=cur();if(!c)return;c.f=true;save();renderWork();
+ const n=nxt();if(n)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(n.n);
+ else alert('Runden er ferdig – gå til Service for rapport.');
+};
+$('block').onclick=()=>{const c=cur();if(!c)return;c.b=true;save();renderWork();};
+$('next').onclick=()=>{const c=cur();if(!c)return;c.f=true;save();renderWork();};
+$('nav').onclick=()=>{const c=cur();if(c)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(c.n);};
+$('photo').onclick=()=>{$('fileInput').click();};
+$('fileInput').onchange=e=>{
+ const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{
+ const c=cur();if(!c)return;c.p=c.p||[];c.p.push(r.result);save();renderWork();};r.readAsDataURL(f);
+};
 
-  const markDone=s=>{s.f=true;save();};
-  $('done').onclick=()=>{
-    const c=getCurrent();if(!c)return;
-    if(c.t==='Brøytestikker'){const n=prompt('Antall brøytestikker?','');if(n===null)return;c.details='Brøytestikker: '+(+n||0);}
-    markDone(c);renderWork();
-    const nxt=getCurrent();
-    if(nxt)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(nxt.n);
-    else alert('Ingen flere adresser. Gå til Hjem for ny runde.');
-  };
-  $('block').onclick=()=>{
-    const c=getCurrent();if(!c)return;
-    const r=prompt('Hvorfor ikke mulig å utføre?','')||'';if(r)c.details=(c.details?c.details+' · ':'')+'Årsak: '+r;
-    c.b=true;save();renderWork();
-  };
-  $('nav').onclick=()=>{const c=getCurrent();if(c)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(c.n);};
-  $('next').onclick=()=>{
-    const c=getCurrent();if(!c)return;
-    if(confirm('Markere ferdig før neste?'))markDone(c);
-    renderWork();const nxt=getCurrent();if(nxt)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(nxt.n);
-  };
+function renderList(){
+ $('list').innerHTML=state.stops.map((s,i)=>`<div class='item${s.f?' disabled':''}'><b>${i+1}. ${s.n}</b><br>${s.t}${s.f?'✅':''}</div>`).join('');
+}
+$('add').onclick=()=>{const n=$('addr').value.trim();if(!n)return;
+ state.stops.push({n,t:$('taskSel').value,f:false,b:false,p:[]});$('addr').value='';save();renderList();
+};
 
-  const renderList=()=>{
-    $('list').innerHTML=state.stops.map((s,i)=>`<div class='item${s.f?' disabled':''}'><b>${i+1}. ${s.n}</b><br>${s.t}${s.f?'✅':''}</div>`).join('');
-  };
-  $('add').onclick=()=>{
-    const n=$('addr').value.trim();if(!n)return;
-    state.stops.push({n,t:$('taskSel').value,f:false,b:false});$('addr').value='';save();renderList();
-  };
+// Auto sjekk-inn (A → D)
+if(navigator.geolocation)navigator.geolocation.watchPosition(pos=>{
+ if(!state.autoCheck)return;
+ const {latitude,longitude}=pos.coords;
+ const c=cur();if(!c)return;
+ fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(c.n)}`)
+ .then(r=>r.json()).then(j=>{
+ if(!j[0])return;
+ const dx=latitude-parseFloat(j[0].lat),dy=longitude-parseFloat(j[0].lon);
+ const d=Math.sqrt(dx*dx+dy*dy)*111000;
+ if(d<60&&!c.started){if(confirm(`Du er ved ${c.n} – sjekk inn?`)){c.started=true;save();renderWork();}}
+ });
+},{enableHighAccuracy:true});
 
-  $('pos').textContent='Klar';
+// Service / rapport
+$('svcSave').onclick=()=>{
+ const svc={plog:$('svc_plog').checked,fres:$('svc_fres').checked,stro:$('svc_stro').checked,other:$('svc_other').checked,notes:$('svcNotes').value};
+ const csv='Navn,Oppgave,Ferdig\n'+state.stops.map(s=>`${s.n},${s.t},${s.f?'Ja':'Nei'}`).join('\n');
+ const blob=new Blob([csv],{type:'text/csv'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download='broeyting_rapport.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ alert('Rapport lagret som CSV – send den videre fra nedlastinger.');
+};
+
+$('pos').textContent='Klar'; // statusfelt
 });
 </script>
 </body>
