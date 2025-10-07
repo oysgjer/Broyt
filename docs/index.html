@@ -3,106 +3,151 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Brøyterute – V8.4b Fallback (Lokal)</title>
+<title>Brøyterute – V9 Felt-modus</title>
 <meta name="theme-color" content="#0f9d58">
-<!-- Manifest er valgfritt. Finnes det ikke, går det fint. -->
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <style>
-  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f7f7f9;color:#111;-webkit-text-size-adjust:100%}
-  #app{min-height:100%;display:grid;grid-template-rows:auto auto auto 1fr auto}
-  header{background:#111;color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  :root{
+    --bg:#111; --fg:#f4f6f8; --muted:#b8c0c7;
+    --card:#1a1a1a; --cardBorder:#2a2a2a;
+    --btnH:72px; --btnRadius:18px; --gap:12px;
+    --green:#0f9d58; --red:#c21d03; --blue:#0061fe; --orange:#ff9800; --gray:#2f3337;
+    --badge-green:#1f3b2a; --badge-blue:#1c2b4d; --badge-yellow:#3a3416; --badge-red:#3c1c1c;
+  }
+  .light{
+    --bg:#f5f6f7; --fg:#111; --muted:#666;
+    --card:#fff; --cardBorder:#e6e6e6;
+    --gray:#eee; --badge-green:#d4edda; --badge-blue:#e1f0ff; --badge-yellow:#fff3cd; --badge-red:#f8d7da;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%}
+  body{background:var(--bg);color:var(--fg)}
+  #app{min-height:100%;display:grid;grid-template-rows:auto auto 1fr auto}
+
+  header{background:#0b0b0b;color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px}
   header h1{font-size:16px;margin:0}
   .subtitle{font-size:12px;opacity:.9}
-  .ok{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:2px 8px;border-radius:999px;background:#0a7d33;color:#fff;font-size:11px}
-  .topbar,.bar{background:#fff;padding:8px 12px;border-bottom:1px solid #e6e6e6}
-  .topbar{display:grid;grid-template-columns:1.6fr 0.6fr auto;gap:8px;align-items:center}
-  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .bar .spacer{flex:1}
-  .btn{height:42px;border:none;border-radius:10px;padding:0 12px;font-size:15px}
-  .btn.primary{background:#0f9d58;color:#fff}
-  .btn.blue{background:#0061fe;color:#fff}
-  .btn.red{background:#c21d03;color:#fff}
-  .btn.gray{background:#eee;color:#111;border:1px solid #ccc}
-  .btn.small{height:34px;font-size:13px;padding:0 10px}
-  .topbar input[type="text"],.topbar select{height:46px;border-radius:10px;border:1px solid #bbb;padding:0 12px;font-size:18px}
-  .content{display:grid;grid-template-columns:1fr}
-  #listWrap{padding:8px 0}
-  #tableScroller{overflow-x:auto;padding:0 12px}
-  #mapWrap{border-top:1px solid #eee}
-  #map{width:100%;height:320px}
-  table{width:100%;border-collapse:collapse;background:#fff;table-layout:auto}
-  th,td{border-bottom:1px solid #eee;padding:10px 8px;vertical-align:middle;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
-  th.seq,td.seq{width:44px;text-align:center;font-weight:700}
-  th.name,td.name{min-width:280px}
-  th.task,td.task{width:120px}
-  th.det,td.det{width:140px}
-  th.sta,td.sta{width:80px;text-align:center}
-  th.act,td.act{width:200px}
-  .titleInput{display:block;width:100%;font-size:18px;line-height:1.25;border:1px solid #ddd;border-radius:10px;padding:10px 12px;background:#fff;color:#111}
-  .name .meta{margin-top:8px}
-  .name .meta input[type="text"]{width:100%;min-height:40px;border:1px solid #e2e2e2;border-radius:8px;padding:6px 8px}
-  .rowbtns{display:flex;gap:6px;flex-wrap:wrap}
-  .footer{background:#111;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-  .badge{padding:3px 8px;border-radius:999px;font-size:12px;display:inline-block}
-  .b-green{background:#d4edda;color:#155724}
-  .b-yellow{background:#fff3cd;color:#856404}
-  .b-red{background:#f8d7da;color:#721c24}
-  .b-blue{background:#e1f0ff;color:#084298}
-  .thumbs{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
-  .thumbs img{width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #ddd}
-  .muted{color:#888}
+  .spacer{flex:1}
+
+  .topbar{background:var(--card);border-bottom:1px solid var(--cardBorder);padding:8px 12px;display:flex;gap:10px;align-items:center}
+  .tab{border:none;border-radius:12px;padding:8px 12px;background:#2a2a2a;color:#fff}
+  .light .tab{background:#2a2a2a;color:#fff}
+  .tab.active{background:var(--green)}
+  .btn.s{height:44px;font-size:15px;border-radius:12px;border:1px solid var(--cardBorder);background:#222;color:#fff}
+  .light .btn.s{background:#f2f2f2;color:#111;border-color:#ddd}
+  .toggle{min-width:110px}
+
+  .page{display:none;padding:14px}
+  .page.active{display:block}
+  .card{background:var(--card);border:1px solid var(--cardBorder);border-radius:18px;padding:14px}
+  .stack{display:flex;flex-direction:column;gap:12px}
+  .title-lg{font-size:30px;font-weight:800;line-height:1.25;margin:2px 0 4px}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .actions .btn{width:100%}
+  .btn{height:var(--btnH);border:none;border-radius:var(--btnRadius);font-size:20px;font-weight:700}
+  .b-green{background:var(--badge-green);color:#c9f5d5;padding:4px 10px;border-radius:999px;font-size:13px}
+  .b-blue{background:var(--badge-blue);color:#cfe1ff;padding:4px 10px;border-radius:999px;font-size:13px}
+  .b-yellow{background:var(--badge-yellow);color:#ffe7a0;padding:4px 10px;border-radius:999px;font-size:13px}
+  .b-red{background:var(--badge-red);color:#ffb1b1;padding:4px 10px;border-radius:999px;font-size:13px}
+
+  .btn-green{background:var(--green);color:#fff}
+  .btn-red{background:var(--red);color:#fff}
+  .btn-blue{background:var(--blue);color:#fff}
+  .btn-orange{background:var(--orange);color:#111}
+  .btn-gray{background:var(--gray);color:#fff}
+
+  .thumbs{display:flex;gap:6px;flex-wrap:wrap}
+  .thumbs img{width:54px;height:54px;object-fit:cover;border-radius:10px;border:1px solid var(--cardBorder)}
+
+  /* Adresse-register */
+  .list{display:flex;flex-direction:column;gap:10px}
+  .item{background:var(--card);border:1px solid var(--cardBorder);border-radius:14px;padding:12px}
+  .item .name{font-weight:700;margin:0 0 6px}
+  .item .rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .field{display:flex;gap:8px}
+  .field input[type="text"]{flex:1;height:50px;border:1px solid var(--cardBorder);border-radius:12px;padding:0 12px;font-size:16px;background:transparent;color:var(--fg)}
+  .field select{height:50px;border:1px solid var(--cardBorder);border-radius:12px;padding:0 12px;font-size:16px;background:transparent;color:var(--fg)}
+  .light .field input[type="text"], .light .field select{background:#fff;color:#111;border-color:#ddd}
+
+  #mapWrap{margin-top:6px;display:none}
+  #map{width:100%;height:320px;border-radius:12px;border:1px solid var(--cardBorder)}
+
+  .footer{background:#0b0b0b;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 </style>
 </head>
-<body>
+<body class="">
 <div id="app">
   <header>
     <div>
       <h1>Brøyterute</h1>
-      <div class="subtitle" id="roundInfo">Runde 1 – Startet … <span id="jsok" class="ok" style="display:none;">● JS OK</span></div>
+      <div class="subtitle" id="roundInfo">Runde 1 – Startet …</div>
+    </div>
+    <div class="spacer"></div>
+    <button id="themeToggle" class="btn s toggle">🌙 Mørk</button>
+    <div class="menu">
+      <button id="menuSend" class="btn s">📦 Send rapport</button>
+      <button id="menuSvc" class="btn s">🧰 Service</button>
+      <button id="menuCache" class="btn s">♻️ Nullstill cache</button>
     </div>
   </header>
 
   <div class="topbar">
-    <input id="addr" type="text" placeholder="Adresse/område (f.eks. Lerkevegen 4)">
-    <select id="taskSel">
-      <option>Brøyte</option><option>Frese</option><option>Strø</option>
-      <option>Brøyte og strø</option><option>Frese og strø</option><option>Brøytestikker</option>
-    </select>
-    <button id="addBtn" class="btn primary">Legg til</button>
-  </div>
-
-  <div class="bar">
-    <button id="optBtn" class="btn gray">Optimaliser</button>
-    <button id="fitAllBtn" class="btn gray">Vis alle på kart</button>
-    <button id="trackToggle" class="btn blue">Sporing: På</button>
-    <button id="cacheReset" class="btn red">Nullstill cache</button>
+    <button class="tab active" data-tab="work">Under arbeid</button>
+    <button class="tab" data-tab="register">Adresse-register</button>
     <div class="spacer"></div>
-    <button id="sendZipBtn" class="btn primary">Send rapport (.zip)</button>
-    <button id="doneBtn" class="btn gray">Ferdig (runde)</button>
+    <button id="trackToggle" class="btn s">Sporing: På</button>
   </div>
 
-  <div class="content">
-    <div id="listWrap">
-      <div id="tableScroller">
-        <table id="tbl">
-          <thead>
-            <tr>
-              <th class="seq">#</th><th class="name">Navn</th><th class="task">Oppgave</th>
-              <th class="det">Detaljer</th><th class="sta">Status</th><th class="act">Handling</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+  <!-- Under arbeid -->
+  <div id="page-work" class="page active">
+    <div class="card stack">
+      <div><span id="curStatus" class="b-yellow">Ikke utført</span></div>
+      <h2 id="curName" class="title-lg">—</h2>
+      <div class="muted">Oppgave: <span id="curTask">—</span></div>
+      <div class="muted">Neste: <span id="curNext">—</span></div>
+
+      <div class="row thumbs" id="curPhotos"></div>
+
+      <div class="actions">
+        <button id="btnOngoing" class="btn btn-gray">▶️ Pågår</button>
+        <button id="btnDone" class="btn btn-green">✅ Ferdig</button>
+        <button id="btnBlocked" class="btn btn-red">⛔ Ikke mulig</button>
+        <button id="btnNav" class="btn btn-blue">🧭 Naviger</button>
+        <button id="btnPhoto" class="btn btn-orange">📷 Foto</button>
+        <button id="btnNext" class="btn btn-gray">🔁 Neste</button>
+        <button id="btnToggleMap" class="btn btn-gray" style="grid-column:1/-1">🗺 Vis kart</button>
+      </div>
+
+      <div id="mapWrap">
+        <div id="map" aria-label="Kart"></div>
       </div>
     </div>
-    <div id="mapWrap"><div id="map" aria-label="Kart"></div></div>
+  </div>
+
+  <!-- Adresse-register -->
+  <div id="page-register" class="page stack">
+    <div class="list" id="list"></div>
+    <div class="card stack">
+      <div class="field">
+        <input id="addr" type="text" placeholder="Ny adresse / område">
+        <select id="taskSel">
+          <option>Brøyte</option><option>Frese</option><option>Strø</option>
+          <option>Brøyte og strø</option><option>Frese og strø</option><option>Brøytestikker</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="addBtn" class="btn btn-green" style="flex:1;">+ Legg til</button>
+        <button id="optBtn" class="btn btn-gray" style="flex:1;">Optimaliser</button>
+        <button id="fitAllBtn" class="btn btn-gray" style="flex:1;">Vis alle på kart</button>
+      </div>
+    </div>
   </div>
 
   <div class="footer">
     <div>Live posisjon: <span id="posTxt">—</span></div>
-    <div>Neste: <span id="nextTxt">—</span> <span class="muted">| Versjon 8.4b – Fallback (Oktober 2025)</span></div>
+    <div><span class="muted">Versjon 9.0 – Felt-modus</span></div>
   </div>
 </div>
 
@@ -113,169 +158,174 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 (function(){
-  // Vis "JS OK" så vi vet at koden kjører
-  document.getElementById('jsok').style.display='inline-flex';
-
-  var LS_KEY = 'broyte_v8_4b_local_state';
-  var DRV_KEY = 'broyte_driver_name';
+  // ---- State ----
+  var LS_KEY='broyte_v9_local_state', DRV_KEY='broyte_driver_name', THEME_KEY='broyte_theme';
   var state = loadState() || seedState();
-  var map, markers = [];
-  var pendingPhotoStopId = null;
-  var watchId = null;
+  var pendingPhotoStopId=null, watchId=null, mapVisible=false;
+  var map, markers=[];
+  var theme = localStorage.getItem(THEME_KEY) || 'dark';
+  applyTheme(theme);
 
   function seedState(){
-    return { round:1, startedAt:Date.now(), driver:localStorage.getItem(DRV_KEY)||'', stops:[], service:{plog:false,fres:false,stro:false,other:false,notes:''} };
+    return {round:1, startedAt:Date.now(), driver:localStorage.getItem(DRV_KEY)||'', stops:[], service:{notes:''}};
   }
-  function mkStop(name, task){
-    return {id: uid(), name:name, task:task, status:'pending', details:'', photos:[], startedAt:null, finishedAt:null, comment:'', lat:null, lng:null};
-  }
+  function mkStop(name, task){ return {id:uid(), name:name, task:task, status:'pending', details:'', photos:[], startedAt:null, finishedAt:null, comment:'', lat:null, lng:null, _askedCheckin:false}; }
   function uid(){ return Math.random().toString(36).slice(2,10); }
   function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
   function loadState(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||''); }catch(e){ return null; } }
 
-  // Spør om sjåførnavn (liten delay for iOS)
+  // Første kjøring: sjåførnavn
   setTimeout(function(){
     if (!state.driver){
       var nm = prompt('Sjåførnavn (valgfritt, brukes i rapport):') || '';
-      state.driver = (nm||'').trim();
-      localStorage.setItem(DRV_KEY, state.driver);
-      saveState(); render();
+      state.driver = (nm||'').trim(); localStorage.setItem(DRV_KEY, state.driver); saveState(); renderAll();
     }
-  }, 250);
+  }, 200);
 
-  // Kart
-  try{
-    map = L.map('map').setView([60.283, 11.187], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
-  }catch(e){
-    console.log('Leaflet feilet (ok offline):', e);
+  // Tabs
+  document.querySelectorAll('.tab').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      b.classList.add('active');
+      var t = b.getAttribute('data-tab');
+      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+      document.getElementById('page-'+t).classList.add('active');
+    });
+  });
+
+  // Tema-bryter
+  document.getElementById('themeToggle').addEventListener('click', function(){
+    theme = (theme==='dark'?'light':'dark'); applyTheme(theme);
+    localStorage.setItem(THEME_KEY, theme);
+    this.textContent = theme==='dark' ? '🌙 Mørk' : '☀️ Lys';
+  });
+  document.getElementById('themeToggle').textContent = theme==='dark' ? '🌙 Mørk' : '☀️ Lys';
+
+  function applyTheme(mode){
+    if (mode==='light') document.body.classList.add('light'); else document.body.classList.remove('light');
   }
 
+  // Meny
+  document.getElementById('menuCache').addEventListener('click', resetCache);
+  document.getElementById('menuSend').addEventListener('click', sendZip);
+  document.getElementById('menuSvc').addEventListener('click', function(){
+    var svc = prompt('Service / vedlikehold (f.eks. "Smurt plog, fres; annet: …")') || '';
+    state.service.notes = svc; saveState(); alert('Service lagret.');
+  });
+
+  // Kart
+  function ensureMap(){
+    if (map) return;
+    map = L.map('map').setView([60.283, 11.187], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  }
   function refreshMarkers(){
     if (!map) return;
-    for (var i=0;i<markers.length;i++){ map.removeLayer(markers[i]); }
-    markers = [];
-    for (var j=0;j<state.stops.length;j++){
-      var s = state.stops[j];
-      if (s.lat && s.lng){
-        var m = L.marker([s.lat, s.lng]).addTo(map).bindPopup((j+1)+'. '+s.name+'<br>'+s.task);
-        markers.push(m);
-      }
-    }
+    markers.forEach(m=>map.removeLayer(m)); markers=[];
+    state.stops.forEach((s,i)=>{ if(s.lat&&s.lng){ markers.push(L.marker([s.lat,s.lng]).addTo(map).bindPopup((i+1)+'. '+s.name+'<br>'+s.task)); }});
   }
   function fitAll(){
     if (!map) return;
-    var ll = [];
-    for (var i=0;i<state.stops.length;i++){ var s=state.stops[i]; if (s.lat && s.lng) ll.push([s.lat,s.lng]); }
-    if (ll.length){ var b = L.latLngBounds(ll); map.fitBounds(b, {padding:[20,20]}); }
+    var ll=[]; state.stops.forEach(s=>{ if(s.lat&&s.lng) ll.push([s.lat,s.lng]); });
+    if (ll.length){ map.fitBounds(L.latLngBounds(ll), {padding:[16,16]}); }
   }
-  document.getElementById('fitAllBtn').addEventListener('click', fitAll);
 
-  // Render
-  function render(){
-    document.getElementById('roundInfo').textContent =
-      'Runde '+state.round+' – Startet '+ new Date(state.startedAt).toLocaleString('no-NO') + (state.driver? ' – Sjåfør: '+state.driver : '');
-
-    var tb = document.querySelector('#tbl tbody');
-    tb.innerHTML = '';
-    for (var i=0;i<state.stops.length;i++){
-      (function(i){
-        var s = state.stops[i];
-        var tr = document.createElement('tr');
-        tr.innerHTML = ''
-          + '<td class="seq">'+(i+1)+'</td>'
-          + '<td class="name">'
-          +   '<input class="titleInput" data-f="name" type="text" value="'+escapeAttr(s.name)+'" placeholder="Adresse/område">'
-          +   '<div class="meta">'
-          +     '<input data-f="comment" type="text" placeholder="Kommentar…" value="'+escapeAttr(s.comment||'')+'">'
-          +     '<div class="thumbs">'+renderThumbs(s.photos)+'</div>'
-          +   '</div>'
-          + '</td>'
-          + '<td class="task"><select data-f="task">'+taskOptions(s.task)+'</select></td>'
-          + '<td class="det small">'+(s.details||'')+((s.photos && s.photos.length)?(' · '+s.photos.length+' foto'):'')+'</td>'
-          + '<td class="sta"><span class="badge '+statusClass(s.status)+'">'+labelStatus(s.status)+'</span></td>'
-          + '<td class="act"><div class="rowbtns">'
-          +   '<button class="btn small gray" data-act="ongoing">▶️ Pågår</button>'
-          +   '<button class="btn small primary" data-act="done">✅ Ferdig</button>'
-          +   '<button class="btn small red" data-act="blocked">⛔ Ikke mulig</button>'
-          +   '<button class="btn small gray" data-act="photo">📷 Foto</button>'
-          +   '<button class="btn small gray" data-act="nav">🧭 Naviger</button>'
-          +   '<button class="btn small gray" data-act="up">↑</button>'
-          +   '<button class="btn small gray" data-act="down">↓</button>'
-          + '</div></td>';
-        tb.appendChild(tr);
-
-        tr.querySelector('[data-f="name"]').addEventListener('input', function(e){ s.name = e.target.value; saveState(); });
-        tr.querySelector('[data-f="name"]').addEventListener('blur', function(){ ensureCoords(s); });
-        tr.querySelector('[data-f="task"]').addEventListener('change', function(e){ s.task = e.target.value; if (s.task!=='Brøytestikker') s.details=''; saveState(); render(); });
-        tr.querySelector('[data-f="comment"]').addEventListener('input', function(e){ s.comment = e.target.value; saveState(); });
-
-        tr.querySelector('[data-act="ongoing"]').addEventListener('click', function(){ if (!s.startedAt) s.startedAt=Date.now(); s.status='ongoing'; saveState(); render(); });
-        tr.querySelector('[data-act="done"]').addEventListener('click', function(){
-          if (s.task==='Brøytestikker'){ var n = prompt('Antall brøytestikker?', (s.details||'').replace(/\D/g,'')); if (n===null) return; s.details = 'Brøytestikker: '+(parseInt(n||'0',10)||0); }
-          if (!s.startedAt) s.startedAt=Date.now(); s.finishedAt=Date.now(); s.status='done'; saveState(); render();
-          var next = findNext(); if (next && next.name) openGoogleMapsTo(next.name);
-        });
-        tr.querySelector('[data-act="blocked"]').addEventListener('click', function(){
-          var reason = prompt('Hvorfor ikke mulig å utføre? (valgfritt)') || '';
-          s.status='blocked'; if (!s.startedAt) s.startedAt=Date.now(); s.finishedAt=Date.now();
-          if (reason) s.details = (s.details? s.details+' · ' : '') + 'Årsak: ' + reason;
-          saveState(); render();
-        });
-        tr.querySelector('[data-act="photo"]').addEventListener('click', function(){
-          pendingPhotoStopId = s.id; document.getElementById('fileInput').click();
-        });
-        tr.querySelector('[data-act="nav"]').addEventListener('click', function(){ openGoogleMapsTo(s.name); });
-        tr.querySelector('[data-act="up"]').addEventListener('click', function(){ if (i>0){ var tmp=state.stops[i-1]; state.stops[i-1]=state.stops[i]; state.stops[i]=tmp; saveState(); render(); refreshMarkers(); }});
-        tr.querySelector('[data-act="down"]').addEventListener('click', function(){ if (i<state.stops.length-1){ var tmp=state.stops[i+1]; state.stops[i+1]=state.stops[i]; state.stops[i]=tmp; saveState(); render(); refreshMarkers(); }});
-      })(i);
-    }
-    document.getElementById('nextTxt').textContent = (function(){ for (var k=0;k<state.stops.length;k++){ var s=state.stops[k]; if (s.status!=='done' && s.status!=='blocked') return s.name; } return '—'; })();
-    refreshMarkers();
-  }
-  function renderThumbs(arr){ if (!arr || !arr.length) return ''; var out=''; for (var i=0;i<arr.length;i++){ out+='<img src="'+arr[i].dataUrl+'" alt="foto">'; } return out; }
-  function statusClass(s){ return s==='done'?'b-green':(s==='blocked'?'b-red':(s==='ongoing'?'b-blue':'b-yellow')); }
-  function labelStatus(s){ return s==='done'?'Ferdig':(s==='blocked'?'Stoppet':(s==='ongoing'?'Pågår':'Venter')); }
-  function taskOptions(sel){ var o=['Brøyte','Frese','Strø','Brøyte og strø','Frese og strø','Brøytestikker']; var h=''; for (var i=0;i<o.length;i++){ h+='<option'+(sel===o[i]?' selected':'')+'>'+o[i]+'</option>'; } return h; }
-
-  // Legg til
-  document.getElementById('addBtn').addEventListener('click', function(){
-    var name = document.getElementById('addr').value.replace(/^\s+|\s+$/g,'');
-    var task = document.getElementById('taskSel').value;
-    if (!name) return;
-    var st = mkStop(name, task);
-    state.stops.push(st);
-    document.getElementById('addr').value='';
-    saveState(); render(); ensureCoords(st);
+  // Under arbeid – knapper
+  document.getElementById('btnOngoing').addEventListener('click', function(){
+    var cur = getCurrent(); if(!cur) return;
+    if(!cur.startedAt) cur.startedAt=Date.now(); cur.status='ongoing'; saveState(); renderAll();
   });
+  document.getElementById('btnDone').addEventListener('click', function(){
+    var cur = getCurrent(); if(!cur) return;
+    if(cur.task==='Brøytestikker'){ var n=prompt('Antall brøytestikker?', (cur.details||'').replace(/\D/g,'')); if(n===null) return; cur.details='Brøytestikker: '+(parseInt(n||'0',10)||0); }
+    if(!cur.startedAt) cur.startedAt=Date.now(); cur.finishedAt=Date.now(); cur.status='done'; saveState(); renderAll();
+    var next = getCurrent(); if(next && next.name) openGoogleMapsTo(next.name);
+  });
+  document.getElementById('btnBlocked').addEventListener('click', function(){
+    var cur = getCurrent(); if(!cur) return;
+    var reason = prompt('Hvorfor ikke mulig å utføre? (valgfritt)') || '';
+    cur.status='blocked'; if(!cur.startedAt) cur.startedAt=Date.now(); cur.finishedAt=Date.now();
+    if (reason) cur.details=(cur.details?cur.details+' · ':'')+'Årsak: '+reason;
+    saveState(); renderAll();
+  });
+  document.getElementById('btnNav').addEventListener('click', function(){
+    var cur = getCurrent(); if(!cur||!cur.name) return; openGoogleMapsTo(cur.name);
+  });
+  document.getElementById('btnPhoto').addEventListener('click', function(){
+    var cur = getCurrent(); if(!cur) return; pendingPhotoStopId=cur.id; document.getElementById('fileInput').click();
+  });
+  document.getElementById('btnNext').addEventListener('click', function(){
+    var cur = getCurrent(); if(!cur) return;
+    // sett denne pågår eller ferdig? Vi hopper til neste uten statusendring, men markerer pågår på neste.
+    var next = getNextAfter(cur.id) || null;
+    if (next){ if(!next.startedAt) next.startedAt=Date.now(); next.status='ongoing'; saveState(); renderAll(); openGoogleMapsTo(next.name); }
+  });
+  document.getElementById('btnToggleMap').addEventListener('click', function(){
+    mapVisible = !mapVisible;
+    document.getElementById('mapWrap').style.display = mapVisible ? 'block' : 'none';
+    this.textContent = mapVisible ? '🗺 Skjul kart' : '🗺 Vis kart';
+    if (mapVisible){ ensureMap(); refreshMarkers(); fitAll(); }
+  });
+
+  // Register – liste + legg til
+  document.getElementById('addBtn').addEventListener('click', function(){
+    var name = document.getElementById('addr').value.trim();
+    var task = document.getElementById('taskSel').value;
+    if(!name) return;
+    var st = mkStop(name, task); state.stops.push(st); document.getElementById('addr').value='';
+    saveState(); ensureCoords(st); renderAll();
+  });
+  document.getElementById('optBtn').addEventListener('click', function(){
+    state.stops.sort((a,b)=>(a.name||'').localeCompare(b.name||'','no')); saveState(); renderAll(); refreshMarkers(); fitAll();
+  });
+  document.getElementById('fitAllBtn').addEventListener('click', function(){ ensureMap(); refreshMarkers(); fitAll(); mapVisible=true; document.getElementById('mapWrap').style.display='block'; document.getElementById('btnToggleMap').textContent='🗺 Skjul kart'; });
 
   // Foto
   document.getElementById('fileInput').addEventListener('change', function(e){
-    var file = e.target.files && e.target.files[0];
-    if (!file || !pendingPhotoStopId) return;
+    var file = e.target.files && e.target.files[0]; if(!file || !pendingPhotoStopId) return;
     var reader = new FileReader();
     reader.onload = function(){
-      for (var i=0;i<state.stops.length;i++){
-        var st = state.stops[i];
-        if (st.id===pendingPhotoStopId){
-          st.photos = st.photos || [];
-          st.photos.push({ dataUrl: reader.result, ts: Date.now() });
-          saveState(); render(); break;
-        }
-      }
-      pendingPhotoStopId = null;
-      e.target.value = '';
+      var s = state.stops.find(x=>x.id===pendingPhotoStopId);
+      if (s){ s.photos=s.photos||[]; s.photos.push({dataUrl:reader.result, ts:Date.now()}); saveState(); renderAll(); }
+      pendingPhotoStopId=null; e.target.value='';
     };
     reader.readAsDataURL(file);
   });
 
+  // Sporing
+  document.getElementById('trackToggle').addEventListener('click', function(){ if(watchId===null) startTracking(); else stopTracking(); });
+  startTracking();
+  function startTracking(){
+    if(!('geolocation' in navigator)) return;
+    if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(function(pos){
+      var lat=pos.coords.latitude, lng=pos.coords.longitude, acc=pos.coords.accuracy;
+      document.getElementById('posTxt').textContent = lat.toFixed(5)+', '+lng.toFixed(5)+' (±'+Math.round(acc)+' m)';
+      var cur = getCurrent(); if(cur && cur.lat && cur.lng){
+        var d = haversineMeters(lat,lng,cur.lat,cur.lng);
+        if (d < 60 && !cur._askedCheckin){
+          cur._askedCheckin = true; saveState();
+          if (confirm('Du er ved "'+cur.name+'". Sjekk inn nå?')){
+            if (!cur.startedAt) cur.startedAt = Date.now();
+            cur.details = (cur.details? cur.details+' · ' : '') + 'Sjekket inn';
+            cur.status = 'ongoing'; saveState(); renderAll();
+          }
+        }
+      }
+    }, function(){}, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+    this.textContent='Sporing: På';
+  }
+  function stopTracking(){
+    if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+    watchId=null; document.getElementById('posTxt').textContent='—';
+    document.getElementById('trackToggle').textContent='Sporing: Av';
+  }
+
   // Geokoding
   function geocodeNameToCoords(name, cb){
-    var url = 'https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(name);
-    fetch(url, { headers: { 'Accept-Language':'no' } })
-      .then(function(r){ return r.json(); })
-      .then(function(js){ if (js && js[0]) cb({lat:parseFloat(js[0].lat), lng:parseFloat(js[0].lon)}); else cb(null); })
-      .catch(function(){ cb(null); });
+    fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(name),{headers:{'Accept-Language':'no'}})
+      .then(r=>r.json()).then(js=>{ if(js&&js[0]) cb({lat:parseFloat(js[0].lat), lng:parseFloat(js[0].lon)}); else cb(null); })
+      .catch(()=>cb(null));
   }
   function ensureCoords(stop){
     if (stop && (!stop.lat || !stop.lng) && stop.name){
@@ -285,63 +335,29 @@
     }
   }
 
-  // Sporing
-  document.getElementById('trackToggle').addEventListener('click', function(){
-    if (watchId===null) startTracking(); else stopTracking();
-  });
-  startTracking();
-  function startTracking(){
-    if (!('geolocation' in navigator)) return;
-    if (watchId!==null) navigator.geolocation.clearWatch(watchId);
-    watchId = navigator.geolocation.watchPosition(function(pos){
-      var latitude=pos.coords.latitude, longitude=pos.coords.longitude, accuracy=pos.coords.accuracy;
-      document.getElementById('posTxt').textContent = latitude.toFixed(5)+', '+longitude.toFixed(5)+' (±'+Math.round(accuracy)+' m)';
-      var next = findNext();
-      if (next && next.lat && next.lng){
-        var dist = haversineMeters(latitude, longitude, next.lat, next.lng);
-        if (dist < 60 && !next._askedCheckin){
-          next._askedCheckin = true; saveState();
-          if (confirm('Du er ved "'+next.name+'". Sjekk inn nå?')){
-            if (!next.startedAt) next.startedAt = Date.now();
-            next.details = (next.details? next.details+' · ' : '') + 'Sjekket inn';
-            next.status = 'ongoing';
-            saveState(); render();
-          }
-        }
-      }
-    }, function(){}, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
-    var b=document.getElementById('trackToggle'); b.textContent='Sporing: På'; b.classList.remove('gray'); b.classList.add('blue');
-  }
-  function stopTracking(){
-    if (watchId!==null) navigator.geolocation.clearWatch(watchId);
-    watchId = null; document.getElementById('posTxt').textContent = '—';
-    var b=document.getElementById('trackToggle'); b.textContent='Sporing: Av'; b.classList.remove('blue'); b.classList.add('gray');
-  }
-  function findNext(){ for (var i=0;i<state.stops.length;i++){ var s=state.stops[i]; if (s.status!=='done' && s.status!=='blocked') return s; } return null; }
-  function haversineMeters(aLat,aLng,bLat,bLng){ var toRad=function(d){return d*Math.PI/180}; var R=6371000; var dLat=toRad(bLat-aLat), dLng=toRad(bLng-aLng); var s1=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)*Math.sin(dLng/2); return 2*R*Math.asin(Math.sqrt(s1)); }
-
-  // ZIP + deling (fallback: nedlast + mailto)
-  document.getElementById('sendZipBtn').addEventListener('click', async function(){
+  // Rapport / deling
+  async function sendZip(){
     var obj = await buildZip();
     await shareOrDownloadZip(obj.zipBlob, obj.fileName);
-  });
+  }
   async function buildZip(){
     var round=state.round, startedAt=new Date(state.startedAt), finishedAt=new Date();
     var lines=[['Runde','Start','Slutt','Sjåfør','Navn','Oppgave','Status','Detaljer','Kommentar','Antall bilder','Starttid','Sluttid'].join(',')];
-    for (var i=0;i<state.stops.length;i++){
-      var s=state.stops[i];
+    state.stops.forEach(s=>{
       lines.push([round,startedAt.toISOString(),finishedAt.toISOString(),csvEscape(state.driver||''),csvEscape(s.name),csvEscape(s.task),s.status,csvEscape(s.details||''),csvEscape(s.comment||''),(s.photos?s.photos.length:0),s.startedAt?new Date(s.startedAt).toISOString():'',s.finishedAt?new Date(s.finishedAt).toISOString():''].join(','));
-    }
+    });
     var csv=lines.join('\n');
+
     var jsPDF=window.jspdf.jsPDF, pdf=new jsPDF(); pdf.setFontSize(12);
     pdf.text('Brøyterute – Runde '+round,14,14);
     pdf.text('Start: '+startedAt.toLocaleString('no-NO')+'  Slutt: '+finishedAt.toLocaleString('no-NO'),14,22);
     if (state.driver) pdf.text('Sjåfør: '+state.driver,14,30);
-    var y=38; for (var i2=0;i2<state.stops.length;i2++){ var st=state.stops[i2]; var line=(i2+1)+'. '+st.name+' — '+st.task+' — '+labelStatus(st.status)+(st.details?(' — '+st.details):'')+(st.comment?(' — '+st.comment):''); var arr=pdf.splitTextToSize(line,180); if(y+arr.length*6>280){pdf.addPage();y=20;} pdf.text(arr,14,y); y+=arr.length*6+2; }
+    var y=38; state.stops.forEach(function(st,i){ var line=(i+1)+'. '+st.name+' — '+st.task+' — '+(st.status==='done'?'Ferdig':st.status==='blocked'?'Stoppet':st.status==='ongoing'?'Pågår':'Ikke utført')+(st.details?(' — '+st.details):'')+(st.comment?(' — '+st.comment):''); var arr=pdf.splitTextToSize(line,180); if(y+arr.length*6>280){ pdf.addPage(); y=20; } pdf.text(arr,14,y); y+=arr.length*6+2; });
     var pdfBlob=pdf.output('blob');
+
     var zip=new JSZip(); zip.file('broeyting_dokumentasjon_runde'+round+'.csv',csv); zip.file('broeyting_rapport_runde'+round+'.pdf',pdfBlob);
-    var idx=1; for (var j=0;j<state.stops.length;j++){ var stp=state.stops[j]; if(stp.photos&&stp.photos.length){ for (var p=0;p<stp.photos.length;p++){ var base64=(stp.photos[p].dataUrl.split(',')[1]||''); zip.file('bilder/'+String(idx).padStart(2,'0')+'_'+safeName(stp.name)+'_'+(p+1)+'.jpg',base64,{base64:true}); } } idx++; }
-    var blob=await zip.generateAsync({type:"blob"}); return {zipBlob:blob,fileName:'broeyting_dokumentasjon_runde'+round+'.zip'};
+    var idx=1; state.stops.forEach(function(st){ if(st.photos&&st.photos.length){ st.photos.forEach(function(p,i){ var base64=(p.dataUrl.split(',')[1]||''); zip.file('bilder/'+String(idx).padStart(2,'0')+'_'+safeName(st.name)+'_'+(i+1)+'.jpg', base64, {base64:true}); }); } idx++; });
+    var blob=await zip.generateAsync({type:"blob"}); return {zipBlob:blob, fileName:'broeyting_dokumentasjon_runde'+round+'.zip'};
   }
   async function shareOrDownloadZip(zipBlob,fileName){
     var file=new File([zipBlob],fileName,{type:'application/zip'});
@@ -350,56 +366,104 @@
     window.location.href='mailto:?subject='+encodeURIComponent('Brøyterapport '+fileName)+'&body='+encodeURIComponent('ZIP er lastet ned. Legg den ved e-posten.');
   }
 
-  // Nullstill cache lokalt (selv om service-worker.js mangler, prøver vi best effort)
-  document.getElementById('cacheReset').addEventListener('click', async function(){
+  // Cache reset
+  async function resetCache(){
     try{
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        for (const r of regs){ await r.unregister(); }
-      }
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(k => caches.delete(k)));
-      }
+      if('serviceWorker' in navigator){ const regs=await navigator.serviceWorker.getRegistrations(); for(const r of regs){ await r.unregister(); } }
+      if('caches' in window){ const keys=await caches.keys(); await Promise.all(keys.map(k=>caches.delete(k))); }
       localStorage.removeItem(LS_KEY);
-      const url = new URL(location.href); url.searchParams.set('bust', Date.now()); location.replace(url.toString());
+      const url=new URL(location.href); url.searchParams.set('bust',Date.now()); location.replace(url.toString());
     }catch(e){ alert('Kunne ikke nullstille cache.'); }
-  });
+  }
 
+  // Helpers
   function csvEscape(s){ return '"'+String(s).replace(/"/g,'""')+'"'; }
   function safeName(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
-  function downloadBlob(blob,filename){ var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); },1000); }
+  function downloadBlob(b,f){ var a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=f; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+  function haversineMeters(aLat,aLng,bLat,bLng){ var toRad=v=>v*Math.PI/180,R=6371000,dLat=toRad(bLat-aLat),dLng=toRad(bLng-aLng); var s1=Math.sin(dLat/2)**2+Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(s1)); }
+
+  function getCurrent(){ for(var i=0;i<state.stops.length;i++){ var s=state.stops[i]; if(s.status!=='done' && s.status!=='blocked') return s; } return null; }
+  function getNextAfter(id){ var seen=false; for(var i=0;i<state.stops.length;i++){ var s=state.stops[i]; if(s.id===id){ seen=true; continue; } if(seen && s.status!=='done' && s.status!=='blocked') return s; } return null; }
+  function labelStatus(s){ return s==='done'?'Ferdig':(s==='blocked'?'Stoppet':(s==='ongoing'?'Pågår':'Ikke utført')); }
+  function statusClass(s){ return s==='done'?'b-green':(s==='blocked'?'b-red':(s==='ongoing'?'b-blue':'b-yellow')); }
   function escapeAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-  // Init + startdata hvis tomt
-  render();
-  if (!state.stops.length){
-    var seed=['AMFI Eidsvoll (Råholt)','Råholt barneskole','Råholt ungdomsskole','Dal stasjon','Høybråten'];
-    for (var i=0;i<seed.length;i++){ state.stops.push(mkStop(seed[i],'Brøyte')); }
-    saveState(); render();
-  }
+  // Register-render
+  function renderRegister(){
+    var list=document.getElementById('list'); list.innerHTML='';
+    state.stops.forEach(function(s, i){
+      var el=document.createElement('div'); el.className='item';
+      el.innerHTML = ''
+        + '<div class="row" style="justify-content:space-between;align-items:center;">'
+        +   '<div style="min-width:240px">'
+        +     '<div class="name"><input data-f="name" type="text" value="'+escapeAttr(s.name)+'" style="width:100%;height:42px;border:1px solid var(--cardBorder);border-radius:10px;padding:0 10px;background:transparent;color:inherit"></div>'
+        +     '<div class="muted">Oppgave: <select data-f="task" style="background:transparent;color:inherit;border:1px solid var(--cardBorder);border-radius:10px;padding:6px 8px"><option'+(s.task==='Brøyte'?' selected':'')+'>Brøyte</option><option'+(s.task==='Frese'?' selected':'')+'>Frese</option><option'+(s.task==='Strø'?' selected':'')+'>Strø</option><option'+(s.task==='Brøyte og strø'?' selected':'')+'>Brøyte og strø</option><option'+(s.task==='Frese og strø'?' selected':'')+'>Frese og strø</option><option'+(s.task==='Brøytestikker'?' selected':'')+'>Brøytestikker</option></select></div>'
+        +   '</div>'
+        +   '<div><span class="'+statusClass(s.status)+'">'+labelStatus(s.status)+'</span></div>'
+        + '</div>'
+        + '<div class="rowbtns">'
+        +   '<button class="btn s" data-act="ongoing">▶️ Pågår</button>'
+        +   '<button class="btn s" style="background:var(--green);color:#fff" data-act="done">✅ Ferdig</button>'
+        +   '<button class="btn s" style="background:var(--red);color:#fff" data-act="blocked">⛔ Ikke mulig</button>'
+        +   '<button class="btn s" data-act="photo">📷 Foto</button>'
+        +   '<button class="btn s" data-act="nav">🧭 Naviger</button>'
+        +   '<button class="btn s" data-act="up">↑</button>'
+        +   '<button class="btn s" data-act="down">↓</button>'
+        + '</div>';
+      // events
+      el.querySelector('[data-f="name"]').addEventListener('input', function(e){ s.name=e.target.value; saveState(); });
+      el.querySelector('[data-f="name"]').addEventListener('blur', function(){ ensureCoords(s); });
+      el.querySelector('[data-f="task"]').addEventListener('change', function(e){ s.task=e.target.value; if(s.task!=='Brøytestikker') s.details=''; saveState(); renderAll(); });
 
-  // Geokoding helpers
-  function ensureCoords(stop){
-    if (stop && (!stop.lat || !stop.lng) && stop.name){
-      geocodeNameToCoords(stop.name, function(c){ if (c){ stop.lat=c.lat; stop.lng=c.lng; saveState(); refreshMarkers(); } });
-    }
-  }
-  function geocodeNameToCoords(name, cb){
-    var url='https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(name);
-    fetch(url,{headers:{'Accept-Language':'no'}}).then(function(r){return r.json()}).then(function(js){ if(js&&js[0]) cb({lat:parseFloat(js[0].lat),lng:parseFloat(js[0].lon)}); else cb(null); }).catch(function(){ cb(null); });
-  }
-  function openGoogleMapsTo(address){ var url='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address); window.open(url,'_blank'); }
-})();
-</script>
+      el.querySelector('[data-act="ongoing"]').addEventListener('click', function(){ if(!s.startedAt) s.startedAt=Date.now(); s.status='ongoing'; saveState(); renderAll(); });
+      el.querySelector('[data-act="done"]').addEventListener('click', function(){ if(s.task==='Brøytestikker'){ var n=prompt('Antall brøytestikker?', (s.details||'').replace(/\D/g,'')); if(n===null) return; s.details='Brøytestikker: '+(parseInt(n||'0',10)||0); } if(!s.startedAt) s.startedAt=Date.now(); s.finishedAt=Date.now(); s.status='done'; saveState(); renderAll(); });
+      el.querySelector('[data-act="blocked"]').addEventListener('click', function(){ var r=prompt('Hvorfor ikke mulig å utføre? (valgfritt)')||''; s.status='blocked'; if(!s.startedAt) s.startedAt=Date.now(); s.finishedAt=Date.now(); if(r) s.details=(s.details?s.details+' · ':'')+'Årsak: '+r; saveState(); renderAll(); });
+      el.querySelector('[data-act="photo"]').addEventListener('click', function(){ pendingPhotoStopId=s.id; document.getElementById('fileInput').click(); });
+      el.querySelector('[data-act="nav"]').addEventListener('click', function(){ openGoogleMapsTo(s.name); });
+      el.querySelector('[data-act="up"]').addEventListener('click', function(){ if(i>0){ var t=state.stops[i-1]; state.stops[i-1]=state.stops[i]; state.stops[i]=t; saveState(); renderAll(); refreshMarkers(); } });
+      el.querySelector('[data-act="down"]').addEventListener('click', function(){ if(i<state.stops.length-1){ var t=state.stops[i+1]; state.stops[i+1]=state.stops[i]; state.stops[i]=t; saveState(); renderAll(); refreshMarkers(); } });
 
-<!-- Service worker-registrering er valgfritt; feiler stille hvis fila ikke finnes -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-      navigator.serviceWorker.register('./service-worker.js').catch(function(){});
+      list.appendChild(el);
     });
   }
+
+  // Hele UI
+  function renderAll(){
+    document.getElementById('roundInfo').textContent = 'Runde '+state.round+' – Startet '+new Date(state.startedAt).toLocaleString('no-NO') + (state.driver? ' – Sjåfør: '+state.driver : '');
+
+    var cur = getCurrent(), nxt = cur ? getNextAfter(cur.id) : null;
+    document.getElementById('curName').textContent = cur?cur.name:'—';
+    document.getElementById('curTask').textContent = cur?cur.task:'—';
+    var curStatusEl = document.getElementById('curStatus');
+    curStatusEl.textContent = cur?labelStatus(cur.status):'—';
+    curStatusEl.className = (cur?statusClass(cur.status):'b-yellow');
+    document.getElementById('curNext').textContent = nxt?nxt.name:'—';
+
+    // galleri
+    var g = document.getElementById('curPhotos'); g.innerHTML='';
+    if (cur && cur.photos && cur.photos.length){
+      cur.photos.forEach(p=>{
+        var img=document.createElement('img'); img.src=p.dataUrl; img.alt='foto'; g.appendChild(img);
+      });
+    }
+
+    renderRegister();
+  }
+
+  // Startdata hvis tomt
+  if(!state.stops.length){
+    ['AMFI Eidsvoll (Råholt)','Råholt barneskole','Råholt ungdomsskole','Dal stasjon','Høybråten'].forEach(n=>state.stops.push(mkStop(n,'Brøyte')));
+    saveState();
+  }
+  state.stops.forEach(s=>{ if(!s.lat||!s.lng) ensureCoords(s); });
+
+  renderAll();
+
+  // Utils
+  function getCurrent(){ for(var i=0;i<state.stops.length;i++){ var s=state.stops[i]; if(s.status!=='done' && s.status!=='blocked') return s; } return null; }
+  function getNextAfter(id){ var seen=false; for(var i=0;i<state.stops.length;i++){ var s=state.stops[i]; if(s.id===id){ seen=true; continue; } if(seen && s.status!=='done' && s.status!=='blocked') return s; } return null; }
+  function openGoogleMapsTo(address){ var url='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address); window.open(url,'_blank'); }
+})();
 </script>
 </body>
 </html>
