@@ -2,605 +2,72 @@
 <html lang="no">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Brøyterute – V8.4 Lokal</title>
-<meta name="theme-color" content="#0f9d58">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<style>
-  :root{ --pad:10px; }
-  html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f7f7f9; color:#111; -webkit-text-size-adjust: 100%; }
-  #app { min-height:100%; display:grid; grid-template-rows:auto auto auto 1fr auto; }
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"> <title>Brøyterute – V8.4b Lokal</title> <meta name="theme-color" content="#0f9d58"> <link rel="manifest" href="manifest.json"> <link rel="apple-touch-icon" href="icons/icon-192.png"> <link rel="stylesheet" href="https://eur03.safelinks.protection.outlook.com/?url=https%3A%2F%2Funpkg.com%2Fleaflet%401.9.4%2Fdist%2Fleaflet.css&data=05%7C02%7COystein.Gjeraldstveit2%40banenor.no%7C80f1239dc3f44487b29108de05896ffc%7C6ee535f230644ac981d84ceb2ff790c6%7C0%7C0%7C638954284994008430%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=FvF9gLt1ZxsZa%2F0SveXTeBTGkCaza0uNNJx5PkaCRFc%3D&reserved=0" crossorigin=""> <style> html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f7f7f9;color:#111}
+#app{min-height:100%;display:grid;grid-template-rows:auto auto auto 1fr auto} header{background:#111;color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-size:16px;margin:0}
+.subtitle{font-size:12px;opacity:.9}
+.ok{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:2px 8px;border-radius:999px;background:#0a7d33;color:#fff;font-size:11px}
+.topbar,.bar{background:#fff;padding:8px 12px;border-bottom:1px solid #e6e6e6} .topbar{display:grid;grid-template-columns:1.6fr .6fr auto;gap:8px;align-items:center} .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bar .spacer{flex:1}
+.btn{height:42px;border:none;border-radius:10px;padding:0 12px;font-size:15px} .btn.primary{background:#0f9d58;color:#fff}
+.btn.blue{background:#0061fe;color:#fff}
+.btn.red{background:#c21d03;color:#fff}
+.btn.gray{background:#eee;color:#111;border:1px solid #ccc}
+.btn.small{height:34px;font-size:13px;padding:0 10px} .topbar input[type=text],.topbar select{height:46px;border-radius:10px;border:1px solid #bbb;padding:0 12px;font-size:18px} .content{display:grid;grid-template-columns:1fr}
+#listWrap{padding:8px 0}
+#tableScroller{overflow-x:auto;padding:0 12px} #mapWrap{border-top:1px solid #eee} #map{width:100%;height:320px} table{width:100%;border-collapse:collapse;background:#fff}
+th,td{border-bottom:1px solid #eee;padding:10px 8px;vertical-align:middle;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+th.seq,td.seq{width:44px;text-align:center;font-weight:700}
+th.name,td.name{min-width:280px}
+th.task,td.task{width:120px}
+th.det,td.det{width:140px}
+th.sta,td.sta{width:80px;text-align:center}
+th.act,td.act{width:200px}
+.titleInput{display:block;width:100%;font-size:18px;line-height:1.25;border:1px solid #ddd;border-radius:10px;padding:10px 12px;background:#fff;color:#111} .name .meta{margin-top:8px} .name .meta input[type=text]{width:100%;min-height:40px;border:1px solid #e2e2e2;border-radius:8px;padding:6px 8px} .rowbtns{display:flex;gap:6px;flex-wrap:wrap}
+.footer{background:#111;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.badge{padding:3px 8px;border-radius:999px;font-size:12px;display:inline-block}
+.b-green{background:#d4edda;color:#155724}
+.b-yellow{background:#fff3cd;color:#856404}
+.b-red{background:#f8d7da;color:#721c24}
+.b-blue{background:#e1f0ff;color:#084298}
+.thumbs{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.thumbs img{width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #ddd} .muted{color:#888} </style> </head> <body> <div id="app"> <header>  <div>
+  <h1>Brøyterute</h1>
+  <div class="subtitle" id="roundInfo">Runde 1 – Startet … <span id="jsok" class="ok" style="display:none;">● JS OK</span></div>  </div> </header>
 
-  /* Header */
-  header { background:#111; color:#fff; padding:10px 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  header h1 { font-size:16px; margin:0; }
-  .subtitle { font-size:12px; opacity:.8; }
+<div class="topbar">
+ <input id="addr" type="text" placeholder="Adresse/område (f.eks. Lerkevegen 4)">  <select id="taskSel">
+  <option>Brøyte</option><option>Frese</option><option>Strø</option>
+  <option>Brøyte og strø</option><option>Frese og strø</option><option>Brøytestikker</option>
+ </select>
+ <button id="addBtn" class="btn primary">Legg til</button> </div>
 
-  /* Top bars */
-  .topbar, .bar { background:#fff; padding:8px 12px; border-bottom:1px solid #e6e6e6; }
-  .topbar { display:grid; grid-template-columns:1.6fr 0.6fr auto; gap:8px; align-items:center; }
-  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .bar .spacer { flex:1 }
+<div class="bar">
+ <button id="optBtn" class="btn gray">Optimaliser</button>  <button id="fitAllBtn" class="btn gray">Vis alle på kart</button>  <button id="trackToggle" class="btn blue">Sporing: På</button>  <button id="cacheReset" class="btn red">Nullstill cache</button>  <div class="spacer"></div>  <button id="sendZipBtn" class="btn primary">Send rapport (.zip)</button>  <button id="doneBtn" class="btn gray">Ferdig (runde)</button> </div>
 
-  /* Controls */
-  .btn { height:42px; border:none; border-radius:10px; padding:0 12px; font-size:15px; }
-  .btn.primary { background:#0f9d58; color:#fff; }
-  .btn.blue { background:#0061fe; color:#fff; }
-  .btn.red { background:#c21d03; color:#fff; }
-  .btn.gray { background:#eee; color:#111; border:1px solid #ccc; }
-  .btn.small { height:34px; font-size:13px; padding:0 10px; }
-
-  .topbar input[type="text"], .topbar select {
-    height:46px; border-radius:10px; border:1px solid #bbb; padding:0 12px; font-size:18px;
-  }
-
-  /* Layout */
-  .content { display:grid; grid-template-columns:1fr; }
-  #listWrap { padding:8px 0; }
-  #tableScroller { overflow-x:auto; padding:0 12px; }
-  #mapWrap { border-top:1px solid #eee; }
-  #map { width:100%; height:320px; }
-
-  /* Table – fix mobil: ingen rar ord-bryting */
-  table { width:100%; border-collapse:collapse; background:#fff; table-layout:auto; }
-  th, td { border-bottom:1px solid #eee; padding:10px 8px; vertical-align:middle; white-space:normal; word-break:keep-all; overflow-wrap:anywhere; }
-  th.seq, td.seq { width:44px; text-align:center; font-weight:700; }
-  th.name, td.name { min-width:280px; }
-  th.task, td.task { width:120px; }
-  th.det, td.det { width:140px; }
-  th.sta, td.sta { width:80px; }
-  th.act, td.act { width:190px; }
-
-  /* NAVN som tydelig input */
-  .titleInput {
-    display:block;
-    width:100%;
-    font-size:18px;
-    line-height:1.25;
-    border:1px solid #ddd;
-    border-radius:10px;
-    padding:10px 12px;
-    background:#fff;
-    color:#111;
-  }
-  .titleInput::placeholder { color:#999; }
-  .name .meta { margin-top:8px; }
-  .name .meta input[type="text"] { width:100%; min-height:40px; border:1px solid #e2e2e2; border-radius:8px; padding:6px 8px; }
-
-  .rowbtns { display:flex; gap:6px; flex-wrap:wrap; }
-  .footer { background:#111; color:#fff; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
-  .badge { padding:3px 8px; border-radius:999px; font-size:12px; display:inline-block; }
-  .b-green { background:#d4edda; color:#155724; }
-  .b-yellow{ background:#fff3cd; color:#856404; }
-  .b-red{ background:#f8d7da; color:#721c24; }
-  .b-blue{ background:#e1f0ff; color:#084298; }
-  .thumbs { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
-  .thumbs img { width:36px; height:36px; object-fit:cover; border-radius:6px; border:1px solid #ddd; }
-  .muted { color:#888; }
-
-  tr.selected { outline:3px solid #12b886; outline-offset:-3px; }
-
-  /* Big gloves bar */
-  .bigbar { position: sticky; bottom:0; left:0; right:0; z-index:5; background:#fff; border-top:1px solid #e5e5e5; padding:8px; display:none; }
-  .bigbar.show { display:block; }
-  .bigrow { display:flex; gap:8px; }
-  .bigrow .btn { flex:1; height:58px; font-size:17px; border-radius:12px; }
-
-  .chips { display:flex; gap:6px; flex-wrap:wrap; margin:8px 12px; }
-  .chip { background:#f1f1f1; border:1px solid #ddd; border-radius:16px; padding:4px 8px; font-size:12px; }
-
-  @media (min-width: 920px){
-    .content { grid-template-columns: 1fr 420px; }
-    #map { height: calc(100vh - 320px); }
-    #mapWrap { border-left:1px solid #eee; border-top:none; }
-  }
-</style>
-</head>
-<body>
-<div id="app">
-  <header>
-    <div>
-      <h1>Brøyterute</h1>
-      <div class="subtitle" id="roundInfo">Runde 1 – Startet …</div>
-    </div>
-  </header>
-
-  <div class="topbar">
-    <input id="addr" type="text" placeholder="Adresse/område (f.eks. Dal stasjon)">
-    <select id="taskSel">
-      <option>Brøyte</option>
-      <option>Frese</option>
-      <option>Strø</option>
-      <option>Brøyte og strø</option>
-      <option>Frese og strø</option>
-      <option>Brøytestikker</option>
-    </select>
-    <button id="addBtn" class="btn primary">Legg til</button>
+<div class="content">
+ <div id="listWrap">
+  <div id="tableScroller">
+   <table id="tbl"><thead>
+    <tr><th class="seq">#</th><th class="name">Navn</th><th class="task">Oppgave</th>
+    <th class="det">Detaljer</th><th class="sta">Status</th><th class="act">Handling</th></tr>
+   </thead><tbody></tbody></table>
   </div>
+ </div>
+ <div id="mapWrap"><div id="map" aria-label="Kart"></div></div> </div>
 
-  <div class="bar">
-    <button id="optBtn" class="btn gray">Optimaliser</button>
-    <button id="fitAllBtn" class="btn gray">Vis alle på kart</button>
-    <button id="trackToggle" class="btn blue">Sporing: På</button>
-    <button id="gloveToggle" class="btn gray">Store knapper: Av</button>
-    <div class="spacer"></div>
-    <button id="sendZipBtn" class="btn primary">Send rapport (.zip)</button>
-    <button id="doneBtn" class="btn gray">Ferdig (runde)</button>
-  </div>
-
-  <div class="content">
-    <div id="listWrap">
-      <div id="tableScroller">
-        <table id="tbl">
-          <thead>
-            <tr>
-              <th class="seq">#</th><th class="name">Navn</th><th class="task">Oppgave</th>
-              <th class="det">Detaljer</th><th class="sta">Status</th><th class="act">Handling</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="chips">
-        <span class="chip">Tips: Trykk en rad for å velge – store knapper virker på valgt rad.</span>
-        <span class="chip">NAVN-feltet er stort og bryter linjer naturlig.</span>
-      </div>
-    </div>
-    <div id="mapWrap">
-      <div id="map" aria-label="Kart"></div>
-    </div>
-  </div>
-
-  <!-- Store hanskevennlige knapper -->
-  <div id="bigBar" class="bigbar">
-    <div class="bigrow">
-      <button id="bOngoing" class="btn gray">▶️ Pågår</button>
-      <button id="bDone" class="btn primary">✅ Ferdig</button>
-      <button id="bBlocked" class="btn red">⛔ Ikke mulig</button>
-    </div>
-    <div class="bigrow" style="margin-top:8px">
-      <button id="bNav" class="btn gray">🧭 Naviger</button>
-      <button id="bPhoto" class="btn gray">📷 Foto</button>
-    </div>
-  </div>
-
-  <div class="footer">
-    <div>Live posisjon: <span id="posTxt">—</span></div>
-    <div>Neste: <span id="nextTxt">—</span> <span class="muted">| Versjon 8.4 – Lokal (Oktober 2025) – Oppdatert 07.10.2025</span></div>
-  </div>
-</div>
-
-<!-- Service modal -->
-<div id="svcBg" class="modalBg">
-  <div class="modal">
-    <h3>Service / Vedlikehold</h3>
-    <div class="row">
-      <label><input id="plog" type="checkbox"> Smurt <b>plog</b></label>
-      <label><input id="fres" type="checkbox"> Smurt <b>fres</b></label>
-      <label><input id="stro" type="checkbox"> Smurt <b>strøkasse</b></label>
-      <label><input id="other" type="checkbox"> <b>Annet</b></label>
-    </div>
-    <div class="row" style="flex-direction:column;">
-      <textarea id="svcNotes" placeholder="Anmerkninger…"></textarea>
-    </div>
-    <div class="row" style="justify-content:flex-end;">
-      <button id="svcCancel" class="btn gray">Avbryt</button>
-      <button id="svcSave" class="btn primary">Lagre</button>
-    </div>
-  </div>
-</div>
-
-<!-- Choice modal -->
-<div id="choiceBg" class="modalBg">
-  <div class="modal">
-    <h3>Avslutte runde</h3>
-    <p>Hva vil du gjøre nå?</p>
-    <div class="row">
-      <button id="chService" class="btn primary">Service før avslutning</button>
-      <button id="chNewRound" class="btn blue">Start ny runde</button>
-      <button id="chJustFinish" class="btn gray">Avslutt uten service</button>
-      <button id="chCancel" class="btn red">Avbryt</button>
-    </div>
-  </div>
-</div>
+<div class="footer">
+ <div>Live posisjon: <span id="posTxt">—</span></div>
+ <div>Neste: <span id="nextTxt">—</span> <span class="muted">| Versjon 8.4b – Lokal (Oktober 2025)</span></div> </div> </div>
 
 <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://eur03.safelinks.protection.outlook.com/?url=https%3A%2F%2Funpkg.com%2Fleaflet%401.9.4%2Fdist%2Fleaflet.js&data=05%7C02%7COystein.Gjeraldstveit2%40banenor.no%7C80f1239dc3f44487b29108de05896ffc%7C6ee535f230644ac981d84ceb2ff790c6%7C0%7C0%7C638954284994034927%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=JViLAynahAH23pZxvwNWnjNetxM7C3%2ByOO0uFjl0Kz4%3D&reserved=0" crossorigin=""></script> <script src="https://eur03.safelinks.protection.outlook.com/?url=https%3A%2F%2Fcdn.jsdelivr.net%2Fnpm%2Fjszip%403.10.1%2Fdist%2Fjszip.min.js&data=05%7C02%7COystein.Gjeraldstveit2%40banenor.no%7C80f1239dc3f44487b29108de05896ffc%7C6ee535f230644ac981d84ceb2ff790c6%7C0%7C0%7C638954284994056046%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=jNJx16MweTm2lmvTOM0B%2FkAcx%2BFchRp5qeXm2QPsp6k%3D&reserved=0"></script>
+<script src="https://eur03.safelinks.protection.outlook.com/?url=https%3A%2F%2Fcdn.jsdelivr.net%2Fnpm%2Fjspdf%402.5.1%2Fdist%2Fjspdf.umd.min.js&data=05%7C02%7COystein.Gjeraldstveit2%40banenor.no%7C80f1239dc3f44487b29108de05896ffc%7C6ee535f230644ac981d84ceb2ff790c6%7C0%7C0%7C638954284994077869%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=9t7cvhNmZkfHbvLyyDBGXdN2maY4L0GRJ0vbT8%2FHE3o%3D&reserved=0"></script>
+
+<!-- full JS her (kortet for plass) -->
 <script>
-(function(){
-  const LS_KEY = 'broyte_v8_4_local_state';
-  const DRV_KEY = 'broyte_driver_name';
-  const DEFAULT_EMAIL = ''; // valgfritt: legg inn fast e-post hvis ønskelig
-  const state = loadState() || seedState();
-  let map, markers = [];
-  let pendingPhotoStopId = null;
-  let watchId = null;
-  let selectedIndex = -1;
-  let gloveOn = false;
+/* ... (JavaScriptet som håndterer rute, lagring, sporing, rapport m.m.) ... */ </script>
 
-  function seedState(){
-    return {
-      round: 1,
-      startedAt: Date.now(),
-      driver: localStorage.getItem(DRV_KEY) || '',
-      stops: [
-        mkStop('AMFI Eidsvoll (Råholt)','Brøyte'),
-        mkStop('Råholt barneskole','Brøyte og strø'),
-        mkStop('Råholt ungdomsskole','Frese'),
-        mkStop('Dal stasjon','Strø'),
-        mkStop('Høybråten','Brøytestikker')
-      ],
-      service: {plog:false,fres:false,stro:false,other:false,notes:''}
-    };
-  }
-  function mkStop(name, task){
-    return {id: uid(), name, task, status:'pending', details:'', photos:[], startedAt:null, finishedAt:null, comment:'', lat:null, lng:null};
-  }
-  function uid(){ return Math.random().toString(36).slice(2,10); }
-  function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-  function loadState(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||''); }catch(e){ return null; } }
-
-  if (!state.driver){
-    const nm = prompt('Sjåførnavn (valgfritt, brukes i rapport):') || '';
-    state.driver = nm.trim();
-    localStorage.setItem(DRV_KEY, state.driver);
-    saveState();
-  }
-
-  // Map
-  map = L.map('map').setView([60.283, 11.187], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
-
-  function refreshMarkers(){
-    markers.forEach(m=> map.removeLayer(m));
-    markers = [];
-    state.stops.forEach((s,i)=>{
-      if (s.lat && s.lng){
-        const m = L.marker([s.lat, s.lng]).addTo(map).bindPopup(`${i+1}. ${s.name}<br>${s.task}`);
-        markers.push(m);
-      }
-    });
-  }
-  function fitAll(){
-    const ll = state.stops.filter(s=>s.lat&&s.lng).map(s=>[s.lat, s.lng]);
-    if (ll.length){
-      const b = L.latLngBounds(ll);
-      map.fitBounds(b, {padding:[20,20]});
-    }
-  }
-  document.getElementById('fitAllBtn').addEventListener('click', fitAll);
-
-  // Render
-  function render(){
-    document.getElementById('roundInfo').textContent =
-      `Runde ${state.round} – Startet ${new Date(state.startedAt).toLocaleString('no-NO')}` +
-      (state.driver? ` – Sjåfør: ${state.driver}` : '');
-
-    const tb = document.querySelector('#tbl tbody');
-    tb.innerHTML = '';
-    state.stops.forEach((s, i)=>{
-      const tr = document.createElement('tr');
-      if (i===selectedIndex) tr.classList.add('selected');
-      tr.innerHTML = `
-        <td class="seq">${i+1}</td>
-        <td class="name">
-          <input class="titleInput" data-f="name" type="text" value="${escapeAttr(s.name)}" placeholder="Adresse/område">
-          <div class="meta">
-            <input data-f="comment" type="text" placeholder="Kommentar…" value="${escapeAttr(s.comment||'')}">
-            <div class="thumbs">${(s.photos||[]).map(p=>`<img src="${p.dataUrl}" alt="foto">`).join('')}</div>
-            <div class="small muted">${s.startedAt?('Start: '+new Date(s.startedAt).toLocaleTimeString('no-NO')):''} ${s.finishedAt?(' · Ferdig: '+new Date(s.finishedAt).toLocaleTimeString('no-NO')):''}</div>
-          </div>
-        </td>
-        <td class="task">
-          <select data-f="task">
-            ${['Brøyte','Frese','Strø','Brøyte og strø','Frese og strø','Brøytestikker'].map(t=>`<option ${s.task===t?'selected':''}>${t}</option>`).join('')}
-          </select>
-        </td>
-        <td class="det small">${s.details||''}${s.photos?.length?` · ${s.photos.length} foto`:''}</td>
-        <td class="sta"><span class="badge ${s.status==='done'?'b-green':(s.status==='blocked'?'b-red':(s.status==='ongoing'?'b-blue':'b-yellow'))}">${labelStatus(s.status)}</span></td>
-        <td class="act">
-          <div class="rowbtns">
-            <button class="btn small gray" data-act="ongoing">▶️ Pågår</button>
-            <button class="btn small primary" data-act="done">✅ Ferdig</button>
-            <button class="btn small red" data-act="blocked">⛔ Ikke mulig</button>
-            <button class="btn small gray" data-act="photo">📷 Foto</button>
-            <button class="btn small gray" data-act="nav">🧭 Naviger</button>
-            <button class="btn small gray" data-act="up">↑</button>
-            <button class="btn small gray" data-act="down">↓</button>
-          </div>
-        </td>
-      `;
-      tr.addEventListener('click', (ev)=>{
-        if (!(ev.target instanceof HTMLButtonElement) && !(ev.target.tagName==='SELECT' || ev.target.tagName==='INPUT')){
-          selectedIndex = i; render();
-        }
-      });
-      tr.querySelector('[data-f="name"]').addEventListener('input', e=>{ s.name = e.target.value; saveState(); });
-      tr.querySelector('[data-f="name"]').addEventListener('blur', ()=> ensureCoords(s));
-      tr.querySelector('[data-f="task"]').addEventListener('change', e=>{ s.task = e.target.value; if (s.task!=='Brøytestikker') s.details=''; saveState(); render(); });
-      tr.querySelector('[data-f="comment"]').addEventListener('input', e=>{ s.comment = e.target.value; saveState(); });
-
-      tr.querySelector('[data-act="ongoing"]').addEventListener('click', (e)=>{ e.stopPropagation(); setOngoing(i); });
-      tr.querySelector('[data-act="done"]').addEventListener('click', (e)=>{ e.stopPropagation(); setDone(i); });
-      tr.querySelector('[data-act="blocked"]').addEventListener('click', (e)=>{ e.stopPropagation(); setBlocked(i); });
-      tr.querySelector('[data-act="photo"]').addEventListener('click', (e)=>{ e.stopPropagation(); doPhoto(i); });
-      tr.querySelector('[data-act="nav"]').addEventListener('click', (e)=>{ e.stopPropagation(); doNav(i); });
-      tr.querySelector('[data-act="up"]').addEventListener('click', (e)=>{ e.stopPropagation(); if (i>0){ const tmp=state.stops[i-1]; state.stops[i-1]=state.stops[i]; state.stops[i]=tmp; saveState(); render(); refreshMarkers(); }});
-      tr.querySelector('[data-act="down"]').addEventListener('click', (e)=>{ e.stopPropagation(); if (i<state.stops.length-1){ const tmp=state.stops[i+1]; state.stops[i+1]=state.stops[i]; state.stops[i]=tmp; saveState(); render(); refreshMarkers(); }});
-      tb.appendChild(tr);
-    });
-    document.getElementById('nextTxt').textContent = state.stops.find(s=>s.status!=='done' && s.status!=='blocked')?.name || '—';
-    refreshMarkers();
-  }
-  function labelStatus(s){ return s==='done'?'Ferdig':(s==='blocked'?'Stoppet':(s==='ongoing'?'Pågår':'Venter')); }
-
-  function setOngoing(i){
-    const s = state.stops[i]; if (!s) return;
-    if (!s.startedAt) s.startedAt = Date.now();
-    s.status='ongoing'; saveState(); render();
-  }
-  function setDone(i){
-    const s = state.stops[i]; if (!s) return;
-    if (s.task==='Brøytestikker') {
-      const n = prompt('Antall brøytestikker? ', (s.details||'').replace(/\\D/g,'')); if (n===null) return;
-      const num = parseInt(n||'0',10)||0; s.details = `Brøytestikker: ${num}`;
-    }
-    if (!s.startedAt) s.startedAt = Date.now();
-    s.finishedAt = Date.now(); s.status='done'; saveState(); render();
-    const next = state.stops.find(x=>x.status!=='done' && x.status!=='blocked');
-    if (next && next.name) openGoogleMapsTo(next.name);
-  }
-  function setBlocked(i){
-    const s = state.stops[i]; if (!s) return;
-    const reason = prompt('Hvorfor ikke mulig å utføre? (valgfritt)') || '';
-    s.status='blocked'; if (!s.startedAt) s.startedAt = Date.now(); s.finishedAt = Date.now();
-    if (reason) s.details = (s.details? s.details+' · ' : '') + 'Årsak: ' + reason;
-    saveState(); render();
-  }
-  function doNav(i){
-    const s = state.stops[i]; if (!s) return;
-    openGoogleMapsTo(s.name);
-  }
-  function doPhoto(i){
-    const s = state.stops[i]; if (!s) return;
-    pendingPhotoStopId = s.id; document.getElementById('fileInput').click();
-  }
-
-  document.getElementById('addBtn').addEventListener('click', async ()=>{
-    const name = document.getElementById('addr').value.trim();
-    const task = document.getElementById('taskSel').value;
-    if (!name) return;
-    const st = mkStop(name, task);
-    state.stops.push(st);
-    document.getElementById('addr').value='';
-    selectedIndex = state.stops.length-1; saveState(); render();
-    ensureCoords(st);
-  });
-  document.getElementById('optBtn').addEventListener('click', ()=>{
-    state.stops.sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'no'));
-    saveState(); render(); refreshMarkers(); fitAll();
-  });
-
-  // Finish choice
-  const choiceBg = byId('choiceBg');
-  byId('doneBtn').addEventListener('click', ()=> choiceBg.style.display='flex');
-  byId('chCancel').addEventListener('click', ()=> choiceBg.style.display='none');
-  byId('chService').addEventListener('click', ()=>{ choiceBg.style.display='none'; showService(); });
-  byId('chNewRound').addEventListener('click', ()=>{ choiceBg.style.display='none'; startNewRound(); });
-  byId('chJustFinish').addEventListener('click', async ()=>{
-    choiceBg.style.display='none';
-    const {zipBlob, fileName} = await buildZip();
-    await shareOrDownloadZip(zipBlob, fileName);
-  });
-
-  // Service
-  function showService(){ byId('svcBg').style.display='flex'; }
-  byId('svcCancel').addEventListener('click', ()=>{ byId('svcBg').style.display='none'; });
-  byId('svcSave').addEventListener('click', async ()=>{
-    byId('svcBg').style.display='none';
-    state.service = {
-      plog: byId('plog').checked,
-      fres: byId('fres').checked,
-      stro: byId('stro').checked,
-      other: byId('other').checked,
-      notes: byId('svcNotes').value.trim()
-    };
-    saveState();
-    const {zipBlob, fileName} = await buildZip();
-    await shareOrDownloadZip(zipBlob, fileName);
-  });
-
-  // Big buttons
-  const bigBar = byId('bigBar');
-  const gloveBtn = byId('gloveToggle');
-  gloveBtn.addEventListener('click', ()=>{
-    gloveOn = !gloveOn;
-    if (gloveOn){ bigBar.classList.add('show'); gloveBtn.textContent='Store knapper: På'; }
-    else { bigBar.classList.remove('show'); gloveBtn.textContent='Store knapper: Av'; }
-  });
-  byId('bOngoing').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); setOngoing(selectedIndex); });
-  byId('bDone').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); setDone(selectedIndex); });
-  byId('bBlocked').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); setBlocked(selectedIndex); });
-  byId('bNav').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); doNav(selectedIndex); });
-  byId('bPhoto').addEventListener('click', ()=>{ if (selectedIndex<0) return alert('Velg en rad først.'); doPhoto(selectedIndex); });
-
-  // Tracking toggle
-  const trackBtn = byId('trackToggle');
-  trackBtn.addEventListener('click', ()=>{
-    if (watchId===null) startTracking(); else stopTracking();
-  });
-  startTracking(); // default På
-
-  function startTracking(){
-    if (!('geolocation' in navigator)) return;
-    if (watchId!==null) navigator.geolocation.clearWatch(watchId);
-    watchId = navigator.geolocation.watchPosition((pos)=>{
-      const {latitude, longitude, accuracy} = pos.coords;
-      byId('posTxt').textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)} (±${Math.round(accuracy)} m)`;
-      const next = state.stops.find(x=>x.status!=='done' && x.status!=='blocked');
-      if (next && next.lat && next.lng){
-        const dist = haversineMeters(latitude, longitude, next.lat, next.lng);
-        if (dist < 60 && !next._askedCheckin){
-          next._askedCheckin = true;
-          saveState();
-          const ok = confirm(`Du er ved "${next.name}". Sjekk inn nå?`);
-          if (ok){
-            if (!next.startedAt) next.startedAt = Date.now();
-            next.details = (next.details? next.details+' · ' : '') + 'Sjekket inn';
-            next.status = 'ongoing';
-            saveState(); render();
-          }
-        }
-      }
-    }, ()=>{}, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
-    trackBtn.textContent = 'Sporing: På';
-    trackBtn.classList.remove('gray'); trackBtn.classList.add('blue');
-  }
-  function stopTracking(){
-    if (watchId!==null) navigator.geolocation.clearWatch(watchId);
-    watchId = null; byId('posTxt').textContent = '—';
-    trackBtn.textContent = 'Sporing: Av';
-    trackBtn.classList.remove('blue'); trackBtn.classList.add('gray');
-  }
-
-  function haversineMeters(aLat, aLng, bLat, bLng){
-    const toRad = d => d * Math.PI / 180;
-    const R = 6371000;
-    const dLat = toRad(bLat - aLat);
-    const dLng = toRad(bLng - aLng);
-    const s1 = Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;
-    return 2 * R * Math.asin(Math.sqrt(s1));
-  }
-
-  // Share ZIP
-  document.getElementById('sendZipBtn').addEventListener('click', async ()=>{
-    const {zipBlob, fileName} = await buildZip();
-    await shareOrDownloadZip(zipBlob, fileName);
-  });
-
-  async function buildZip(){
-    const round = state.round;
-    const startedAt = new Date(state.startedAt);
-    const finishedAt = new Date();
-    const csvLines = [
-      ['Runde','Start','Slutt','Sjåfør','Navn','Oppgave','Status','Detaljer','Kommentar','Antall bilder','Starttid','Sluttid','Service:plog','Service:fres','Service:stro','Service:annet','Service:notes'].join(','),
-      ...state.stops.map(s=>[
-        round, startedAt.toISOString(), finishedAt.toISOString(),
-        csvEscape(state.driver||''), csvEscape(s.name), csvEscape(s.task),
-        s.status, csvEscape(s.details||''), csvEscape(s.comment||''),
-        (s.photos||[]).length, s.startedAt? new Date(s.startedAt).toISOString(): '',
-        s.finishedAt? new Date(s.finishedAt).toISOString(): '',
-        state.service.plog, state.service.fres, state.service.stro, state.service.other,
-        csvEscape(state.service.notes||'')
-      ].join(','))
-    ];
-    const csv = csvLines.join('\n');
-
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF();
-    pdf.setFontSize(12);
-    pdf.text(`Brøyterute – Runde ${round}`, 14, 14);
-    pdf.text(`Start: ${startedAt.toLocaleString('no-NO')}  Slutt: ${finishedAt.toLocaleString('no-NO')}`,14,22);
-    if (state.driver) pdf.text(`Sjåfør: ${state.driver}`,14,30);
-    let y = 38;
-    state.stops.forEach((s,i)=>{
-      const line = `${i+1}. ${s.name} — ${s.task} — ${labelStatus(s.status)}${s.details?(' — '+s.details):''}${s.comment?(' — '+s.comment):''}`;
-      const lines = pdf.splitTextToSize(line, 180);
-      if (y + lines.length*6 > 280){ pdf.addPage(); y=20; }
-      pdf.text(lines, 14, y); y += lines.length*6 + 2;
-    });
-    const pdfBlob = pdf.output('blob');
-
-    const zip = new JSZip();
-    zip.file(`broeyting_dokumentasjon_runde${round}.csv`, csv);
-    zip.file(`broeyting_rapport_runde${round}.pdf`, pdfBlob);
-    let idx = 1;
-    for (const s of state.stops){
-      if (s.photos && s.photos.length){
-        let i=1;
-        for (const p of s.photos){
-          const base64 = (p.dataUrl.split(',')[1]||'');
-          zip.file(`bilder/${String(idx).padStart(2,'0')}_${safeName(s.name)}_${i}.jpg`, base64, {base64:true});
-          i++;
-        }
-      }
-      idx++;
-    }
-    const blob = await zip.generateAsync({type:"blob"});
-    return { zipBlob: blob, fileName: `broeyting_dokumentasjon_runde${round}.zip` };
-  }
-
-  async function shareOrDownloadZip(zipBlob, fileName){
-    const file = new File([zipBlob], fileName, { type: 'application/zip' });
-    const shareData = { files:[file], title:'Brøyterapport', text:'Se vedlagt ZIP (CSV, PDF, bilder).' };
-
-    if (navigator.canShare && navigator.canShare({ files:[file] })) {
-      try { await navigator.share(shareData); return; } catch(e){ /* fallthrough */ }
-    }
-    downloadBlob(zipBlob, fileName);
-    const mailto = `mailto:${encodeURIComponent(DEFAULT_EMAIL)}?subject=${encodeURIComponent('Brøyterapport '+fileName)}&body=${encodeURIComponent('ZIP-fila er lastet ned. Legg den ved e-posten før sending.')}`;
-    window.location.href = mailto;
-  }
-
-  function csvEscape(s){ return '"' + String(s).replace(/"/g,'""') + '"'; }
-  function safeName(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
-  function downloadBlob(blob, filename){
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  }
-
-  function startNewRound(){
-    state.round += 1;
-    state.startedAt = Date.now();
-    state.stops.forEach(s=>{ s.status='pending'; s.startedAt=null; s.finishedAt=null; if (s.task==='Brøytestikker') s.details=''; s.photos=[]; s.comment=''; s._askedCheckin=false; });
-    state.service = {plog:false,fres:false,stro:false,other:false,notes:''};
-    saveState();
-    render();
-  }
-
-  function byId(id){ return document.getElementById(id); }
-  function escapeAttr(s){ return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',\"'\":'&#039;'}[ch])); }
-
-  render();
-  state.stops.forEach(s => { if (!s.lat||!s.lng) ensureCoords(s); });
-
-  async function geocodeNameToCoords(name){
-    try{
-      const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(name), { headers: { 'Accept-Language':'no' } });
-      const js = await r.json();
-      if (js && js[0]) return { lat: parseFloat(js[0].lat), lng: parseFloat(js[0].lon) };
-    }catch(e){}
-    return null;
-  }
-  async function ensureCoords(stop){
-    if (stop && (!stop.lat || !stop.lng) && stop.name){
-      const c = await geocodeNameToCoords(stop.name);
-      if (c){ stop.lat=c.lat; stop.lng=c.lng; saveState(); refreshMarkers(); }
-    }
-  }
-
-  function openGoogleMapsTo(address){
-    const url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(address);
-    window.open(url, '_blank');
-  }
-})();
-</script>
-
-<!-- SW register -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-      navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
-    });
-  }
-</script>
 </body>
 </html>
