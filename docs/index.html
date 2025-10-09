@@ -3,52 +3,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Brøyterute – Romerike Trefelling (V9.4)</title>
+<title>Brøyterute – v9.6 (ny oppdeling)</title>
 <meta name="theme-color" content="#0f9d58">
+
 <style>
 :root{
- --bg:#111;--fg:#f4f6f8;--muted:#b8c0c7;
- --card:#1a1a1a;--cardBorder:#2a2a2a;
- --green:#0f9d58;--red:#c21d03;--blue:#0061fe;--gray:#2f3337;
+  --bg:#111; --fg:#f5f7fa; --muted:#b9c2cc;
+  --card:#181a1e; --cardBorder:#2a2f36;
+  --green:#0f9d58; --blue:#0b66ff; --red:#c21d03; --gray:#2f3337;
 }
-*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 body{background:var(--bg);color:var(--fg)}
+a{color:inherit}
+button{cursor:pointer}
+input,select,textarea{background:transparent;color:inherit;border:1px solid var(--cardBorder);border-radius:10px;padding:10px;font-size:16px}
+
 #app{min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
-header{background:#0b0b0b;color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px}
-header h1{font-size:16px;margin:0}
+
+header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0b0b0b;color:#fff;border-bottom:1px solid #141414}
+header h1{margin:0;font-size:16px}
 .spacer{flex:1}
-.nav{display:flex;gap:8px}
-.nav .tab{border:none;border-radius:12px;padding:8px 12px;background:#2a2a2a;color:#fff;cursor:pointer}
-.nav .tab.active{background:var(--green)}
+
+.nav{display:flex;gap:8px;flex-wrap:wrap}
+.tab{border:none;border-radius:12px;padding:8px 12px;background:#25282e;color:#fff}
+.tab.active{background:var(--green)}
+
 .page{display:none;padding:14px}
 .page.active{display:block}
+
 .card{background:var(--card);border:1px solid var(--cardBorder);border-radius:16px;padding:14px}
 .stack{display:flex;flex-direction:column;gap:12px}
-.row{display:flex;gap:10px;flex-wrap:wrap}
-.title-lg{font-size:26px;font-weight:700}
-.muted{color:var(--muted)}
-.btn{border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+
+.btn{border:none;border-radius:12px;padding:10px 14px;font-weight:700}
 .btn-green{background:var(--green);color:#fff}
-.btn-red{background:var(--red);color:#fff}
 .btn-blue{background:var(--blue);color:#fff}
+.btn-red{background:var(--red);color:#fff}
 .btn-gray{background:var(--gray);color:#fff}
+
+.title-lg{font-size:26px;font-weight:800}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+
+.progress{width:100%;height:14px;border-radius:999px;background:#242830;border:1px solid var(--cardBorder);overflow:hidden}
+.progress>.bar{height:100%;width:0%;background:linear-gradient(90deg,#0f9d58,#22c55e);transition:width .25s ease}
+
+.thumbs img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid #3a3f46;margin-right:6px}
+
+.footer{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;background:#0b0b0b;color:#fff;border-top:1px solid #141414;font-size:12px}
+
 .item{background:var(--card);border:1px solid var(--cardBorder);border-radius:12px;padding:10px;margin-bottom:8px}
-.item.disabled{opacity:.5}
-.footer{background:#0b0b0b;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;font-size:12px}
-input,select,textarea{background:transparent;color:inherit;border:1px solid var(--cardBorder);border-radius:10px;padding:8px}
-.hanske .btn{font-size:22px;padding:14px 20px;border-radius:18px}
-.thumbs img{width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid #444;margin-right:4px}
+
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;background:#22262c;border:1px solid #2b3139}
+.badge.warn{background:#3a2f00;color:#ffd27a;border-color:#5a4a00}
+
+.hanske .btn{font-size:22px;padding:16px 20px;border-radius:18px}
 </style>
 </head>
 <body>
 <div id="app">
 <header>
-  <h1>Brøyterute – Romerike Trefelling</h1>
+  <h1>Brøyterute</h1>
   <div class="spacer"></div>
   <div class="nav">
     <button class="tab active" data-tab="home">Hjem</button>
     <button class="tab" data-tab="work">Under arbeid</button>
     <button class="tab" data-tab="register">Adresse-register</button>
+    <button class="tab" data-tab="admin">Admin</button>
     <button class="tab" data-tab="service">Service</button>
   </div>
 </header>
@@ -58,34 +80,73 @@ input,select,textarea{background:transparent;color:inherit;border:1px solid var(
   <div class="card stack">
     <h2>Innstillinger</h2>
     <div class="row">
-      <label style="min-width:90px;align-self:center">Sjåfør</label>
-      <input id="driver" type="text" placeholder="Skriv inn navnet ditt" style="flex:1;min-width:220px">
-    </div>
-    <div class="row">
-      <label><input id="eq_plog" type="checkbox"> Plog</label>
-      <label><input id="eq_fres" type="checkbox"> Fres</label>
-      <label><input id="eq_stro" type="checkbox"> Strøkasse</label>
-    </div>
-    <div class="row">
-      <label><input id="autoCheck" type="checkbox" checked> Automatisk sjekk-inn</label>
+      <label>Rolle</label>
+      <select id="role">
+        <option value="driver1">Sjåfør 1</option>
+        <option value="driver2">Sjåfør 2</option>
+        <option value="driver3">Sjåfør 3</option>
+        <option value="driver4">Sjåfør 4</option>
+        <option value="admin">Admin (lese)</option>
+      </select>
+
+      <label>Retning</label>
+      <select id="direction">
+        <option value="forward">Vanlig</option>
+        <option value="reverse">Baklengs</option>
+      </select>
+
       <label><input id="bigBtn" type="checkbox"> Hanske-modus</label>
+      <label><input id="autoCheck" type="checkbox" checked> Auto sjekk-inn</label>
     </div>
-    <div class="row" style="justify-content:flex-end;gap:8px">
+
+    <div class="row">
+      <label>Synk-nøkkel</label>
+      <input id="apiKey" type="password" placeholder="Lim inn X-Master-Key (lokalt)">
+      <button id="saveKey" class="btn btn-blue">Lagre nøkkel</button>
+      <span id="syncStatus" class="badge">Synk –</span>
+    </div>
+
+    <div class="row">
       <button id="btnRoundByEquip" class="btn btn-blue">Start ny runde (etter utstyr)</button>
       <button id="btnResetAll" class="btn btn-red">Nullstill alle</button>
       <button id="btnStart" class="btn btn-green">Start runde →</button>
+      <button id="btnSyncNow" class="btn btn-gray">Synk nå</button>
+    </div>
+
+    <div class="muted" id="directionNote">—</div>
+  </div>
+
+  <div class="card stack">
+    <h3>Utstyr</h3>
+    <div class="row">
+      <label><input id="eq_plog" type="checkbox" checked> Plog</label>
+      <label><input id="eq_fres" type="checkbox"> Fres</label>
+      <label><input id="eq_stro" type="checkbox"> Strøkasse</label>
     </div>
   </div>
 </div>
-
 <!-- UNDER ARBEID -->
 <div id="page-work" class="page">
   <div class="card stack">
-    <div id="driverLbl" class="muted">Sjåfør: —</div>
+    <div class="row" style="align-items:center;gap:8px">
+      <div id="driverLbl" class="muted">Rolle: —</div>
+      <div id="directionLbl" class="badge">Retning: —</div>
+      <div id="claimWarn" class="badge warn" style="display:none">⚠️ Delt retning</div>
+    </div>
+
     <h2 id="curName" class="title-lg">—</h2>
     <div class="muted">Oppgave: <span id="curTask">—</span></div>
     <div class="muted">Neste: <span id="curNext">—</span></div>
+
+    <div class="progress-row" style="display:flex;align-items:center;gap:10px">
+      <div class="muted" id="progTxt">0 % fullført (0/0)</div>
+      <div class="progress" style="flex:1;min-width:160px">
+        <div class="bar" id="progBar"></div>
+      </div>
+    </div>
+
     <div class="thumbs" id="thumbs"></div>
+
     <div class="row">
       <button id="ongo" class="btn btn-gray">▶️ Pågår</button>
       <button id="done" class="btn btn-green">✅ Ferdig</button>
@@ -96,22 +157,66 @@ input,select,textarea{background:transparent;color:inherit;border:1px solid var(
     </div>
   </div>
 </div>
-
-<!-- REGISTER -->
+<!-- ADRESSE-REGISTER -->
 <div id="page-register" class="page">
-  <div id="list"></div>
   <div class="card stack">
+    <div class="row">
+      <button id="btnCatalogPull" class="btn btn-blue">↘︎ Hent fra katalog</button>
+      <button id="btnPropose" class="btn btn-gray">✍️ Foreslå endring/ny</button>
+    </div>
+    <div class="small muted">
+      Katalogen er «felles liste» (leses fra sky). Lokale tillegg under påvirker kun din enhet.
+    </div>
+  </div>
+
+  <!-- Dynamisk liste over alle adresser -->
+  <div id="list"></div>
+
+  <div class="card stack">
+    <h3>Legg til ny adresse (lokalt)</h3>
     <div class="row">
       <input id="addr" type="text" placeholder="Adresse / område" style="flex:2">
       <select id="taskSel" style="flex:1">
-        <option>Brøyte</option><option>Frese</option><option>Strø</option>
-        <option>Brøyte og strø</option><option>Frese og strø</option><option>Brøytestikker</option>
+        <option>Brøyte</option>
+        <option>Frese</option>
+        <option>Strø</option>
+        <option>Brøyte og strø</option>
+        <option>Frese og strø</option>
+        <option>Brøytestikker</option>
       </select>
       <button id="add" class="btn btn-green">+ Legg til</button>
     </div>
+    <div class="small muted">Tips: Trykk Enter i adressefeltet for å legge til raskt.</div>
   </div>
 </div>
+<!-- ADMIN -->
+<div id="page-admin" class="page">
+  <div class="card stack">
+    <h2>Admin</h2>
 
+    <div class="row">
+      <button id="adminSync" class="btn btn-gray">Hent status nå</button>
+      <span id="adminSyncTxt" class="muted">—</span>
+    </div>
+
+    <div id="adminStats" class="muted">Ingen data enda.</div>
+    <div id="adminList"></div>
+
+    <hr style="border-color:#2a2a2a">
+
+    <h3>Forslag (INBOX)</h3>
+    <div class="row">
+      <button id="adminInbox" class="btn btn-gray">Hent forslag</button>
+      <span id="adminInboxTxt" class="muted">—</span>
+    </div>
+    <div id="inboxList"></div>
+
+    <div class="small muted">
+      Tips: «Hent status» viser lokal fremdrift (trykk «Synk nå» på Hjem for å lese/skyve MASTER).
+      INBOX krever gyldig synk-nøkkel (X-Master-Key).
+    </div>
+  </div>
+</div>
 <!-- SERVICE -->
 <div id="page-service" class="page">
   <div class="card stack">
@@ -123,110 +228,368 @@ input,select,textarea{background:transparent;color:inherit;border:1px solid var(
       <label><input id="svc_other" type="checkbox"> Annet</label>
     </div>
     <textarea id="svcNotes" placeholder="Anmerkninger …" style="width:100%;min-height:100px"></textarea>
-    <button id="svcSave" class="btn btn-green">📤 Lagre og send rapport</button>
+    <div class="row">
+      <button id="svcSave" class="btn btn-green">📤 Lagre og send rapport</button>
+    </div>
+    <div class="small muted">
+      Rapporten deles som CSV (fil-delingsdialog på mobil, eller nedlasting i nettleser).
+    </div>
   </div>
 </div>
 
+<!-- FOOTER -->
 <div class="footer">
   <div id="pos">—</div>
-  <div>Versjon 9.4 (Oktober 2025)</div>
+  <div>v9.6 – Synk aktiv</div>
 </div>
+
+<!-- Foto-opplasting (brukes på «Under arbeid») -->
 <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
-</div>
 <script>
-document.addEventListener('DOMContentLoaded',()=>{
-const $=id=>document.getElementById(id);
-const save=()=>localStorage.setItem('broyte_state',JSON.stringify(state));
-const load=()=>{try{return JSON.parse(localStorage.getItem('broyte_state')||'');}catch{return null;}};
-const show=t=>['home','work','register','service'].forEach(p=>{
- $('page-'+p).classList.toggle('active',p===t);
- document.querySelector('.tab[data-tab="'+p+'"]').classList.toggle('active',p===t);
-});
-let state=load()||{driver:'',equipment:{plog:true,fres:false,stro:false},
-autoCheck:true,stops:[{n:'AMFI Eidsvoll (Råholt)',t:'Brøyte',f:false,b:false,p:[]},
-{n:'Råholt barneskole',t:'Brøyte og strø',f:false,b:false,p:[]}]};
+/* ========== KONFIG ========== */
+const JSONBIN_API_KEY        = "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma";
+const JSONBIN_MASTER_BIN_ID  = "68e774c9ae596e708f0b9977";   // MASTER: rute/status
+const JSONBIN_CATALOG_BIN_ID = "68e782f3d0ea881f409ae08a";   // PUBLIC: katalog
+const JSONBIN_INBOX_BIN_ID   = "68e7833843b1c97be95ff286";   // INBOX: forslag
+const HEARTBEAT_MS = 30000;
 
-function compat(s){
- const t=s.t||'';
- if(/Brøyte/.test(t)&&!state.equipment.plog)return false;
- if(/Frese/.test(t)&&!state.equipment.fres)return false;
- if(/Strø/.test(t)&&!state.equipment.stro)return false;
- return true;
+/* ========== STATE ========== */
+const LS = "broyte_v96_state";
+let state = load() || {
+  role:"driver1",
+  direction:"forward",
+  equipment:{plog:true,fres:false,stro:false},
+  autoCheck:true,
+  hanske:false,
+  stops:[],
+  service:{plog:false,fres:false,stro:false,other:false,notes:""}
+};
+function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
+function load(){ try{ return JSON.parse(localStorage.getItem(LS)||""); }catch(_){ return null; } }
+function apiKey(){ return localStorage.getItem("broyte_api_key") || JSONBIN_API_KEY; }
+function headers(){ return {"Content-Type":"application/json","X-Master-Key": apiKey()}; }
+const $ = id => document.getElementById(id);
+
+/* ========== UI INIT ========== */
+document.addEventListener("DOMContentLoaded", ()=>{
+  // Tabs
+  document.querySelectorAll(".tab").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+      document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      $("page-"+btn.dataset.tab).classList.add("active");
+      if(btn.dataset.tab==="work") renderWork();
+      if(btn.dataset.tab==="register") renderRegister();
+    });
+  });
+
+  // Hjem
+  $("role").value = state.role;
+  $("direction").value = state.direction;
+  $("eq_plog").checked = !!state.equipment.plog;
+  $("eq_fres").checked = !!state.equipment.fres;
+  $("eq_stro").checked = !!state.equipment.stro;
+  $("autoCheck").checked = !!state.autoCheck;
+  document.body.classList.toggle("hanske", !!state.hanske);
+
+  $("saveKey").onclick = ()=>{
+    const key=$("apiKey").value.trim();
+    if(!key) return alert("Lim inn nøkkel først");
+    localStorage.setItem("broyte_api_key", key);
+    $("apiKey").value="";
+    $("syncStatus").textContent="Synk – nøkkel lagret ✅";
+  };
+  $("role").onchange = ()=>{ state.role=$("role").value; save(); };
+  $("direction").onchange = ()=>{ state.direction=$("direction").value; save(); renderWork(); };
+  $("bigBtn").onchange = ()=>{ state.hanske=$("bigBtn").checked; document.body.classList.toggle("hanske",state.hanske); save(); };
+  $("autoCheck").onchange = ()=>{ state.autoCheck=$("autoCheck").checked; save(); };
+
+  $("btnStart").onclick = ()=>document.querySelector('.tab[data-tab="work"]').click();
+  $("btnSyncNow").onclick = ()=> syncPull().then(()=>syncPush());
+  $("btnResetAll").onclick = ()=>{
+    if(!confirm("Nullstille ALLE adresser?")) return;
+    state.stops.forEach(s=>{ s.f=false; s.b=false; s.started=null; s.finished=null; });
+    save(); renderWork(); renderRegister(); syncPush();
+  };
+  $("btnRoundByEquip").onclick = ()=>{
+    if(!confirm("Nullstille status for adresser som matcher valgt utstyr?")) return;
+    state.stops.forEach(s=>{
+      const t=s.t||"";
+      const needP=/Brøyte/.test(t), needF=/Frese/.test(t), needS=/Strø/.test(t);
+      const ok = (!needP || state.equipment.plog) && (!needF || state.equipment.fres) && (!needS || state.equipment.stro);
+      if(ok){ s.f=false; s.b=false; s.started=null; s.finished=null; }
+    });
+    save(); renderWork(); renderRegister(); syncPush();
+  };
+
+  // Utstyr
+  ["eq_plog","eq_fres","eq_stro"].forEach(id=>{
+    $(id).onchange = ()=>{
+      state.equipment = { plog:$("eq_plog").checked, fres:$("eq_fres").checked, stro:$("eq_stro").checked };
+      save();
+    };
+  });
+
+  // Register
+  $("btnCatalogPull").onclick = catalogPull;
+  $("btnPropose").onclick = ()=>{
+    const name = prompt("Navn (adresse/område):"); if(!name) return;
+    const task = prompt("Oppgave (Brøyte/Frese/Strø/Brøyte og strø/Frese og strø/Brøytestikker):","Brøyte")||"Brøyte";
+    const group= prompt("Borettslag/gruppe (valgfritt):","")||"";
+    sendProposal({type:"add",name,task,group});
+  };
+  $("add").onclick = ()=>{
+    const addr = $("addr").value.trim(); if(!addr) return;
+    const task = $("taskSel").value;
+    state.stops.push({ n:addr, t:task, f:false, b:false, p:[], started:null, finished:null, details:"" });
+    $("addr").value="";
+    save(); renderRegister(); syncPush();
+  };
+  // Enter for kjapp add
+  $("addr").addEventListener("keydown",e=>{
+    if(e.key==="Enter"){ e.preventDefault(); $("add").click(); }
+  });
+
+  // Under arbeid
+  $("ongo").onclick = ()=>{
+    const c = cur(); if(!c) return;
+    c.started = c.started || Date.now();
+    save(); renderWork(); syncPush();
+  };
+  $("done").onclick = ()=>{
+    const c = cur(); if(!c) return;
+    if(c.t==="Brøytestikker"){
+      const v = prompt("Antall brøytestikker?",""); if(v===null) return;
+      c.details = `Brøytestikker: ${parseInt(v||"0",10)||0}`;
+    }
+    c.f = true; c.finished = Date.now();
+    save(); renderWork(); syncPush();
+    const n = nxt(); if(n) navTo(n.n); else afterRound();
+  };
+  $("block").onclick = ()=>{
+    const c = cur(); if(!c) return;
+    const r = prompt("Hvorfor ikke mulig å utføre? (valgfritt)","")||"";
+    if(r) c.details = (c.details?c.details+" · ":"") + "Årsak: " + r;
+    c.b = true; c.finished = Date.now();
+    save(); renderWork(); syncPush();
+  };
+  $("next").onclick = ()=>{
+    const c = cur(); if(!c) return;
+    if(confirm("Markere ferdig før neste?")){ c.f=true; c.finished=Date.now(); save(); syncPush(); }
+    renderWork(); const n=nxt(); if(n) navTo(n.n);
+  };
+  $("nav").onclick = ()=>{ const c=cur(); if(c) navTo(c.n); };
+  $("photo").onclick = ()=> $("fileInput").click();
+  $("fileInput").onchange = e=>{
+    const f = e.target.files?.[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ()=>{ const c=cur(); if(!c) return; (c.p||(c.p=[])).push(r.result); save(); renderWork(); syncPush(); };
+    r.readAsDataURL(f); e.target.value="";
+  };
+
+  // Admin
+  $("adminSync").onclick = ()=>{
+    const c = prog();
+    $("adminSyncTxt").textContent = "Viser lokal status (bruk Synk nå for MASTER).";
+    $("adminStats").innerHTML = `Totalt: ${c.total} – Ferdig: ${c.done} – Ikke mulig: ${c.blocked} – Avklart: ${c.cleared} – ${c.pct}%`;
+    $("adminList").innerHTML = state.stops.map((s,i)=>`<div class="item"><b>${i+1}. ${esc(s.n)}</b><br><span class="muted">${esc(s.t)}</span> ${s.f?'✅':''} ${s.b?'⛔':''}</div>`).join("");
+  };
+  $("adminInbox").onclick = loadInbox;
+
+  // Service
+  $("svcSave").onclick = ()=>{
+    state.service = {
+      plog:$("svc_plog").checked,
+      fres:$("svc_fres").checked,
+      stro:$("svc_stro").checked,
+      other:$("svc_other").checked,
+      notes: $("svcNotes").value.trim()
+    };
+    save();
+    // Eksporter CSV (del via Web Share om mulig)
+    const rows = ['Navn,Oppgave,Ferdig,Blokkert,Start,Slutt'];
+    state.stops.forEach(s=>{
+      rows.push(`"${(s.n||'').replace(/"/g,'""')}","${(s.t||'').replace(/"/g,'""')}",${s.f?'Ja':'Nei'},${s.b?'Ja':'Nei'},${fmtTime(s.started)},${fmtTime(s.finished)}`);
+    });
+    const csv = rows.join("\n");
+    const file = new File([csv],'broeyting_rapport.csv',{type:'text/csv'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({title:'Brøyterapport',text:'CSV-rapport',files:[file]}).catch(()=>{});
+    }else{
+      const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download='broeyting_rapport.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+      alert("Rapport lastet ned (CSV).");
+    }
+  };
+
+  // Geoposisjon i footer
+  initGeolocation();
+
+  // Første visning + defaults
+  bootDefaults();
+  renderRegister();
+  renderWork();
+
+  // Heartbeat
+  setInterval(()=>{ try{ syncPush(); }catch(_){ /*noop*/ } }, HEARTBEAT_MS);
+
+  // Refresh når du kommer tilbake fra Maps
+  window.addEventListener("pageshow", ()=>{ try{ renderWork(); renderRegister(); }catch(_){} });
+});
+
+/* ========== HJELPERE ========== */
+const esc = s => String(s||"");
+const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit"}) : "";
+function idxList(){
+  const rem = state.stops.map((s,i)=>({i,s})).filter(x=>!x.s.f && !x.s.b).map(x=>x.i);
+  return state.direction==="forward" ? rem : rem.slice().reverse();
+}
+function cur(){ const l=idxList(); return l.length? state.stops[l[0]] : null; }
+function nxt(){ const l=idxList(); return l.length>1? state.stops[l[1]] : null; }
+function prog(){
+  const total=state.stops.length;
+  const done=state.stops.filter(s=>s.f).length;
+  const blocked=state.stops.filter(s=>s.b).length;
+  const cleared=done+blocked;
+  const pct = total? Math.round(100*cleared/total):0;
+  return {total,done,blocked,cleared,pct};
 }
 
-['home','work','register','service'].forEach(p=>{
- document.querySelector(`.tab[data-tab="${p}"]`).onclick=()=>{show(p);if(p==='work')renderWork();if(p==='register')renderList();}
-});
-$('driver').value=state.driver;$('driver').oninput=e=>{state.driver=e.target.value;save();};
-['plog','fres','stro'].forEach(k=>{$('eq_'+k).checked=state.equipment[k];$('eq_'+k).onchange=e=>{state.equipment[k]=e.target.checked;save();};});
-$('autoCheck').checked=state.autoCheck;$('autoCheck').onchange=e=>{state.autoCheck=e.target.checked;save();};
-$('bigBtn').onchange=e=>{document.body.classList.toggle('hanske',e.target.checked);};
-
-$('btnStart').onclick=()=>{show('work');renderWork();};
-$('btnRoundByEquip').onclick=()=>{
- if(!confirm('Nullstille status for adresser som matcher utstyr?'))return;
- state.stops.forEach(s=>{if(compat(s)){s.f=false;s.b=false;}});
- save();show('work');renderWork();
-};
-$('btnResetAll').onclick=()=>{
- if(!confirm('Nullstille alle status?'))return;
- state.stops.forEach(s=>{s.f=false;s.b=false;});save();renderWork();
-};
-
-const cur=()=>state.stops.find(s=>!s.f&&!s.b&&compat(s))||state.stops.find(s=>!s.f&&!s.b);
-const nxt=()=>{const i=state.stops.indexOf(cur());return state.stops.slice(i+1).find(s=>!s.f&&!s.b&&compat(s))||null;};
+/* ========== RENDER ========== */
 function renderWork(){
- const c=cur(),n=nxt();
- $('driverLbl').textContent='Sjåfør: '+(state.driver||'—');
- $('curName').textContent=c?c.n:'—';$('curTask').textContent=c?c.t:'—';$('curNext').textContent=n?n.n:'—';
- $('thumbs').innerHTML=c&&c.p?c.p.map(x=>`<img src="${x}">`).join(''):'';
+  const c=cur(), n=nxt();
+  if($("driverLbl")) $("driverLbl").textContent = "Rolle: " + state.role;
+  if($("directionLbl")) $("directionLbl").textContent = "Retning: " + (state.direction==="forward"?"Vanlig":"Baklengs");
+  if($("curName")) $("curName").textContent = c? esc(c.n) : "—";
+  if($("curTask")) $("curTask").textContent = c? esc(c.t) : "—";
+  if($("curNext")) $("curNext").textContent = n? esc(n.n) : "—";
+  if($("thumbs")) $("thumbs").innerHTML = c?.p?.length ? c.p.map(src=>`<img src="${src}" alt="foto">`).join("") : "";
+  const {pct,cleared,total} = prog();
+  if($("progBar")) $("progBar").style.width = pct+"%";
+  if($("progTxt")) $("progTxt").textContent = `${pct} % fullført (${cleared}/${total})`;
+  if($("directionNote")) $("directionNote").textContent = `Du kjører i ${(state.direction==="forward"?'vanlig':'baklengs')} rekkefølge.`;
 }
-$('done').onclick=()=>{const c=cur();if(!c)return;c.f=true;save();renderWork();
- const n=nxt();if(n)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(n.n);
- else alert('Runden er ferdig – gå til Service for rapport.');
-};
-$('block').onclick=()=>{const c=cur();if(!c)return;c.b=true;save();renderWork();};
-$('next').onclick=()=>{const c=cur();if(!c)return;c.f=true;save();renderWork();};
-$('nav').onclick=()=>{const c=cur();if(c)window.location.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(c.n);};
-$('photo').onclick=()=>{$('fileInput').click();};
-$('fileInput').onchange=e=>{
- const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{
- const c=cur();if(!c)return;c.p=c.p||[];c.p.push(r.result);save();renderWork();};r.readAsDataURL(f);
-};
-
-function renderList(){
- $('list').innerHTML=state.stops.map((s,i)=>`<div class='item${s.f?' disabled':''}'><b>${i+1}. ${s.n}</b><br>${s.t}${s.f?'✅':''}</div>`).join('');
+function renderRegister(){
+  if(!$("list")) return;
+  $("list").innerHTML = state.stops.length
+    ? state.stops.map((s,i)=>`
+        <div class="item">
+          <b>${i+1}. ${esc(s.n)}</b><br>
+          <span class="muted">${esc(s.t)}</span> ${s.f?'✅':''} ${s.b?'⛔':''}
+        </div>`).join("")
+    : `<div class="item muted">Ingen adresser enda. Hent fra katalog eller legg til lokalt.</div>`;
 }
-$('add').onclick=()=>{const n=$('addr').value.trim();if(!n)return;
- state.stops.push({n,t:$('taskSel').value,f:false,b:false,p:[]});$('addr').value='';save();renderList();
-};
 
-// Auto sjekk-inn (A → D)
-if(navigator.geolocation)navigator.geolocation.watchPosition(pos=>{
- if(!state.autoCheck)return;
- const {latitude,longitude}=pos.coords;
- const c=cur();if(!c)return;
- fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(c.n)}`)
- .then(r=>r.json()).then(j=>{
- if(!j[0])return;
- const dx=latitude-parseFloat(j[0].lat),dy=longitude-parseFloat(j[0].lon);
- const d=Math.sqrt(dx*dx+dy*dy)*111000;
- if(d<60&&!c.started){if(confirm(`Du er ved ${c.n} – sjekk inn?`)){c.started=true;save();renderWork();}}
- });
-},{enableHighAccuracy:true});
+/* ========== HANDLINGER ========== */
+function navTo(address){
+  if(!address) return;
+  location.href = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(address);
+}
+function afterRound(){
+  const c = confirm("Runde ferdig ✅\nVil du starte ny runde (etter utstyr)?\nTrykk Avbryt for å gå til Service.");
+  if(c){
+    state.stops.forEach(s=>{
+      const t=s.t||"";
+      const needP=/Brøyte/.test(t), needF=/Frese/.test(t), needS=/Strø/.test(t);
+      const ok = (!needP || state.equipment.plog) && (!needF || state.equipment.fres) && (!needS || state.equipment.stro);
+      if(ok){ s.f=false; s.b=false; s.started=null; s.finished=null; }
+    });
+    save(); renderWork(); renderRegister(); syncPush();
+    document.querySelector('.tab[data-tab="work"]')?.click();
+  }else{
+    document.querySelector('.tab[data-tab="service"]')?.click();
+  }
+}
 
-// Service / rapport
-$('svcSave').onclick=()=>{
- const svc={plog:$('svc_plog').checked,fres:$('svc_fres').checked,stro:$('svc_stro').checked,other:$('svc_other').checked,notes:$('svcNotes').value};
- const csv='Navn,Oppgave,Ferdig\n'+state.stops.map(s=>`${s.n},${s.t},${s.f?'Ja':'Nei'}`).join('\n');
- const blob=new Blob([csv],{type:'text/csv'});
- const url=URL.createObjectURL(blob);
- const a=document.createElement('a');a.href=url;a.download='broeyting_rapport.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
- alert('Rapport lagret som CSV – send den videre fra nedlastinger.');
-};
+/* ========== SYNC ========== */
+async function syncPull(){
+  try{
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}/latest`, { headers: headers() });
+    const js = await r.json();
+    if(js?.record?.stops){
+      state.stops = js.record.stops.map(s=>({ n:s.n, t:s.t, f:!!s.f, b:!!s.b, p:s.p||[], started:s.started||null, finished:s.finished||null, details:s.details||"" }));
+      save(); renderWork(); renderRegister();
+      $("syncStatus").textContent = "Synk – Pull OK";
+    }else{
+      $("syncStatus").textContent = "Synk – Pull tom";
+    }
+  }catch(e){ $("syncStatus").textContent = "Synk – Pull FEIL"; }
+}
+async function syncPush(){
+  try{
+    const payload={ version:"9.6", updated: Date.now(), stops: state.stops, meta:{role:state.role, direction:state.direction} };
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(payload) });
+    if(!r.ok) throw 0;
+    $("syncStatus").textContent = "Synk – Push OK";
+  }catch(e){ $("syncStatus").textContent = "Synk – Push FEIL"; }
+}
 
-$('pos').textContent='Klar'; // statusfelt
-});
+/* ========== KATALOG + INBOX ========== */
+async function catalogPull(){
+  try{
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`);
+    const js = await r.json();
+    const cat = js?.record?.addresses||[];
+    const need = { plog:!!state.equipment.plog, fres:!!state.equipment.fres, stro:!!state.equipment.stro };
+    const filtered = cat.filter(a=>a.active!==false).filter(a=>{
+      const eq=a.equipment||[]; if(!eq.length) return true; return eq.some(k=>need[k]);
+    });
+    state.stops = filtered.map(a=>({ n:a.name, t:a.task, f:false, b:false, p:[], started:null, finished:null, details:"" }));
+    save(); renderRegister(); renderWork(); syncPush();
+    alert("Katalog hentet ✔︎");
+  }catch(e){ alert("Klarte ikke hente katalog."); }
+}
+async function sendProposal(obj){
+  try{
+    const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json());
+    const rec = latest?.record || {version:"9.6", updated:0, proposals:[]};
+    rec.proposals = rec.proposals || [];
+    rec.proposals.push({ id: Math.random().toString(36).slice(2), type: obj.type||"add", from: state.role, payload: obj, ts: Date.now(), status:"pending", note:"" });
+    rec.updated = Date.now();
+    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
+    alert("Forslag sendt 👍");
+  }catch(e){ alert("Kunne ikke sende forslag. Sjekk nøkkel."); }
+}
+async function loadInbox(){
+  try{
+    const js = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json());
+    const props = js?.record?.proposals||[];
+    $("adminInboxTxt").textContent = "Forslag: " + props.length;
+    $("inboxList").innerHTML = props.slice(-50).reverse().map(p=>`
+      <div class="item">
+        <b>${(p.type||'').toUpperCase()}</b> – fra ${p.from||'?'} – ${new Date(p.ts).toLocaleString('no-NO')}<br>
+        <span class="muted">${(p.payload?.name||'')} ${(p.payload?.task||'')}</span><br>
+        <span class="badge">${p.status||'pending'}</span>
+      </div>`).join("");
+  }catch(e){ $("adminInboxTxt").textContent = "Feil ved henting."; }
+}
+
+/* ========== GEO ========== */
+function initGeolocation(){
+  const posEl = $("pos"); if(!posEl) return;
+  if(!navigator.geolocation){ posEl.textContent="Posisjon ikke tilgjengelig"; return; }
+  const fmt=n=>Number.isFinite(n)?n.toFixed(5):"—";
+  navigator.geolocation.watchPosition(
+    (p)=>{ const {latitude,longitude,accuracy}=p.coords||{}; posEl.textContent = `${fmt(latitude)}, ${fmt(longitude)} (±${Math.round(accuracy||0)} m)`; },
+    ()=>{ posEl.textContent = "Posisjon utilgjengelig"; },
+    { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
+  );
+}
+
+/* ========== DEFAULTS ========== */
+function bootDefaults(){
+  if(!Array.isArray(state.stops)) state.stops=[];
+  if(state.stops.length===0){
+    state.stops = [
+      { n:"AMFI Eidsvoll (Råholt)", t:"Brøyte", f:false, b:false, p:[] },
+      { n:"Råholt barneskole", t:"Brøyte og strø", f:false, b:false, p:[] },
+      { n:"Råholt ungdomsskole", t:"Frese", f:false, b:false, p:[] }
+    ];
+    save();
+  }
+}
 </script>
+
+</div> <!-- /#app -->
 </body>
 </html>
