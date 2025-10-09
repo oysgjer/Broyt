@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Brøyterute – v9.6 (ny oppdeling)</title>
+<title>Brøyterute – v9.7 (Romerike Trefelling)</title>
 <meta name="theme-color" content="#0f9d58">
+<link rel="manifest" href="manifest.json">
 
 <style>
 :root{
@@ -59,6 +60,9 @@ header h1{margin:0;font-size:16px}
 .badge.warn{background:#3a2f00;color:#ffd27a;border-color:#5a4a00}
 
 .hanske .btn{font-size:22px;padding:16px 20px;border-radius:18px}
+
+/* installer-banner */
+.install {border:1px dashed #334; border-radius:12px; padding:10px; background:#15181d}
 </style>
 </head>
 <body>
@@ -95,15 +99,24 @@ header h1{margin:0;font-size:16px}
         <option value="reverse">Baklengs</option>
       </select>
 
+      <label style="display:flex;gap:6px;align-items:center">
+        <input id="useCustomName" type="checkbox"> Bruk eget navn
+      </label>
+      <input id="customName" type="text" placeholder="Skriv navnet ditt" style="min-width:220px;display:none">
+
       <label><input id="bigBtn" type="checkbox"> Hanske-modus</label>
       <label><input id="autoCheck" type="checkbox" checked> Auto sjekk-inn</label>
     </div>
-
-    <div class="row">
-      <label>Synk-nøkkel</label>
-      <input id="apiKey" type="password" placeholder="Lim inn X-Master-Key (lokalt)">
-      <button id="saveKey" class="btn btn-blue">Lagre nøkkel</button>
-      <span id="syncStatus" class="badge">Synk –</span>
+        <div class="row">
+      <div id="syncRow" class="row" style="align-items:center;gap:8px">
+        <label id="keyBlock">
+          Synk-nøkkel
+          <input id="apiKey" type="password" placeholder="Lim inn X-Master-Key (lokalt)">
+        </label>
+        <button id="saveKey" class="btn btn-blue">Lagre nøkkel</button>
+        <span id="syncStatus" class="badge">Synk –</span>
+        <a id="editKey" href="#" class="small" style="display:none">Endre nøkkel</a>
+      </div>
     </div>
 
     <div class="row">
@@ -113,7 +126,22 @@ header h1{margin:0;font-size:16px}
       <button id="btnSyncNow" class="btn btn-gray">Synk nå</button>
     </div>
 
+    <div class="small muted" id="lastSyncText">—</div>
     <div class="muted" id="directionNote">—</div>
+  </div>
+
+  <!-- Installer som app -->
+  <div id="installCard" class="card install" style="display:none">
+    <h3>Installer som app</h3>
+    <div class="small muted">For fullskjerm uten adressefelt.</div>
+    <div class="row">
+      <button id="btnInstall" class="btn btn-green">📲 Installer app</button>
+      <button id="btnInstallHelp" class="btn btn-gray">Hvordan?</button>
+    </div>
+    <div id="installHelp" class="small" style="display:none">
+      <p><b>iPhone (Safari)</b>: Trykk del-ikonet (firkant med pil) → <i>Legg til på Hjem-skjermen</i>.</p>
+      <p><b>Android (Chrome)</b>: Trykk meny ⋮ → <i>Installer app</i>.</p>
+    </div>
   </div>
 
   <div class="card stack">
@@ -144,6 +172,7 @@ header h1{margin:0;font-size:16px}
         <div class="bar" id="progBar"></div>
       </div>
     </div>
+    <div class="small muted" id="lastSyncTextWork">—</div>
 
     <div class="thumbs" id="thumbs"></div>
 
@@ -165,7 +194,7 @@ header h1{margin:0;font-size:16px}
       <button id="btnPropose" class="btn btn-gray">✍️ Foreslå endring/ny</button>
     </div>
     <div class="small muted">
-      Katalogen er «felles liste» (leses fra sky). Lokale tillegg under påvirker kun din enhet.
+      Katalogen er «felles liste». Lokale tillegg under påvirker kun din enhet (til neste publisering).
     </div>
   </div>
 
@@ -189,32 +218,43 @@ header h1{margin:0;font-size:16px}
     <div class="small muted">Tips: Trykk Enter i adressefeltet for å legge til raskt.</div>
   </div>
 </div>
+
 <!-- ADMIN -->
 <div id="page-admin" class="page">
   <div class="card stack">
     <h2>Admin</h2>
-
     <div class="row">
       <button id="adminSync" class="btn btn-gray">Hent status nå</button>
       <span id="adminSyncTxt" class="muted">—</span>
     </div>
-
     <div id="adminStats" class="muted">Ingen data enda.</div>
     <div id="adminList"></div>
+  </div>
 
-    <hr style="border-color:#2a2a2a">
+  <div class="card stack">
+    <h3>Katalog (felles) – rediger</h3>
+    <div class="small muted">🔒 Krever X-Master-Key. Endringer lagres til katalogen og backup tas automatisk.</div>
+    <div class="row">
+      <button id="catLoad" class="btn btn-gray">Last katalog</button>
+      <button id="catAdd" class="btn btn-blue">➕ Legg til</button>
+      <button id="catSave" class="btn btn-green">💾 Lagre katalog</button>
+      <button id="catPublish" class="btn btn-blue">🚀 Publiser til MASTER</button>
+      <button id="catExportCsv" class="btn btn-gray">⬇︎ Eksporter CSV</button>
+    </div>
+    <div id="catMsg" class="small muted">—</div>
+    <div id="catList"></div>
+    <div class="row">
+      <button id="catRestore" class="btn btn-red">⏪ Gjenopprett fra backup</button>
+    </div>
+  </div>
 
+  <div class="card stack">
     <h3>Forslag (INBOX)</h3>
     <div class="row">
       <button id="adminInbox" class="btn btn-gray">Hent forslag</button>
       <span id="adminInboxTxt" class="muted">—</span>
     </div>
     <div id="inboxList"></div>
-
-    <div class="small muted">
-      Tips: «Hent status» viser lokal fremdrift (trykk «Synk nå» på Hjem for å lese/skyve MASTER).
-      INBOX krever gyldig synk-nøkkel (X-Master-Key).
-    </div>
   </div>
 </div>
 <!-- SERVICE -->
@@ -230,9 +270,10 @@ header h1{margin:0;font-size:16px}
     <textarea id="svcNotes" placeholder="Anmerkninger …" style="width:100%;min-height:100px"></textarea>
     <div class="row">
       <button id="svcSave" class="btn btn-green">📤 Lagre og send rapport</button>
+      <button id="svcGuide" class="btn btn-gray">🧾 Last ned brukerark (PDF)</button>
     </div>
     <div class="small muted">
-      Rapporten deles som CSV (fil-delingsdialog på mobil, eller nedlasting i nettleser).
+      Rapporten deles som CSV (delingsdialog på mobil / nedlasting i nettleser).
     </div>
   </div>
 </div>
@@ -240,37 +281,50 @@ header h1{margin:0;font-size:16px}
 <!-- FOOTER -->
 <div class="footer">
   <div id="pos">—</div>
-  <div>v9.6 – Synk aktiv</div>
+  <div>v9.7 – Romerike Trefelling</div>
 </div>
 
-<!-- Foto-opplasting (brukes på «Under arbeid») -->
+<!-- Foto-opplasting -->
 <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
 <script>
-/* ========== KONFIG ========== */
+/* ===== KONFIG ===== */
 const JSONBIN_API_KEY        = "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma";
 const JSONBIN_MASTER_BIN_ID  = "68e774c9ae596e708f0b9977";   // MASTER: rute/status
-const JSONBIN_CATALOG_BIN_ID = "68e782f3d0ea881f409ae08a";   // PUBLIC: katalog
-const JSONBIN_INBOX_BIN_ID   = "68e7833843b1c97be95ff286";   // INBOX: forslag
+const JSONBIN_CATALOG_BIN_ID = "68e782f3d0ea881f409ae08a";   // PUBLIC: katalog (skriv via key)
+const JSONBIN_INBOX_BIN_ID   = "68e7833843b1c97be95ff286";   // INBOX: forslag (skriv via key)
+const JSONBIN_BACKUP_BIN_ID  = "68e7b4d2ae596e708f0bde7d";   // Privat backup-bin
 const HEARTBEAT_MS = 30000;
 
-/* ========== STATE ========== */
-const LS = "broyte_v96_state";
+/* ===== STATE ===== */
+const LS = "broyte_v97_state";
 let state = load() || {
   role:"driver1",
   direction:"forward",
   equipment:{plog:true,fres:false,stro:false},
   autoCheck:true,
   hanske:false,
+  useCustomName:false,
+  customName:"",
   stops:[],
-  service:{plog:false,fres:false,stro:false,other:false,notes:""}
+  service:{plog:false,fres:false,stro:false,other:false,notes:""},
+  lastSyncAt:null,
+  lastSyncBy:""
 };
 function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
 function load(){ try{ return JSON.parse(localStorage.getItem(LS)||""); }catch(_){ return null; } }
 function apiKey(){ return localStorage.getItem("broyte_api_key") || JSONBIN_API_KEY; }
 function headers(){ return {"Content-Type":"application/json","X-Master-Key": apiKey()}; }
 const $ = id => document.getElementById(id);
+const esc = s => String(s||"");
+const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
+function displayName(){ return state.useCustomName && state.customName ? state.customName : (state.role || "Sjåfør"); }
 
-/* ========== UI INIT ========== */
+/* ===== PWA REGISTER ===== */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+/* ===== DOMContentLoaded ===== */
 document.addEventListener("DOMContentLoaded", ()=>{
   // Tabs
   document.querySelectorAll(".tab").forEach(btn=>{
@@ -284,7 +338,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     });
   });
 
-  // Hjem
+  // Hjem init verdier
   $("role").value = state.role;
   $("direction").value = state.direction;
   $("eq_plog").checked = !!state.equipment.plog;
@@ -292,7 +346,15 @@ document.addEventListener("DOMContentLoaded", ()=>{
   $("eq_stro").checked = !!state.equipment.stro;
   $("autoCheck").checked = !!state.autoCheck;
   document.body.classList.toggle("hanske", !!state.hanske);
+  $("useCustomName").checked = !!state.useCustomName;
+  $("customName").value = state.customName || "";
+  $("customName").style.display = state.useCustomName ? "block" : "none";
 
+  // Synk-nøkkelfelt: vises til første OK synk
+  const hadKey = !!localStorage.getItem("broyte_api_key");
+  if (hadKey && state.lastSyncAt) hideKeyRow(); // tidligere vellykket synk
+
+  // Hjem handlers
   $("saveKey").onclick = ()=>{
     const key=$("apiKey").value.trim();
     if(!key) return alert("Lim inn nøkkel først");
@@ -300,10 +362,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
     $("apiKey").value="";
     $("syncStatus").textContent="Synk – nøkkel lagret ✅";
   };
-  $("role").onchange = ()=>{ state.role=$("role").value; save(); };
+  $("editKey").onclick = (e)=>{ e.preventDefault(); showKeyRow(); };
+
+  $("role").onchange = ()=>{ state.role=$("role").value; save(); renderWork(); };
   $("direction").onchange = ()=>{ state.direction=$("direction").value; save(); renderWork(); };
   $("bigBtn").onchange = ()=>{ state.hanske=$("bigBtn").checked; document.body.classList.toggle("hanske",state.hanske); save(); };
   $("autoCheck").onchange = ()=>{ state.autoCheck=$("autoCheck").checked; save(); };
+  $("useCustomName").onchange = ()=>{ state.useCustomName=$("useCustomName").checked; $("customName").style.display=state.useCustomName?"block":"none"; save(); renderWork(); };
+  $("customName").addEventListener("input", ()=>{ state.customName=$("customName").value.trim(); save(); renderWork(); });
 
   $("btnStart").onclick = ()=>document.querySelector('.tab[data-tab="work"]').click();
   $("btnSyncNow").onclick = ()=> syncPull().then(()=>syncPush());
@@ -322,6 +388,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
     });
     save(); renderWork(); renderRegister(); syncPush();
   };
+
+  // Installer app – banner
+  setupInstallBanner();
 
   // Utstyr
   ["eq_plog","eq_fres","eq_stro"].forEach(id=>{
@@ -346,7 +415,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
     $("addr").value="";
     save(); renderRegister(); syncPush();
   };
-  // Enter for kjapp add
   $("addr").addEventListener("keydown",e=>{
     if(e.key==="Enter"){ e.preventDefault(); $("add").click(); }
   });
@@ -388,58 +456,45 @@ document.addEventListener("DOMContentLoaded", ()=>{
     r.readAsDataURL(f); e.target.value="";
   };
 
-  // Admin
+  // Admin: status
   $("adminSync").onclick = ()=>{
     const c = prog();
     $("adminSyncTxt").textContent = "Viser lokal status (bruk Synk nå for MASTER).";
     $("adminStats").innerHTML = `Totalt: ${c.total} – Ferdig: ${c.done} – Ikke mulig: ${c.blocked} – Avklart: ${c.cleared} – ${c.pct}%`;
     $("adminList").innerHTML = state.stops.map((s,i)=>`<div class="item"><b>${i+1}. ${esc(s.n)}</b><br><span class="muted">${esc(s.t)}</span> ${s.f?'✅':''} ${s.b?'⛔':''}</div>`).join("");
   };
+
+  // Admin: katalog
+  $("catLoad").onclick = loadCatalog;
+  $("catAdd").onclick = ()=> editCatalogRow(null);
+  $("catSave").onclick = saveCatalogWithBackup;
+  $("catPublish").onclick = publishCatalogToMaster;
+  $("catExportCsv").onclick = exportCatalogCsv;
+  $("catRestore").onclick = restoreCatalogFromBackup;
+
+  // Admin: INBOX
   $("adminInbox").onclick = loadInbox;
 
   // Service
-  $("svcSave").onclick = ()=>{
-    state.service = {
-      plog:$("svc_plog").checked,
-      fres:$("svc_fres").checked,
-      stro:$("svc_stro").checked,
-      other:$("svc_other").checked,
-      notes: $("svcNotes").value.trim()
-    };
-    save();
-    // Eksporter CSV (del via Web Share om mulig)
-    const rows = ['Navn,Oppgave,Ferdig,Blokkert,Start,Slutt'];
-    state.stops.forEach(s=>{
-      rows.push(`"${(s.n||'').replace(/"/g,'""')}","${(s.t||'').replace(/"/g,'""')}",${s.f?'Ja':'Nei'},${s.b?'Ja':'Nei'},${fmtTime(s.started)},${fmtTime(s.finished)}`);
-    });
-    const csv = rows.join("\n");
-    const file = new File([csv],'broeyting_rapport.csv',{type:'text/csv'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({title:'Brøyterapport',text:'CSV-rapport',files:[file]}).catch(()=>{});
-    }else{
-      const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download='broeyting_rapport.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-      alert("Rapport lastet ned (CSV).");
-    }
-  };
+  $("svcSave").onclick = saveServiceReport;
+  $("svcGuide").onclick = downloadGuidePdf;
 
   // Geoposisjon i footer
   initGeolocation();
 
-  // Første visning + defaults
+  // Defaults
   bootDefaults();
   renderRegister();
   renderWork();
 
   // Heartbeat
-  setInterval(()=>{ try{ syncPush(); }catch(_){ /*noop*/ } }, HEARTBEAT_MS);
+  setInterval(()=>{ try{ syncPush(); }catch(_){ } }, HEARTBEAT_MS);
 
   // Refresh når du kommer tilbake fra Maps
   window.addEventListener("pageshow", ()=>{ try{ renderWork(); renderRegister(); }catch(_){} });
 });
 
-/* ========== HJELPERE ========== */
-const esc = s => String(s||"");
-const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit"}) : "";
+/* ===== Utils ===== */
 function idxList(){
   const rem = state.stops.map((s,i)=>({i,s})).filter(x=>!x.s.f && !x.s.b).map(x=>x.i);
   return state.direction==="forward" ? rem : rem.slice().reverse();
@@ -454,33 +509,6 @@ function prog(){
   const pct = total? Math.round(100*cleared/total):0;
   return {total,done,blocked,cleared,pct};
 }
-
-/* ========== RENDER ========== */
-function renderWork(){
-  const c=cur(), n=nxt();
-  if($("driverLbl")) $("driverLbl").textContent = "Rolle: " + state.role;
-  if($("directionLbl")) $("directionLbl").textContent = "Retning: " + (state.direction==="forward"?"Vanlig":"Baklengs");
-  if($("curName")) $("curName").textContent = c? esc(c.n) : "—";
-  if($("curTask")) $("curTask").textContent = c? esc(c.t) : "—";
-  if($("curNext")) $("curNext").textContent = n? esc(n.n) : "—";
-  if($("thumbs")) $("thumbs").innerHTML = c?.p?.length ? c.p.map(src=>`<img src="${src}" alt="foto">`).join("") : "";
-  const {pct,cleared,total} = prog();
-  if($("progBar")) $("progBar").style.width = pct+"%";
-  if($("progTxt")) $("progTxt").textContent = `${pct} % fullført (${cleared}/${total})`;
-  if($("directionNote")) $("directionNote").textContent = `Du kjører i ${(state.direction==="forward"?'vanlig':'baklengs')} rekkefølge.`;
-}
-function renderRegister(){
-  if(!$("list")) return;
-  $("list").innerHTML = state.stops.length
-    ? state.stops.map((s,i)=>`
-        <div class="item">
-          <b>${i+1}. ${esc(s.n)}</b><br>
-          <span class="muted">${esc(s.t)}</span> ${s.f?'✅':''} ${s.b?'⛔':''}
-        </div>`).join("")
-    : `<div class="item muted">Ingen adresser enda. Hent fra katalog eller legg til lokalt.</div>`;
-}
-
-/* ========== HANDLINGER ========== */
 function navTo(address){
   if(!address) return;
   location.href = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(address);
@@ -500,51 +528,203 @@ function afterRound(){
     document.querySelector('.tab[data-tab="service"]')?.click();
   }
 }
+function hideKeyRow(){ $("keyBlock").style.display="none"; $("saveKey").style.display="none"; $("editKey").style.display="inline"; }
+function showKeyRow(){ $("keyBlock").style.display="inline-block"; $("saveKey").style.display="inline-block"; $("editKey").style.display="none"; }
 
-/* ========== SYNC ========== */
+/* ===== Render ===== */
+function renderWork(){
+  const c=cur(), n=nxt();
+  if($("driverLbl")) $("driverLbl").textContent = "Rolle: " + displayName();
+  if($("directionLbl")) $("directionLbl").textContent = "Retning: " + (state.direction==="forward"?"Vanlig":"Baklengs");
+  if($("curName")) $("curName").textContent = c? esc(c.n) : "—";
+  if($("curTask")) $("curTask").textContent = c? esc(c.t) : "—";
+  if($("curNext")) $("curNext").textContent = n? esc(n.n) : "—";
+  if($("thumbs")) $("thumbs").innerHTML = c?.p?.length ? c.p.map(src=>`<img src="${src}" alt="foto">`).join("") : "";
+  const {pct,cleared,total} = prog();
+  if($("progBar")) $("progBar").style.width = pct+"%";
+  if($("progTxt")) $("progTxt").textContent = `${pct} % fullført (${cleared}/${total})`;
+  if($("directionNote")) $("directionNote").textContent = `Du kjører i ${(state.direction==="forward"?'vanlig':'baklengs')} rekkefølge. (${displayName()})`;
+  $("lastSyncText").textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
+  $("lastSyncTextWork").textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
+}
+function renderRegister(){
+  if(!$("list")) return;
+  $("list").innerHTML = state.stops.length
+    ? state.stops.map((s,i)=>`
+        <div class="item">
+          <b>${i+1}. ${esc(s.n)}</b><br>
+          <span class="muted">${esc(s.t)}</span> ${s.f?'✅':''} ${s.b?'⛔':''}
+        </div>`).join("")
+    : `<div class="item muted">Ingen adresser enda. Hent fra katalog eller legg til lokalt.</div>`;
+}
+
+/* ===== Sync ===== */
 async function syncPull(){
   try{
     const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}/latest`, { headers: headers() });
     const js = await r.json();
     if(js?.record?.stops){
       state.stops = js.record.stops.map(s=>({ n:s.n, t:s.t, f:!!s.f, b:!!s.b, p:s.p||[], started:s.started||null, finished:s.finished||null, details:s.details||"" }));
+      state.lastSyncAt = js.record.lastSyncAt || Date.now();
+      state.lastSyncBy = js.record.lastSyncBy || displayName();
       save(); renderWork(); renderRegister();
       $("syncStatus").textContent = "Synk – Pull OK";
+      hideKeyRow();
     }else{
       $("syncStatus").textContent = "Synk – Pull tom";
     }
-  }catch(e){ $("syncStatus").textContent = "Synk – Pull FEIL"; }
+  }catch(e){
+    $("syncStatus").textContent = "Synk – Pull FEIL";
+    showKeyRow();
+  }
 }
 async function syncPush(){
   try{
-    const payload={ version:"9.6", updated: Date.now(), stops: state.stops, meta:{role:state.role, direction:state.direction} };
+    const payload={ version:"9.7", updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops: state.stops, meta:{role:state.role, direction:state.direction} };
     const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(payload) });
     if(!r.ok) throw 0;
+    state.lastSyncAt = payload.lastSyncAt; state.lastSyncBy = payload.lastSyncBy; save(); renderWork();
     $("syncStatus").textContent = "Synk – Push OK";
-  }catch(e){ $("syncStatus").textContent = "Synk – Push FEIL"; }
+    hideKeyRow();
+  }catch(e){
+    $("syncStatus").textContent = "Synk – Push FEIL";
+    showKeyRow();
+  }
 }
 
-/* ========== KATALOG + INBOX ========== */
-async function catalogPull(){
+/* ===== Katalog (Admin) + Backup ===== */
+async function loadCatalog(){
   try{
+    $("catMsg").textContent="Laster katalog …";
     const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`);
     const js = await r.json();
-    const cat = js?.record?.addresses||[];
-    const need = { plog:!!state.equipment.plog, fres:!!state.equipment.fres, stro:!!state.equipment.stro };
-    const filtered = cat.filter(a=>a.active!==false).filter(a=>{
+    const cat = js?.record?.addresses || [];
+    renderCatalogEditor(cat);
+    $("catMsg").textContent=`Katalog lastet (${cat.length} adresser).`;
+  }catch(e){
+    $("catMsg").textContent="Feil ved lasting av katalog.";
+  }
+}
+function renderCatalogEditor(items){
+  $("catList").innerHTML = items.map((a,idx)=>`
+    <div class="item" data-i="${idx}">
+      <div class="row">
+        <input class="cat-name" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2">
+        <select class="cat-task" style="flex:1">
+          ${["Brøyte","Frese","Strø","Brøyte og strø","Frese og strø","Brøytestikker"].map(t=>`<option ${a.task===t?'selected':''}>${t}</option>`).join("")}
+        </select>
+        <input class="cat-group" value="${esc(a.group||'')}" placeholder="Gruppe/borettslag" style="flex:1">
+      </div>
+      <div class="row">
+        <label><input class="cat-eq" type="checkbox" data-k="plog" ${a.equipment?.includes("plog")?'checked':''}> plog</label>
+        <label><input class="cat-eq" type="checkbox" data-k="fres" ${a.equipment?.includes("fres")?'checked':''}> fres</label>
+        <label><input class="cat-eq" type="checkbox" data-k="stro" ${a.equipment?.includes("stro")?'checked':''}> strø</label>
+        <label><input class="cat-active" type="checkbox" ${a.active!==false?'checked':''}> aktiv</label>
+        <button class="btn btn-gray cat-edit" data-act="dup">Dupliser</button>
+        <button class="btn btn-red cat-edit" data-act="del">Slett</button>
+      </div>
+    </div>`).join("");
+
+  // Wire up buttons
+  $("catList").querySelectorAll(".cat-edit").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const wrap = btn.closest(".item"); const i = +wrap.dataset.i;
+      let arr = readCatalogFromDom();
+      if(btn.dataset.act==="del") arr.splice(i,1);
+      if(btn.dataset.act==="dup") arr.splice(i+1,0, {...arr[i]});
+      renderCatalogEditor(arr);
+    });
+  });
+
+  // Keep a copy in element dataset (simple)
+  $("catList").dataset.json = JSON.stringify(items);
+}
+function readCatalogFromDom(){
+  const nodes = [...$("catList").querySelectorAll(".item")];
+  return nodes.map(wrap=>{
+    const name = wrap.querySelector(".cat-name").value.trim();
+    const task = wrap.querySelector(".cat-task").value;
+    const group= wrap.querySelector(".cat-group").value.trim();
+    const eqs = [...wrap.querySelectorAll(".cat-eq")].filter(x=>x.checked).map(x=>x.dataset.k);
+    const active = wrap.querySelector(".cat-active").checked;
+    return {name,task,group,equipment:eqs,active};
+  });
+}
+async function saveCatalogWithBackup(){
+  try{
+    const items = readCatalogFromDom();
+    $("catMsg").textContent = "Lagrer (tar backup først)…";
+    // 1) Hent eksisterende katalog
+    const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`).then(r=>r.json());
+    const current = latest?.record || {version:"9.7",updated:0,addresses:[]};
+    // 2) Skriv backup
+    const backupLatest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BACKUP_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json()).catch(()=>({record:{version:"backup_v1",backups:[]}}));
+    const backups = backupLatest?.record?.backups || [];
+    backups.push({ ts: Date.now(), data: current });
+    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BACKUP_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify({ version:"backup_v1", backups }) });
+
+    // 3) Lagre ny katalog
+    const rec = { version:"9.7", updated: Date.now(), addresses: items };
+    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
+    $("catMsg").textContent = "Katalog lagret ✔︎";
+  }catch(e){
+    $("catMsg").textContent = "Feil ved lagring (sjekk nøkkel).";
+  }
+}
+async function restoreCatalogFromBackup(){
+  try{
+    $("catMsg").textContent = "Henter backup…";
+    const js = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BACKUP_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json());
+    const backups = js?.record?.backups||[];
+    if(!backups.length) return $("catMsg").textContent="Ingen backup funnet.";
+    const last = backups[backups.length-1];
+    const rec = last.data || {addresses:[]};
+    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
+    $("catMsg").textContent = "Gjenopprettet fra backup ✔︎";
+    renderCatalogEditor(rec.addresses||[]);
+  }catch(e){
+    $("catMsg").textContent = "Feil ved gjenoppretting.";
+  }
+}
+async function publishCatalogToMaster(){
+  try{
+    $("catMsg").textContent="Publiserer til MASTER…";
+    const items = readCatalogFromDom().filter(a=>a.active!==false);
+    // Filtrer på utstyr valgt lokalt (valgfritt)
+    const need = {plog:!!state.equipment.plog, fres:!!state.equipment.fres, stro:!!state.equipment.stro};
+    const filtered = items.filter(a=>{
       const eq=a.equipment||[]; if(!eq.length) return true; return eq.some(k=>need[k]);
     });
-    state.stops = filtered.map(a=>({ n:a.name, t:a.task, f:false, b:false, p:[], started:null, finished:null, details:"" }));
-    save(); renderRegister(); renderWork(); syncPush();
-    alert("Katalog hentet ✔︎");
-  }catch(e){ alert("Klarte ikke hente katalog."); }
+    const stops = filtered.map(a=>({ n:a.name, t:a.task, f:false, b:false, p:[], started:null, finished:null, details:"" }));
+    const payload={ version:"9.7", updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops, meta:{role:state.role, direction:state.direction} };
+    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(payload) });
+    $("catMsg").textContent="Publisert ✔︎ – be sjåfører trykke «Synk nå».";
+  }catch(e){
+    $("catMsg").textContent="Feil ved publisering (sjekk nøkkel).";
+  }
 }
+function exportCatalogCsv(){
+  try{
+    const items = readCatalogFromDom();
+    const rows = ['Navn,Oppgave,Gruppe,Utstyr, Aktiv'];
+    items.forEach(a=> rows.push(`"${(a.name||'').replace(/"/g,'""')}","${(a.task||'').replace(/"/g,'""')}","${(a.group||'').replace(/"/g,'""')}","${(a.equipment||[]).join('+')}","${a.active!==false?'Ja':'Nei'}"`));
+    const csv = rows.join("\n");
+    const file = new File([csv],'katalog.csv',{type:'text/csv'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({title:'Katalog',text:'CSV-katalog',files:[file]}).catch(()=>{});
+    }else{
+      const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download='katalog.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+  }catch(_){}
+}
+
+/* ===== INBOX ===== */
 async function sendProposal(obj){
   try{
     const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json());
-    const rec = latest?.record || {version:"9.6", updated:0, proposals:[]};
+    const rec = latest?.record || {version:"9.7", updated:0, proposals:[]};
     rec.proposals = rec.proposals || [];
-    rec.proposals.push({ id: Math.random().toString(36).slice(2), type: obj.type||"add", from: state.role, payload: obj, ts: Date.now(), status:"pending", note:"" });
+    rec.proposals.push({ id: Math.random().toString(36).slice(2), type: obj.type||"add", from: displayName(), payload: obj, ts: Date.now(), status:"pending", note:"" });
     rec.updated = Date.now();
     await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
     alert("Forslag sendt 👍");
@@ -564,7 +744,7 @@ async function loadInbox(){
   }catch(e){ $("adminInboxTxt").textContent = "Feil ved henting."; }
 }
 
-/* ========== GEO ========== */
+/* ===== GEO ===== */
 function initGeolocation(){
   const posEl = $("pos"); if(!posEl) return;
   if(!navigator.geolocation){ posEl.textContent="Posisjon ikke tilgjengelig"; return; }
@@ -576,7 +756,73 @@ function initGeolocation(){
   );
 }
 
-/* ========== DEFAULTS ========== */
+/* ===== PWA Install Banner ===== */
+function setupInstallBanner(){
+  const card = $("installCard");
+  if (!card) return;
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  if (isStandalone) return; // allerede installert
+  card.style.display = "block";
+  let deferredPrompt = null;
+  window.addEventListener("beforeinstallprompt", (e)=>{
+    e.preventDefault();
+    deferredPrompt = e;
+    card.style.display = "block";
+  });
+  $("btnInstall").onclick = async ()=>{
+    if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; card.style.display="none"; }
+    else { $("installHelp").style.display="block"; }
+  };
+  $("btnInstallHelp").onclick = ()=>{ $("installHelp").style.display = $("installHelp").style.display==="none"?"block":"none"; };
+}
+
+/* ===== Service-rapport + PDF-guide ===== */
+function saveServiceReport(){
+  state.service = {
+    plog:$("svc_plog").checked, fres:$("svc_fres").checked, stro:$("svc_stro").checked,
+    other:$("svc_other").checked, notes: $("svcNotes").value.trim()
+  };
+  save();
+  const rows = ['Navn,Oppgave,Ferdig,Blokkert,Start,Slutt'];
+  state.stops.forEach(s=>{
+    rows.push(`"${(s.n||'').replace(/"/g,'""')}","${(s.t||'').replace(/"/g,'""')}",${s.f?'Ja':'Nei'},${s.b?'Ja':'Nei'},${s.started?new Date(s.started).toISOString():""},${s.finished?new Date(s.finished).toISOString():""}`);
+  });
+  const csv = rows.join("\n");
+  const file = new File([csv],'broeyting_rapport.csv',{type:'text/csv'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({title:'Brøyterapport',text:'CSV-rapport',files:[file]}).catch(()=>{});
+  }else{
+    const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download='broeyting_rapport.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    alert("Rapport lastet ned (CSV).");
+  }
+}
+function downloadGuidePdf(){
+  // Minimal inline PDF (uten ekstern lib)
+  const content = `
+Brøyterute – v9.7 (Romerike Trefelling)
+
+Oppsett
+1) Åpne lenken og legg på Hjem-skjermen (iPhone: Safari del → Legg til på Hjem-skjermen).
+2) Hjem → lim inn X-Master-Key → Lagre nøkkel → Synk nå.
+3) Velg rolle/navn, retning og utstyr.
+
+Kjøring
+- Under arbeid viser Nåværende og Neste.
+- Bruk Pågår/Ferdig/Ikke mulig/Foto/Naviger.
+- Start ny runde (etter utstyr) for nytt pass.
+
+Admin
+- Admin-fanen lar deg redigere katalog og publisere ny rute.
+- Backup tas automatisk og kan gjenopprettes.
+
+Kontakt:
+Ved feil eller spørsmål, kontakt: Øystein Diesen Gjeraldstveit
+  `.trim();
+  const blob = new Blob([content],{type:"text/plain"}); // enkel .txt (printervennlig) – bytt til ekte PDF senere
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='brukerark.txt'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+/* ===== Defaults ===== */
 function bootDefaults(){
   if(!Array.isArray(state.stops)) state.stops=[];
   if(state.stops.length===0){
