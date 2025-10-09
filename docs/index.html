@@ -639,6 +639,14 @@ function renderCatalogEditor(items){
   // Keep a copy in element dataset (simple)
   $("catList").dataset.json = JSON.stringify(items);
 }
+function editCatalogRow(row){
+  // Leser dagens DOM-liste
+  const items = readCatalogFromDom();
+  // Legg til en ny (eller dupliser eksisterende hvis row er satt)
+  items.push(row || {name:"", task:"Brøyte", group:"", equipment:[], active:true});
+  // Re-render redigeringslista
+  renderCatalogEditor(items);
+}
 function readCatalogFromDom(){
   const nodes = [...$("catList").querySelectorAll(".item")];
   return nodes.map(wrap=>{
@@ -717,6 +725,47 @@ function exportCatalogCsv(){
     }
   }catch(_){}
 }
+
+// ...
+async function catalogPull(){
+  try{
+    // Hent hele katalogen (public)
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`);
+    const js = await r.json();
+    const cat = js?.record?.addresses || [];
+
+    // Filtrer på valgt utstyr lokalt (plog/fres/strø)
+    const need = { plog:!!state.equipment.plog, fres:!!state.equipment.fres, stro:!!state.equipment.stro };
+    const filtered = cat
+      .filter(a => a.active !== false)
+      .filter(a => {
+        const eq = a.equipment || [];
+        if (!eq.length) return true;       // ingen krav = alltid OK
+        return eq.some(k => need[k]);      // minst ett av sjekket utstyr
+      });
+
+    // Map til lokale "stops"
+    state.stops = filtered.map(a => ({
+      n: a.name,
+      t: a.task,
+      f: false,
+      b: false,
+      p: [],
+      started: null,
+      finished: null,
+      details: ""
+    }));
+
+    save();
+    renderRegister();
+    renderWork();
+    syncPush();
+    alert(`Katalog hentet ✔︎ (${state.stops.length} adresser)`);
+  }catch(e){
+    alert("Klarte ikke hente katalog.");
+  }
+}
+// ...
 
 /* ===== INBOX ===== */
 async function sendProposal(obj){
