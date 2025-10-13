@@ -763,7 +763,7 @@ async function loadInbox(){
 }
 
 /* ---------- Eksporter ---------- */
-window.BroyteSync = { syncPull, syncPush, catalogPull, sendProposal, loadInbox };
+Object.assign(window.BroyteSync, { loadInbox });
   async function sendProposal(obj){
     try{
       const latest=await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.INBOX}/latest`,{headers:headers()}).then(r=>r.json());
