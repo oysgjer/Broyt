@@ -369,7 +369,7 @@ header h1{margin:0;font-size:16px}
 <!-- FOOTER -->
 <div class="footer">
   <div id="pos">—</div>
-  <div>v9.8 – Romerike Trefelling</div>
+  <div>v9.9 – Romerike Trefelling</div>
 </div>
 
 <!-- Foto-opplasting -->
@@ -803,7 +803,7 @@ async function syncPull(){
 }
 async function syncPush(){
   try{
-    const payload={ version:"9.8", updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops: state.stops, meta:{role:state.role, direction:state.direction} };
+    const payload={ version:"9.9", updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops: state.stops, meta:{role:state.role, direction:state.direction} };
     const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(payload) });
     if(!r.ok) throw 0;
     state.lastSyncAt = payload.lastSyncAt; state.lastSyncBy = payload.lastSyncBy; save(); renderWork();
@@ -946,12 +946,12 @@ async function saveCatalogWithBackup(){
     const items = readCatalogFromDom();
     $("catMsg").textContent = "Lagrer (tar backup først)…";
     const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`).then(r=>r.json());
-    const current = latest?.record || {version:"9.8",updated:0,addresses:[]};
+    const current = latest?.record || {version:"9.9",updated:0,addresses:[]};
     const backupLatest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BACKUP_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json()).catch(()=>({record:{version:"backup_v1",backups:[]}}));
     const backups = backupLatest?.record?.backups || [];
     backups.push({ ts: Date.now(), data: current });
     await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BACKUP_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify({ version:"backup_v1", backups }) });
-    const rec = { version:"9.8", updated: Date.now(), addresses: items };
+    const rec = { version:"9.9", updated: Date.now(), addresses: items };
     await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
     $("catMsg").textContent = "Katalog lagret ✔︎";
   }catch(e){
@@ -980,7 +980,7 @@ async function publishCatalogToMaster(){
     const need = {plog:!!state.equipment.plog, fres:!!state.equipment.fres, stro:!!state.equipment.stro};
     const filtered = items.filter(a=>{ const eq=a.equipment||[]; if(!eq.length) return true; return eq.some(k=>need[k]); });
     const stops = filtered.map(a=>({ n:a.name, t:a.task, f:false, b:false, p:[], started:null, finished:null, details:"", twoDriverRec:!!a.twoDriverRec, pinsCount:0, pinsLockedYear:null }));
-    const payload={ version:"9.8", updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops, meta:{role:state.role, direction:state.direction} };
+    const payload={ version:"9.9", updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops, meta:{role:state.role, direction:state.direction} };
     await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(payload) });
     $("catMsg").textContent="Publisert ✔︎ – be sjåfører trykke «Synk nå».";
   }catch(e){
@@ -1006,7 +1006,7 @@ function exportCatalogCsv(){
 async function sendProposal(obj){
   try{
     const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json());
-    const rec = latest?.record || {version:"9.8", updated:0, proposals:[]};
+    const rec = latest?.record || {version:"9.9", updated:0, proposals:[]};
     rec.proposals = rec.proposals || [];
     rec.proposals.push({ id: Math.random().toString(36).slice(2), type: obj.type||"add", from: displayName(), payload: obj, ts: Date.now(), status:"pending", note:"" });
     rec.updated = Date.now();
@@ -1193,7 +1193,7 @@ function saveServiceReportCsv(){
 }
 function downloadGuideTxt(){
   const content = `
-Brøyterute – v9.8 (Romerike Trefelling)
+Brøyterute – v9.9 (Romerike Trefelling)
 
 Oppsett
 1) Åpne lenken og legg på Hjem-skjermen (iPhone: Safari del → Legg til på Hjem-skjermen).
