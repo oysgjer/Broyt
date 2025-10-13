@@ -885,7 +885,7 @@ Object.assign(window.BroyteSync || (window.BroyteSync = {}), { loadInbox });
   }
 
   /* ---------- Eksporter ---------- */
-  window.BroyteSync   = {syncPull,syncPush,catalogPull,sendProposal};
+  Object.assign(window.BroyteSync || (window.BroyteSync = {}), { syncPull, syncPush, catalogPull, sendProposal });
   window.BroyteWeather= {refreshWeather};
   window.BroyteWork   = {renderWork,renderRegister,renderAdmin,onPhotoChosen,doneHandler,blockHandler,nextHandler,incidentHandler};
   window.BroyteLive   = {startLivePosition};
