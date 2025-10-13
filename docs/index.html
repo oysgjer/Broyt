@@ -810,29 +810,38 @@ Object.assign(window.BroyteSync || (window.BroyteSync = {}), { loadInbox });
         <br><span class="muted">${esc(s.t)}</span> ${s.f?"✅":""}${s.b?"⛔":""}
       </div>`).join("");
   }
-  // Admin-filter husker også valgt status
-document.querySelectorAll("#pinFiltersAdmin .btn").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    document.querySelectorAll("#pinFiltersAdmin .btn").forEach(b=>b.classList.remove("btn-green"));
-    btn.classList.add("btn-green");
-    const val = btn.dataset.pfa;
-    state.ui.adminPinFilter = val;
-    save();
-    window.BroyteWork.renderAdmin();
-  });
-});
+function renderRegister(){
+  const pf = state.ui?.pinFilter || "all";
 
-// Register-filter husker valgt status
-document.querySelectorAll("#pinFilters .btn").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    document.querySelectorAll("#pinFilters .btn").forEach(b=>b.classList.remove("btn-green"));
-    btn.classList.add("btn-green");
-    const val = btn.dataset.pf;
-    state.ui.pinFilter = val;
-    save();
-    window.BroyteWork.renderRegister();
+  // Sett aktiv knapp ut fra lagret filter
+  document.querySelectorAll("#pinFilters .btn").forEach(b=>{
+    const on = (b.dataset.pf === pf);
+    b.classList.toggle("btn-green", on);
   });
-});
+
+  // Filtrer rader
+  let rows = state.stops.slice();
+  if (pf === "pending") rows = rows.filter(s=>!hasPinsThisSeason(s));
+  if (pf === "done")    rows = rows.filter(hasPinsThisSeason);
+
+  // Info-tekst
+  const all  = state.stops.length;
+  const pend = state.stops.filter(s=>!hasPinsThisSeason(s)).length;
+  const done = all - pend;
+  const info = document.getElementById("pinFilterInfo");
+  if (info) info.textContent =
+    pf==="all"     ? `Alle: ${all}`
+  : pf==="pending" ? `Uten brøytestikker i år: ${pend}`
+                   : `Med brøytestikker i år: ${done}`;
+
+  // Render liste
+  document.getElementById("list").innerHTML = rows.map(s=>`
+    <div class="item">
+      <b>${esc(s.n)}</b> ${s.twoDriverRec?`<span class="badge">👥 2 sjåfører</span>`:""}
+      ${s.pinsLockedYear?`<span class="badge">📍${s.pinsCount??0}</span>`:""}
+      <br><span class="muted">${esc(s.t)}</span> ${s.f?"✅":""}${s.b?"⛔":""}
+    </div>`).join("");
+}
   function renderAdmin(){
     const total=state.stops.length;
     const pct=total?Math.round(100*state.stops.filter(s=>s.f||s.b).length/total):0;
