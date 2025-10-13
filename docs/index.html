@@ -622,26 +622,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
   if (footerVer) footerVer.textContent = `v${window.BROYTE_CFG.VERSION} – Romerike Trefelling`;
 });
 
-/* --- Installer-banner --- */
-function setupInstallBanner(){
-  const card = $("installCard");
-  if (!card) return;
-  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-  if (isStandalone) return;
-  card.style.display = "block";
-  let deferredPrompt = null;
-  window.addEventListener("beforeinstallprompt", (e)=>{
-    e.preventDefault();
-    deferredPrompt = e;
-    card.style.display = "block";
-  });
-  $("btnInstall").onclick = async ()=>{
-    if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; card.style.display="none"; }
-    else { $("installHelp").style.display="block"; }
-  };
-  $("btnInstallHelp").onclick = ()=>{ $("installHelp").style.display = $("installHelp").style.display==="none"?"block":"none"; };
-}
-
 /* --- Dev-feilbanner (myk) --- */
 window.addEventListener('error', (ev) => {
   try{
