@@ -376,6 +376,80 @@ header h1{margin:0;font-size:16px}
 <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
 
 <script>
+/* ===== Robust event-delegation for alle knapper ===== */
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, a, input[type="button"], input[type="submit"]');
+  if (!t || !t.id) return;
+
+  switch (t.id) {
+    // Hjem
+    case 'saveKey': {
+      const key = ($('apiKey')?.value || '').trim();
+      if (!key) { alert('Lim inn nøkkel først'); return; }
+      localStorage.setItem('broyte_api_key', key);
+      if ($('apiKey')) $('apiKey').value = '';
+      if ($('syncStatus')) $('syncStatus').textContent = 'Synk – nøkkel lagret ✅';
+      break;
+    }
+    case 'editKey': e.preventDefault?.(); showKeyRow(); break;
+    case 'btnStart': document.querySelector('.tab[data-tab="work"]')?.click(); break;
+    case 'btnSyncNow': syncPull().then(()=>syncPush()); break;
+    case 'btnResetAll': resetAllHandler(); break;
+    case 'btnRoundByEquip': roundByEquipHandler(); break;
+
+    // Register
+    case 'btnCatalogPull': catalogPull(); break;
+    case 'btnPropose': proposeHandler(); break;
+    case 'add': addLocalAddress(); break;
+
+    // Under arbeid – hovedknapper
+    case 'ongo': { const c=cur(); if(!c) return; c.started = c.started || Date.now(); logEntry('start',c); save(); renderWork(); syncPush(); maybeTwoDriverPrompt(c); break; }
+    case 'done': doneHandler(); break;
+    case 'block': blockHandler(); break;
+    case 'next': nextHandler(); break;
+    case 'nav': { const c=cur(); if(c) navTo(c.n); break; }
+    case 'photo': $('fileInput')?.click(); break;
+    case 'incident': incidentHandler(); break;
+
+    // Hurtigvalg
+    case 'goBase': navTo(BASE_ADDR); break;
+    case 'fillGravel': navTo(GRAVEL_ADDR); break;
+    case 'fillFuel': {
+      const choice = prompt("Velg stasjon: 1) Driv Dal  2) Esso Energi Dal  3) Avbryt","1");
+      if(choice==="1") mapsSearch(FUEL_CHOICES[0].q);
+      else if(choice==="2") mapsSearch(FUEL_CHOICES[1].q);
+      break;
+    }
+    case 'cheapestFuel': mapsSearch('avgiftsfri diesel Dal'); break;
+
+    // Admin
+    case 'adminSync': renderAdmin(); break;
+    case 'catLoad': loadCatalog(); break;
+    case 'catAdd': editCatalogRow(null); break;
+    case 'catSave': saveCatalogWithBackup(); break;
+    case 'catPublish': publishCatalogToMaster(); break;
+    case 'catExportCsv': exportCatalogCsv(); break;
+    case 'catRestore': restoreCatalogFromBackup(); break;
+    case 'adminInbox': loadInbox(); break;
+
+    // Service
+    case 'svcSave': saveServiceReportCsv(); break;
+    case 'svcGuide': downloadGuideTxt(); break;
+    case 'svcSaveHtml': saveDayHtmlReport(); break;
+
+    // Cache/hard reset (om du har knappen)
+    case 'btnHardReset': (async () => {
+      if (!confirm('Tømme cache og laste appen på nytt?')) return;
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHES' });
+      }
+      const apiKey = localStorage.getItem('broyte_api_key') || '';
+      localStorage.clear(); if (apiKey) localStorage.setItem('broyte_api_key', apiKey);
+      try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r=>r.unregister())); } catch {}
+      location.reload(true);
+    })(); break;
+  }
+});
 /* ===== KONFIG ===== */
 const JSONBIN_API_KEY        = "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma";
 const JSONBIN_MASTER_BIN_ID  = "68e774c9ae596e708f0b9977";   // MASTER: rute/status
@@ -419,6 +493,13 @@ function load(){ try{ return JSON.parse(localStorage.getItem(LS)||""); }catch(_)
 function apiKey(){ return localStorage.getItem("broyte_api_key") || JSONBIN_API_KEY; }
 function headers(){ return {"Content-Type":"application/json","X-Master-Key": apiKey()}; }
 const $ = id => document.getElementById(id);
+window.addEventListener('error', (ev) => {
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#b00020;color:#fff;padding:8px 12px;font:12px system-ui;z-index:99999';
+  bar.textContent = 'JS-feil: ' + (ev.message || 'ukjent') + (ev.filename ? ' @ ' + ev.filename + ':' + ev.lineno : '');
+  document.body.appendChild(bar);
+  console.error('JS error', ev);
+});
 const esc = s => String(s||"");
 const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
 const fmtDT = ts => ts ? new Date(ts).toLocaleString("no-NO") : "—";
