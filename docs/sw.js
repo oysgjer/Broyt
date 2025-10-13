@@ -1,5 +1,5 @@
-/* Brøyterute – v9.9 Service Worker */
-const CACHE_NAME = 'broyterute-v9.9';
+/* Brøyterute – v9.10 Service Worker */
+const CACHE_NAME = 'broyterute-v9.10';
 const ASSETS = [
   './',
   './index.html',
