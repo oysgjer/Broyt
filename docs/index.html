@@ -842,17 +842,45 @@ function renderRegister(){
       <br><span class="muted">${esc(s.t)}</span> ${s.f?"✅":""}${s.b?"⛔":""}
     </div>`).join("");
 }
-  function renderAdmin(){
-    const total=state.stops.length;
-    const pct=total?Math.round(100*state.stops.filter(s=>s.f||s.b).length/total):0;
-    $("adminStats").innerHTML=`Totalt ${total} – ${pct}% fullført`;
-    $("adminList").innerHTML=state.stops.map(s=>`
-      <div class="item">
-        <b>${esc(s.n)}</b>${s.twoDriverRec?`<span class="badge">👥</span>`:""}
-        ${s.pinsLockedYear?`<span class="badge">📍${s.pinsCount??0}</span>`:""}
-        <br><span class="muted">${esc(s.t)}</span>
-      </div>`).join("");
-  }
+function renderAdmin(){
+  const af = state.ui?.adminPinFilter || "all";
+
+  // Sett aktiv knapp ut fra lagret filter
+  document.querySelectorAll("#pinFiltersAdmin .btn").forEach(b=>{
+    const on = (b.dataset.pfa === af);
+    b.classList.toggle("btn-green", on);
+  });
+
+  // Filtrer rader
+  let rows = state.stops.slice();
+  if (af === "pending") rows = rows.filter(s=>!hasPinsThisSeason(s));
+  if (af === "done")    rows = rows.filter(hasPinsThisSeason);
+
+  // Stats + info
+  const total = state.stops.length;
+  const cleared = state.stops.filter(s=>s.f||s.b).length;
+  const pct = total ? Math.round(100 * cleared / total) : 0;
+  const pend = state.stops.filter(s=>!hasPinsThisSeason(s)).length;
+  const done = total - pend;
+
+  const adminStats = document.getElementById("adminStats");
+  if (adminStats) adminStats.innerHTML = `Totalt ${total} – ${pct}% fullført`;
+
+  const infoA = document.getElementById("pinFilterInfoAdmin");
+  if (infoA) infoA.textContent =
+    af==="all"     ? `Alle: ${total}`
+  : af==="pending" ? `Uten brøytestikker i år: ${pend}`
+                   : `Med brøytestikker i år: ${done}`;
+
+  // Render liste
+  const adminList = document.getElementById("adminList");
+  if (adminList) adminList.innerHTML = rows.map(s=>`
+    <div class="item">
+      <b>${esc(s.n)}</b>${s.twoDriverRec?`<span class="badge">👥</span>`:""}
+      ${s.pinsLockedYear?`<span class="badge">📍${s.pinsCount??0}</span>`:""}
+      <br><span class="muted">${esc(s.t)}</span>
+    </div>`).join("");
+}
 
   /* ---------- FOTO / LOGG ---------- */
   function onPhotoChosen(e){
