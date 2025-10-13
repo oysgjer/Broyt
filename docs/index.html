@@ -3,9 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Brøyterute – v9.9 (Romerike Trefelling)</title>
+<title>Brøyterute – v9.10 (Romerike Trefelling)</title>
 <meta name="theme-color" content="#0f9d58">
 <link rel="manifest" href="manifest.json">
+
+<!-- Leaflet + Draw (for Admin kart/tegning) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" integrity="" crossorigin="">
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="" crossorigin=""></script>
+<script defer src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js" integrity="" crossorigin=""></script>
 
 <style>
 :root{
@@ -19,42 +25,33 @@
          --card:#ffffff; --cardBorder:#e6e7ea; --gray:#e5e7eb; }
 }
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 body{background:var(--bg);color:var(--fg)}
 a{color:inherit;text-decoration:none}
 button{cursor:pointer}
 input,select,textarea{
-  background:transparent;color:inherit;
-  border:1px solid var(--cardBorder);
-  border-radius:10px;padding:10px;font-size:16px;
+  background:transparent;color:inherit;border:1px solid var(--cardBorder);
+  border-radius:10px;padding:10px;font-size:16px
 }
 
-#app{min-height:100%;display:grid;
-  grid-template-rows:auto 1fr auto}
+#app{min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
 
-header{display:flex;align-items:center;gap:10px;
-  padding:10px 12px;background:#0b0b0b;color:#fff;
-  border-bottom:1px solid #141414}
+header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0b0b0b;color:#fff;border-bottom:1px solid #141414}
 header h1{margin:0;font-size:16px}
 .spacer{flex:1}
 
 .nav{display:flex;gap:8px;flex-wrap:wrap}
-.tab{border:none;border-radius:12px;
-  padding:8px 12px;background:#25282e;color:#fff}
+.tab{border:none;border-radius:12px;padding:8px 12px;background:#25282e;color:#fff}
 .tab.active{background:var(--green)}
 
 .page{display:none;padding:14px}
 .page.active{display:block}
 
-.card{background:var(--card);
-  border:1px solid var(--cardBorder);
-  border-radius:16px;padding:14px}
+.card{background:var(--card);border:1px solid var(--cardBorder);border-radius:16px;padding:14px}
 .stack{display:flex;flex-direction:column;gap:12px}
 .row{display:flex;flex-wrap:wrap;gap:10px}
 
-.btn{border:none;border-radius:12px;
-  padding:10px 14px;font-weight:700}
+.btn{border:none;border-radius:12px;padding:10px 14px;font-weight:700}
 .btn-green{background:var(--green);color:#fff}
 .btn-blue{background:var(--blue);color:#fff}
 .btn-red{background:var(--red);color:#fff}
@@ -65,90 +62,126 @@ header h1{margin:0;font-size:16px}
 .muted{color:var(--muted)}
 .small{font-size:12px}
 
-.progress{width:100%;height:14px;border-radius:999px;
-  background:#242830;border:1px solid var(--cardBorder);
-  overflow:hidden}
-.progress>.bar{height:100%;width:0%;
-  background:linear-gradient(90deg,#0f9d58,#22c55e);
-  transition:width .25s ease}
+.progress{width:100%;height:14px;border-radius:999px;background:#242830;border:1px solid var(--cardBorder);overflow:hidden}
+.progress>.bar{height:100%;width:0%;background:linear-gradient(90deg,#0f9d58,#22c55e);transition:width .25s ease}
 
-.footer{display:flex;justify-content:space-between;
-  align-items:center;gap:10px;padding:8px 12px;
-  background:#0b0b0b;color:#fff;border-top:1px solid #141414;
-  font-size:12px}
+.footer{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;background:#0b0b0b;color:#fff;border-top:1px solid #141414;font-size:12px}
 
-/* Installer-banner */
-.install{border:1px dashed #334;border-radius:12px;
-  padding:10px;background:#15181d}
+.install{border:1px dashed #334;border-radius:12px;padding:10px;background:#15181d}
 
-/* Vær-widget */
+/* Vær-widget: time-for-time (nå + 3 neste timer) */
 .weather{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.weather .pill{border:1px solid var(--cardBorder);
-  border-radius:999px;padding:6px 10px}
+.weather .pill{border:1px solid var(--cardBorder);border-radius:999px;padding:6px 10px}
 .weather .now{font-weight:700}
+#weatherTimeline{display:flex;gap:8px;flex-wrap:wrap}
+#weatherTimeline .slot{border:1px solid var(--cardBorder);border-radius:12px;padding:6px 10px;min-width:90px}
 
 /* Hanske-modus */
 .hanske .btn{font-size:22px;padding:16px 20px;border-radius:18px}
 
-/* Cache-reset-knapp */
+/* Service: bokser under hverandre */
+.service-list{display:flex;flex-direction:column;gap:6px}
+.service-item{display:flex;align-items:center;gap:8px}
+
+/* Leaflet container */
+#adminMap{width:100%;min-height:360px;border:1px solid var(--cardBorder);border-radius:12px;overflow:hidden}
+.leaflet-container{background:#0b0b0b}
+
+/* Badges */
+.badge{display:inline-block;border:1px solid var(--cardBorder);border-radius:999px;padding:2px 8px;font-size:12px}
+.badge.warn{border-color:#d97706;color:#f59e0b}
+
+/* Reset-knapp */
 .reset-row{margin-top:6px}
 </style>
+
+<script>
+/* ===== Globale konstanter (brukes i alle deler) ===== */
+window.BROYTE_CFG = {
+  VERSION: "9.10",
+  // JSONBin: faste + dine oppgitte bin-id'er
+  BINS: {
+    MASTER: "68e774c9ae596e708f0b9977",         // rute/status
+    CATALOG: "68e782f3d0ea881f409ae08a",        // katalog
+    INBOX: "68e7833843b1c97be95ff286",          // forslag
+    BACKUP: "68e7b4d2ae596e708f0bde7d",         // backup
+    REPORT: "68e89e3443b1c97be9611c48",         // dagsrapporter
+    POSITIONS: "68ed41ee43b1c97be9661c65",      // ← dine live-posisjoner
+    MAP_LAYERS: "68ed425cae596e708f11d25f"      // ← dine tegnelag
+  },
+  HEARTBEAT_MS: 30000,
+  BASE_ADDR: "Hagavegen 8, 2072 Dal",
+  GRAVEL_ADDR: "Dal pukkverk",                  // oppdatert iht. ønsket
+  FUEL_CHOICES: [
+    {name:"Driv Dal", q:"Driv Dal avgiftsfri diesel"},
+    {name:"Esso Energi Dal", q:"Esso Energi Dal avgiftsfri diesel"}
+  ],
+  DEFAULT_TASKS: [
+    "Snø",
+    "Snø og grus",
+    "Snø + brøytestikker",
+    "Snø og grus + brøytestikker"
+  ]
+};
+// default nøkkel (kan overskrives lokalt av bruker i UI)
+window.DEFAULT_JSONBIN_KEY = "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma";
+</script>
 </head>
 <body>
 <div id="app">
-<header>
-  <h1>Brøyterute</h1>
-  <div class="spacer"></div>
-  <div class="nav">
-    <button class="tab active" data-tab="home">Hjem</button>
-    <button class="tab" data-tab="work">Under arbeid</button>
-    <button class="tab" data-tab="register">Adresse-register</button>
-    <button class="tab" data-tab="admin">Admin</button>
-    <button class="tab" data-tab="service">Service</button>
-  </div>
-</header>
-<!-- HJEM -->
-<div id="page-home" class="page active">
-  <div class="card stack">
-    <h2>Innstillinger</h2>
-
-    <div class="row">
-      <label>Rolle</label>
-      <select id="role">
-        <option value="driver1">Sjåfør 1</option>
-        <option value="driver2">Sjåfør 2</option>
-        <option value="driver3">Sjåfør 3</option>
-        <option value="driver4">Sjåfør 4</option>
-        <option value="admin">Admin (lese)</option>
-      </select>
-
-      <label>Retning</label>
-      <select id="direction">
-        <option value="forward">Vanlig</option>
-        <option value="reverse">Baklengs</option>
-      </select>
-
-      <label style="display:flex;gap:6px;align-items:center">
-        <input id="useCustomName" type="checkbox"> Bruk eget navn
-      </label>
-      <input id="customName" type="text" placeholder="Skriv navnet ditt"
-             style="min-width:220px;display:none">
-
-      <label><input id="bigBtn" type="checkbox"> Hanske-modus</label>
-      <label><input id="autoCheck" type="checkbox" checked> Auto sjekk-inn</label>
+  <!-- HEADER / NAV -->
+  <header>
+    <h1>Brøyterute</h1>
+    <div class="spacer"></div>
+    <div class="nav">
+      <button class="tab active" data-tab="home">Hjem</button>
+      <button class="tab" data-tab="work">Under arbeid</button>
+      <button class="tab" data-tab="register">Adresse-register</button>
+      <button class="tab" data-tab="admin">Admin</button>
+      <button class="tab" data-tab="service">Service</button>
     </div>
+  </header>
 
-    <div class="row">
-      <label>Tema</label>
-      <select id="themeSel">
-        <option value="auto">Auto (system)</option>
-        <option value="dark">Mørk</option>
-        <option value="light">Lys</option>
-      </select>
-    </div>
+  <!-- HJEM -->
+  <div id="page-home" class="page active">
+    <div class="card stack">
+      <h2>Innstillinger</h2>
 
-    <div class="row">
-      <div id="syncRow" class="row" style="align-items:center;gap:8px">
+      <div class="row">
+        <label>Rolle</label>
+        <select id="role">
+          <option value="driver1">Sjåfør 1</option>
+          <option value="driver2">Sjåfør 2</option>
+          <option value="driver3">Sjåfør 3</option>
+          <option value="driver4">Sjåfør 4</option>
+          <option value="admin">Admin (lese)</option>
+        </select>
+
+        <label>Retning</label>
+        <select id="direction">
+          <option value="forward">Vanlig</option>
+          <option value="reverse">Baklengs</option>
+        </select>
+
+        <label style="display:flex;gap:6px;align-items:center">
+          <input id="useCustomName" type="checkbox"> Bruk eget navn
+        </label>
+        <input id="customName" type="text" placeholder="Skriv navnet ditt" style="min-width:220px;display:none">
+
+        <label><input id="bigBtn" type="checkbox"> Hanske-modus</label>
+        <label><input id="autoCheck" type="checkbox" checked> Auto sjekk-inn</label>
+      </div>
+
+      <div class="row">
+        <label>Tema</label>
+        <select id="themeSel">
+          <option value="auto">Auto (system)</option>
+          <option value="dark">Mørk</option>
+          <option value="light">Lys</option>
+        </select>
+      </div>
+
+      <div class="row" id="syncRow" style="align-items:center;gap:8px">
         <label id="keyBlock">
           Synk-nøkkel
           <input id="apiKey" type="password" placeholder="Lim inn X-Master-Key (lokalt)">
@@ -157,1145 +190,1190 @@ header h1{margin:0;font-size:16px}
         <span id="syncStatus" class="badge">Synk –</span>
         <a id="editKey" href="#" class="small" style="display:none">Endre nøkkel</a>
       </div>
-    </div>
 
-    <div class="row">
-      <button id="btnRoundByEquip" class="btn btn-blue">Start ny runde (etter utstyr)</button>
-      <button id="btnResetAll" class="btn btn-red">Nullstill alle</button>
-      <button id="btnStart" class="btn btn-green">Start runde →</button>
-      <button id="btnSyncNow" class="btn btn-gray">Synk nå</button>
-    </div>
-
-    <!-- Tøm cache + hard reload -->
-    <div class="row reset-row">
-      <button id="btnHardReset" class="btn btn-red">🧹 Tøm cache og start på nytt</button>
-    </div>
-
-    <div class="small muted" id="lastSyncText">—</div>
-    <div class="muted" id="directionNote">—</div>
-  </div>
-
-  <!-- Installer som app -->
-  <div id="installCard" class="card install" style="display:none">
-    <h3>Installer som app</h3>
-    <div class="small muted">For fullskjerm uten adressefelt.</div>
-    <div class="row">
-      <button id="btnInstall" class="btn btn-green">📲 Installer app</button>
-      <button id="btnInstallHelp" class="btn btn-gray">Hvordan?</button>
-    </div>
-    <div id="installHelp" class="small" style="display:none">
-      <p><b>iPhone (Safari)</b>: Del-ikon → <i>Legg til på Hjem-skjermen</i>.</p>
-      <p><b>Android (Chrome)</b>: Meny ⋮ → <i>Installer app</i>.</p>
-    </div>
-  </div>
-
-  <div class="card stack">
-    <h3>Utstyr</h3>
-    <div class="row">
-      <label><input id="eq_plog" type="checkbox" checked> Plog</label>
-      <label><input id="eq_fres" type="checkbox"> Fres</label>
-      <label><input id="eq_stro" type="checkbox"> Strøkasse</label>
-    </div>
-  </div>
-</div>
-<!-- UNDER ARBEID -->
-<div id="page-work" class="page">
-  <div class="card stack">
-    <div class="row" style="align-items:center;gap:8px">
-      <div id="driverLbl" class="muted">Rolle: —</div>
-      <div id="directionLbl" class="badge">Retning: —</div>
-      <div id="claimWarn" class="badge warn" style="display:none">⚠️ Delt retning</div>
-    </div>
-
-    <h2 id="curName" class="title-lg">—</h2>
-    <div class="muted">Oppgave: <span id="curTask">—</span></div>
-    <div class="muted">Neste: <span id="curNext">—</span></div>
-
-    <div class="progress-row" style="display:flex;align-items:center;gap:10px">
-      <div class="muted" id="progTxt">0 % fullført (0/0)</div>
-      <div class="progress" style="flex:1;min-width:160px">
-        <div class="bar" id="progBar"></div>
+      <div class="row">
+        <button id="btnRoundByEquip" class="btn btn-blue">Start ny runde (etter utstyr)</button>
+        <button id="btnResetAll" class="btn btn-red">Nullstill alle</button>
+        <button id="btnStart" class="btn btn-green">Start runde →</button>
+        <button id="btnSyncNow" class="btn btn-gray">Synk nå</button>
       </div>
-    </div>
-    <div class="small muted" id="lastSyncTextWork">—</div>
 
-    <div class="thumbs" id="thumbs"></div>
-
-    <!-- Hovedknapper for oppgave -->
-    <div class="row">
-      <button id="ongo" class="btn btn-gray">▶️ Pågår</button>
-      <button id="done" class="btn btn-green">✅ Utført</button>
-      <button id="block" class="btn btn-red">⛔ Ikke mulig</button>
-      <button id="photo" class="btn btn-gray">📷 Foto</button>
-      <button id="nav" class="btn btn-blue">🧭 Naviger</button>
-      <button id="next" class="btn btn-gray">🔁 Neste</button>
-      <button id="incident" class="btn btn-red">❗ Uhell</button>
-    </div>
-
-    <!-- Hurtigvalg (base / grus / drivstoff) -->
-    <div class="row">
-      <button id="goBase" class="btn btn-purple">🏠 Kjør til base</button>
-      <button id="fillGravel" class="btn btn-blue">🪨 Fyll grus</button>
-      <button id="fillFuel" class="btn btn-blue">⛽ Fyll drivstoff</button>
-      <button id="cheapestFuel" class="btn btn-gray">💸 Finn billigste (søk)</button>
-    </div>
-
-    <!-- Vær-widget: nå + 3t (plassert under knappene) -->
-    <div id="weatherCard" class="card">
-      <div class="row" style="align-items:center;justify-content:space-between">
-        <div><b>Vær (nå + 3t)</b> <span class="small muted" id="weatherAt">–</span></div>
-        <div class="small muted" id="weatherLoc">—</div>
+      <div class="row reset-row">
+        <button id="btnHardReset" class="btn btn-red">🧹 Tøm cache og start på nytt</button>
       </div>
-      <div class="weather" id="weatherRow">
-        <span class="pill">Laster …</span>
+
+      <div class="small muted" id="lastSyncText">—</div>
+      <div class="muted" id="directionNote">—</div>
+    </div>
+
+    <!-- Installer som app -->
+    <div id="installCard" class="card install" style="display:none">
+      <h3>Installer som app</h3>
+      <div class="small muted">For fullskjerm uten adressefelt.</div>
+      <div class="row">
+        <button id="btnInstall" class="btn btn-green">📲 Installer app</button>
+        <button id="btnInstallHelp" class="btn btn-gray">Hvordan?</button>
+      </div>
+      <div id="installHelp" class="small" style="display:none">
+        <p><b>iPhone (Safari)</b>: Del-ikon → <i>Legg til på Hjem-skjermen</i>.</p>
+        <p><b>Android (Chrome)</b>: Meny ⋮ → <i>Installer app</i>.</p>
       </div>
     </div>
 
+    <div class="card stack">
+      <h3>Utstyr</h3>
+      <div class="row">
+        <label><input id="eq_plog" type="checkbox" checked> Plog</label>
+        <label><input id="eq_fres" type="checkbox"> Fres</label>
+        <label><input id="eq_stro" type="checkbox"> Strøkasse</label>
+      </div>
+    </div>
   </div>
+
+  <!-- UNDER ARBEID -->
+  <div id="page-work" class="page">
+    <div class="card stack">
+      <div class="row" style="align-items:center;gap:8px">
+        <div id="driverLbl" class="muted">Rolle: —</div>
+        <div id="directionLbl" class="badge">Retning: —</div>
+        <div id="claimWarn" class="badge warn" style="display:none">⚠️ Delt retning</div>
+      </div>
+
+      <h2 id="curName" class="title-lg">—</h2>
+      <div class="muted">Oppgave: <span id="curTask">—</span></div>
+      <div class="muted">Neste: <span id="curNext">—</span></div>
+
+      <div class="progress-row" style="display:flex;align-items:center;gap:10px">
+        <div class="muted" id="progTxt">0 % fullført (0/0)</div>
+        <div class="progress" style="flex:1;min-width:160px">
+          <div class="bar" id="progBar"></div>
+        </div>
+      </div>
+      <div class="small muted" id="lastSyncTextWork">—</div>
+
+      <div class="thumbs" id="thumbs"></div>
+
+      <div class="row">
+        <button id="ongo" class="btn btn-gray">▶️ Pågår</button>
+        <button id="done" class="btn btn-green">✅ Utført</button>
+        <button id="block" class="btn btn-red">⛔ Ikke mulig</button>
+        <button id="photo" class="btn btn-gray">📷 Foto</button>
+        <button id="nav" class="btn btn-blue">🧭 Naviger</button>
+        <button id="next" class="btn btn-gray">🔁 Neste</button>
+        <button id="incident" class="btn btn-red">❗ Uhell</button>
+      </div>
+
+      <div class="row">
+        <button id="goBase" class="btn btn-purple">🏠 Kjør til base</button>
+        <button id="fillGravel" class="btn btn-blue">🪨 Fyll grus</button>
+        <button id="fillFuel" class="btn btn-blue">⛽ Fyll drivstoff</button>
+        <button id="cheapestFuel" class="btn btn-gray">💸 Finn billigste (søk)</button>
+      </div>
+
+      <!-- VÆR: nå + neste 3 timer, time-for-time -->
+      <div id="weatherCard" class="card">
+        <div class="row" style="align-items:center;justify-content:space-between">
+          <div><b>Vær (nå + 3t, time for time)</b> <span class="small muted" id="weatherAt">–</span></div>
+          <div class="small muted" id="weatherLoc">—</div>
+        </div>
+        <div class="weather" id="weatherRow">
+          <span class="pill">Laster …</span>
+        </div>
+        <div id="weatherTimeline"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADRESSE-REGISTER -->
+  <div id="page-register" class="page">
+    <div class="card stack">
+      <div class="row">
+        <button id="btnCatalogPull" class="btn btn-blue">↘︎ Hent fra katalog</button>
+        <button id="btnPropose" class="btn btn-gray">✍️ Foreslå endring/ny</button>
+      </div>
+      <div class="small muted">
+        Katalogen er «felles liste». Lokale tillegg under påvirker kun din enhet (til neste publisering).
+      </div>
+
+      <div id="pinFilters" class="row">
+        <button class="btn btn-gray" data-pf="all">Alle</button>
+        <button class="btn btn-gray" data-pf="pending">Uten brøytestikker i år</button>
+        <button class="btn btn-gray" data-pf="done">Med brøytestikker i år</button>
+        <span id="pinFilterInfo" class="small muted">—</span>
+      </div>
+    </div>
+
+    <div id="list"></div>
+
+    <div class="card stack">
+      <h3>Legg til ny adresse (lokalt)</h3>
+      <div class="row">
+        <input id="addr" type="text" placeholder="Adresse / område" style="flex:2">
+        <!-- FYLLES AV JS MED window.BROYTE_CFG.DEFAULT_TASKS -->
+        <select id="taskSel" style="flex:1"></select>
+      </div>
+
+      <div class="row">
+        <label style="display:flex;gap:6px;align-items:center">
+          <input id="twoDriverRec" type="checkbox"> Anbefalt 2 sjåfører
+        </label>
+        <div style="flex:1"></div>
+        <button id="add" class="btn btn-green">+ Legg til</button>
+      </div>
+
+      <div class="small muted">Tips: Enter i adressefeltet = legg til raskt.</div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="page-admin" class="page">
+    <div class="card stack">
+      <h2>Admin</h2>
+      <div class="row">
+        <button id="adminSync" class="btn btn-gray">Hent status nå</button>
+        <span id="adminSyncTxt" class="muted">—</span>
+      </div>
+
+      <div class="row" id="pinFiltersAdmin">
+        <button class="btn btn-gray" data-pfa="all">Alle</button>
+        <button class="btn btn-gray" data-pfa="pending">Uten brøytestikker i år</button>
+        <button class="btn btn-gray" data-pfa="done">Med brøytestikker i år</button>
+        <span id="pinFilterInfoAdmin" class="small muted">—</span>
+      </div>
+
+      <!-- KART + TEGN -->
+      <div class="card stack">
+        <h3>Kart (live posisjon + tegn verktøy)</h3>
+        <div id="adminMap"></div>
+        <div class="small muted">
+          Lagre/last kartlag synkes mot JSONBin (MapLayers). Live posisjoner hentes fra Positions.
+        </div>
+        <div class="row">
+          <button id="mapSave" class="btn btn-green">💾 Lagre lag</button>
+          <button id="mapLoad" class="btn btn-blue">📥 Last lag</button>
+          <button id="mapClear" class="btn btn-red">🗑 Tøm lag (lokalt)</button>
+        </div>
+      </div>
+
+      <div id="adminStats" class="muted">Ingen data enda.</div>
+      <div id="adminList"></div>
+    </div>
+
+    <div class="card stack">
+      <h3>Katalog (felles) – rediger</h3>
+      <div class="small muted">Endringer lagres til katalogen og backup tas automatisk.</div>
+      <div class="row">
+        <button id="catLoad" class="btn btn-gray">Last katalog</button>
+        <button id="catAdd" class="btn btn-blue">➕ Legg til</button>
+        <button id="catSave" class="btn btn-green">💾 Lagre katalog</button>
+        <button id="catPublish" class="btn btn-blue">🚀 Publiser til MASTER</button>
+        <button id="catExportCsv" class="btn btn-gray">⬇︎ Eksporter CSV</button>
+      </div>
+      <div id="catMsg" class="small muted">—</div>
+      <div id="catList"></div>
+      <div class="row">
+        <button id="catRestore" class="btn btn-red">⏪ Gjenopprett fra backup</button>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <h3>Forslag (INBOX)</h3>
+      <div class="row">
+        <button id="adminInbox" class="btn btn-gray">Hent forslag</button>
+        <span id="adminInboxTxt" class="muted">—</span>
+      </div>
+      <div id="inboxList"></div>
+    </div>
+  </div>
+
+  <!-- SERVICE -->
+  <div id="page-service" class="page">
+    <div class="card stack">
+      <h2>Service / Vedlikehold</h2>
+      <div class="service-list">
+        <label class="service-item"><input id="svc_plog" type="checkbox"> Smurt plog</label>
+        <label class="service-item"><input id="svc_fres" type="checkbox"> Smurt fres</label>
+        <label class="service-item"><input id="svc_stro" type="checkbox"> Smurt strøkasse</label>
+        <label class="service-item"><input id="svc_oil_front" type="checkbox"> Sjekk olje (foran)</label>
+        <label class="service-item"><input id="svc_oil_back" type="checkbox"> Sjekk olje (bak)</label>
+        <label class="service-item"><input id="svc_steering" type="checkbox"> Forstilling smurt</label>
+        <label class="service-item"><input id="svc_other" type="checkbox"> Annet</label>
+      </div>
+
+      <textarea id="svcNotes" placeholder="Anmerkninger …" style="width:100%;min-height:120px"></textarea>
+
+      <div class="row">
+        <button id="svcSave" class="btn btn-green">📤 Lagre og del CSV</button>
+        <button id="svcGuide" class="btn btn-gray">🧾 Last ned brukerark (TXT)</button>
+        <button id="svcSaveHtml" class="btn btn-blue">🗂️ Lag HTML-rapport (dag)</button>
+      </div>
+
+      <div class="small muted">
+        HTML-rapport inkluderer bilder, oppgaver, hvem som utførte og vær-notater som ble lagret underveis.
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div id="pos">—</div>
+    <div>v<span id="verLbl">9.10</span> – Romerike Trefelling</div>
+  </div>
+
+  <!-- Foto-opplasting -->
+  <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
 </div>
-<!-- ADRESSE-REGISTER -->
-<div id="page-register" class="page">
-  <div class="card stack">
-    <div class="row">
-      <button id="btnCatalogPull" class="btn btn-blue">↘︎ Hent fra katalog</button>
-      <button id="btnPropose" class="btn btn-gray">✍️ Foreslå endring/ny</button>
-    </div>
-    <div class="small muted">
-      Katalogen er «felles liste». Lokale tillegg under påvirker kun din enhet (til neste publisering).
-    </div>
-
-    <!-- Filtre for brøytestikker (også tilgjengelig her) -->
-    <div id="pinFilters" class="row">
-      <button class="btn btn-gray" data-pf="all">Alle</button>
-      <button class="btn btn-gray" data-pf="pending">Uten brøytestikker i år</button>
-      <button class="btn btn-gray" data-pf="done">Med brøytestikker i år</button>
-      <span id="pinFilterInfo" class="small muted">—</span>
-    </div>
-  </div>
-
-  <!-- Dynamisk liste over alle adresser -->
-  <div id="list"></div>
-
-  <div class="card stack">
-    <h3>Legg til ny adresse (lokalt)</h3>
-    <div class="row">
-      <input id="addr" type="text" placeholder="Adresse / område" style="flex:2">
-      <select id="taskSel" style="flex:1">
-        <option>Snø</option>
-        <option>Snø og grus</option>
-        <option>Brøytestikker</option>
-      </select>
-      <label style="display:flex;gap:6px;align-items:center">
-        <input id="twoDriverRec" type="checkbox"> Anbefalt 2 sjåfører
-      </label>
-      <button id="add" class="btn btn-green">+ Legg til</button>
-    </div>
-    <div class="small muted">Tips: Enter i adressefeltet = legg til raskt.</div>
-  </div>
-</div>
-<!-- ADMIN -->
-<div id="page-admin" class="page">
-  <div class="card stack">
-    <h2>Admin</h2>
-    <div class="row">
-      <button id="adminSync" class="btn btn-gray">Hent status nå</button>
-      <span id="adminSyncTxt" class="muted">—</span>
-    </div>
-
-    <!-- Filter for brøytestikker -->
-    <div class="row" id="pinFiltersAdmin">
-      <button class="btn btn-gray" data-pfa="all">Alle</button>
-      <button class="btn btn-gray" data-pfa="pending">Uten brøytestikker i år</button>
-      <button class="btn btn-gray" data-pfa="done">Med brøytestikker i år</button>
-      <span id="pinFilterInfoAdmin" class="small muted">—</span>
-    </div>
-
-    <div id="adminStats" class="muted">Ingen data enda.</div>
-    <div id="adminList"></div>
-  </div>
-
-  <div class="card stack">
-    <h3>Katalog (felles) – rediger</h3>
-    <div class="small muted">Endringer lagres til katalogen og backup tas automatisk.</div>
-    <div class="row">
-      <button id="catLoad" class="btn btn-gray">Last katalog</button>
-      <button id="catAdd" class="btn btn-blue">➕ Legg til</button>
-      <button id="catSave" class="btn btn-green">💾 Lagre katalog</button>
-      <button id="catPublish" class="btn btn-blue">🚀 Publiser til MASTER</button>
-      <button id="catExportCsv" class="btn btn-gray">⬇︎ Eksporter CSV</button>
-    </div>
-    <div id="catMsg" class="small muted">—</div>
-    <div id="catList"></div>
-    <div class="row">
-      <button id="catRestore" class="btn btn-red">⏪ Gjenopprett fra backup</button>
-    </div>
-  </div>
-
-  <div class="card stack">
-    <h3>Forslag (INBOX)</h3>
-    <div class="row">
-      <button id="adminInbox" class="btn btn-gray">Hent forslag</button>
-      <span id="adminInboxTxt" class="muted">—</span>
-    </div>
-    <div id="inboxList"></div>
-  </div>
-</div>
-<!-- SERVICE -->
-<div id="page-service" class="page">
-  <div class="card stack">
-    <h2>Service / Vedlikehold</h2>
-    <div class="row">
-      <label><input id="svc_plog" type="checkbox"> Smurt plog</label>
-      <label><input id="svc_fres" type="checkbox"> Smurt fres</label>
-      <label><input id="svc_stro" type="checkbox"> Smurt strøkasse</label>
-      <label><input id="svc_oil_front" type="checkbox"> Sjekk olje (foran)</label>
-      <label><input id="svc_oil_back" type="checkbox"> Sjekk olje (bak)</label>
-      <label><input id="svc_other" type="checkbox"> Annet</label>
-    </div>
-
-    <textarea id="svcNotes" placeholder="Anmerkninger …" style="width:100%;min-height:100px"></textarea>
-
-    <div class="row">
-      <button id="svcSave" class="btn btn-green">📤 Lagre og del CSV</button>
-      <button id="svcGuide" class="btn btn-gray">🧾 Last ned brukerark (TXT)</button>
-      <button id="svcSaveHtml" class="btn btn-blue">🗂️ Lag HTML-rapport (dag)</button>
-    </div>
-
-    <div class="small muted">
-      HTML-rapport inkluderer bilder, oppgaver, hvem som utførte og vær-notater som ble lagret underveis.
-    </div>
-  </div>
-</div>
-<!-- FOOTER -->
-<div class="footer">
-  <div id="pos">—</div>
-  <div>v9.9 – Romerike Trefelling</div>
-</div>
-
-<!-- Foto-opplasting -->
-<input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
-
 <script>
-/* ===== Robust event-delegation for alle knapper ===== */
-document.addEventListener('click', (e) => {
-  const t = e.target.closest('button, a, input[type="button"], input[type="submit"]');
-  if (!t || !t.id) return;
+/* ====== KONFIG / VERSJON ====== */
+window.BROYTE_CFG = {
+  VERSION: "9.10",
+  HEARTBEAT_MS: 30000,
 
-  switch (t.id) {
-    // Hjem
-    case 'saveKey': {
-      const key = ($('apiKey')?.value || '').trim();
-      if (!key) { alert('Lim inn nøkkel først'); return; }
-      localStorage.setItem('broyte_api_key', key);
-      if ($('apiKey')) $('apiKey').value = '';
-      if ($('syncStatus')) $('syncStatus').textContent = 'Synk – nøkkel lagret ✅';
-      break;
-    }
-    case 'editKey': e.preventDefault?.(); showKeyRow(); break;
-    case 'btnStart': document.querySelector('.tab[data-tab="work"]')?.click(); break;
-    case 'btnSyncNow': syncPull().then(()=>syncPush()); break;
-    case 'btnResetAll': resetAllHandler(); break;
-    case 'btnRoundByEquip': roundByEquipHandler(); break;
+  // JSONBin
+  DEFAULT_API_KEY: "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma",
+  BINS: {
+    MASTER:    "68e774c9ae596e708f0b9977", // rute/status
+    CATALOG:   "68e782f3d0ea881f409ae08a", // katalog
+    INBOX:     "68e7833843b1c97be95ff286", // forslag
+    BACKUP:    "68e7b4d2ae596e708f0bde7d", // backup
+    REPORTS:   "68e89e3443b1c97be9611c48", // dagsrapporter
+    POSITIONS: "68ed41ee43b1c97be9661c65", // live posisjoner (ny)
+    MAPLAYERS: "68ed425cae596e708f11d25f"  // kartlag (ny)
+  },
 
-    // Register
-    case 'btnCatalogPull': catalogPull(); break;
-    case 'btnPropose': proposeHandler(); break;
-    case 'add': addLocalAddress(); break;
+  // Standardadresser
+  BASE_ADDR: "Hagavegen 8, 2072 Dal",
+  GRAVEL_ADDR: "Dal pukkverk",
 
-    // Under arbeid – hovedknapper
-    case 'ongo': { const c=cur(); if(!c) return; c.started = c.started || Date.now(); logEntry('start',c); save(); renderWork(); syncPush(); maybeTwoDriverPrompt(c); break; }
-    case 'done': doneHandler(); break;
-    case 'block': blockHandler(); break;
-    case 'next': nextHandler(); break;
-    case 'nav': { const c=cur(); if(c) navTo(c.n); break; }
-    case 'photo': $('fileInput')?.click(); break;
-    case 'incident': incidentHandler(); break;
-
-    // Hurtigvalg
-    case 'goBase': navTo(BASE_ADDR); break;
-    case 'fillGravel': navTo(GRAVEL_ADDR); break;
-    case 'fillFuel': {
-      const choice = prompt("Velg stasjon: 1) Driv Dal  2) Esso Energi Dal  3) Avbryt","1");
-      if(choice==="1") mapsSearch(FUEL_CHOICES[0].q);
-      else if(choice==="2") mapsSearch(FUEL_CHOICES[1].q);
-      break;
-    }
-    case 'cheapestFuel': mapsSearch('avgiftsfri diesel Dal'); break;
-
-    // Admin
-    case 'adminSync': renderAdmin(); break;
-    case 'catLoad': loadCatalog(); break;
-    case 'catAdd': editCatalogRow(null); break;
-    case 'catSave': saveCatalogWithBackup(); break;
-    case 'catPublish': publishCatalogToMaster(); break;
-    case 'catExportCsv': exportCatalogCsv(); break;
-    case 'catRestore': restoreCatalogFromBackup(); break;
-    case 'adminInbox': loadInbox(); break;
-
-    // Service
-    case 'svcSave': saveServiceReportCsv(); break;
-    case 'svcGuide': downloadGuideTxt(); break;
-    case 'svcSaveHtml': saveDayHtmlReport(); break;
-
-    // Cache/hard reset (om du har knappen)
-    case 'btnHardReset': (async () => {
-      if (!confirm('Tømme cache og laste appen på nytt?')) return;
-      if (navigator.serviceWorker?.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHES' });
-      }
-      const apiKey = localStorage.getItem('broyte_api_key') || '';
-      localStorage.clear(); if (apiKey) localStorage.setItem('broyte_api_key', apiKey);
-      try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r=>r.unregister())); } catch {}
-      location.reload(true);
-    })(); break;
-  }
-});
-/* ===== KONFIG ===== */
-const JSONBIN_API_KEY        = "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma";
-const JSONBIN_MASTER_BIN_ID  = "68e774c9ae596e708f0b9977";   // MASTER: rute/status
-const JSONBIN_CATALOG_BIN_ID = "68e782f3d0ea881f409ae08a";   // PUBLIC: katalog (skriv via key)
-const JSONBIN_INBOX_BIN_ID   = "68e7833843b1c97be95ff286";   // INBOX: forslag (skriv via key)
-const JSONBIN_BACKUP_BIN_ID  = "68e7b4d2ae596e708f0bde7d";   // Privat backup-bin
-const JSONBIN_REPORT_BIN_ID  = "68e89e3443b1c97be9611c48";   // Dagsrapporter
-const HEARTBEAT_MS = 30000;
-const BASE_ADDR = "Hagavegen 8, 2072 Dal";
-const GRAVEL_ADDR = "Dal pukkverk";
-const FUEL_CHOICES = [
-  {name:"Driv Dal", q:"Driv Dal avgiftsfri diesel"},
-  {name:"Esso Energi Dal", q:"Esso Energi Dal avgiftsfri diesel"}
-];
-
-/* ===== STATE ===== */
-const LS = "broyte_v98_state";
-let state = load() || {
-  role:"driver1",
-  direction:"forward",
-  equipment:{plog:true,fres:false,stro:false},
-  autoCheck:true,
-  hanske:false,
-  useCustomName:false,
-  customName:"",
-  theme:"auto",
-  stops:[],
-  service:{plog:false,fres:false,stro:false,oilFront:false,oilBack:false,other:false,notes:""},
-  lastSyncAt:null,
-  lastSyncBy:"",
-  ui:{ pinFilter:"all", adminPinFilter:"all" },
-  lastActiveAt: Date.now(),
-  dayLog: { // per-dag logg for HTML-rapport
-    dateKey: dateKey(new Date()),
-    entries: [] // {ts, type:'start|done|block|photo|incident|weather', name, task, note, photos:[dataURL], weather:{...}}
-  }
+  // Oppgaver (kun de du ønsket)
+  DEFAULT_TASKS: [
+    "Snø + brøytestikker",
+    "Snø og grus + brøytestikker"
+  ]
 };
-/* ===== helpers ===== */
-function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
-function load(){ try{ return JSON.parse(localStorage.getItem(LS)||""); }catch(_){ return null; } }
-function apiKey(){ return localStorage.getItem("broyte_api_key") || JSONBIN_API_KEY; }
-function headers(){ return {"Content-Type":"application/json","X-Master-Key": apiKey()}; }
+
+/* ====== LS-KEY + STATE ====== */
+const LS_KEY = "broyte_v910_state";
+let state = loadState() || makeDefaultState();
+
+function makeDefaultState(){
+  return {
+    role: "driver1",
+    direction: "forward",
+    equipment: { plog: true, fres: false, stro: false },
+    autoCheck: true,
+    hanske: false,
+    useCustomName: false,
+    customName: "",
+    theme: "auto",
+
+    stops: [],
+
+    service: {
+      plog: false,
+      fres: false,
+      stro: false,
+      oilFront: false,
+      oilBack: false,
+      steering: false,   // Forstilling smurt
+      other: false,
+      notes: ""
+    },
+
+    lastSyncAt: null,
+    lastSyncBy: "",
+    ui: { pinFilter: "all", adminPinFilter: "all" },
+    lastActiveAt: Date.now(),
+
+    // Daglig logg (for HTML-rapport)
+    dayLog: {
+      dateKey: dateKey(new Date()),
+      entries: [] // {ts,type,name,task,note,who,photos,weather}
+    }
+  };
+}
+
+/* ====== DOM SHORTCUT ====== */
 const $ = id => document.getElementById(id);
-window.addEventListener('error', (ev) => {
-  const bar = document.createElement('div');
-  bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#b00020;color:#fff;padding:8px 12px;font:12px system-ui;z-index:99999';
-  bar.textContent = 'JS-feil: ' + (ev.message || 'ukjent') + (ev.filename ? ' @ ' + ev.filename + ':' + ev.lineno : '');
-  document.body.appendChild(bar);
-  console.error('JS error', ev);
-});
-const esc = s => String(s||"");
+
+/* ====== STORAGE ====== */
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+function loadState(){
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || ""); }
+  catch { return null; }
+}
+
+/* ====== API KEY / HEADERS ====== */
+function apiKey(){
+  return localStorage.getItem("broyte_api_key") || window.BROYTE_CFG.DEFAULT_API_KEY;
+}
+function headers(){
+  return { "Content-Type":"application/json", "X-Master-Key": apiKey() };
+}
+
+/* ====== UTIL ====== */
+const esc = s => String(s ?? "");
 const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
-const fmtDT = ts => ts ? new Date(ts).toLocaleString("no-NO") : "—";
-function displayName(){ return state.useCustomName && state.customName ? state.customName : (state.role || "Sjåfør"); }
+const fmtDT   = ts => ts ? new Date(ts).toLocaleString("no-NO") : "—";
+
+function displayName(){
+  return state.useCustomName && state.customName
+    ? state.customName
+    : (state.role || "Sjåfør");
+}
 function dateKey(d){ return d.toISOString().slice(0,10); }
 function seasonKey(){
   const d=new Date(), y=d.getFullYear(), m=d.getMonth()+1;
-  return m>=7? `${y}/${(y+1).toString().slice(-2)}` : `${y-1}/${y.toString().slice(-2)}`;
+  return m>=7 ? `${y}/${(y+1).toString().slice(-2)}` : `${y-1}/${y.toString().slice(-2)}`;
 }
-
-/* ===== PWA REGISTER ===== */
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
-}
-
-/* ===== DOMContentLoaded ===== */
-document.addEventListener("DOMContentLoaded", ()=>{
-  // Tabs
-  document.querySelectorAll(".tab").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-      document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-      btn.classList.add("active");
-      $("page-"+btn.dataset.tab).classList.add("active");
-      if(btn.dataset.tab==="work"){ renderWork(); maybeInactivityResetPrompt(); }
-      if(btn.dataset.tab==="register") renderRegister();
-      if(btn.dataset.tab==="admin") renderAdmin();
-    });
-  });
-
-  // Hjem init
-  $("role").value = state.role;
-  $("direction").value = state.direction;
-  $("eq_plog").checked = !!state.equipment.plog;
-  $("eq_fres").checked = !!state.equipment.fres;
-  $("eq_stro").checked = !!state.equipment.stro;
-  $("autoCheck").checked = !!state.autoCheck;
-  document.body.classList.toggle("hanske", !!state.hanske);
-  $("useCustomName").checked = !!state.useCustomName;
-  $("customName").value = state.customName || "";
-  $("customName").style.display = state.useCustomName ? "block" : "none";
-  $("themeSel").value = state.theme || "auto";
-  applyTheme(state.theme||"auto");
-
-  const hadKey = !!localStorage.getItem("broyte_api_key");
-  if (hadKey && state.lastSyncAt) hideKeyRow();
-
-  $("saveKey").onclick = ()=>{ const key=$("apiKey").value.trim(); if(!key) return alert("Lim inn nøkkel først"); localStorage.setItem("broyte_api_key", key); $("apiKey").value=""; $("syncStatus").textContent="Synk – nøkkel lagret ✅"; };
-  $("editKey").onclick = (e)=>{ e.preventDefault(); showKeyRow(); };
-
-  $("role").onchange = ()=>{ state.role=$("role").value; save(); renderWork(); };
-  $("direction").onchange = ()=>{ state.direction=$("direction").value; save(); renderWork(); };
-  $("bigBtn").onchange = ()=>{ state.hanske=$("bigBtn").checked; document.body.classList.toggle("hanske",state.hanske); save(); };
-  $("autoCheck").onchange = ()=>{ state.autoCheck=$("autoCheck").checked; save(); };
-  $("useCustomName").onchange = ()=>{ state.useCustomName=$("useCustomName").checked; $("customName").style.display=state.useCustomName?"block":"none"; save(); renderWork(); };
-  $("customName").addEventListener("input", ()=>{ state.customName=$("customName").value.trim(); save(); renderWork(); });
-  $("themeSel").onchange = ()=>{ state.theme=$("themeSel").value; save(); applyTheme(state.theme); };
-
-  $("btnStart").onclick = ()=>document.querySelector('.tab[data-tab="work"]').click();
-  $("btnSyncNow").onclick = ()=> syncPull().then(()=>syncPush());
-  $("btnResetAll").onclick = resetAllHandler;
-  $("btnRoundByEquip").onclick = roundByEquipHandler;
-
-  setupInstallBanner();
-
-  ["eq_plog","eq_fres","eq_stro"].forEach(id=>{
-    $(id).onchange = ()=>{
-      state.equipment = { plog:$("eq_plog").checked, fres:$("eq_fres").checked, stro:$("eq_stro").checked };
-      save();
-    };
-  });
-
-  // Register
-  $("btnCatalogPull").onclick = catalogPull;
-  $("btnPropose").onclick = proposeHandler;
-  $("add").onclick = addLocalAddress;
-  $("addr").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("add").click(); } });
-
-  // Under arbeid
-  $("ongo").onclick  = ()=>{ touchActivity(); const c=cur(); if(!c) return; c.started = c.started || Date.now(); logEntry('start',c); save(); renderWork(); syncPush(); maybeTwoDriverPrompt(c); };
-  $("done").onclick  = doneHandler;
-  $("block").onclick = blockHandler;
-  $("next").onclick  = nextHandler;
-  $("nav").onclick   = ()=>{ const c=cur(); if(c) navTo(c.n); };
-  $("photo").onclick = ()=> $("fileInput").click();
-  $("fileInput").onchange = onPhotoChosen;
-
-  // Uhell
-  $("incident").onclick = incidentHandler;
-
-  // base/grus/drivstoff
-  $("goBase").onclick     = ()=> navTo(BASE_ADDR);
-  $("fillGravel").onclick = ()=> navTo(GRAVEL_ADDR);
-  $("fillFuel").onclick   = ()=> {
-    const choice = prompt("Velg stasjon: 1) Driv Dal  2) Esso Energi Dal  3) Avbryt","1");
-    if(choice==="1") mapsSearch(FUEL_CHOICES[0].q);
-    else if(choice==="2") mapsSearch(FUEL_CHOICES[1].q);
-  };
-  $("cheapestFuel").onclick = ()=> mapsSearch("avgiftsfri diesel Dal");
-
-  // Admin
-  $("adminSync").onclick = ()=>{ renderAdmin(); };
-  $("catLoad").onclick = loadCatalog;
-  $("catAdd").onclick = ()=> editCatalogRow(null);
-  $("catSave").onclick = saveCatalogWithBackup;
-  $("catPublish").onclick = publishCatalogToMaster;
-  $("catExportCsv").onclick = exportCatalogCsv;
-  $("catRestore").onclick = restoreCatalogFromBackup;
-  $("adminInbox").onclick = loadInbox;
-
-  // Service
-  $("svcSave").onclick = saveServiceReportCsv;
-  $("svcGuide").onclick = downloadGuideTxt;
-  $("svcSaveHtml").onclick = saveDayHtmlReport;
-
-  // Geoposisjon i footer
-  initGeolocation();
-
-  // Pinne-filter (Register)
-  document.querySelectorAll('#pinFilters [data-pf]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      state.ui.pinFilter = btn.dataset.pf;
-      save();
-      renderRegister();
-      document.querySelectorAll('#pinFilters [data-pf]').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-    });
-  });
-  const initBtn = document.querySelector(`#pinFilters [data-pf="${state.ui.pinFilter}"]`); if(initBtn) initBtn.classList.add('active');
-
-  // Pinne-filter (Admin)
-  document.querySelectorAll('#pinFiltersAdmin [data-pfa]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      state.ui.adminPinFilter = btn.dataset.pfa;
-      save();
-      renderAdmin();
-      document.querySelectorAll('#pinFiltersAdmin [data-pfa]').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-    });
-  });
-  const initBtnA = document.querySelector(`#pinFiltersAdmin [data-pfa="${state.ui.adminPinFilter}"]`); if(initBtnA) initBtnA.classList.add('active');
-
-  // Defaults + første render
-  bootDefaults();
-  renderRegister();
-  renderWork();
-
-  // Heartbeat
-  setInterval(()=>{ try{ syncPush(); }catch(_){ } }, HEARTBEAT_MS);
-
-  // Refresh når du kommer tilbake fra Maps
-  window.addEventListener("pageshow", ()=>{ try{ renderWork(); renderRegister(); }catch(_){} });
-
-  // Vær initialt
-  refreshWeather();
-});
-
-/* ===== Utils ===== */
 function touchActivity(){ state.lastActiveAt = Date.now(); save(); }
 function applyTheme(mode){ document.documentElement.dataset.theme = mode; }
+
+/* ====== RUTEHJELPERE ====== */
 function idxList(){
-  const rem = state.stops.map((s,i)=>({i,s})).filter(x=>!x.s.f && !x.s.b).map(x=>x.i);
-  return state.direction==="forward" ? rem : rem.slice().reverse();
+  const rem = state.stops.map((s,i)=>({i,s}))
+                         .filter(x=>!x.s.f && !x.s.b)
+                         .map(x=>x.i);
+  return state.direction === "forward" ? rem : rem.slice().reverse();
 }
-function cur(){ const l=idxList(); return l.length? state.stops[l[0]] : null; }
-function curIndex(){ const l=idxList(); return l.length? l[0] : -1; }
-function nxt(){ const l=idxList(); return l.length>1? state.stops[l[1]] : null; }
+function cur(){ const l=idxList(); return l.length ? state.stops[l[0]] : null; }
+function curIndex(){ const l=idxList(); return l.length ? l[0] : -1; }
+function nxt(){ const l=idxList(); return l.length>1 ? state.stops[l[1]] : null; }
 function prog(){
-  const total=state.stops.length;
-  const done=state.stops.filter(s=>s.f).length;
-  const blocked=state.stops.filter(s=>s.b).length;
-  const cleared=done+blocked;
-  const pct = total? Math.round(100*cleared/total):0;
-  return {total,done,blocked,cleared,pct};
-}
-function navTo(address){ if(!address) return; location.href = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(address); }
-function mapsSearch(q){ location.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q); }
-
-function afterRound(){
-  // Snø-runde → foreslå strørunde via base
-  const anySnow = state.stops.some(s=>/Snø/.test(s.t) && (s.f||s.b));
-  const ask = anySnow && !state.equipment.stro; // kjørte uten strøkasse
-  if(ask){
-    const ok = confirm("Snørunde ferdig ✅\nVil du kjøre til base for å bytte til strøkasse og starte ny runde med strøing?");
-    if(ok){
-      navTo(BASE_ADDR);
-      state.stops.forEach(s=>{
-        if(/Snø og grus/.test(s.t)){ s.f=false; s.b=false; s.started=null; s.finished=null; }
-      });
-      state.equipment.stro = true; $("eq_stro").checked = true;
-      save(); renderWork(); renderRegister(); syncPush();
-      document.querySelector('.tab[data-tab="work"]')?.click();
-      return;
-    }
-  }
-  const c = confirm("Runde ferdig ✅\nVil du starte ny runde (etter utstyr)?\nTrykk Avbryt for å gå til Service.");
-  if(c){
-    state.stops.forEach(s=>{
-      const needSnow=/Snø/.test(s.t), needGrus=/grus/.test(s.t);
-      const ok = (!needSnow || state.equipment.plog || state.equipment.fres) && (!needGrus || state.equipment.stro);
-      if(ok){ s.f=false; s.b=false; s.started=null; s.finished=null; }
-    });
-    save(); renderWork(); renderRegister(); syncPush();
-    document.querySelector('.tab[data-tab="work"]')?.click();
-  }else{
-    document.querySelector('.tab[data-tab="service"]')?.click();
-  }
-}
-function hideKeyRow(){ $("keyBlock").style.display="none"; $("saveKey").style.display="none"; $("editKey").style.display="inline"; }
-function showKeyRow(){ $("keyBlock").style.display="inline-block"; $("saveKey").style.display="inline-block"; $("editKey").style.display="none"; }
-
-/* ===== Render ===== */
-function renderWork(){
-  const c=cur(), n=nxt();
-  $("driverLbl").textContent = "Rolle: " + displayName();
-  $("directionLbl").textContent = "Retning: " + (state.direction==="forward"?"Vanlig":"Baklengs");
-  $("curName").textContent = c? esc(c.n) : "—";
-  $("curTask").textContent = c? esc(c.t) : "—";
-  $("curNext").textContent = n? esc(n.n) : "—";
-  $("thumbs").innerHTML = c?.p?.length ? c.p.map(src=>`<img src="${src}" alt="foto">`).join("") : "";
-  const {pct,cleared,total} = prog();
-  $("progBar").style.width = pct+"%";
-  $("progTxt").textContent = `${pct} % fullført (${cleared}/${total})`;
-  $("directionNote").textContent = `Du kjører i ${(state.direction==="forward"?'vanlig':'baklengs')} rekkefølge. (${displayName()})`;
-  $("lastSyncText").textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
-  $("lastSyncTextWork").textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
-  refreshWeather();
-}
-function hasPinsThisSeason(s){
-  const y = s.pinsLockedYear;
-  const sk = seasonKey();
-  return y && String(y)===sk;
-}
-function renderRegister(){
-  const pf = state.ui?.pinFilter || "all";
-  let rows = state.stops.slice();
-  if (pf === "pending") rows = rows.filter(s => !hasPinsThisSeason(s));
-  if (pf === "done")    rows = rows.filter(hasPinsThisSeason);
-  const label = pf==="all" ? "Alle" : (pf==="pending" ? "Uten pinner i år" : "Med pinner i år");
-  const donePins = state.stops.filter(hasPinsThisSeason).length;
-  const pendingPins = state.stops.length - donePins;
-  $("pinFilterInfo").textContent = `${label}: ${rows.length} viste · ${donePins} med pinner · ${pendingPins} uten (sesong ${seasonKey()})`;
-
-  $("list").innerHTML = rows.length
-    ? rows.map((s,i)=>`
-        <div class="item">
-          <b>${esc(s.n)}</b>
-          ${s.twoDriverRec?`<span class="badge note">👥 2 sjåfører</span>`:""}
-          ${s.pinsLockedYear ? `<span class="badge" title="Brøytestikker låst ${s.pinsLockedYear}">📍 ${s.pinsCount??0} – låst ${esc(s.pinsLockedYear)}</span>` : ``}
-          <br><span class="muted">${esc(s.t)}</span> ${s.f?'✅':''} ${s.b?'⛔':''}
-        </div>`).join("")
-    : `<div class="item muted">Ingen adresser enda. Hent fra katalog eller legg til lokalt.</div>`;
-}
-function renderAdmin(){
-  const sk = seasonKey();
   const total = state.stops.length;
-  const donePins = state.stops.filter(hasPinsThisSeason).length;
-  const pendingPins = total - donePins;
-
-  const pf = state.ui?.adminPinFilter || "all";
-  let rows = state.stops.slice();
-  if (pf === "pending") rows = rows.filter(s => !hasPinsThisSeason(s));
-  if (pf === "done")    rows = rows.filter(hasPinsThisSeason);
-
-  const pct = total ? Math.round(100 * (state.stops.filter(s=>s.f||s.b).length) / total) : 0;
-  $("adminSyncTxt").textContent = `Viser lokal status (Synk nå for MASTER).`;
-  $("adminStats").innerHTML = `Totalt: ${total} – Ferdig: ${state.stops.filter(s=>s.f).length} – Ikke mulig: ${state.stops.filter(s=>s.b).length} – ${pct}%`;
-  const label = pf==="all" ? "Alle" : (pf==="pending" ? "Uten pinner i år" : "Med pinner i år");
-  $("pinFilterInfoAdmin").textContent = `${label}: ${rows.length} viste · ${donePins} med pinner · ${pendingPins} uten (sesong ${sk})`;
-
-  $("adminList").innerHTML = rows.map((s,i)=>`
-    <div class="item">
-      <b>${esc(s.n)}</b>
-      ${s.twoDriverRec?`<span class="badge note">👥 2 sjåfører</span>`:""}
-      ${s.pinsLockedYear ? `<span class="badge" title="Brøytestikker låst ${s.pinsLockedYear}">📍 ${s.pinsCount??0} – låst ${esc(s.pinsLockedYear)}</span>` : ``}
-      <br><span class="muted">${esc(s.t)}</span>
-      <div class="small">Sist oppdatert av: ${esc(state.lastSyncBy||'—')}</div>
-    </div>
-  `).join("");
+  const done = state.stops.filter(s=>s.f).length;
+  const blocked = state.stops.filter(s=>s.b).length;
+  const cleared = done + blocked;
+  const pct = total ? Math.round(100*cleared/total) : 0;
+  return { total, done, blocked, cleared, pct };
 }
 
-/* ===== Sync ===== */
-async function syncPull(){
-  try{
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}/latest`, { headers: headers() });
-    const js = await r.json();
-    if(js?.record?.stops){
-      state.stops = js.record.stops.map(s=>({ n:s.n, t:s.t, f:!!s.f, b:!!s.b, p:s.p||[], started:s.started||null, finished:s.finished||null, details:s.details||"", twoDriverRec:!!s.twoDriverRec, pinsCount:s.pinsCount||0, pinsLockedYear:s.pinsLockedYear||null }));
-      state.lastSyncAt = js.record.lastSyncAt || Date.now();
-      state.lastSyncBy = js.record.lastSyncBy || displayName();
-      save(); renderWork(); renderRegister();
-      $("syncStatus").textContent = "Synk – Pull OK";
-      hideKeyRow();
-    }else{
-      $("syncStatus").textContent = "Synk – Pull tom";
-    }
-  }catch(e){
-    $("syncStatus").textContent = "Synk – Pull FEIL";
-    showKeyRow();
-  }
+/* ====== NAVIGASJON ====== */
+function navTo(address){
+  if(!address) return;
+  location.href = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(address);
 }
-async function syncPush(){
-  try{
-    const payload={ version:"9.9", updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops: state.stops, meta:{role:state.role, direction:state.direction} };
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(payload) });
-    if(!r.ok) throw 0;
-    state.lastSyncAt = payload.lastSyncAt; state.lastSyncBy = payload.lastSyncBy; save(); renderWork();
-    $("syncStatus").textContent = "Synk – Push OK";
-    hideKeyRow();
-  }catch(e){
-    $("syncStatus").textContent = "Synk – Push FEIL";
-    showKeyRow();
-  }
+function mapsSearch(q){
+  location.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
 }
 
-/* ===== Katalog (Admin) + Backup ===== */
-/* ===== Katalog → Pull til lokal rute (Register) ===== */
-async function catalogPull(){
-  try{
-    $("btnCatalogPull")?.setAttribute("disabled","disabled");
-    $("btnCatalogPull")?.classList.add("muted");
-    $("pinFilterInfo").textContent = "Henter katalog …";
-
-    // Hent public katalog
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`);
-    const js = await r.json();
-    const cat = js?.record?.addresses || [];
-
-    if (!cat.length){
-      alert("Katalogen er tom eller kunne ikke lastes.");
-      $("pinFilterInfo").textContent = "Kunne ikke hente katalog.";
-      return;
-    }
-
-    // Filtrer aktive, og map til stops-format
-    const items = cat.filter(a => a?.active !== false);
-    const stops = items.map(a => ({
-      n: a.name || "",
-      t: a.task || "Snø",
-      f: false,
-      b: false,
-      p: [],
-      started: null,
-      finished: null,
-      details: "",
-      twoDriverRec: !!a.twoDriverRec,
-      pinsCount: 0,
-      pinsLockedYear: null
-    }));
-
-    if (!stops.length){
-      alert("Ingen aktive adresser i katalogen.");
-      $("pinFilterInfo").textContent = "Ingen aktive adresser i katalog.";
-      return;
-    }
-
-    // Legg inn i lokal state
-    state.stops = stops;
-    save();
-    renderRegister();
-    renderWork();
-
-    // Push til MASTER så alle ser samme rute (krever nøkkel)
-    try{
-      await syncPush();
-      $("pinFilterInfo").textContent = `Katalog hentet: ${stops.length} adresser.`;
-      alert(`Katalog hentet ✅ (${stops.length} adresser).`);
-    }catch(_){
-      $("pinFilterInfo").textContent = `Lokalt oppdatert: ${stops.length} adresser (push feilet – sjekk nøkkel).`;
-      alert(`Katalog hentet lokalt ✅ (${stops.length}). Push feilet – sjekk synk-nøkkel.`);
-    }
-  }catch(e){
-    console.error(e);
-    alert("Feil ved henting av katalog.");
-    $("pinFilterInfo").textContent = "Feil ved henting.";
-  }finally{
-    $("btnCatalogPull")?.removeAttribute("disabled");
-    $("btnCatalogPull")?.classList.remove("muted");
-  }
-}
-async function loadCatalog(){
-  try{
-    $("catMsg").textContent="Laster katalog …";
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`);
-    const js = await r.json();
-    const cat = js?.record?.addresses || [];
-    renderCatalogEditor(cat);
-    $("catMsg").textContent=`Katalog lastet (${cat.length} adresser).`;
-  }catch(e){
-    $("catMsg").textContent="Feil ved lasting av katalog.";
-  }
-}
-function renderCatalogEditor(items){
-  $("catList").innerHTML = items.map((a,idx)=>`
-    <div class="item" data-i="${idx}">
-      <div class="row">
-        <input class="cat-name" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2">
-        <select class="cat-task" style="flex:1">
-          ${["Snø","Snø og grus","Brøytestikker"].map(t=>`<option ${a.task===t?'selected':''}>${t}</option>`).join("")}
-        </select>
-        <input class="cat-group" value="${esc(a.group||'')}" placeholder="Gruppe/borettslag" style="flex:1">
-      </div>
-      <div class="row">
-        <label><input class="cat-eq" type="checkbox" data-k="plog" ${a.equipment?.includes("plog")?'checked':''}> plog</label>
-        <label><input class="cat-eq" type="checkbox" data-k="fres" ${a.equipment?.includes("fres")?'checked':''}> fres</label>
-        <label><input class="cat-eq" type="checkbox" data-k="stro" ${a.equipment?.includes("stro")?'checked':''}> strø</label>
-        <label><input class="cat-2d" type="checkbox" ${a.twoDriverRec?'checked':''}> 2 sjåfører</label>
-        <label><input class="cat-active" type="checkbox" ${a.active!==false?'checked':''}> aktiv</label>
-        <button class="btn btn-gray cat-edit" data-act="dup">Dupliser</button>
-        <button class="btn btn-red cat-edit" data-act="del">Slett</button>
-      </div>
-    </div>`).join("");
-
-  $("catList").querySelectorAll(".cat-edit").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      const wrap = btn.closest(".item"); const i = +wrap.dataset.i;
-      let arr = readCatalogFromDom();
-      if(btn.dataset.act==="del") arr.splice(i,1);
-      if(btn.dataset.act==="dup") arr.splice(i+1,0, {...arr[i]});
-      renderCatalogEditor(arr);
-    });
-  });
-  $("catList").dataset.json = JSON.stringify(items);
-}
-function editCatalogRow(row){
-  const items = readCatalogFromDom();
-  items.push(row || {name:"", task:"Snø", group:"", equipment:[], twoDriverRec:false, active:true});
-  renderCatalogEditor(items);
-}
-function readCatalogFromDom(){
-  const nodes = [...$("catList").querySelectorAll(".item")];
-  return nodes.map(wrap=>{
-    const name = wrap.querySelector(".cat-name").value.trim();
-    const task = wrap.querySelector(".cat-task").value;
-    const group= wrap.querySelector(".cat-group").value.trim();
-    const eqs = [...wrap.querySelectorAll(".cat-eq")].filter(x=>x.checked).map(x=>x.dataset.k);
-    const twoDriverRec = wrap.querySelector(".cat-2d").checked;
-    const active = wrap.querySelector(".cat-active").checked;
-    return {name,task,group,equipment:eqs,twoDriverRec,active};
-  });
-}
-async function saveCatalogWithBackup(){
-  try{
-    const items = readCatalogFromDom();
-    $("catMsg").textContent = "Lagrer (tar backup først)…";
-    const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`).then(r=>r.json());
-    const current = latest?.record || {version:"9.9",updated:0,addresses:[]};
-    const backupLatest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BACKUP_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json()).catch(()=>({record:{version:"backup_v1",backups:[]}}));
-    const backups = backupLatest?.record?.backups || [];
-    backups.push({ ts: Date.now(), data: current });
-    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BACKUP_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify({ version:"backup_v1", backups }) });
-    const rec = { version:"9.9", updated: Date.now(), addresses: items };
-    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
-    $("catMsg").textContent = "Katalog lagret ✔︎";
-  }catch(e){
-    $("catMsg").textContent = "Feil ved lagring (sjekk nøkkel).";
-  }
-}
-async function restoreCatalogFromBackup(){
-  try{
-    $("catMsg").textContent = "Henter backup…";
-    const js = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BACKUP_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json());
-    const backups = js?.record?.backups||[];
-    if(!backups.length) return $("catMsg").textContent="Ingen backup funnet.";
-    const last = backups[backups.length-1];
-    const rec = last.data || {addresses:[]};
-    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
-    $("catMsg").textContent = "Gjenopprettet fra backup ✔︎";
-    renderCatalogEditor(rec.addresses||[]);
-  }catch(e){
-    $("catMsg").textContent = "Feil ved gjenoppretting.";
-  }
-}
-async function publishCatalogToMaster(){
-  try{
-    $("catMsg").textContent="Publiserer til MASTER…";
-    const items = readCatalogFromDom().filter(a=>a.active!==false);
-    const need = {plog:!!state.equipment.plog, fres:!!state.equipment.fres, stro:!!state.equipment.stro};
-    const filtered = items.filter(a=>{ const eq=a.equipment||[]; if(!eq.length) return true; return eq.some(k=>need[k]); });
-    const stops = filtered.map(a=>({ n:a.name, t:a.task, f:false, b:false, p:[], started:null, finished:null, details:"", twoDriverRec:!!a.twoDriverRec, pinsCount:0, pinsLockedYear:null }));
-    const payload={ version:"9.9", updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops, meta:{role:state.role, direction:state.direction} };
-    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_MASTER_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(payload) });
-    $("catMsg").textContent="Publisert ✔︎ – be sjåfører trykke «Synk nå».";
-  }catch(e){
-    $("catMsg").textContent="Feil ved publisering (sjekk nøkkel).";
-  }
-}
-function exportCatalogCsv(){
-  try{
-    const items = readCatalogFromDom();
-    const rows = ['Navn,Oppgave,Gruppe,Utstyr,2Sjåfører,Aktiv'];
-    items.forEach(a=> rows.push(`"${(a.name||'').replace(/"/g,'""')}","${(a.task||'').replace(/"/g,'""')}","${(a.group||'').replace(/"/g,'""')}","${(a.equipment||[]).join('+')}",${a.twoDriverRec?'Ja':'Nei'},${a.active!==false?'Ja':'Nei'}`));
-    const csv = rows.join("\n");
-    const file = new File([csv],'katalog.csv',{type:'text/csv'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({title:'Katalog',text:'CSV-katalog',files:[file]}).catch(()=>{});
-    }else{
-      const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download='katalog.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-    }
-  }catch(_){}
-}
-
-/* ===== INBOX ===== */
-async function sendProposal(obj){
-  try{
-    const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json());
-    const rec = latest?.record || {version:"9.9", updated:0, proposals:[]};
-    rec.proposals = rec.proposals || [];
-    rec.proposals.push({ id: Math.random().toString(36).slice(2), type: obj.type||"add", from: displayName(), payload: obj, ts: Date.now(), status:"pending", note:"" });
-    rec.updated = Date.now();
-    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
-    alert("Forslag sendt 👍");
-  }catch(e){ alert("Kunne ikke sende forslag. Sjekk nøkkel."); }
-}
-async function loadInbox(){
-  try{
-    const js = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_INBOX_BIN_ID}/latest`, { headers: headers() }).then(r=>r.json());
-    const props = js?.record?.proposals||[];
-    $("adminInboxTxt").textContent = "Forslag: " + props.length;
-    $("inboxList").innerHTML = props.slice(-50).reverse().map(p=>`
-      <div class="item">
-        <b>${(p.type||'').toUpperCase()}</b> – fra ${p.from||'?'} – ${new Date(p.ts).toLocaleString('no-NO')}<br>
-        <span class="muted">${(p.payload?.name||'')} ${(p.payload?.task||'')}</span><br>
-        <span class="badge">${p.status||'pending'}</span>
-      </div>`).join("");
-  }catch(e){ $("adminInboxTxt").textContent = "Feil ved henting."; }
-}
-
-/* ===== Register handlers ===== */
-function proposeHandler(){
-  const name = prompt("Navn (adresse/område):"); if(!name) return;
-  const task = prompt("Oppgave (Snø / Snø og grus / Brøytestikker):","Snø")||"Snø";
-  const group= prompt("Borettslag/gruppe (valgfritt):","")||"";
-  sendProposal({type:"add",name,task,group});
-}
-function addLocalAddress(){
-  const addr = $("addr").value.trim(); if(!addr) return;
-  const task = $("taskSel").value;
-  const twoDriver = $("twoDriverRec").checked;
-  state.stops.push({ n:addr, t:task, f:false, b:false, p:[], started:null, finished:null, details:"", twoDriverRec:twoDriver, pinsCount:0, pinsLockedYear:null });
-  $("addr").value=""; $("twoDriverRec").checked=false;
-  save(); renderRegister(); syncPush();
-}
-
-/* ===== Under arbeid handlers ===== */
-function onPhotoChosen(e){
-  const f = e.target.files?.[0]; if(!f) return;
-  const r = new FileReader();
-  r.onload = ()=>{ const c=cur(); if(!c) return; (c.p||(c.p=[])).push(r.result); logEntry('photo',c,"", [r.result]); save(); renderWork(); syncPush(); };
-  r.readAsDataURL(f); e.target.value="";
-}
-function doneHandler(){
-  touchActivity();
-  const c = cur(); if(!c) return;
-  if(c.t==="Brøytestikker"){
-    const v = prompt("Antall brøytestikker?",""); if(v===null) return;
-    c.pinsCount = parseInt(v||"0",10)||0;
-    c.pinsLockedYear = seasonKey(); // lås for sesongen
-  }
-  c.f = true; c.finished = Date.now();
-  logEntry('done',c, c.details||"");
-  save(); renderWork(); syncPush();
-  const n = nxt(); if(n) navTo(n.n); else afterRound();
-}
-function blockHandler(){
-  touchActivity();
-  const c = cur(); if(!c) return;
-  const r = prompt("Hvorfor ikke mulig å utføre? (valgfritt)","")||"";
-  if(r) c.details = (c.details?c.details+" · ":"") + "Årsak: " + r;
-  c.b = true; c.finished = Date.now();
-  logEntry('block',c,r);
-  save(); renderWork(); syncPush();
-}
-function nextHandler(){
-  touchActivity();
-  const c = cur(); if(!c) return;
-  if(confirm("Markere utført før neste?")){ c.f=true; c.finished=Date.now(); logEntry('done',c); save(); syncPush(); }
-  renderWork(); const n=nxt(); if(n) navTo(n.n);
-}
-function incidentHandler(){
-  const c=cur();
-  const note = prompt("Kort beskrivelse av uhell (valgfritt):","")||"";
-  logEntry('incident', c||{n:"(ukjent)",t:""}, note);
-  alert("Uhell logget. Ta gjerne bilder med 📷-knappen.");
-}
-
-/* ===== Vær ===== */
-let lastWeather = null;
-async function refreshWeather(){
-  try{
-    if(!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(async pos=>{
-      const {latitude:lat, longitude:lon} = pos.coords||{};
-      if(!isFinite(lat)||!isFinite(lon)) return;
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation&hourly=temperature_2m,precipitation&forecast_days=1&timezone=auto`;
-      const r = await fetch(url);
-      const js = await r.json();
-      const nowT = js?.current?.temperature_2m;
-      const nowP = js?.current?.precipitation;
-      const times = js?.hourly?.time||[];
-      const temps = js?.hourly?.temperature_2m||[];
-      const precs = js?.hourly?.precipitation||[];
-      const idx3 = Math.min(3, temps.length-1); // ca +3t
-      const t3 = temps[idx3], p3 = precs[idx3];
-      const snowNow = (nowP||0) > 0 ? "Snør" : "Ingen snø";
-      const snow3  = (p3||0) > 0 ? "Snør" : "Ingen snø";
-      $("weatherRow").innerHTML =
-        `<span class="pill now">Nå: ${Math.round(nowT)}°C · ${snowNow}</span>
-         <span class="pill">+3t: ${Math.round(t3)}°C · ${snow3}</span>`;
-      $("weatherAt").textContent = new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
-      $("weatherLoc").textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-      lastWeather = { ts: Date.now(), lat, lon, nowT, nowP, t3, p3, snowNow, snow3 };
-    }, ()=>{ /* ignore */ }, {enableHighAccuracy:true,timeout:10000,maximumAge:60000});
-  }catch(_){}
-}
-
-/* ===== Daglig HTML-rapport ===== */
-function logEntry(type, stop, note="", photos=[]){
-  const dk = dateKey(new Date());
-  if(state.dayLog.dateKey !== dk){ state.dayLog={dateKey:dk,entries:[]}; }
-  state.dayLog.entries.push({
-    ts: Date.now(),
-    type, name: stop?.n||"", task: stop?.t||"", note,
-    who: displayName(),
-    photos, weather: lastWeather
-  });
-}
-async function saveDayHtmlReport(){
-  try{
-    const rows = state.dayLog.entries.map(e=>`
-      <tr>
-        <td>${fmtDT(e.ts)}</td>
-        <td>${esc(e.type)}</td>
-        <td>${esc(e.name)}</td>
-        <td>${esc(e.task)}</td>
-        <td>${esc(e.who)}</td>
-        <td>${e.weather? `${Math.round(e.weather.nowT)}°C, ${e.weather.snowNow} (nå)`:""}</td>
-        <td>${esc(e.note||"")}</td>
-        <td>${(e.photos||[]).map(src=>`<img src="${src}" style="width:80px;height:80px;object-fit:cover;border:1px solid #ddd;border-radius:6px;margin:2px">`).join("")}</td>
-      </tr>`).join("");
-
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Dagrapport ${state.dayLog.dateKey}</title>
-      <style>body{font-family:system-ui,Arial,sans-serif;padding:16px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px;font-size:14px} th{background:#f5f5f5;text-align:left}</style>
-      </head><body>
-      <h1>Dagrapport – ${state.dayLog.dateKey}</h1>
-      <div>Fører: <b>${esc(displayName())}</b></div>
-      <div>Utstyr: ${state.equipment.plog?'plog ':''}${state.equipment.fres?'fres ':''}${state.equipment.stro?'strøkasse':''}</div>
-      <table><thead><tr><th>Tid</th><th>Type</th><th>Adresse</th><th>Oppgave</th><th>Utført av</th><th>Vær</th><th>Notat</th><th>Bilder</th></tr></thead>
-      <tbody>${rows||''}</tbody></table>
-      </body></html>`;
-
-    const file = new File([html], `dagrapport_${state.dayLog.dateKey}.html`, {type:"text/html"});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({title:'Dagrapport',text:`Dagrapport ${state.dayLog.dateKey}`,files:[file]});
-    }else{
-      const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download=file.name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-    }
-
-    try{
-      const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_REPORT_BIN_ID}/latest`, {headers:headers()}).then(r=>r.json()).catch(()=>({record:{reports:[]}}));
-      const rec = latest?.record || {reports:[]};
-      rec.reports = rec.reports || [];
-      rec.reports.push({ ts: Date.now(), by: displayName(), dateKey: state.dayLog.dateKey, html });
-      await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_REPORT_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
-      alert("HTML-rapport lagret lokalt og i report-bin ✔︎");
-    }catch(_){ alert("HTML-rapport lagret lokalt (opplasting feilet)."); }
-
-  }catch(e){ alert("Kunne ikke lage rapport."); }
-}
-
-/* ===== Service-rapport (CSV) + Brukerark ===== */
-function saveServiceReportCsv(){
-  state.service = {
-    plog:$("svc_plog").checked, fres:$("svc_fres").checked, stro:$("svc_stro").checked,
-    oilFront:$("svc_oil_front").checked, oilBack:$("svc_oil_back").checked,
-    other:$("svc_other").checked, notes: $("svcNotes").value.trim()
-  };
-  save();
-  const rows = ['Navn,Oppgave,Ferdig,Blokkert,Start,Slutt,UtførtAv'];
-  state.stops.forEach(s=>{
-    rows.push(`"${(s.n||'').replace(/"/g,'""')}","${(s.t||'').replace(/"/g,'""')}",${s.f?'Ja':'Nei'},${s.b?'Ja':'Nei'},${s.started?new Date(s.started).toISOString():""},${s.finished?new Date(s.finished).toISOString():""},${displayName()}`);
-  });
-  const csv = rows.join("\n");
-  const file = new File([csv],'broeyting_rapport.csv',{type:'text/csv'});
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    navigator.share({title:'Brøyterapport',text:'CSV-rapport',files:[file]}).catch(()=>{});
-  }else{
-    const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download='broeyting_rapport.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-    alert("Rapport lastet ned (CSV).");
-  }
-}
-function downloadGuideTxt(){
-  const content = `
-Brøyterute – v9.9 (Romerike Trefelling)
-
-Oppsett
-1) Åpne lenken og legg på Hjem-skjermen (iPhone: Safari del → Legg til på Hjem-skjermen).
-2) Hjem → lim inn X-Master-Key → Lagre nøkkel → Synk nå.
-3) Velg rolle/navn, retning og utstyr.
-
-Kjøring
-- Under arbeid: Nåværende, Neste, Pågår/Utført/Ikke mulig/Foto/Naviger/Uhell.
-- Hurtigknapper: Kjør til base, Fyll grus, Fyll drivstoff, Finn billigste (søk).
-- Vær-widget viser nå + 3t (temp/snø).
-
-Admin
-- Rediger katalog, 2-sjåfører, pinner-filter, publiser til MASTER.
-- Forslag (INBOX) fra sjåfører.
-- HTML-dagsrapporter lastes også til report-bin.
-
-Kontakt: Øystein Diesen Gjeraldstveit
-  `.trim();
-  const blob = new Blob([content],{type:"text/plain"});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='brukerark.txt'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-
-/* ===== Defaults + helpers ===== */
-function bootDefaults(){
-  if(!Array.isArray(state.stops)) state.stops=[];
-  if(state.stops.length===0){
-    state.stops = [
-      { n:"AMFI Eidsvoll (Råholt)", t:"Snø", f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null },
-      { n:"Råholt barneskole", t:"Snø og grus", f:false, b:false, p:[], twoDriverRec:true, pinsCount:0, pinsLockedYear:null },
-      { n:"Råholt ungdomsskole", t:"Snø", f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null }
-    ];
-    save();
-  }
-}
-
-/* ===== 2-sjåfør “varsel” ===== */
-function maybeTwoDriverPrompt(current){
-  try{
-    if(!current?.twoDriverRec) return;
-    alert(`👥 Anbefalt 2 sjåfører: ${current.n}\nKan du bidra? Trykk OK for å åpne navigasjon.`);
-    navTo(current.n);
-  }catch(_){}
-}
-
-/* ===== 4t inaktivitet ⇒ spør om nullstille ===== */
-function maybeInactivityResetPrompt(){
-  const FOUR_H = 4*60*60*1000;
-  if(Date.now() - (state.lastActiveAt||0) > FOUR_H){
-    if(confirm("Ikke aktiv de siste 4 timene. Vil du nullstille status for ny runde?")){
-      state.stops.forEach(s=>{ s.f=false; s.b=false; s.started=null; s.finished=null; });
-      save(); renderWork(); renderRegister(); syncPush();
-    }
-    touchActivity();
-  }
-}
-
-/* ===== Runde-reset handlers ===== */
-function resetAllHandler(){
-  if(!confirm("Nullstille ALLE adresser?")) return;
-  state.stops.forEach(s=>{ s.f=false; s.b=false; s.started=null; s.finished=null; });
-  save(); renderWork(); renderRegister(); syncPush();
-}
-function roundByEquipHandler(){
-  if(!confirm("Nullstille status for adresser som matcher valgt utstyr?")) return;
-  state.stops.forEach(s=>{
-    const t=s.t||"";
-    const needSnow=/Snø/.test(t), needGrus=/grus/.test(t);
-    const ok = (!needSnow || state.equipment.plog || state.equipment.fres) && (!needGrus || state.equipment.stro);
-    if(ok){ s.f=false; s.b=false; s.started=null; s.finished=null; }
-  });
-  save(); renderWork(); renderRegister(); syncPush();
-}
-
-/* ===== Geo footer ===== */
+/* ====== GEOPOSISJON FOOTER ====== */
 function initGeolocation(){
   const posEl = $("pos"); if(!posEl) return;
-  if(!navigator.geolocation){ posEl.textContent="Posisjon ikke tilgjengelig"; return; }
+  if(!navigator.geolocation){
+    posEl.textContent = "Posisjon ikke tilgjengelig"; return;
+  }
   const fmt=n=>Number.isFinite(n)?n.toFixed(5):"—";
   navigator.geolocation.watchPosition(
-    (p)=>{ const {latitude,longitude,accuracy}=p.coords||{}; posEl.textContent = `${fmt(latitude)}, ${fmt(longitude)} (±${Math.round(accuracy||0)} m)`; },
+    (p)=>{ const {latitude,longitude,accuracy}=p.coords||{};
+           posEl.textContent = `${fmt(latitude)}, ${fmt(longitude)} (±${Math.round(accuracy||0)} m)`; },
     ()=>{ posEl.textContent = "Posisjon utilgjengelig"; },
     { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
   );
 }
 
-/* ===== PWA install banner ===== */
-function setupInstallBanner(){
-  const card = $("installCard");
-  if (!card) return;
-  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-  if (isStandalone) return;
-  card.style.display = "block";
-  let deferredPrompt = null;
-  window.addEventListener("beforeinstallprompt", (e)=>{
-    e.preventDefault();
-    deferredPrompt = e;
-    card.style.display = "block";
-  });
-  $("btnInstall").onclick = async ()=>{
-    if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; card.style.display="none"; }
-    else { $("installHelp").style.display="block"; }
-  };
-  $("btnInstallHelp").onclick = ()=>{ $("installHelp").style.display = $("installHelp").style.display==="none"?"block":"none"; };
+/* ====== FEIL-BANNER (DEV-HJELP) ====== */
+window.addEventListener('error', (ev) => {
+  try{
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#b00020;color:#fff;padding:8px 12px;font:12px system-ui;z-index:99999';
+    bar.textContent = 'JS-feil: ' + (ev.message || 'ukjent') + (ev.filename ? ' @ ' + ev.filename + ':' + ev.lineno : '');
+    document.body.appendChild(bar);
+    console.error('JS error', ev);
+  }catch(_){}
+});
+
+/* ====== BOOT DEFAULTS (første gangs bruk) ====== */
+function bootDefaults(){
+  if(!Array.isArray(state.stops)) state.stops = [];
+  if(state.stops.length===0){
+    state.stops = [
+      { n:"AMFI Eidsvoll (Råholt)", t: window.BROYTE_CFG.DEFAULT_TASKS[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null },
+      { n:"Råholt barneskole",      t: window.BROYTE_CFG.DEFAULT_TASKS[1], f:false, b:false, p:[], twoDriverRec:true,  pinsCount:0, pinsLockedYear:null },
+      { n:"Råholt ungdomsskole",    t: window.BROYTE_CFG.DEFAULT_TASKS[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null }
+    ];
+    save();
+  }
 }
+
+/* ====== GLOBAL EKSPORT FOR SENERE DELER ====== */
+window.BroyteHelpers = {
+  $, save, loadState, apiKey, headers, esc, fmtTime, fmtDT,
+  displayName, dateKey, seasonKey, touchActivity, applyTheme,
+  idxList, cur, curIndex, nxt, prog, navTo, mapsSearch,
+  initGeolocation, bootDefaults
+};
 </script>
+<script>
+/* ===== Del D: Sync + vær (H+1..H+3) + live pos + render ===== */
+(() => {
+  const CFG = window.BROYTE_CFG;
+  const H = window.BroyteHelpers;
+  const { $, save, apiKey, headers, esc, fmtTime, fmtDT,
+          displayName, dateKey, seasonKey, touchActivity,
+          idxList, cur, curIndex, nxt, prog, navTo, mapsSearch } = H;
+
+  /* ---------- SYNC (MASTER) ---------- */
+  async function syncPull(){
+    try{
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MASTER}/latest`, { headers: headers() });
+      const js = await r.json();
+      if(js?.record?.stops){
+        // Normaliser
+        const norm = s => ({
+          n: s.n, t: s.t,
+          f: !!s.f, b: !!s.b,
+          p: Array.isArray(s.p)? s.p : [],
+          started: s.started||null, finished: s.finished||null,
+          details: s.details||"",
+          twoDriverRec: !!s.twoDriverRec,
+          pinsCount: s.pinsCount||0,
+          pinsLockedYear: s.pinsLockedYear||null
+        });
+        state.stops = js.record.stops.map(norm);
+        state.lastSyncAt = js.record.lastSyncAt || Date.now();
+        state.lastSyncBy = js.record.lastSyncBy || displayName();
+        save(); renderWork(); renderRegister(); renderAdmin();
+        if ($('syncStatus')) $('syncStatus').textContent = "Synk – Pull OK";
+        hideKeyRow();
+      }else{
+        if ($('syncStatus')) $('syncStatus').textContent = "Synk – Pull tom";
+      }
+    }catch(e){
+      if ($('syncStatus')) $('syncStatus').textContent = "Synk – Pull FEIL";
+      showKeyRow();
+    }
+  }
+  async function syncPush(){
+    try{
+      const payload={ version: CFG.VERSION, updated: Date.now(), lastSyncAt: Date.now(), lastSyncBy: displayName(), stops: state.stops, meta:{role:state.role, direction:state.direction} };
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MASTER}`, { method:"PUT", headers: headers(), body: JSON.stringify(payload) });
+      if(!r.ok) throw 0;
+      state.lastSyncAt = payload.lastSyncAt; state.lastSyncBy = payload.lastSyncBy; save(); renderWork();
+      if ($('syncStatus')) $('syncStatus').textContent = "Synk – Push OK";
+      hideKeyRow();
+    }catch(e){
+      if ($('syncStatus')) $('syncStatus').textContent = "Synk – Push FEIL";
+      showKeyRow();
+    }
+  }
+  function hideKeyRow(){ const kb=$('keyBlock'), sk=$('saveKey'), ek=$('editKey'); if(kb) kb.style.display="none"; if(sk) sk.style.display="none"; if(ek) ek.style.display="inline"; }
+  function showKeyRow(){ const kb=$('keyBlock'), sk=$('saveKey'), ek=$('editKey'); if(kb) kb.style.display="inline-block"; if(sk) sk.style.display="inline-block"; if(ek) ek.style.display="none"; }
+
+  /* ---------- KATALOG (pull → lokal) ---------- */
+  async function catalogPull(){
+    try{
+      $('btnCatalogPull')?.setAttribute("disabled","disabled");
+      $('btnCatalogPull')?.classList.add("muted");
+      if ($('pinFilterInfo')) $('pinFilterInfo').textContent = "Henter katalog …";
+
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.CATALOG}/latest`);
+      const js = await r.json();
+      const cat = js?.record?.addresses || [];
+      const active = cat.filter(a => a?.active !== false);
+
+      const stops = active.map(a => ({
+        n: a.name || "",
+        t: a.task || CFG.DEFAULT_TASKS[0],
+        f: false, b: false, p: [],
+        started: null, finished: null, details: "",
+        twoDriverRec: !!a.twoDriverRec,
+        pinsCount: 0, pinsLockedYear: null
+      }));
+
+      if (!stops.length){
+        alert("Ingen aktive adresser i katalogen.");
+        if ($('pinFilterInfo')) $('pinFilterInfo').textContent = "Ingen aktive adresser i katalog.";
+        return;
+      }
+
+      state.stops = stops;
+      save(); renderRegister(); renderWork();
+
+      try{
+        await syncPush();
+        if ($('pinFilterInfo')) $('pinFilterInfo').textContent = `Katalog hentet: ${stops.length} adresser.`;
+        alert(`Katalog hentet ✅ (${stops.length} adresser).`);
+      }catch(_){
+        if ($('pinFilterInfo')) $('pinFilterInfo').textContent = `Lokalt oppdatert: ${stops.length} adresser (push feilet – sjekk nøkkel).`;
+        alert(`Katalog hentet lokalt ✅ (${stops.length}). Push feilet – sjekk synk-nøkkel.`);
+      }
+    }catch(e){
+      console.error(e);
+      alert("Feil ved henting av katalog.");
+      if ($('pinFilterInfo')) $('pinFilterInfo').textContent = "Feil ved henting.";
+    }finally{
+      $('btnCatalogPull')?.removeAttribute("disabled");
+      $('btnCatalogPull')?.classList.remove("muted");
+    }
+  }
+
+  /* ---------- INBOX (forslag) ---------- */
+  async function sendProposal(obj){
+    try{
+      const latest = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.INBOX}/latest`, { headers: headers() }).then(r=>r.json());
+      const rec = latest?.record || {version:CFG.VERSION, updated:0, proposals:[]};
+      rec.proposals = rec.proposals || [];
+      rec.proposals.push({ id: Math.random().toString(36).slice(2), type: obj.type||"add", from: displayName(), payload: obj, ts: Date.now(), status:"pending", note:"" });
+      rec.updated = Date.now();
+      await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.INBOX}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
+      alert("Forslag sendt 👍");
+    }catch(e){ alert("Kunne ikke sende forslag. Sjekk nøkkel."); }
+  }
+  async function loadInbox(){
+    try{
+      const js = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.INBOX}/latest`, { headers: headers() }).then(r=>r.json());
+      const props = js?.record?.proposals||[];
+      if ($('adminInboxTxt')) $('adminInboxTxt').textContent = "Forslag: " + props.length;
+      if ($('inboxList')) $('inboxList').innerHTML = props.slice(-50).reverse().map(p=>`
+        <div class="item">
+          <b>${(p.type||'').toUpperCase()}</b> – fra ${esc(p.from||'?')} – ${new Date(p.ts).toLocaleString('no-NO')}<br>
+          <span class="muted">${esc(p.payload?.name||'')} ${esc(p.payload?.task||'')}</span><br>
+          <span class="badge">${p.status||'pending'}</span>
+        </div>`).join("");
+    }catch(e){ if ($('adminInboxTxt')) $('adminInboxTxt').textContent = "Feil ved henting."; }
+  }
+
+  /* ---------- VÆR: nå + neste 3 timer (H+1..H+3) ---------- */
+  let lastWeather = null;
+  async function refreshWeather(){
+    try{
+      if(!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(async pos=>{
+        const {latitude:lat, longitude:lon} = pos.coords||{};
+        if(!isFinite(lat)||!isFinite(lon)) return;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation&hourly=temperature_2m,precipitation&forecast_days=1&timezone=auto`;
+        const r = await fetch(url);
+        const js = await r.json();
+
+        const nowT = js?.current?.temperature_2m ?? null;
+        const nowP = js?.current?.precipitation ?? 0;
+        const times = js?.hourly?.time||[];
+        const temps = js?.hourly?.temperature_2m||[];
+        const precs = js?.hourly?.precipitation||[];
+
+        // Finn nå-indeks (nærmeste time)
+        const nowISO = new Date().toISOString().slice(0,13); // YYYY-MM-DDTHH
+        let idx = Math.max(0, times.findIndex(t => t.startsWith(nowISO)));
+        // H+1..H+3
+        const horizon = [idx+1, idx+2, idx+3].filter(i=>i<times.length);
+
+        const pillNow = `<span class="pill now">Nå: ${Number.isFinite(nowT)?Math.round(nowT):'–'}°C · ${(nowP||0)>0 ? (nowP.toFixed(1)+' mm'):'0 mm'}</span>`;
+        const pills = horizon.map(i=>{
+          const t = new Date(times[i]);
+          const hh = t.toLocaleTimeString('no-NO',{hour:'2-digit'});
+          const tp = temps[i]; const pr = precs[i]||0;
+          const isSnow = pr>0; // enkel indikator
+          return `<span class="pill">${hh}: ${Math.round(tp)}°C · ${pr.toFixed(1)} mm ${isSnow?'(snø)':''}</span>`;
+        }).join("");
+
+        if ($('weatherRow')) $('weatherRow').innerHTML = pillNow + pills;
+        if ($('weatherAt')) $('weatherAt').textContent = new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
+        if ($('weatherLoc')) $('weatherLoc').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+        lastWeather = { ts: Date.now(), lat, lon, nowT, nowP,
+                        next: horizon.map(i=>({time:times[i], t:temps[i], p:precs[i]})) };
+      }, ()=>{/* ignore */}, {enableHighAccuracy:true,timeout:10000,maximumAge:60000});
+    }catch(_){}
+  }
+
+  /* ---------- RENDERING ---------- */
+  function hasPinsThisSeason(s){
+    const y = s.pinsLockedYear;
+    const sk = seasonKey();
+    return y && String(y)===sk;
+  }
+  function renderWork(){
+    const c=cur(), n=nxt();
+    if ($('driverLbl')) $('driverLbl').textContent = "Rolle: " + displayName();
+    if ($('directionLbl')) $('directionLbl').textContent = "Retning: " + (state.direction==="forward"?"Vanlig":"Baklengs");
+    if ($('curName')) $('curName').textContent = c? esc(c.n) : "—";
+    if ($('curTask')) $('curTask').textContent = c? esc(c.t) : "—";
+    if ($('curNext')) $('curNext').textContent = n? esc(n.n) : "—";
+    if ($('thumbs')) $('thumbs').innerHTML = c?.p?.length ? c.p.map(src=>`<img src="${src}" alt="foto">`).join("") : "";
+    const {pct,cleared,total} = prog();
+    if ($('progBar')) $('progBar').style.width = pct+"%";
+    if ($('progTxt')) $('progTxt').textContent = `${pct} % fullført (${cleared}/${total})`;
+    if ($('directionNote')) $('directionNote').textContent = `Du kjører i ${(state.direction==="forward"?'vanlig':'baklengs')} rekkefølge. (${displayName()})`;
+    if ($('lastSyncText')) $('lastSyncText').textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
+    if ($('lastSyncTextWork')) $('lastSyncTextWork').textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
+    refreshWeather();
+  }
+  function renderRegister(){
+    const pf = state.ui?.pinFilter || "all";
+    let rows = state.stops.slice();
+    if (pf === "pending") rows = rows.filter(s => !hasPinsThisSeason(s));
+    if (pf === "done")    rows = rows.filter(hasPinsThisSeason);
+
+    const label = pf==="all" ? "Alle" : (pf==="pending" ? "Uten pinner i år" : "Med pinner i år");
+    const donePins = state.stops.filter(hasPinsThisSeason).length;
+    const pendingPins = state.stops.length - donePins;
+    if ($('pinFilterInfo')) $('pinFilterInfo').textContent =
+      `${label}: ${rows.length} viste · ${donePins} med pinner · ${pendingPins} uten (sesong ${seasonKey()})`;
+
+    if ($('list')) $('list').innerHTML = rows.length
+      ? rows.map((s)=>`
+          <div class="item">
+            <b>${esc(s.n)}</b>
+            ${s.twoDriverRec?`<span class="badge note">👥 2 sjåfører</span>`:""}
+            ${s.pinsLockedYear ? `<span class="badge" title="Brøytestikker låst ${s.pinsLockedYear}">📍 ${s.pinsCount??0} – låst ${esc(s.pinsLockedYear)}</span>` : ``}
+            <br><span class="muted">${esc(s.t)}</span> ${s.f?'✅':''} ${s.b?'⛔':''}
+          </div>`).join("")
+      : `<div class="item muted">Ingen adresser enda. Hent fra katalog eller legg til lokalt.</div>`;
+  }
+  function renderAdmin(){
+    const sk = seasonKey();
+    const total = state.stops.length;
+    const donePins = state.stops.filter(hasPinsThisSeason).length;
+    const pendingPins = total - donePins;
+
+    const pf = state.ui?.adminPinFilter || "all";
+    let rows = state.stops.slice();
+    if (pf === "pending") rows = rows.filter(s => !hasPinsThisSeason(s));
+    if (pf === "done")    rows = rows.filter(hasPinsThisSeason);
+
+    const pct = total ? Math.round(100 * (state.stops.filter(s=>s.f||s.b).length) / total) : 0;
+    if ($('adminSyncTxt')) $('adminSyncTxt').textContent = `Viser lokal status (Synk nå for MASTER).`;
+    if ($('adminStats')) $('adminStats').innerHTML = `Totalt: ${total} – Ferdig: ${state.stops.filter(s=>s.f).length} – Ikke mulig: ${state.stops.filter(s=>s.b).length} – ${pct}%`;
+    const label = pf==="all" ? "Alle" : (pf==="pending" ? "Uten pinner i år" : "Med pinner i år");
+    if ($('pinFilterInfoAdmin')) $('pinFilterInfoAdmin').textContent = `${label}: ${rows.length} viste · ${donePins} med pinner · ${pendingPins} uten (sesong ${sk})`;
+
+    if ($('adminList')) $('adminList').innerHTML = rows.map((s)=>`
+      <div class="item">
+        <b>${esc(s.n)}</b>
+        ${s.twoDriverRec?`<span class="badge note">👥 2 sjåfører</span>`:""}
+        ${s.pinsLockedYear ? `<span class="badge" title="Brøytestikker låst ${s.pinsLockedYear}">📍 ${s.pinsCount??0} – låst ${esc(s.pinsLockedYear)}</span>` : ``}
+        <br><span class="muted">${esc(s.t)}</span>
+        <div class="small">Sist oppdatert av: ${esc(state.lastSyncBy||'—')}</div>
+      </div>
+    `).join("");
+  }
+
+  /* ---------- UNDER ARBEID: handlers ---------- */
+  function onPhotoChosen(e){
+    const f = e.target.files?.[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ()=>{ const c=cur(); if(!c) return; (c.p||(c.p=[])).push(r.result); logEntry('photo',c,"",[r.result]); save(); renderWork(); syncPush(); };
+    r.readAsDataURL(f); e.target.value="";
+  }
+  function logEntry(type, stop, note="", photos=[]){
+    const dk = dateKey(new Date());
+    if(state.dayLog.dateKey !== dk){ state.dayLog={dateKey:dk,entries:[]}; }
+    state.dayLog.entries.push({
+      ts: Date.now(),
+      type, name: stop?.n||"", task: stop?.t||"", note,
+      who: displayName(),
+      photos, weather: lastWeather
+    });
+    save();
+  }
+  function maybeTwoDriverPrompt(current){
+    try{
+      if(!current?.twoDriverRec) return;
+      alert(`👥 Anbefalt 2 sjåfører: ${current.n}\nKan du bidra? Trykk OK for å åpne navigasjon.`);
+      navTo(current.n);
+    }catch(_){}
+  }
+  function doneHandler(){
+    touchActivity();
+    const c = cur(); if(!c) return;
+
+    // Dersom oppgaven inkluderer brøytestikker → spør antall
+    if(/brøytestikker/i.test(c.t)){
+      const v = prompt("Antall brøytestikker brukt?",""); if(v===null) return;
+      c.pinsCount = parseInt(v||"0",10)||0;
+      c.pinsLockedYear = seasonKey();
+    }
+
+    c.f = true; c.finished = Date.now();
+    logEntry('done',c, c.details||"");
+    save(); renderWork(); syncPush();
+    const n = nxt(); if(n) navTo(n.n);
+  }
+  function blockHandler(){
+    touchActivity();
+    const c = cur(); if(!c) return;
+    const r = prompt("Hvorfor ikke mulig å utføre? (valgfritt)","")||"";
+    if(r) c.details = (c.details?c.details+" · ":"") + "Årsak: " + r;
+    c.b = true; c.finished = Date.now();
+    logEntry('block',c,r);
+    save(); renderWork(); syncPush();
+  }
+  function nextHandler(){
+    touchActivity();
+    const c = cur(); if(!c) return;
+    if(confirm("Markere utført før neste?")){ c.f=true; c.finished=Date.now(); logEntry('done',c); save(); syncPush(); }
+    renderWork(); const n=nxt(); if(n) navTo(n.n);
+  }
+  function incidentHandler(){
+    const c=cur();
+    const note = prompt("Kort beskrivelse av uhell (valgfritt):","")||"";
+    logEntry('incident', c||{n:"(ukjent)",t:""}, note);
+    alert("Uhell logget. Ta gjerne bilder med 📷-knappen.");
+  }
+
+  /* ---------- LIVE POSISJON (heartbeat) ---------- */
+  let lastSentPosTs = 0;
+  function startLivePosition(){
+    if(!navigator.geolocation) return;
+    navigator.geolocation.watchPosition(async p=>{
+      const now = Date.now();
+      if (now - lastSentPosTs < 15000) return; // maks ~ hvert 15. sekund
+      lastSentPosTs = now;
+
+      const payload = {
+        version: CFG.VERSION,
+        updated: now,
+        actor: displayName(),
+        role: state.role,
+        dir: state.direction,
+        pos: {
+          lat: p.coords.latitude,
+          lon: p.coords.longitude,
+          acc: p.coords.accuracy||null
+        }
+      };
+      try{
+        // Hent siste -> oppdater/append denne sjåføren
+        const latest = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.POSITIONS}/latest`, { headers: headers() }).then(r=>r.json()).catch(()=>({record:{positions:[]}}));
+        const rec = latest?.record || {positions:[]};
+        rec.positions = Array.isArray(rec.positions) ? rec.positions : [];
+        const key = displayName() + '|' + (state.role||'driver');
+        const idx = rec.positions.findIndex(x => x.key===key);
+        const entry = { key, ...payload };
+        if (idx >= 0) rec.positions[idx] = entry; else rec.positions.push(entry);
+
+        await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.POSITIONS}`, {
+          method:"PUT", headers: headers(), body: JSON.stringify(rec)
+        });
+      }catch(_){ /* ignorer feil – prøv igjen ved neste måling */ }
+    }, ()=>{}, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+  }
+
+  /* ---------- MAP LAYERS (leses for admin-kart; tegning i Del E) ---------- */
+  async function loadMapLayers(){
+    try{
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MAPLAYERS}/latest`, { headers: headers() });
+      const js = await r.json();
+      return js?.record || {layers:[], updated:0};
+    }catch(_){ return {layers:[], updated:0}; }
+  }
+
+  /* ---------- EXPORTER TIL GLOBALT ---------- */
+  window.BroyteSync = { syncPull, syncPush, catalogPull, sendProposal, loadInbox };
+  window.BroyteWeather = { refreshWeather };
+  window.BroyteWork = { renderWork, renderRegister, renderAdmin, onPhotoChosen,
+                        doneHandler, blockHandler, nextHandler, incidentHandler };
+  window.BroyteLive = { startLivePosition };
+  window.BroyteMap = { loadMapLayers };
+
+})();
+</script>
+<script>
+/* ===== Del E: Kart (Leaflet), tegning av linjer/områder/punkt, lagring til MAPLAYERS, og live-posisjon i Admin ===== */
+(() => {
+  const CFG = window.BROYTE_CFG;
+  const H = window.BroyteHelpers;
+  const { $, headers, displayName } = H;
+
+  /* ---------- Dynamisk lasting av Leaflet ---------- */
+  function ensureLeaflet(){
+    return new Promise((resolve,reject)=>{
+      if (window.L && L.map) return resolve();
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      const js  = document.createElement('script');
+      js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      css.onload = ()=>{};
+      js.onload  = ()=> resolve();
+      js.onerror = reject;
+      document.head.appendChild(css);
+      document.head.appendChild(js);
+    });
+  }
+
+  /* ---------- UI: bygg kartkort i Admin ved behov ---------- */
+  function ensureAdminMapCard(){
+    const host = $('#page-admin');
+    if (!host) return null;
+    let card = document.getElementById('mapCard');
+    if (card) return card;
+    card = document.createElement('div');
+    card.className = 'card stack';
+    card.id = 'mapCard';
+    card.innerHTML = `
+      <h3>Kart (Admin)</h3>
+      <div class="small muted">Se sjåførers live-posisjon og tegn linjer/områder/punkt for ruter, sperringer og soner. Lagres i «Maplayers».</div>
+      <div class="row" style="gap:8px;align-items:center">
+        <button id="mapBtnReload" class="btn btn-gray">⟳ Last lag</button>
+        <button id="mapBtnDrawPt" class="btn btn-blue">✏️ Punkt</button>
+        <button id="mapBtnDrawLine" class="btn btn-blue">〰️ Linje</button>
+        <button id="mapBtnDrawPoly" class="btn btn-blue">⬛ Område</button>
+        <button id="mapBtnFinish" class="btn btn-gray">✔︎ Fullfør</button>
+        <button id="mapBtnCancel" class="btn btn-gray">↩︎ Avbryt</button>
+        <button id="mapBtnDeleteSel" class="btn btn-red">🗑️ Slett valgt</button>
+        <button id="mapBtnSave" class="btn btn-green">💾 Lagre lag</button>
+        <span id="mapStatus" class="small muted">—</span>
+      </div>
+      <div id="adminMap" style="width:100%;height:480px;border:1px solid var(--cardBorder);border-radius:12px;overflow:hidden"></div>
+      <div class="small muted">Tips: Klikk i kartet for å legge til punkt. Dobbelklikk for å fullføre linje/område, eller bruk «Fullfør».</div>
+    `;
+    host.insertBefore(card, host.firstChild);
+    return card;
+  }
+
+  /* ---------- Lagring/lasting av lag (JSONBin) ---------- */
+  async function loadLayers(){
+    try{
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MAPLAYERS}/latest`, { headers: headers() });
+      const js = await r.json();
+      return js?.record || {layers:[], updated:0};
+    }catch(_){ return {layers:[], updated:0}; }
+  }
+  async function saveLayers(record){
+    const rec = {
+      version: CFG.VERSION,
+      updated: Date.now(),
+      by: displayName(),
+      layers: record.layers || []
+    };
+    await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MAPLAYERS}`, {
+      method:'PUT', headers: headers(), body: JSON.stringify(rec)
+    });
+    return rec;
+  }
+
+  /* ---------- Live-posisjoner ---------- */
+  async function fetchPositions(){
+    try{
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.POSITIONS}/latest`, { headers: headers() });
+      const js = await r.json();
+      return js?.record?.positions || [];
+    }catch(_){ return []; }
+  }
+
+  /* ---------- Tegneverktøy (lettvekts) ---------- */
+  function asLatLngArr(coords){ return (coords||[]).map(x=>[x.lat, x.lon]); }
+  function toCoords(latlngs){
+    return latlngs.map(p=>{
+      const o = (Array.isArray(p)? {lat:p[0], lon:p[1]} : {lat:p.lat, lon:p.lng});
+      return {lat:o.lat, lon:o.lon};
+    });
+  }
+
+  function attachMapHandlers(ctx){
+    const { map } = ctx;
+
+    map.on('click', (e)=>{
+      if (ctx.mode === 'point'){
+        const m = L.marker(e.latlng, {draggable:true}).addTo(ctx.layerUser);
+        m.bindTooltip('Punkt', {permanent:false});
+        m.on('click', ()=> selectShape(ctx, m));
+        m.on('dragstart', ()=> selectShape(ctx, m));
+        ctx.shapes.push({type:'marker', ref:m});
+      }
+      if (ctx.mode === 'line'){
+        ctx._seed = ctx._seed || [];
+        ctx._seed.push(e.latlng);
+        if (!ctx._preview){
+          ctx._preview = L.polyline(ctx._seed,{color:'#0b66ff'}).addTo(ctx.layerUser);
+          ctx._preview.on('click', ()=> selectShape(ctx, ctx._preview));
+        }else{
+          ctx._preview.setLatLngs(ctx._seed);
+        }
+      }
+      if (ctx.mode === 'poly'){
+        ctx._seed = ctx._seed || [];
+        ctx._seed.push(e.latlng);
+        if (!ctx._preview){
+          ctx._preview = L.polygon(ctx._seed,{color:'#7c3aed', fillOpacity:0.2}).addTo(ctx.layerUser);
+          ctx._preview.on('click', ()=> selectShape(ctx, ctx._preview));
+        }else{
+          ctx._preview.setLatLngs(ctx._seed);
+        }
+      }
+    });
+    map.on('dblclick', ()=> finishCurrent(ctx));
+  }
+
+  function clearPreview(ctx){
+    if (ctx._preview){ ctx.layerUser.removeLayer(ctx._preview); ctx._preview=null; }
+    ctx._seed = null;
+  }
+
+  function setMode(ctx, mode){
+    ctx.mode = mode; // 'point' | 'line' | 'poly' | null
+    $('#mapStatus').textContent = mode
+      ? `Tegnemodus: ${mode==='point'?'Punkt':mode==='line'?'Linje':'Område'}`
+      : '—';
+    clearPreview(ctx);
+  }
+
+  function finishCurrent(ctx){
+    if (!ctx._seed || !ctx._seed.length) { setMode(ctx, null); return; }
+    if (ctx.mode === 'line'){
+      const pl = L.polyline(ctx._seed, {color:'#0b66ff'}).addTo(ctx.layerUser);
+      pl.on('click', ()=> selectShape(ctx, pl));
+      ctx.shapes.push({type:'polyline', ref:pl});
+    }
+    if (ctx.mode === 'poly'){
+      const pg = L.polygon(ctx._seed, {color:'#7c3aed', fillOpacity:0.2}).addTo(ctx.layerUser);
+      pg.on('click', ()=> selectShape(ctx, pg));
+      ctx.shapes.push({type:'polygon', ref:pg});
+    }
+    clearPreview(ctx);
+    setMode(ctx, null);
+  }
+
+  function selectShape(ctx, layer){
+    ctx.selected?.setStyle?.({weight:3});
+    ctx.selected = layer;
+    // fremhev
+    if (layer.setStyle){
+      layer.setStyle({weight:6});
+      setTimeout(()=>{ try{ layer.setStyle({weight:4}); }catch{} }, 150);
+    }
+  }
+
+  function deleteSelected(ctx){
+    if (!ctx.selected) return;
+    const i = ctx.shapes.findIndex(s => s.ref === ctx.selected);
+    if (i>=0){
+      ctx.layerUser.removeLayer(ctx.selected);
+      ctx.shapes.splice(i,1);
+      ctx.selected = null;
+    }
+  }
+
+  /* ---------- Import/Export av lag ---------- */
+  function loadLayersToMap(ctx, record){
+    // tøm eksisterende
+    ctx.layerDB.clearLayers();
+    (record.layers||[]).forEach(l=>{
+      if (l.type === 'marker'){
+        const m = L.marker([l.coords[0]?.lat, l.coords[0]?.lon]).addTo(ctx.layerDB);
+        if (l.name) m.bindTooltip(l.name);
+      }
+      if (l.type === 'polyline'){
+        const pl = L.polyline(asLatLngArr(l.coords), {color: l.color || '#0b66ff'}).addTo(ctx.layerDB);
+        if (l.name) pl.bindTooltip(l.name);
+      }
+      if (l.type === 'polygon'){
+        const pg = L.polygon(asLatLngArr(l.coords), {color: l.color || '#7c3aed', fillOpacity:0.2}).addTo(ctx.layerDB);
+        if (l.name) pg.bindTooltip(l.name);
+      }
+    });
+  }
+
+  function collectUserShapes(ctx){
+    const out = [];
+    // 1) Former i «DB»-laget (behold – de er fra server)
+    // De lagres på nytt sammen med brukerlag – enklest er å kombinere:
+    // Start med å lese det som står i layerDB (gjeldende lastet)
+    ctx.layerDB.eachLayer(layer=>{
+      if (layer instanceof L.Marker){
+        const ll = layer.getLatLng();
+        out.push({type:'marker', coords:[{lat:ll.lat, lon:ll.lng}], name: layer._tooltip?.getContent?.()||''});
+      }else if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)){
+        const pts = layer.getLatLngs().map(p=>({lat:p.lat, lon:p.lng}));
+        out.push({type:'polyline', coords: pts, color:'#0b66ff', name: layer._tooltip?.getContent?.()||''});
+      }else if (layer instanceof L.Polygon){
+        const pts = layer.getLatLngs()[0]?.map(p=>({lat:p.lat, lon:p.lng})) || [];
+        out.push({type:'polygon', coords: pts, color:'#7c3aed', name: layer._tooltip?.getContent?.()||''});
+      }
+    });
+    // 2) Nye shapes i «User»-laget
+    ctx.shapes.forEach(s=>{
+      if (s.type==='marker'){
+        const ll = s.ref.getLatLng();
+        out.push({type:'marker', coords:[{lat:ll.lat, lon:ll.lng}]});
+      }
+      if (s.type==='polyline'){
+        out.push({type:'polyline', coords: toCoords(s.ref.getLatLngs()), color:'#0b66ff'});
+      }
+      if (s.type==='polygon'){
+        out.push({type:'polygon', coords: toCoords(s.ref.getLatLngs()[0]||[]), color:'#7c3aed'});
+      }
+    });
+    return out;
+  }
+
+  /* ---------- Live-posisjoner på kart ---------- */
+  function paintPositions(ctx, arr){
+    ctx.layerPos.clearLayers();
+    arr.forEach(p=>{
+      if (!p?.pos) return;
+      const m = L.circleMarker([p.pos.lat, p.pos.lon], {radius:6, weight:2});
+      m.addTo(ctx.layerPos);
+      const who = (p.actor || p.key || 'Sjåfør');
+      const acc = p.pos.acc? ` (±${Math.round(p.pos.acc)} m)`:'';
+      m.bindTooltip(`${who}${acc}`, {permanent:false});
+    });
+  }
+
+  /* ---------- Init Admin Map ---------- */
+  async function initAdminMap(){
+    const card = ensureAdminMapCard();
+    if (!card) return;
+
+    await ensureLeaflet();
+
+    const map = L.map('adminMap', { zoomControl:true, doubleClickZoom:false });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 20, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    // default view: Dal / Romerike
+    map.setView([60.268, 11.198], 12);
+
+    const layerDB  = L.layerGroup().addTo(map);   // lagrede lag (fra JSONBin)
+    const layerUser= L.layerGroup().addTo(map);   // nye tegninger
+    const layerPos = L.layerGroup().addTo(map);   // live-posisjoner
+    const ctx = { map, layerDB, layerUser, layerPos, shapes:[], selected:null, mode:null, _seed:null, _preview:null };
+
+    attachMapHandlers(ctx);
+
+    // Knapper
+    $('#mapBtnReload').onclick = async ()=>{
+      $('#mapStatus').textContent = 'Laster lag …';
+      const rec = await loadLayers();
+      loadLayersToMap(ctx, rec);
+      $('#mapStatus').textContent = `Lastet ${rec.layers?.length||0} lag.`;
+    };
+    $('#mapBtnDrawPt').onclick   = ()=> setMode(ctx,'point');
+    $('#mapBtnDrawLine').onclick = ()=> setMode(ctx,'line');
+    $('#mapBtnDrawPoly').onclick = ()=> setMode(ctx,'poly');
+    $('#mapBtnFinish').onclick   = ()=> finishCurrent(ctx);
+    $('#mapBtnCancel').onclick   = ()=> { setMode(ctx, null); };
+    $('#mapBtnDeleteSel').onclick= ()=> deleteSelected(ctx);
+    $('#mapBtnSave').onclick     = async ()=>{
+      try{
+        $('#mapStatus').textContent = 'Lagrer …';
+        // kombiner eksisterende (layerDB) + nye (layerUser)
+        const layers = collectUserShapes(ctx);
+        const rec = await saveLayers({layers});
+        // etter lagring: flytt nye shapes til DB-laget for «ren» state
+        layerUser.clearLayers();
+        ctx.shapes = [];
+        loadLayersToMap(ctx, rec);
+        $('#mapStatus').textContent = `Lagret ${rec.layers.length} elementer ✔︎`;
+      }catch(_){
+        $('#mapStatus').textContent = 'Feil ved lagring (sjekk nøkkel).';
+      }
+    };
+
+    // Første last
+    $('#mapBtnReload').click();
+
+    // Live-pos oppdatering
+    async function refreshPos(){
+      const arr = await fetchPositions();
+      paintPositions(ctx, arr);
+    }
+    refreshPos();
+    setInterval(refreshPos, 15000);
+
+    // Zoom til posisjon (hvis tillatt)
+    if (navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(p=>{
+        map.setView([p.coords.latitude, p.coords.longitude], 13);
+      }, ()=>{}, {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
+    }
+
+    // Expose for debugging om ønskelig
+    window.__BroyteAdminMap = ctx;
+  }
+
+  /* ---------- Auto-init når Admin-fanen åpnes ---------- */
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const adminTab = document.querySelector('.tab[data-tab="admin"]');
+    if (!adminTab) return;
+    adminTab.addEventListener('click', ()=>{
+      // init én gang
+      if (!document.getElementById('adminMap')){
+        setTimeout(()=> initAdminMap(), 0);
+      }
+    });
+  });
+
+  // Eksporter
+  window.BroyteMapUI = { initAdminMap };
+
+})();
+</script>
+<script>
+/* ===== Del F: Oppstart, PWA-registrering, cache-tømming, heartbeat og init ===== */
+(() => {
+  const CFG = window.BROYTE_CFG;
+  const H   = window.BroyteHelpers;
+  const SY  = window.BroyteSync;
+  const WV  = window.BroyteWeather;
+  const WK  = window.BroyteWork;
+  const LV  = window.BroyteLive;
+  const MP  = window.BroyteMapUI;
+  const { $, save, bootDefaults, applyTheme, touchActivity } = H;
+
+  /* ---------- PWA-registrering ---------- */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+
+  /* ---------- Tøm cache og reload ---------- */
+  async function hardReset(){
+    if(!confirm('Tømme all lokal data og laste siden på nytt?')) return;
+    try{
+      localStorage.clear();
+      if ('caches' in window){
+        const names = await caches.keys();
+        await Promise.all(names.map(n => caches.delete(n)));
+      }
+    }catch(_){}
+    location.reload(true);
+  }
+
+  /* ---------- Heartbeat (synk + posisjon) ---------- */
+  function startHeartbeat(){
+    setInterval(async ()=>{
+      try { await SY.syncPush(); } catch(_){}
+    }, CFG.HEARTBEAT_MS);
+    // start samtidig live-posisjon
+    LV.startLivePosition();
+  }
+
+  /* ---------- Init ved DOMContentLoaded ---------- */
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{
+      // Eventer for knapper som ikke var bundet tidligere
+      const hardBtn = $('btnHardReset');
+      if (hardBtn) hardBtn.onclick = hardReset;
+
+      // Boot defaults + tema
+      bootDefaults();
+      applyTheme(state.theme || 'auto');
+
+      // Init geolokasjon-footer
+      H.initGeolocation();
+
+      // Start vær-henting
+      WV.refreshWeather();
+
+      // Start heartbeat
+      startHeartbeat();
+
+      // Oppdater status-tekst
+      const footerVer = document.querySelector('.footer div:last-child');
+      if (footerVer) footerVer.textContent = `v${CFG.VERSION} – Romerike Trefelling`;
+
+      console.log('%cBrøyterute v' + CFG.VERSION + ' klar', 'color:lime');
+    }catch(err){
+      console.error('Init-feil:', err);
+      alert('Feil under oppstart: ' + err.message);
+    }
+  });
+})();
+</script>
+</body>
+</html>
