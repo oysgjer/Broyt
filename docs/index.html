@@ -816,6 +816,70 @@ async function syncPush(){
 }
 
 /* ===== Katalog (Admin) + Backup ===== */
+/* ===== Katalog → Pull til lokal rute (Register) ===== */
+async function catalogPull(){
+  try{
+    $("btnCatalogPull")?.setAttribute("disabled","disabled");
+    $("btnCatalogPull")?.classList.add("muted");
+    $("pinFilterInfo").textContent = "Henter katalog …";
+
+    // Hent public katalog
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CATALOG_BIN_ID}/latest`);
+    const js = await r.json();
+    const cat = js?.record?.addresses || [];
+
+    if (!cat.length){
+      alert("Katalogen er tom eller kunne ikke lastes.");
+      $("pinFilterInfo").textContent = "Kunne ikke hente katalog.";
+      return;
+    }
+
+    // Filtrer aktive, og map til stops-format
+    const items = cat.filter(a => a?.active !== false);
+    const stops = items.map(a => ({
+      n: a.name || "",
+      t: a.task || "Snø",
+      f: false,
+      b: false,
+      p: [],
+      started: null,
+      finished: null,
+      details: "",
+      twoDriverRec: !!a.twoDriverRec,
+      pinsCount: 0,
+      pinsLockedYear: null
+    }));
+
+    if (!stops.length){
+      alert("Ingen aktive adresser i katalogen.");
+      $("pinFilterInfo").textContent = "Ingen aktive adresser i katalog.";
+      return;
+    }
+
+    // Legg inn i lokal state
+    state.stops = stops;
+    save();
+    renderRegister();
+    renderWork();
+
+    // Push til MASTER så alle ser samme rute (krever nøkkel)
+    try{
+      await syncPush();
+      $("pinFilterInfo").textContent = `Katalog hentet: ${stops.length} adresser.`;
+      alert(`Katalog hentet ✅ (${stops.length} adresser).`);
+    }catch(_){
+      $("pinFilterInfo").textContent = `Lokalt oppdatert: ${stops.length} adresser (push feilet – sjekk nøkkel).`;
+      alert(`Katalog hentet lokalt ✅ (${stops.length}). Push feilet – sjekk synk-nøkkel.`);
+    }
+  }catch(e){
+    console.error(e);
+    alert("Feil ved henting av katalog.");
+    $("pinFilterInfo").textContent = "Feil ved henting.";
+  }finally{
+    $("btnCatalogPull")?.removeAttribute("disabled");
+    $("btnCatalogPull")?.classList.remove("muted");
+  }
+}
 async function loadCatalog(){
   try{
     $("catMsg").textContent="Laster katalog …";
