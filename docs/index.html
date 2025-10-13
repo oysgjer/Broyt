@@ -1423,7 +1423,14 @@ function renderAdmin(){
     });
     $('addr') && ($('addr').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); $('add').click(); } }));
   }
-
+// Filter-knapper (Register)
+document.querySelectorAll('#pinFilters .btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    state.ui.pinFilter = btn.dataset.pf || 'all';
+    save();
+    WK.renderRegister();
+  };
+});
   function wireAdmin(){
     $('adminSync')    && ($('adminSync').onclick    = ()=> WK.renderAdmin());
     $('catLoad')      && ($('catLoad').onclick      = window.loadCatalog && window.loadCatalog);
@@ -1434,6 +1441,14 @@ function renderAdmin(){
     $('catRestore')   && ($('catRestore').onclick   = window.restoreCatalogFromBackup || null);
     $('adminInbox')   && ($('adminInbox').onclick   = SY.loadInbox);
   }
+// Filter-knapper (Admin)
+document.querySelectorAll('#pinFiltersAdmin .btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    state.ui.adminPinFilter = btn.dataset.pfa || 'all';
+    save();
+    WK.renderAdmin();
+  };
+});
 
   function wireService(){
     $('svcSave')     && ($('svcSave').onclick     = window.saveServiceReportCsv || null);
