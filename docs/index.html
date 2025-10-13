@@ -1486,3 +1486,153 @@ document.querySelectorAll('#pinFiltersAdmin .btn').forEach(btn=>{
   });
 })();
 </script>
+
+<script>
+/* ===== Del G: Katalog-editor (Admin) ===== */
+(() => {
+  const CFG = window.BROYTE_CFG;
+  const H   = window.BroyteHelpers;
+  const { $, headers, esc, displayName } = H;
+
+  let CAT = { addresses: [], updated: 0, version: CFG.VERSION };
+
+  function renderCatList(){
+    const host = $('catList');
+    if (!host) return;
+    if (!CAT.addresses.length){
+      host.innerHTML = '<div class="small muted">– tom katalog –</div>';
+      return;
+    }
+    host.innerHTML = CAT.addresses.map((a,idx)=>`
+      <div class="item" style="padding:8px 0;border-bottom:1px solid var(--cardBorder)">
+        <div class="row" style="align-items:center">
+          <input data-k="name"  data-i="${idx}" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2">
+          <input data-k="task"  data-i="${idx}" value="${esc(a.task||'Snø og grus')}" placeholder="Oppgave" style="flex:1">
+          <label class="small"><input data-k="twoDriverRec" data-i="${idx}" type="checkbox" ${a.twoDriverRec?'checked':''}> 2 sjåfører</label>
+          <label class="small"><input data-k="active" data-i="${idx}" type="checkbox" ${a.active===false?'':'checked'}> Aktiv</label>
+          <button data-del="${idx}" class="btn btn-red small">Slett</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Wiring for inputs
+    host.querySelectorAll('input[data-k]').forEach(el=>{
+      el.oninput = (e)=>{
+        const i = +el.dataset.i, k = el.dataset.k;
+        if (k === 'twoDriverRec' || k === 'active'){
+          CAT.addresses[i][k] = (k==='active') ? el.checked : !!el.checked;
+          if (k==='active' && el.checked) CAT.addresses[i].active = true;
+        } else {
+          CAT.addresses[i][k] = el.value;
+        }
+      };
+      if (el.type==='checkbox'){
+        el.onchange = el.oninput;
+      }
+    });
+    host.querySelectorAll('button[data-del]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const i = +btn.dataset.del;
+        CAT.addresses.splice(i,1);
+        renderCatList();
+      };
+    });
+
+    const msg = $('catMsg');
+    if (msg) msg.textContent = `Rader: ${CAT.addresses.length}`;
+  }
+
+  async function loadCatalog(){
+    try{
+      $('catMsg').textContent = 'Laster katalog …';
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.CATALOG}/latest`, { headers: headers() });
+      const js = await r.json();
+      CAT = js?.record || { addresses: [], version: CFG.VERSION, updated: 0 };
+      CAT.addresses = Array.isArray(CAT.addresses) ? CAT.addresses : [];
+      $('catMsg').textContent = `Lastet ${CAT.addresses.length} adresser`;
+      renderCatList();
+    }catch(e){
+      $('catMsg').textContent = 'Feil ved lasting (sjekk nøkkel).';
+    }
+  }
+
+  function editCatalogRow(){
+    CAT.addresses.push({ name:'', task: CFG.DEFAULT_TASKS[0], active:true, twoDriverRec:false });
+    renderCatList();
+  }
+
+  async function saveCatalogWithBackup(){
+    try{
+      $('catMsg').textContent = 'Lagrer (med backup) …';
+      // 1) Ta enkel backup (overskriv hele BACKUP med snapshot)
+      const backup = { version: CFG.VERSION, updated: Date.now(), by: displayName(), snapshot: CAT };
+      await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.BACKUP}`, {
+        method:'PUT', headers: headers(), body: JSON.stringify(backup)
+      });
+
+      // 2) Lagre katalog
+      const rec = { version: CFG.VERSION, updated: Date.now(), by: displayName(), addresses: CAT.addresses };
+      await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.CATALOG}`, {
+        method:'PUT', headers: headers(), body: JSON.stringify(rec)
+      });
+      $('catMsg').textContent = 'Katalog lagret ✔︎';
+    }catch(e){
+      $('catMsg').textContent = 'Feil ved lagring (sjekk nøkkel).';
+    }
+  }
+
+  async function publishCatalogToMaster(){
+    try{
+      $('catMsg').textContent = 'Publiserer til MASTER …';
+      const active = CAT.addresses.filter(a=>a?.active!==false);
+      const stops = active.map(a=>({
+        n: a.name || '',
+        t: a.task || CFG.DEFAULT_TASKS[0],
+        f: false, b: false, p: [],
+        twoDriverRec: !!a.twoDriverRec,
+        pinsCount: 0, pinsLockedYear: null
+      }));
+      const payload = {
+        version: CFG.VERSION,
+        updated: Date.now(),
+        lastSyncAt: Date.now(),
+        lastSyncBy: displayName(),
+        stops,
+        meta: { from: 'catalog' }
+      };
+      await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MASTER}`, {
+        method:'PUT', headers: headers(), body: JSON.stringify(payload)
+      });
+      $('catMsg').textContent = `Publisert ${stops.length} adresser til MASTER ✔︎`;
+    }catch(e){
+      $('catMsg').textContent = 'Feil ved publisering (sjekk nøkkel).';
+    }
+  }
+
+  function exportCatalogCsv(){
+    const rows = [['name','task','active','twoDriverRec']].concat(
+      (CAT.addresses||[]).map(a=>[
+        (a.name||'').replaceAll('"','""'),
+        (a.task||'').replaceAll('"','""'),
+        (a.active===false?0:1),
+        (a.twoDriverRec?1:0)
+      ])
+    );
+    const csv = rows.map(r=>r.map(x=>`"${x}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'katalog.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+
+  // Eksponer til knappene som allerede er wired i Del F
+  window.loadCatalog = loadCatalog;
+  window.editCatalogRow = editCatalogRow;
+  window.saveCatalogWithBackup = saveCatalogWithBackup;
+  window.publishCatalogToMaster = publishCatalogToMaster;
+  window.exportCatalogCsv = exportCatalogCsv;
+  // (restore kan komme senere)
+})();
+</script>
