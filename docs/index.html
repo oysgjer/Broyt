@@ -798,18 +798,7 @@ Object.assign(window.BroyteSync || (window.BroyteSync = {}), { loadInbox });
     $("lastSyncTextWork").textContent=`Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||"—"})`;
     refreshWeather();
   }
-  function renderRegister(){
-    const pf=state.ui?.pinFilter||"all";
-    let rows=state.stops.slice();
-    if(pf==="pending") rows=rows.filter(s=>!hasPinsThisSeason(s));
-    if(pf==="done") rows=rows.filter(hasPinsThisSeason);
-    $("list").innerHTML=rows.map(s=>`
-      <div class="item">
-        <b>${esc(s.n)}</b> ${s.twoDriverRec?`<span class="badge">👥 2 sjåfører</span>`:""}
-        ${s.pinsLockedYear?`<span class="badge">📍${s.pinsCount??0}</span>`:""}
-        <br><span class="muted">${esc(s.t)}</span> ${s.f?"✅":""}${s.b?"⛔":""}
-      </div>`).join("");
-  }
+  
 function renderRegister(){
   const pf = state.ui?.pinFilter || "all";
 
@@ -842,14 +831,6 @@ function renderRegister(){
       <br><span class="muted">${esc(s.t)}</span> ${s.f?"✅":""}${s.b?"⛔":""}
     </div>`).join("");
 }
-function renderAdmin(){
-  const af = state.ui?.adminPinFilter || "all";
-
-  // Sett aktiv knapp ut fra lagret filter
-  document.querySelectorAll("#pinFiltersAdmin .btn").forEach(b=>{
-    const on = (b.dataset.pfa === af);
-    b.classList.toggle("btn-green", on);
-  });
 
   // Filtrer rader
   let rows = state.stops.slice();
