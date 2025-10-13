@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Brøyterute – v9.8 (Romerike Trefelling)</title>
+<title>Brøyterute – v9.9 (Romerike Trefelling)</title>
 <meta name="theme-color" content="#0f9d58">
 <link rel="manifest" href="manifest.json">
 
@@ -15,33 +15,46 @@
   --purple:#7c3aed;
 }
 @media (prefers-color-scheme: light){
-  :root{ --bg:#fafafa; --fg:#0b0b0b; --muted:#5b6673; --card:#ffffff; --cardBorder:#e6e7ea; --gray:#e5e7eb; }
+  :root{ --bg:#fafafa; --fg:#0b0b0b; --muted:#5b6673;
+         --card:#ffffff; --cardBorder:#e6e7ea; --gray:#e5e7eb; }
 }
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+html,body{height:100%;margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 body{background:var(--bg);color:var(--fg)}
-a{color:inherit}
+a{color:inherit;text-decoration:none}
 button{cursor:pointer}
-input,select,textarea{background:transparent;color:inherit;border:1px solid var(--cardBorder);border-radius:10px;padding:10px;font-size:16px}
+input,select,textarea{
+  background:transparent;color:inherit;
+  border:1px solid var(--cardBorder);
+  border-radius:10px;padding:10px;font-size:16px;
+}
 
-#app{min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
+#app{min-height:100%;display:grid;
+  grid-template-rows:auto 1fr auto}
 
-header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0b0b0b;color:#fff;border-bottom:1px solid #141414}
+header{display:flex;align-items:center;gap:10px;
+  padding:10px 12px;background:#0b0b0b;color:#fff;
+  border-bottom:1px solid #141414}
 header h1{margin:0;font-size:16px}
 .spacer{flex:1}
 
 .nav{display:flex;gap:8px;flex-wrap:wrap}
-.tab{border:none;border-radius:12px;padding:8px 12px;background:#25282e;color:#fff}
+.tab{border:none;border-radius:12px;
+  padding:8px 12px;background:#25282e;color:#fff}
 .tab.active{background:var(--green)}
 
 .page{display:none;padding:14px}
 .page.active{display:block}
 
-.card{background:var(--card);border:1px solid var(--cardBorder);border-radius:16px;padding:14px}
+.card{background:var(--card);
+  border:1px solid var(--cardBorder);
+  border-radius:16px;padding:14px}
 .stack{display:flex;flex-direction:column;gap:12px}
 .row{display:flex;flex-wrap:wrap;gap:10px}
 
-.btn{border:none;border-radius:12px;padding:10px 14px;font-weight:700}
+.btn{border:none;border-radius:12px;
+  padding:10px 14px;font-weight:700}
 .btn-green{background:var(--green);color:#fff}
 .btn-blue{background:var(--blue);color:#fff}
 .btn-red{background:var(--red);color:#fff}
@@ -52,31 +65,33 @@ header h1{margin:0;font-size:16px}
 .muted{color:var(--muted)}
 .small{font-size:12px}
 
-.progress{width:100%;height:14px;border-radius:999px;background:#242830;border:1px solid var(--cardBorder);overflow:hidden}
-.progress>.bar{height:100%;width:0%;background:linear-gradient(90deg,#0f9d58,#22c55e);transition:width .25s ease}
+.progress{width:100%;height:14px;border-radius:999px;
+  background:#242830;border:1px solid var(--cardBorder);
+  overflow:hidden}
+.progress>.bar{height:100%;width:0%;
+  background:linear-gradient(90deg,#0f9d58,#22c55e);
+  transition:width .25s ease}
 
-.thumbs img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid #3a3f46;margin-right:6px}
+.footer{display:flex;justify-content:space-between;
+  align-items:center;gap:10px;padding:8px 12px;
+  background:#0b0b0b;color:#fff;border-top:1px solid #141414;
+  font-size:12px}
 
-.footer{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;background:#0b0b0b;color:#fff;border-top:1px solid #141414;font-size:12px}
+/* Installer-banner */
+.install{border:1px dashed #334;border-radius:12px;
+  padding:10px;background:#15181d}
 
-.item{background:var(--card);border:1px solid var(--cardBorder);border-radius:12px;padding:10px;margin-bottom:8px}
-
-.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;background:#22262c;border:1px solid #2b3139;color:#fff}
-.badge.warn{background:#3a2f00;color:#ffd27a;border-color:#5a4a00}
-.badge.note{background:#1c2533;color:#e6f0ff;border-color:#2c3b55}
-
-.hanske .btn{font-size:22px;padding:16px 20px;border-radius:18px}
-
-/* installer-banner */
-.install {border:1px dashed #334; border-radius:12px; padding:10px; background:#15181d}
-
-/* vær-widget */
+/* Vær-widget */
 .weather{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.weather .pill{border:1px solid var(--cardBorder);border-radius:999px;padding:6px 10px}
+.weather .pill{border:1px solid var(--cardBorder);
+  border-radius:999px;padding:6px 10px}
 .weather .now{font-weight:700}
 
-#pinFilters .active, #pinFiltersAdmin .active{ background:var(--green); color:#fff }
-.themeRow label{display:flex;gap:8px;align-items:center}
+/* Hanske-modus */
+.hanske .btn{font-size:22px;padding:16px 20px;border-radius:18px}
+
+/* Cache-reset-knapp */
+.reset-row{margin-top:6px}
 </style>
 </head>
 <body>
@@ -92,11 +107,11 @@ header h1{margin:0;font-size:16px}
     <button class="tab" data-tab="service">Service</button>
   </div>
 </header>
-
 <!-- HJEM -->
 <div id="page-home" class="page active">
   <div class="card stack">
     <h2>Innstillinger</h2>
+
     <div class="row">
       <label>Rolle</label>
       <select id="role">
@@ -116,13 +131,14 @@ header h1{margin:0;font-size:16px}
       <label style="display:flex;gap:6px;align-items:center">
         <input id="useCustomName" type="checkbox"> Bruk eget navn
       </label>
-      <input id="customName" type="text" placeholder="Skriv navnet ditt" style="min-width:220px;display:none">
+      <input id="customName" type="text" placeholder="Skriv navnet ditt"
+             style="min-width:220px;display:none">
 
       <label><input id="bigBtn" type="checkbox"> Hanske-modus</label>
       <label><input id="autoCheck" type="checkbox" checked> Auto sjekk-inn</label>
     </div>
 
-    <div class="row themeRow">
+    <div class="row">
       <label>Tema</label>
       <select id="themeSel">
         <option value="auto">Auto (system)</option>
@@ -148,6 +164,11 @@ header h1{margin:0;font-size:16px}
       <button id="btnResetAll" class="btn btn-red">Nullstill alle</button>
       <button id="btnStart" class="btn btn-green">Start runde →</button>
       <button id="btnSyncNow" class="btn btn-gray">Synk nå</button>
+    </div>
+
+    <!-- Tøm cache + hard reload -->
+    <div class="row reset-row">
+      <button id="btnHardReset" class="btn btn-red">🧹 Tøm cache og start på nytt</button>
     </div>
 
     <div class="small muted" id="lastSyncText">—</div>
@@ -200,6 +221,7 @@ header h1{margin:0;font-size:16px}
 
     <div class="thumbs" id="thumbs"></div>
 
+    <!-- Hovedknapper for oppgave -->
     <div class="row">
       <button id="ongo" class="btn btn-gray">▶️ Pågår</button>
       <button id="done" class="btn btn-green">✅ Utført</button>
@@ -210,6 +232,7 @@ header h1{margin:0;font-size:16px}
       <button id="incident" class="btn btn-red">❗ Uhell</button>
     </div>
 
+    <!-- Hurtigvalg (base / grus / drivstoff) -->
     <div class="row">
       <button id="goBase" class="btn btn-purple">🏠 Kjør til base</button>
       <button id="fillGravel" class="btn btn-blue">🪨 Fyll grus</button>
@@ -217,7 +240,7 @@ header h1{margin:0;font-size:16px}
       <button id="cheapestFuel" class="btn btn-gray">💸 Finn billigste (søk)</button>
     </div>
 
-    <!-- Vær-widget: nå + 3t -->
+    <!-- Vær-widget: nå + 3t (plassert under knappene) -->
     <div id="weatherCard" class="card">
       <div class="row" style="align-items:center;justify-content:space-between">
         <div><b>Vær (nå + 3t)</b> <span class="small muted" id="weatherAt">–</span></div>
@@ -240,7 +263,8 @@ header h1{margin:0;font-size:16px}
     <div class="small muted">
       Katalogen er «felles liste». Lokale tillegg under påvirker kun din enhet (til neste publisering).
     </div>
-    <!-- Filtre for pinner (også tilgjengelig her) -->
+
+    <!-- Filtre for brøytestikker (også tilgjengelig her) -->
     <div id="pinFilters" class="row">
       <button class="btn btn-gray" data-pf="all">Alle</button>
       <button class="btn btn-gray" data-pf="pending">Uten brøytestikker i år</button>
@@ -278,6 +302,7 @@ header h1{margin:0;font-size:16px}
       <span id="adminSyncTxt" class="muted">—</span>
     </div>
 
+    <!-- Filter for brøytestikker -->
     <div class="row" id="pinFiltersAdmin">
       <button class="btn btn-gray" data-pfa="all">Alle</button>
       <button class="btn btn-gray" data-pfa="pending">Uten brøytestikker i år</button>
@@ -327,18 +352,20 @@ header h1{margin:0;font-size:16px}
       <label><input id="svc_oil_back" type="checkbox"> Sjekk olje (bak)</label>
       <label><input id="svc_other" type="checkbox"> Annet</label>
     </div>
+
     <textarea id="svcNotes" placeholder="Anmerkninger …" style="width:100%;min-height:100px"></textarea>
+
     <div class="row">
       <button id="svcSave" class="btn btn-green">📤 Lagre og del CSV</button>
       <button id="svcGuide" class="btn btn-gray">🧾 Last ned brukerark (TXT)</button>
       <button id="svcSaveHtml" class="btn btn-blue">🗂️ Lag HTML-rapport (dag)</button>
     </div>
+
     <div class="small muted">
       HTML-rapport inkluderer bilder, oppgaver, hvem som utførte og vær-notater som ble lagret underveis.
     </div>
   </div>
 </div>
-
 <!-- FOOTER -->
 <div class="footer">
   <div id="pos">—</div>
@@ -347,6 +374,7 @@ header h1{margin:0;font-size:16px}
 
 <!-- Foto-opplasting -->
 <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
+
 <script>
 /* ===== KONFIG ===== */
 const JSONBIN_API_KEY        = "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma";
@@ -357,7 +385,7 @@ const JSONBIN_BACKUP_BIN_ID  = "68e7b4d2ae596e708f0bde7d";   // Privat backup-bi
 const JSONBIN_REPORT_BIN_ID  = "68e89e3443b1c97be9611c48";   // Dagsrapporter
 const HEARTBEAT_MS = 30000;
 const BASE_ADDR = "Hagavegen 8, 2072 Dal";
-const GRAVEL_ADDR = "Hagavegen 8, 2072 Dal"; // legg inn annen når klart
+const GRAVEL_ADDR = "Hagavegen 8, 2072 Dal"; // endres når adresse for fylling av grus er klar
 const FUEL_CHOICES = [
   {name:"Driv Dal", q:"Driv Dal avgiftsfri diesel"},
   {name:"Esso Energi Dal", q:"Esso Energi Dal avgiftsfri diesel"}
@@ -385,6 +413,7 @@ let state = load() || {
     entries: [] // {ts, type:'start|done|block|photo|incident|weather', name, task, note, photos:[dataURL], weather:{...}}
   }
 };
+/* ===== helpers ===== */
 function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
 function load(){ try{ return JSON.parse(localStorage.getItem(LS)||""); }catch(_){ return null; } }
 function apiKey(){ return localStorage.getItem("broyte_api_key") || JSONBIN_API_KEY; }
@@ -417,11 +446,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
       if(btn.dataset.tab==="work"){ renderWork(); maybeInactivityResetPrompt(); }
       if(btn.dataset.tab==="register") renderRegister();
       if(btn.dataset.tab==="admin") renderAdmin();
-      if(btn.dataset.tab==="service") {/*noop*/}
     });
   });
 
-  // Hjem init verdier
+  // Hjem init
   $("role").value = state.role;
   $("direction").value = state.direction;
   $("eq_plog").checked = !!state.equipment.plog;
@@ -435,11 +463,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
   $("themeSel").value = state.theme || "auto";
   applyTheme(state.theme||"auto");
 
-  // Synk-nøkkelfelt
   const hadKey = !!localStorage.getItem("broyte_api_key");
   if (hadKey && state.lastSyncAt) hideKeyRow();
 
-  // Hjem handlers
   $("saveKey").onclick = ()=>{ const key=$("apiKey").value.trim(); if(!key) return alert("Lim inn nøkkel først"); localStorage.setItem("broyte_api_key", key); $("apiKey").value=""; $("syncStatus").textContent="Synk – nøkkel lagret ✅"; };
   $("editKey").onclick = (e)=>{ e.preventDefault(); showKeyRow(); };
 
@@ -456,10 +482,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
   $("btnResetAll").onclick = resetAllHandler;
   $("btnRoundByEquip").onclick = roundByEquipHandler;
 
-  // Installer app – banner
   setupInstallBanner();
 
-  // Utstyr
   ["eq_plog","eq_fres","eq_stro"].forEach(id=>{
     $(id).onchange = ()=>{
       state.equipment = { plog:$("eq_plog").checked, fres:$("eq_fres").checked, stro:$("eq_stro").checked };
@@ -488,7 +512,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // base/grus/drivstoff
   $("goBase").onclick     = ()=> navTo(BASE_ADDR);
   $("fillGravel").onclick = ()=> navTo(GRAVEL_ADDR);
-  $("fillFuel").onclick   = ()=> { // velg en av faste
+  $("fillFuel").onclick   = ()=> {
     const choice = prompt("Velg stasjon: 1) Driv Dal  2) Esso Energi Dal  3) Avbryt","1");
     if(choice==="1") mapsSearch(FUEL_CHOICES[0].q);
     else if(choice==="2") mapsSearch(FUEL_CHOICES[1].q);
@@ -537,7 +561,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   });
   const initBtnA = document.querySelector(`#pinFiltersAdmin [data-pfa="${state.ui.adminPinFilter}"]`); if(initBtnA) initBtnA.classList.add('active');
 
-  // Defaults
+  // Defaults + første render
   bootDefaults();
   renderRegister();
   renderWork();
@@ -551,12 +575,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // Vær initialt
   refreshWeather();
 });
+
 /* ===== Utils ===== */
 function touchActivity(){ state.lastActiveAt = Date.now(); save(); }
-function applyTheme(mode){
-  document.documentElement.dataset.theme = mode;
-  // (Vi bruker systemets prefers-color-scheme, så denne er “hint”.)
-}
+function applyTheme(mode){ document.documentElement.dataset.theme = mode; }
 function idxList(){
   const rem = state.stops.map((s,i)=>({i,s})).filter(x=>!x.s.f && !x.s.b).map(x=>x.i);
   return state.direction==="forward" ? rem : rem.slice().reverse();
@@ -576,15 +598,13 @@ function navTo(address){ if(!address) return; location.href = "https://www.googl
 function mapsSearch(q){ location.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q); }
 
 function afterRound(){
-  // Sjekk om vi har gjort “Snø”/“Frese” men ikke strødd – foreslå ny strørunde via base
+  // Snø-runde → foreslå strørunde via base
   const anySnow = state.stops.some(s=>/Snø/.test(s.t) && (s.f||s.b));
-  const anyNeedsGravel = state.stops.some(s=>/Snø og grus/.test(s.t) && !s.f);
   const ask = anySnow && !state.equipment.stro; // kjørte uten strøkasse
   if(ask){
     const ok = confirm("Snørunde ferdig ✅\nVil du kjøre til base for å bytte til strøkasse og starte ny runde med strøing?");
     if(ok){
       navTo(BASE_ADDR);
-      // nullstill KUN de som trenger strø (Snø og grus)
       state.stops.forEach(s=>{
         if(/Snø og grus/.test(s.t)){ s.f=false; s.b=false; s.started=null; s.finished=null; }
       });
@@ -597,8 +617,8 @@ function afterRound(){
   const c = confirm("Runde ferdig ✅\nVil du starte ny runde (etter utstyr)?\nTrykk Avbryt for å gå til Service.");
   if(c){
     state.stops.forEach(s=>{
-      const needP=/Snø/.test(s.t); const needS=/grus/.test(s.t);
-      const ok = (!needP || state.equipment.plog || state.equipment.fres) && (!needS || state.equipment.stro);
+      const needSnow=/Snø/.test(s.t), needGrus=/grus/.test(s.t);
+      const ok = (!needSnow || state.equipment.plog || state.equipment.fres) && (!needGrus || state.equipment.stro);
       if(ok){ s.f=false; s.b=false; s.started=null; s.finished=null; }
     });
     save(); renderWork(); renderRegister(); syncPush();
@@ -625,7 +645,6 @@ function renderWork(){
   $("directionNote").textContent = `Du kjører i ${(state.direction==="forward"?'vanlig':'baklengs')} rekkefølge. (${displayName()})`;
   $("lastSyncText").textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
   $("lastSyncTextWork").textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
-  // Oppdater vær hvis vi bytter lokasjon
   refreshWeather();
 }
 function hasPinsThisSeason(s){
@@ -918,7 +937,6 @@ function nextHandler(){
 function incidentHandler(){
   const c=cur();
   const note = prompt("Kort beskrivelse av uhell (valgfritt):","")||"";
-  // Bildene tas via foto-knappen — men logg et uhell-innslag nå
   logEntry('incident', c||{n:"(ukjent)",t:""}, note);
   alert("Uhell logget. Ta gjerne bilder med 📷-knappen.");
 }
@@ -936,11 +954,10 @@ async function refreshWeather(){
       const js = await r.json();
       const nowT = js?.current?.temperature_2m;
       const nowP = js?.current?.precipitation;
-      // finn +3t
       const times = js?.hourly?.time||[];
       const temps = js?.hourly?.temperature_2m||[];
       const precs = js?.hourly?.precipitation||[];
-      const idx3 = Math.min(3, temps.length-1); // ca +3 time-steg
+      const idx3 = Math.min(3, temps.length-1); // ca +3t
       const t3 = temps[idx3], p3 = precs[idx3];
       const snowNow = (nowP||0) > 0 ? "Snør" : "Ingen snø";
       const snow3  = (p3||0) > 0 ? "Snør" : "Ingen snø";
@@ -967,7 +984,6 @@ function logEntry(type, stop, note="", photos=[]){
 }
 async function saveDayHtmlReport(){
   try{
-    // Bygg enkel HTML med innebygde bilder (dataURL)
     const rows = state.dayLog.entries.map(e=>`
       <tr>
         <td>${fmtDT(e.ts)}</td>
@@ -991,19 +1007,17 @@ async function saveDayHtmlReport(){
       </body></html>`;
 
     const file = new File([html], `dagrapport_${state.dayLog.dateKey}.html`, {type:"text/html"});
-    // Lagre lokalt (del eller nedlasting)
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({title:'Dagrapport',text:`Dagrapport ${state.dayLog.dateKey}`,files:[file]});
     }else{
       const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download=file.name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
     }
 
-    // Last opp også til report-bin (append i en liste)
     try{
       const latest = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_REPORT_BIN_ID}/latest`, {headers:headers()}).then(r=>r.json()).catch(()=>({record:{reports:[]}}));
       const rec = latest?.record || {reports:[]};
       rec.reports = rec.reports || [];
-      rec.reports.push({ ts: Date.now(), by: displayName(), dateKey: state.dayLog.dateKey, html }); // lagre html inline
+      rec.reports.push({ ts: Date.now(), by: displayName(), dateKey: state.dayLog.dateKey, html });
       await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_REPORT_BIN_ID}`, { method:"PUT", headers: headers(), body: JSON.stringify(rec) });
       alert("HTML-rapport lagret lokalt og i report-bin ✔︎");
     }catch(_){ alert("HTML-rapport lagret lokalt (opplasting feilet)."); }
@@ -1044,7 +1058,7 @@ Oppsett
 Kjøring
 - Under arbeid: Nåværende, Neste, Pågår/Utført/Ikke mulig/Foto/Naviger/Uhell.
 - Hurtigknapper: Kjør til base, Fyll grus, Fyll drivstoff, Finn billigste (søk).
-- Vær-widget viser nå + 3t (temp/snå).
+- Vær-widget viser nå + 3t (temp/snø).
 
 Admin
 - Rediger katalog, 2-sjåfører, pinner-filter, publiser til MASTER.
@@ -1070,11 +1084,10 @@ function bootDefaults(){
   }
 }
 
-/* ===== 2-sjåfør signal ===== */
+/* ===== 2-sjåfør “varsel” ===== */
 function maybeTwoDriverPrompt(current){
   try{
     if(!current?.twoDriverRec) return;
-    // Simulert varsel: vis banner (lokalt). I produksjon kan man bruke felles bin for "claims".
     alert(`👥 Anbefalt 2 sjåfører: ${current.n}\nKan du bidra? Trykk OK for å åpne navigasjon.`);
     navTo(current.n);
   }catch(_){}
@@ -1108,8 +1121,36 @@ function roundByEquipHandler(){
   });
   save(); renderWork(); renderRegister(); syncPush();
 }
-</script>
 
-</div> <!-- /#app -->
-</body>
-</html>
+/* ===== Geo footer ===== */
+function initGeolocation(){
+  const posEl = $("pos"); if(!posEl) return;
+  if(!navigator.geolocation){ posEl.textContent="Posisjon ikke tilgjengelig"; return; }
+  const fmt=n=>Number.isFinite(n)?n.toFixed(5):"—";
+  navigator.geolocation.watchPosition(
+    (p)=>{ const {latitude,longitude,accuracy}=p.coords||{}; posEl.textContent = `${fmt(latitude)}, ${fmt(longitude)} (±${Math.round(accuracy||0)} m)`; },
+    ()=>{ posEl.textContent = "Posisjon utilgjengelig"; },
+    { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
+  );
+}
+
+/* ===== PWA install banner ===== */
+function setupInstallBanner(){
+  const card = $("installCard");
+  if (!card) return;
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  if (isStandalone) return;
+  card.style.display = "block";
+  let deferredPrompt = null;
+  window.addEventListener("beforeinstallprompt", (e)=>{
+    e.preventDefault();
+    deferredPrompt = e;
+    card.style.display = "block";
+  });
+  $("btnInstall").onclick = async ()=>{
+    if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; card.style.display="none"; }
+    else { $("installHelp").style.display="block"; }
+  };
+  $("btnInstallHelp").onclick = ()=>{ $("installHelp").style.display = $("installHelp").style.display==="none"?"block":"none"; };
+}
+</script>
