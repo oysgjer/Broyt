@@ -810,6 +810,29 @@ Object.assign(window.BroyteSync || (window.BroyteSync = {}), { loadInbox });
         <br><span class="muted">${esc(s.t)}</span> ${s.f?"✅":""}${s.b?"⛔":""}
       </div>`).join("");
   }
+  // Admin-filter husker også valgt status
+document.querySelectorAll("#pinFiltersAdmin .btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#pinFiltersAdmin .btn").forEach(b=>b.classList.remove("btn-green"));
+    btn.classList.add("btn-green");
+    const val = btn.dataset.pfa;
+    state.ui.adminPinFilter = val;
+    save();
+    window.BroyteWork.renderAdmin();
+  });
+});
+
+// Register-filter husker valgt status
+document.querySelectorAll("#pinFilters .btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#pinFilters .btn").forEach(b=>b.classList.remove("btn-green"));
+    btn.classList.add("btn-green");
+    const val = btn.dataset.pf;
+    state.ui.pinFilter = val;
+    save();
+    window.BroyteWork.renderRegister();
+  });
+});
   function renderAdmin(){
     const total=state.stops.length;
     const pct=total?Math.round(100*state.stops.filter(s=>s.f||s.b).length/total):0;
