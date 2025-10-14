@@ -977,15 +977,32 @@ function renderAdmin(){
     r.readAsDataURL(f); e.target.value="";
   }
 
-  function doneHandler(){
-    touchActivity();
-    const c=cur(); if(!c)return;
-    if(/brøytestikker/i.test(c.t)){
-      const v=prompt("Antall brøytestikker brukt?",""); if(v===null)return;
-      c.pinsCount=parseInt(v||"0",10)||0; c.pinsLockedYear=seasonKey();
+  /* === START DELTA C: doneHandler med sesonglås for brøytestikker === */
+function doneHandler(){
+  touchActivity();
+  const c = cur(); if(!c) return;
+
+  // Kun spørre om pinner hvis oppgaven inneholder "brøytestikker"
+  // OG vi ikke allerede har låst for inneværende sesong
+  if (/brøytestikker/i.test(c.t)) {
+    const alreadyThisSeason = c.pinsLockedYear && String(c.pinsLockedYear) === seasonKey();
+    if (!alreadyThisSeason) {
+      const v = prompt("Antall brøytestikker brukt (låses for sesongen):", "");
+      if (v === null) return; // avbrutt
+      const n = parseInt((v||"").trim() || "0", 10) || 0;
+      c.pinsCount = n;
+      c.pinsLockedYear = seasonKey(); // LÅS for sesongen
     }
-    c.f=true; c.finished=Date.now(); save(); renderWork(); syncPush(); const n=nxt(); if(n)navTo(n.n);
   }
+
+  c.f = true;
+  c.finished = Date.now();
+  save();
+  renderWork();
+  syncPush();
+  const n = nxt(); if (n) navTo(n.n);
+}
+/* === END DELTA C === */
   function blockHandler(){
     const c=cur(); if(!c)return;
     const note=prompt("Hvorfor ikke mulig?","")||""; c.details=note; c.b=true; save(); renderWork(); syncPush();
