@@ -671,6 +671,11 @@ window.addEventListener('error', (ev) => {
   const { $, save, apiKey, headers, esc, fmtTime, fmtDT,
           displayName, dateKey, seasonKey, touchActivity,
           idxList, cur, curIndex, nxt, prog, navTo, mapsSearch } = H;
+// Normaliser oppgavetekst: sørg for at "brøytestikker" alltid er med
+function normalizeTask(t){
+  t = String(t || "").trim();
+  return /brøytestikker/i.test(t) ? t : (t ? `${t} + brøytestikker` : "Snø + brøytestikker");
+}
 /* === START DELTA A: merge-hjelpere (flersjåfør) === */
 function keyOf(s){ return (s?.n||'').trim().toLowerCase(); }
 function hasPinsThisSeason(s){ return s?.pinsLockedYear && String(s.pinsLockedYear)===seasonKey(); }
@@ -801,9 +806,7 @@ async function syncPush(){
       const js=await r.json();
       const cat=js?.record?.addresses||[];
       const active=cat.filter(a=>a?.active!==false);
-      const stops=active.map(a=>({
-        n:a.name||"",
-        t:a.task||CFG.DEFAULT_TASKS[0],
+        t: normalizeTask(a.task || CFG.DEFAULT_TASKS[0]),
         f:false,b:false,p:[],
         twoDriverRec:!!a.twoDriverRec,
         pinsCount:0,pinsLockedYear:null
@@ -881,7 +884,6 @@ Object.assign(window.BroyteSync || (window.BroyteSync = {}), { loadInbox });
   }
 
   /* ---------- RENDER ---------- */
-  function hasPinsThisSeason(s){ return s.pinsLockedYear && String(s.pinsLockedYear)===seasonKey(); }
   function renderWork(){
     const c=cur(),n=nxt(),p=prog();
     $("driverLbl").textContent="Rolle: "+displayName();
@@ -1558,7 +1560,7 @@ $('editPins') && ($('editPins').onclick = ()=>{
 
     $('add') && ($('add').onclick = ()=>{
       const addr = $('addr')?.value.trim(); if(!addr) return;
-      const task = $('taskSel')?.value || CFG.DEFAULT_TASKS[0];
+      const task = normalizeTask($('taskSel')?.value || CFG.DEFAULT_TASKS[0]);
       const twoDriver = $('twoDriverRec')?.checked || false;
       (state.stops ||= []).push({ n:addr, t:task, f:false, b:false, p:[], started:null, finished:null, details:"", twoDriverRec:twoDriver, pinsCount:0, pinsLockedYear:null });
       $('addr').value = ''; if ($('twoDriverRec')) $('twoDriverRec').checked = false;
@@ -1776,7 +1778,7 @@ host.querySelectorAll('button[data-down]').forEach(btn=>{
       const nowSeason = window.BroyteHelpers.seasonKey();
 const stops = active.map(a=>({
   n: a.name || '',
-  t: a.task || CFG.DEFAULT_TASKS[0],
+  t: normalizeTask(a.task || CFG.DEFAULT_TASKS[0]),
   f: false, b: false, p: [],
   twoDriverRec: !!a.twoDriverRec,
   pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0,
