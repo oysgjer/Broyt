@@ -1663,7 +1663,11 @@ document.querySelectorAll('#pinFiltersAdmin .btn').forEach(btn=>{
   const CFG = window.BROYTE_CFG;
   const H   = window.BroyteHelpers;
   const { $, headers, esc, displayName } = H;
-
+// Lokal helper: sørger for at "brøytestikker" alltid er med i oppgaven
+function normalizeTask(t){
+  t = String(t || "").trim();
+  return /brøytestikker/i.test(t) ? t : (t ? `${t} + brøytestikker` : "Snø + brøytestikker");
+}
   let CAT = { addresses: [], updated: 0, version: CFG.VERSION };
 
 function renderCatList(){
