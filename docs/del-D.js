@@ -5,7 +5,7 @@
   Core.D = D;
 
   /* ---------- Hjelp ---------- */
-  const toStops = (addresses=[]) => {
+  const toStops = (addresses = []) => {
     const T = Core.cfg.DEFAULT_TASKS;
     return addresses
       .filter(a => a && a.name && a.active !== false)
@@ -15,7 +15,9 @@
         f: false, b: false, p: [],
         twoDriverRec: !!a.twoDriverRec,
         pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0,
-        pinsLockedYear: (Number.isFinite(a.pinsCount) && a.pinsCount > 0) ? Core.seasonKey() : null
+        pinsLockedYear: (Number.isFinite(a.pinsCount) && a.pinsCount > 0)
+          ? Core.seasonKey()
+          : null
       }));
   };
 
@@ -23,19 +25,28 @@
     const S = Core.state;
     if (Array.isArray(S.stops) && S.stops.length > 0) return true;
 
-    // Prøv hente katalog
+    // Hent katalog
     const cat = await Core.fetchCatalog?.();
-    if (cat && Array.isArray(cat.addresses) && cat.addresses.length) {
-      S.stops = toStops(cat.addresses);
-      Core.save();
-      return S.stops.length > 0;
+    if (cat) {
+      const list =
+        Array.isArray(cat.addresses) ? cat.addresses :
+        Array.isArray(cat.catalog?.addresses) ? cat.catalog.addresses :
+        Array.isArray(cat.catalog) ? cat.catalog : [];
+
+      if (list.length > 0) {
+        S.stops = toStops(list);
+        Core.save();
+        console.log(`Katalog med ${S.stops.length} adresser importert til state`);
+        return true;
+      }
     }
 
-    // Fallback: legg inn noen demo-adresser hvis katalog er tom/feil
+    // Fallback-demo
+    console.warn("Fant ingen adresser i katalog, bruker fallback.");
     S.stops = [
-      { n:"AMFI Eidsvoll (Råholt)", t:Core.normalizeTask(Core.cfg.DEFAULT_TASKS[0]), f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null },
-      { n:"Råholt barneskole",      t:Core.normalizeTask(Core.cfg.DEFAULT_TASKS[1]), f:false, b:false, p:[], twoDriverRec:true,  pinsCount:0, pinsLockedYear:null },
-      { n:"Råholt ungdomsskole",    t:Core.normalizeTask(Core.cfg.DEFAULT_TASKS[0]), f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null }
+      { n: "AMFI Eidsvoll (Råholt)", t: Core.normalizeTask(Core.cfg.DEFAULT_TASKS[0]), f: false, b: false, p: [], twoDriverRec: false, pinsCount: 0, pinsLockedYear: null },
+      { n: "Råholt barneskole",      t: Core.normalizeTask(Core.cfg.DEFAULT_TASKS[1]), f: false, b: false, p: [], twoDriverRec: true,  pinsCount: 0, pinsLockedYear: null },
+      { n: "Råholt ungdomsskole",    t: Core.normalizeTask(Core.cfg.DEFAULT_TASKS[0]), f: false, b: false, p: [], twoDriverRec: false, pinsCount: 0, pinsLockedYear: null }
     ];
     Core.save();
     return true;
@@ -140,28 +151,23 @@
     const S = Core.state;
     if (!confirm("Start ny runde?\nAlle statusfelt nullstilles.")) return;
 
-    // Sikre at vi faktisk har stopp (prøv å hente katalog)
     await ensureStopsLoaded();
-
     S.roundNumber = (S.roundNumber || 0) + 1;
-    (S.stops||[]).forEach(s => { s.f = false; s.b = false; s.started = null; s.finished = null; s.doneAt = null; });
+    (S.stops || []).forEach(s => { s.f = false; s.b = false; s.doneAt = null; });
     S.dayLog = { dateKey: Core.dateKey(), entries: [] };
 
     Core.save();
     D.renderList();
 
-    // Naviger til "Under arbeid" hvis show(id) finnes
-    try { if (typeof window.show === "function") window.show("work"); } catch(_) {}
+    try { if (typeof window.show === "function") window.show("work"); } catch (_) {}
     alert(`Ny runde #${S.roundNumber} startet`);
   };
 
   /* ---------- Init ---------- */
   document.addEventListener("DOMContentLoaded", async () => {
-    // Koble “Start ny runde”-knappen
     const btn = Core.$("startBtn");
     if (btn) btn.onclick = D.startNewRound;
 
-    // Last inn adresser om tomt (automatisk)
     await ensureStopsLoaded();
 
     Core.log("del-D.js lastet");
