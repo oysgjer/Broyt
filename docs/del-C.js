@@ -139,6 +139,23 @@
     bootDefaults();
     Core.log("del-C.js (core) lastet");
 
+  /* ---------- Felles fetchCatalog() ---------- */
+  Core.fetchCatalog = async () => {
+    try {
+      const { CATALOG } = Core.cfg.BINS;
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${CATALOG}/latest`, {
+        headers: Core.headers()
+      });
+      if (!res.ok) throw new Error("Feil ved henting");
+      const js = await res.json();
+      console.log("Katalog hentet (core)", js);
+      return js?.record || {};
+    } catch (e) {
+      console.error("fetchCatalog-feil:", e);
+      return { addresses: [], error: true };
+    }
+  };
+
     // Lite hint i konsollen til senere moduler
     // (del-E/F/G vil ofte logge at Del C må være lastet først)
   });
