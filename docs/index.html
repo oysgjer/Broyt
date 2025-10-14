@@ -671,6 +671,19 @@ window.addEventListener('error', (ev) => {
   const { $, save, apiKey, headers, esc, fmtTime, fmtDT,
           displayName, dateKey, seasonKey, touchActivity,
           idxList, cur, curIndex, nxt, prog, navTo, mapsSearch } = H;
+// ===== Synk-nøkkel vis/skjul helpers =====
+function hideKeyRow(){
+  const kb = $("keyBlock"), sk = $("saveKey"), ek = $("editKey");
+  if (kb) kb.style.display = "none";
+  if (sk) sk.style.display = "none";
+  if (ek) ek.style.display = "inline";
+}
+function showKeyRow(){
+  const kb = $("keyBlock"), sk = $("saveKey"), ek = $("editKey");
+  if (kb) kb.style.display = "inline-block";
+  if (sk) sk.style.display = "inline-block";
+  if (ek) ek.style.display = "none";
+}
 // Vis/skjul synk-nøkkel-blokka i Hjem-fanen
 function hideKeyRow(){
   const kb = $("keyBlock"), sk = $("saveKey"), ek = $("editKey");
