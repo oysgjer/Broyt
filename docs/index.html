@@ -684,31 +684,6 @@ function showKeyRow(){
   if (sk) sk.style.display = "inline-block";
   if (ek) ek.style.display = "none";
 }
-// Vis/skjul synk-nøkkel-blokka i Hjem-fanen
-function hideKeyRow(){
-  const kb = $("keyBlock"), sk = $("saveKey"), ek = $("editKey");
-  if (kb) kb.style.display = "none";
-  if (sk) sk.style.display = "none";
-  if (ek) ek.style.display = "inline";
-}
-function showKeyRow(){
-  const kb = $("keyBlock"), sk = $("saveKey"), ek = $("editKey");
-  if (kb) kb.style.display = "inline-block";
-  if (sk) sk.style.display = "inline-block";
-  if (ek) ek.style.display = "none";
-}
-function hideKeyRow(){
-  const kb = $('keyBlock'), sk = $('saveKey'), ek = $('editKey');
-  if (kb) kb.style.display = 'none';
-  if (sk) sk.style.display = 'none';
-  if (ek) ek.style.display = 'inline';
-}
-function showKeyRow(){
-  const kb = $('keyBlock'), sk = $('saveKey'), ek = $('editKey');
-  if (kb) kb.style.display = 'inline-block';
-  if (sk) sk.style.display = 'inline-block';
-  if (ek) ek.style.display = 'none';
-}
 // Normaliser oppgavetekst: sørg for at "brøytestikker" alltid er med
 function normalizeTask(t){
   t = String(t || "").trim();
