@@ -1554,12 +1554,36 @@ host.innerHTML = CAT.addresses.map((a,idx)=>`
 
   // Slett-knapper
   host.querySelectorAll('button[data-del]').forEach(btn=>{
-    btn.onclick = ()=>{
-      const i = +btn.dataset.del;
-      CAT.addresses.splice(i,1);
-      renderCatList();
-    };
-  });
+  btn.onclick = ()=>{
+    const i = +btn.dataset.del;
+    CAT.addresses.splice(i,1);
+    renderCatList();
+  };
+});
+
+// Flytt opp
+host.querySelectorAll('button[data-up]').forEach(btn=>{
+  btn.onclick = ()=>{
+    const i = +btn.dataset.up;
+    if (i <= 0) return;
+    const tmp = CAT.addresses[i];
+    CAT.addresses[i] = CAT.addresses[i-1];
+    CAT.addresses[i-1] = tmp;
+    renderCatList();
+  };
+});
+
+// Flytt ned
+host.querySelectorAll('button[data-down]').forEach(btn=>{
+  btn.onclick = ()=>{
+    const i = +btn.dataset.down;
+    if (i >= CAT.addresses.length-1) return;
+    const tmp = CAT.addresses[i];
+    CAT.addresses[i] = CAT.addresses[i+1];
+    CAT.addresses[i+1] = tmp;
+    renderCatList();
+  };
+});
 
   const msg = $('catMsg');
   if (msg) msg.textContent = `Rader: ${CAT.addresses.length}`;
