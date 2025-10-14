@@ -1457,78 +1457,103 @@ function doneHandler(){
   }
 
   /* ---------- Knapper / Inputs ---------- */
-  function wireHome(){
-    // init verdier
-    $('role')         && ($('role').value = state.role);
-    $('direction')    && ($('direction').value = state.direction);
-    $('eq_plog')      && ($('eq_plog').checked = !!state.equipment.plog);
-    $('eq_fres')      && ($('eq_fres').checked = !!state.equipment.fres);
-    $('eq_stro')      && ($('eq_stro').checked = !!state.equipment.stro);
-    $('autoCheck')    && ($('autoCheck').checked = !!state.autoCheck);
-    $('bigBtn')       && (document.body.classList.toggle('hanske', !!state.hanske), $('bigBtn').checked = !!state.hanske);
-    $('useCustomName')&& ($('useCustomName').checked = !!state.useCustomName);
-    $('customName')   && (($('customName').value = state.customName||''), $('customName').style.display = state.useCustomName?'block':'none');
-    $('themeSel')     && ($('themeSel').value = state.theme || 'auto');
+function wireHome(){
+  // Init-verdier
+  $('role')         && ($('role').value = state.role);
+  $('direction')    && ($('direction').value = state.direction);
+  $('eq_plog')      && ($('eq_plog').checked = !!state.equipment.plog);
+  $('eq_fres')      && ($('eq_fres').checked = !!state.equipment.fres);
+  $('eq_stro')      && ($('eq_stro').checked = !!state.equipment.stro);
+  $('autoCheck')    && ($('autoCheck').checked = !!state.autoCheck);
+  $('bigBtn')       && (document.body.classList.toggle('hanske', !!state.hanske), $('bigBtn').checked = !!state.hanske);
+  $('useCustomName')&& ($('useCustomName').checked = !!state.useCustomName);
+  $('customName')   && (($('customName').value = state.customName||''), $('customName').style.display = state.useCustomName?'block':'none');
+  $('themeSel')     && ($('themeSel').value = state.theme || 'auto');
 
-    // endringer
-    $('role')      && ($('role').onchange      = ()=>{ state.role=$('role').value; save(); WK.renderWork(); });
-    $('direction') && ($('direction').onchange = ()=>{ state.direction=$('direction').value; save(); WK.renderWork(); });
-    $('eq_plog')   && ($('eq_plog').onchange   = ()=>{ state.equipment.plog=$('eq_plog').checked; save(); });
-    $('eq_fres')   && ($('eq_fres').onchange   = ()=>{ state.equipment.fres=$('eq_fres').checked; save(); });
-    $('eq_stro')   && ($('eq_stro').onchange   = ()=>{ state.equipment.stro=$('eq_stro').checked; save(); });
-    $('autoCheck') && ($('autoCheck').onchange = ()=>{ state.autoCheck=$('autoCheck').checked; save(); });
-    $('bigBtn')    && ($('bigBtn').onchange    = ()=>{ state.hanske=$('bigBtn').checked; document.body.classList.toggle('hanske', state.hanske); save(); });
-    $('useCustomName') && ($('useCustomName').onchange = ()=>{
-      state.useCustomName = $('useCustomName').checked;
-      const cn = $('customName'); if (cn) cn.style.display = state.useCustomName?'block':'none';
-      save(); WK.renderWork();
+  // Endringer
+  $('role')      && ($('role').onchange      = ()=>{ state.role=$('role').value; save(); window.BroyteWork?.renderWork?.(); });
+  $('direction') && ($('direction').onchange = ()=>{
+    state.direction=$('direction').value;
+    state.ui = state.ui || {};
+    state.ui.cursor = 0;
+    save();
+    window.BroyteWork?.renderWork?.();
+  });
+  $('eq_plog')   && ($('eq_plog').onchange   = ()=>{ state.equipment.plog=$('eq_plog').checked; save(); });
+  $('eq_fres')   && ($('eq_fres').onchange   = ()=>{ state.equipment.fres=$('eq_fres').checked; save(); });
+  $('eq_stro')   && ($('eq_stro').onchange   = ()=>{ state.equipment.stro=$('eq_stro').checked; save(); });
+  $('autoCheck') && ($('autoCheck').onchange = ()=>{ state.autoCheck=$('autoCheck').checked; save(); });
+  $('bigBtn')    && ($('bigBtn').onchange    = ()=>{ state.hanske=$('bigBtn').checked; document.body.classList.toggle('hanske', state.hanske); save(); });
+  $('useCustomName') && ($('useCustomName').onchange = ()=>{
+    state.useCustomName = $('useCustomName').checked;
+    const cn = $('customName'); if (cn) cn.style.display = state.useCustomName?'block':'none';
+    save(); window.BroyteWork?.renderWork?.();
+  });
+  $('customName') && ($('customName').addEventListener('input', ()=>{
+    state.customName = $('customName').value.trim(); save(); window.BroyteWork?.renderWork?.();
+  }));
+  $('themeSel')  && ($('themeSel').onchange = ()=>{ state.theme=$('themeSel').value; applyTheme(state.theme); save(); });
+
+  // Synk-nøkkel
+  $('saveKey') && ($('saveKey').onclick = ()=>{
+    const key = ($('apiKey')?.value || '').trim();
+    if (!key) return alert('Lim inn nøkkel først');
+    localStorage.setItem('broyte_api_key', key);
+    if ($('apiKey')) $('apiKey').value='';
+    if ($('syncStatus')) $('syncStatus').textContent = 'Synk – nøkkel lagret ✅';
+    hideKeyRow?.();
+  });
+  $('editKey') && ($('editKey').onclick = (e)=>{
+    e.preventDefault();
+    showKeyRow?.();
+  });
+
+  // Hovedknapper (late lookup og try/catch rundt async)
+  $('btnStart')    && ($('btnStart').onclick    = ()=> document.querySelector('.tab[data-tab="work"]')?.click());
+  $('btnSyncNow')  && ($('btnSyncNow').onclick  = async ()=>{
+    try{ await window.BroyteSync?.syncPull?.(); await window.BroyteSync?.syncPush?.(); }catch(_){}
+  });
+  $('btnResetAll') && ($('btnResetAll').onclick = ()=>{
+    if(!confirm('Nullstille ALLE adresser?')) return;
+    (state.stops||[]).forEach(s=>{ s.f=false; s.b=false; s.started=null; s.finished=null; });
+    state.ui = state.ui || {};
+    state.ui.cursor = 0;
+    save(); window.BroyteWork?.renderWork?.(); window.BroyteWork?.renderRegister?.(); window.BroyteSync?.syncPush?.();
+  });
+  $('btnRoundByEquip') && ($('btnRoundByEquip').onclick = ()=>{
+    if(!confirm('Nullstille status for adresser som matcher valgt utstyr?')) return;
+    (state.stops||[]).forEach(s=>{
+      const t=s.t||'';
+      const needSnow=/Snø/i.test(t), needGrus=/grus/i.test(t);
+      const ok = (!needSnow || state.equipment.plog || state.equipment.fres) && (!needGrus || state.equipment.stro);
+      if (ok){ s.f=false; s.b=false; s.started=null; s.finished=null; }
     });
-    $('customName') && ($('customName').addEventListener('input', ()=>{
-      state.customName = $('customName').value.trim(); save(); WK.renderWork();
-    }));
-    $('themeSel')  && ($('themeSel').onchange = ()=>{ state.theme=$('themeSel').value; applyTheme(state.theme); save(); });
+    state.ui = state.ui || {};
+    state.ui.cursor = 0;
+    save(); window.BroyteWork?.renderWork?.(); window.BroyteWork?.renderRegister?.(); window.BroyteSync?.syncPush?.();
+  });
+  $('btnHardReset') && ($('btnHardReset').onclick = async ()=>{
+    if(!confirm('Tømme all lokal data og laste siden på nytt?')) return;
+    const keepKey = localStorage.getItem('broyte_api_key') || '';
+    try{
+      localStorage.clear();
+      if (keepKey) localStorage.setItem('broyte_api_key', keepKey);
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.map(n => caches.delete(n)));
+      }
+      if (navigator.serviceWorker?.getRegistrations) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    }catch(_){}
+    location.reload(true);
+  });
 
-    // synk-nøkkel
-    $('saveKey') && ($('saveKey').onclick = ()=>{
-      const key = ($('apiKey')?.value || '').trim();
-      if (!key) return alert('Lim inn nøkkel først');
-      localStorage.setItem('broyte_api_key', key);
-      if ($('apiKey')) $('apiKey').value='';
-      if ($('syncStatus')) $('syncStatus').textContent = 'Synk – nøkkel lagret ✅';
-      const kb=$('keyBlock'), sk=$('saveKey'), ek=$('editKey'); if(kb) kb.style.display='none'; if(sk) sk.style.display='none'; if(ek) ek.style.display='inline';
-    });
-    $('editKey') && ($('editKey').onclick = (e)=>{ e.preventDefault(); const kb=$('keyBlock'), sk=$('saveKey'), ek=$('editKey'); if(kb) kb.style.display='inline-block'; if(sk) sk.style.display='inline-block'; if(ek) ek.style.display='none'; });
-
-    // hovedknapper
-    $('btnStart')    && ($('btnStart').onclick    = ()=> document.querySelector('.tab[data-tab="work"]')?.click());
-    $('btnSyncNow')  && ($('btnSyncNow').onclick  = ()=> SY.syncPull().then(()=>SY.syncPush()));
-    $('btnResetAll') && ($('btnResetAll').onclick = ()=>{
-      if(!confirm('Nullstille ALLE adresser?')) return;
-      (state.stops||[]).forEach(s=>{ s.f=false; s.b=false; s.started=null; s.finished=null; });
-state.ui = state.ui || {};
-state.ui.cursor = 0;
-save(); WK.renderWork(); WK.renderRegister(); SY.syncPush();
-    });
-    $('btnRoundByEquip') && ($('btnRoundByEquip').onclick = ()=>{
-      if(!confirm('Nullstille status for adresser som matcher valgt utstyr?')) return;
-      (state.stops||[]).forEach(s=>{
-        const t=s.t||'';
-        const needSnow=/Snø/i.test(t), needGrus=/grus/i.test(t);
-        const ok = (!needSnow || state.equipment.plog || state.equipment.fres) && (!needGrus || state.equipment.stro);
-        if (ok){ s.f=false; s.b=false; s.started=null; s.finished=null; }
-      });
-      save(); WK.renderWork(); WK.renderRegister(); SY.syncPush();
-    });
-
-    // hard reset
-    $('btnHardReset') && ($('btnHardReset').onclick = hardReset);
-
-    // install banner
-    setupInstallBanner();
-
-    // initial sync-tekst
-    updateSyncLabels();
-  }
+  // Start-info
+  const t1 = $('lastSyncText');
+  if (t1) t1.textContent = `Sist synk: ${fmtTime(state.lastSyncAt)} (${state.lastSyncBy||'—'})`;
+}
 
   function wireWork(){
     $('ongo')   && ($('ongo').onclick   = ()=>{ const c = window.BroyteHelpers.cur(); if(!c) return; c.started = c.started || Date.now(); save(); WK.renderWork(); SY.syncPush(); /* 2 sjåfører prompt håndteres i D */ });
