@@ -1,220 +1,295 @@
-(()=>{
-  if(!window.Core){ console.error('Del C må lastes før Del G.'); return; }
-  if(!Core.cfg){   console.error('Del D må lastes før Del G.'); }
+/* ===== del-G.js (ADMIN / Katalog-editor) ===== */
+(() => {
+  if (!window.Core) { console.error("Del C må lastes før Del G."); return; }
 
-  const CFG     = Core.cfg;
-  const BINS    = CFG?.BINS || {};
-  const headers = Core.headers || (()=>({"Content-Type":"application/json"}));
-  const esc     = Core.esc || (s=>String(s??"")
-                        .replace(/&/g,"&amp;")
-                        .replace(/</g,"&lt;")
-                        .replace(/>/g,"&gt;")
-                        .replace(/"/g,"&quot;"));
+  const Core = window.Core;
+  const { cfg } = Core;
 
-  const normalizeTask = (t)=>{
-    t = String(t||"").trim();
-    return /brøytestikker/i.test(t) ? t : (t ? `${t} + brøytestikker` : "Snø + brøytestikker");
-  };
+  // ---- Lokal katalogmodell ----
+  let CAT = { addresses: [], updated: 0, version: cfg.VERSION };
 
-  let CAT = { addresses: [], updated: 0, version: CFG.VERSION };
+  // ---- Små helpers ----
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const esc = (v) => Core.esc(v);
+  const normalizeTask = (t) => Core.normalizeTask(t);
 
-  function mountAdmin(){
-    const host = document.getElementById('adminCatalog');
-    if(!host) return;
+  // ---- UI bygging ----
+  function buildAdminUI() {
+    const host = document.getElementById("adminCatalog");
+    if (!host) return;
 
     host.innerHTML = `
-      <div class="card stack" style="background:#151515;border:1px solid #2a2a2a;border-radius:12px;padding:12px">
-        <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button id="gLoad"  class="btn btn-gray">⟳ Last katalog</button>
-          <button id="gAdd"   class="btn btn-blue">➕ Legg til</button>
-          <button id="gSave"  class="btn btn-green">💾 Lagre (med backup)</button>
-          <button id="gPub"   class="btn btn-blue">🚀 Publiser til MASTER</button>
-          <button id="gCsv"   class="btn btn-gray">⬇︎ Eksporter CSV</button>
-          <button id="gRestore" class="btn btn-red">⏪ Gjenopprett fra backup</button>
-          <span id="gMsg" class="small muted" style="margin-left:auto">–</span>
+      <div id="gAdminWrap" class="card stack" style="background:var(--card, #181a1e);border:1px solid var(--cardBorder,#2a2f36);border-radius:12px;padding:12px">
+        <h2 style="margin:0 0 8px 0">Admin</h2>
+
+        <!-- Synk-info linje -->
+        <div id="adminSyncTxt" style="margin:8px 0 12px 0;font-size:12px;opacity:.8">Sist synk: —</div>
+
+        <div class="row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+          <button id="gBtnLoad"     class="btn btn-gray">⟳ Last katalog</button>
+          <button id="gBtnAdd"      class="btn btn-blue">➕ Legg til</button>
+          <button id="gBtnSave"     class="btn btn-green">💾 Lagre (med backup)</button>
+          <button id="gBtnPublish"  class="btn btn-blue">🚀 Publiser til MASTER</button>
+          <button id="gBtnExport"   class="btn btn-gray">⬇︎ Eksporter CSV</button>
+          <button id="gBtnRestore"  class="btn btn-red">⏪ Gjenopprett fra backup</button>
         </div>
-        <div id="gList" style="margin-top:10px"></div>
+
+        <div id="gMsg" class="small muted" style="margin-bottom:8px">—</div>
+        <div id="gList"></div>
       </div>
     `;
 
-    document.getElementById('gLoad').onclick    = loadCatalog;
-    document.getElementById('gAdd').onclick     = addRow;
-    document.getElementById('gSave').onclick    = saveCatalogWithBackup;
-    document.getElementById('gPub').onclick     = publishToMaster;
-    document.getElementById('gCsv').onclick     = exportCSV;
-    document.getElementById('gRestore').onclick = restoreFromBackup;
+    // Wire knapper
+    $("#gBtnLoad").onclick = loadCatalog;
+    $("#gBtnAdd").onclick = () => {
+      CAT.addresses.push({ name:"", task: cfg.DEFAULT_TASKS[0], active:true, twoDriverRec:false, pinsCount:0 });
+      renderList();
+    };
+    $("#gBtnSave").onclick = saveCatalogWithBackup;
+    $("#gBtnPublish").onclick = publishCatalogToMaster;
+    $("#gBtnExport").onclick = exportCatalogCsv;
+    $("#gBtnRestore").onclick = restoreCatalogFromBackup;
 
-    loadCatalog();
+    updateAdminSyncTxt();
   }
 
-  function renderList(){
-    const host = document.getElementById('gList');
-    if(!host) return;
+  function updateAdminSyncTxt(){
+    try{
+      const el = document.getElementById('adminSyncTxt');
+      if(!el || !window.Core) return;
+      const t  = window.Core.state?.lastSyncAt || null;
+      const by = window.Core.state?.lastSyncBy || '';
+      const nice = t ? new Date(t).toLocaleString('no-NO') : '—';
+      el.textContent = `Sist synk: ${nice}${by ? ' • ' + by : ''}`;
+    }catch(_){}
+  }
 
-    if(!CAT.addresses.length){
+  // ---- Render adresse-liste ----
+  function renderList(){
+    const host = $("#gList");
+    if (!host) return;
+
+    if (!CAT.addresses.length){
       host.innerHTML = `<div class="small muted">– tom katalog –</div>`;
-      setMsg(`Rader: 0`);
+      $("#gMsg").textContent = "—";
       return;
     }
 
-    const taskSelect = (val, idx) =>
-      `<select data-k="task" data-i="${idx}" style="flex:1;min-width:220px">
-        ${CFG.DEFAULT_TASKS.map(t=>`<option value="${esc(t)}" ${val===t?'selected':''}>${esc(t)}</option>`).join('')}
-      </select>`;
+    const taskOptions = cfg.DEFAULT_TASKS
+      .map(t => `<option value="${esc(t)}">${esc(t)}</option>`)
+      .join("");
 
-    host.innerHTML = CAT.addresses.map((a,idx)=>`
-      <div class="item" style="padding:8px 0;border-bottom:1px solid #2a2a2a">
-        <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input data-k="name" data-i="${idx}" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2;min-width:260px">
-          ${taskSelect(a.task || CFG.DEFAULT_TASKS[0], idx)}
-          <label class="small"><input type="checkbox" data-k="twoDriverRec" data-i="${idx}" ${a.twoDriverRec?'checked':''}> 2 sjåfører</label>
-          <label class="small"><input type="checkbox" data-k="active" data-i="${idx}" ${a?.active===false?'':'checked'}> Aktiv</label>
-          <label class="small">📍
-            <input type="number" min="0" data-k="pinsCount" data-i="${idx}" value="${Number.isFinite(a.pinsCount)?a.pinsCount:0}" style="width:80px">
+    host.innerHTML = CAT.addresses.map((a, idx) => `
+      <div class="item" style="padding:10px;border:1px solid var(--cardBorder,#2a2f36);border-radius:10px;margin-bottom:8px">
+        <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input data-k="name" data-i="${idx}" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2;min-width:220px">
+          <select data-k="task" data-i="${idx}" style="flex:1;min-width:220px">
+            ${taskOptions}
+          </select>
+          <label class="small" style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" data-k="twoDriverRec" data-i="${idx}" ${a.twoDriverRec?'checked':''}>
+            2 sjåfører
           </label>
-          <button class="btn btn-gray small" data-up="${idx}">⬆️</button>
-          <button class="btn btn-gray small" data-down="${idx}">⬇️</button>
-          <button class="btn btn-red small" data-del="${idx}">Slett</button>
+          <label class="small" style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" data-k="active" data-i="${idx}" ${a.active===false?'':'checked'}>
+            Aktiv
+          </label>
+          <label class="small" style="display:flex;align-items:center;gap:6px">
+            📍 <input type="number" data-k="pinsCount" data-i="${idx}" value="${Number.isFinite(a.pinsCount)?a.pinsCount:0}" min="0" style="width:70px"> stk
+          </label>
+
+          <div style="flex:1"></div>
+          <button data-up="${idx}"   class="btn btn-gray small">⬆️</button>
+          <button data-down="${idx}" class="btn btn-gray small">⬇️</button>
+          <button data-del="${idx}"  class="btn btn-red small">Slett</button>
         </div>
       </div>
-    `).join('');
+    `).join("");
 
-    host.querySelectorAll('input[data-k]').forEach(el=>{
+    // Sett valgt task i selects
+    $("#gList").querySelectorAll('select[data-k="task"]').forEach(sel=>{
+      const i = +sel.dataset.i;
+      sel.value = CAT.addresses[i].task || cfg.DEFAULT_TASKS[0];
+      sel.onchange = () => {
+        CAT.addresses[i].task = sel.value;
+      };
+    });
+
+    // Inputs / checkboxer
+    $("#gList").querySelectorAll('input[data-k]').forEach(el=>{
       el.oninput = ()=>{
         const i = +el.dataset.i, k = el.dataset.k;
-        if (k==='twoDriverRec' || k==='active'){
-          CAT.addresses[i][k] = (k==='active') ? el.checked : !!el.checked;
-        } else if (k==='pinsCount'){
-          CAT.addresses[i][k] = parseInt(el.value||'0', 10) || 0;
+        if (k === 'twoDriverRec' || k === 'active'){
+          CAT.addresses[i][k] = el.checked;
+          if (k==='active' && el.checked) CAT.addresses[i].active = true;
+        } else if (k === 'pinsCount'){
+          CAT.addresses[i][k] = parseInt(el.value || "0", 10) || 0;
         } else {
           CAT.addresses[i][k] = el.value;
         }
       };
-      if (el.type==='checkbox') el.onchange = el.oninput;
+      if (el.type === 'checkbox') el.onchange = el.oninput;
     });
 
-    host.querySelectorAll('select[data-k="task"]').forEach(sel=>{
-      sel.onchange = ()=>{ CAT.addresses[+sel.dataset.i].task = sel.value; };
+    // Slett / Flytt
+    $("#gList").querySelectorAll('button[data-del]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const i = +btn.dataset.del;
+        CAT.addresses.splice(i,1);
+        renderList();
+      };
+    });
+    $("#gList").querySelectorAll('button[data-up]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const i = +btn.dataset.up;
+        if (i <= 0) return;
+        const tmp = CAT.addresses[i];
+        CAT.addresses[i] = CAT.addresses[i-1];
+        CAT.addresses[i-1] = tmp;
+        renderList();
+      };
+    });
+    $("#gList").querySelectorAll('button[data-down]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const i = +btn.dataset.down;
+        if (i >= CAT.addresses.length - 1) return;
+        const tmp = CAT.addresses[i];
+        CAT.addresses[i] = CAT.addresses[i+1];
+        CAT.addresses[i+1] = tmp;
+        renderList();
+      };
     });
 
-    host.querySelectorAll('button[data-del]').forEach(b=> b.onclick = ()=>{
-      CAT.addresses.splice(+b.dataset.del,1); renderList();
-    });
-    host.querySelectorAll('button[data-up]').forEach(b=> b.onclick = ()=>{
-      const i = +b.dataset.up; if(i<=0) return;
-      [CAT.addresses[i-1], CAT.addresses[i]] = [CAT.addresses[i], CAT.addresses[i-1]];
-      renderList();
-    });
-    host.querySelectorAll('button[data-down]').forEach(b=> b.onclick = ()=>{
-      const i = +b.dataset.down; if(i>=CAT.addresses.length-1) return;
-      [CAT.addresses[i+1], CAT.addresses[i]] = [CAT.addresses[i], CAT.addresses[i+1]];
-      renderList();
-    });
-
-    setMsg(`Rader: ${CAT.addresses.length}`);
+    const msg = $("#gMsg");
+    if (msg) msg.textContent = `Rader: ${CAT.addresses.length}`;
   }
 
-  function setMsg(t){ const m=document.getElementById('gMsg'); if(m) m.textContent=t; }
-
+  // ---- Nettkall ----
   async function loadCatalog(){
     try{
-      setMsg('Laster katalog …');
-      const r  = await fetch(`https://api.jsonbin.io/v3/b/${BINS.CATALOG}/latest`, { headers: headers() });
-      const js = await r.json();
-      CAT = js?.record || { addresses: [], updated: 0, version: CFG.VERSION };
-      CAT.addresses = Array.isArray(CAT.addresses) ? CAT.addresses : [];
-      console.log('Katalog hentet', js);
-      setMsg(`Lastet ${CAT.addresses.length} adresser`);
+      $("#gMsg").textContent = "Laster katalog …";
+      const js = await Core.fetchCatalog(); // fra del-C
+      CAT = js?.record ? js.record : (js || {});
+      // Sikre struktur
+      if (!Array.isArray(CAT.addresses)) CAT.addresses = [];
+      $("#gMsg").textContent = `Katalog hentet (${CAT.addresses.length})`;
       renderList();
     }catch(e){
       console.error(e);
-      setMsg('Feil ved lasting (nøkkel?)');
+      $("#gMsg").textContent = "Feil ved lasting (sjekk nøkkel).";
     }
-  }
-
-  function addRow(){
-    CAT.addresses.push({ name:'', task: CFG.DEFAULT_TASKS[0], active:true, twoDriverRec:false, pinsCount:0 });
-    renderList();
   }
 
   async function saveCatalogWithBackup(){
     try{
-      setMsg('Lagrer (backup)…');
-      const backup = { version: CFG.VERSION, updated: Date.now(), by: Core?.displayName?.() || 'admin', snapshot: CAT };
-      await fetch(`https://api.jsonbin.io/v3/b/${BINS.BACKUP}`, { method:'PUT', headers: headers(), body: JSON.stringify(backup) });
-      const rec = { version: CFG.VERSION, updated: Date.now(), by: Core?.displayName?.() || 'admin', addresses: CAT.addresses };
-      await fetch(`https://api.jsonbin.io/v3/b/${BINS.CATALOG}`, { method:'PUT', headers: headers(), body: JSON.stringify(rec) });
-      setMsg('Katalog lagret ✔︎');
-    }catch(e){ console.error(e); setMsg('Feil ved lagring'); }
+      $("#gMsg").textContent = "Lagrer (med backup) …";
+      // 1) Backup
+      const backup = { version: cfg.VERSION, updated: Date.now(), by: Core.displayName(), snapshot: CAT };
+      await fetch(`https://api.jsonbin.io/v3/b/${cfg.BINS.BACKUP}`, {
+        method:'PUT', headers: Core.headers(), body: JSON.stringify(backup)
+      });
+
+      // 2) Lagre katalog
+      const rec = { version: cfg.VERSION, updated: Date.now(), by: Core.displayName(), addresses: CAT.addresses };
+      await fetch(`https://api.jsonbin.io/v3/b/${cfg.BINS.CATALOG}`, {
+        method:'PUT', headers: Core.headers(), body: JSON.stringify(rec)
+      });
+
+      $("#gMsg").textContent = "Katalog lagret ✔︎";
+      // (Valgfritt) oppdatér synk her også:
+      // if (window.Core){ window.Core.state.lastSyncAt = Date.now(); window.Core.state.lastSyncBy = window.Core.displayName(); window.Core.save(); updateAdminSyncTxt(); }
+    }catch(e){
+      console.error(e);
+      $("#gMsg").textContent = "Feil ved lagring (sjekk nøkkel).";
+    }
   }
 
-  async function publishToMaster(){
+  async function publishCatalogToMaster(){
     try{
-      setMsg('Publiserer …');
-      const active = (CAT.addresses||[]).filter(a=>a?.active!==false);
-      const stops = active.map(a=>({
+      $("#gMsg").textContent = "Publiserer til MASTER …";
+      const active = (CAT.addresses||[]).filter(a => a?.active !== false);
+      const nowSeason = Core.seasonKey();
+
+      const stops = active.map(a => ({
         n: a.name || '',
-        t: normalizeTask(a.task || CFG.DEFAULT_TASKS[0]),
+        t: normalizeTask(a.task || cfg.DEFAULT_TASKS[0]),
         f: false, b: false, p: [],
         twoDriverRec: !!a.twoDriverRec,
-        pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0
+        pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0,
+        pinsLockedYear: (Number.isFinite(a.pinsCount) && a.pinsCount > 0) ? nowSeason : null
       }));
 
       const payload = {
-        version: CFG.VERSION,
+        version: cfg.VERSION,
         updated: Date.now(),
         lastSyncAt: Date.now(),
-        lastSyncBy: Core?.displayName?.() || 'admin',
+        lastSyncBy: Core.displayName(),
         stops,
-        meta: { from:'catalog' }
+        meta: { from: 'catalog' }
       };
 
-      await fetch(`https://api.jsonbin.io/v3/b/${BINS.MASTER}`, {
-        method:'PUT', headers: headers(), body: JSON.stringify(payload)
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${cfg.BINS.MASTER}`, {
+        method:'PUT', headers: Core.headers(), body: JSON.stringify(payload)
       });
-      setMsg(`Publisert ${stops.length} adresser ✔︎`);
-    }catch(e){ console.error(e); setMsg('Feil ved publisering'); }
+      if(!r.ok) throw new Error('Publisering feilet');
+
+      // ✅ Oppdater synk-info globalt + på UI
+      if (window.Core) {
+        window.Core.state.lastSyncAt = payload.lastSyncAt;
+        window.Core.state.lastSyncBy = payload.lastSyncBy;
+        window.Core.save();
+      }
+      updateAdminSyncTxt();
+
+      $("#gMsg").textContent = `Publisert ${stops.length} adresser til MASTER ✔︎`;
+    }catch(e){
+      console.error(e);
+      $("#gMsg").textContent = "Feil ved publisering (sjekk nøkkel).";
+    }
   }
 
-  function exportCSV(){
-    const rows = [['name','task','active','twoDriverRec','pinsCount']]
-      .concat((CAT.addresses||[]).map(a=>[
+  function exportCatalogCsv(){
+    const rows = [['name','task','active','twoDriverRec','pinsCount']].concat(
+      (CAT.addresses||[]).map(a=>[
         (a.name||'').replaceAll('"','""'),
         (a.task||'').replaceAll('"','""'),
         (a.active===false?0:1),
         (a.twoDriverRec?1:0),
-        Number.isFinite(a.pinsCount)?a.pinsCount:0
-      ]));
+        (Number.isFinite(a.pinsCount)?a.pinsCount:0)
+      ])
+    );
     const csv = rows.map(r=>r.map(x=>`"${x}"`).join(',')).join('\n');
     const blob = new Blob([csv], {type:'text/csv'});
-    const url = URL.createObjectURL(blob);
+    const url  = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'katalog.csv';
     document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
   }
 
-  async function restoreFromBackup(){
-    if(!confirm('Erstatt katalog med siste backup?')) return;
+  async function restoreCatalogFromBackup(){
     try{
-      setMsg('Henter backup …');
-      const r  = await fetch(`https://api.jsonbin.io/v3/b/${BINS.BACKUP}/latest`, { headers: headers() });
-      const js = await r.json();
+      $("#gMsg").textContent = "Henter backup …";
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${cfg.BINS.BACKUP}/latest`, { headers: Core.headers() });
+      const js  = await res.json();
       const snap = js?.record?.snapshot;
-      if(!snap?.addresses){ setMsg('Fant ingen snapshot i backup'); return; }
-      CAT = { ...snap };
-      await saveCatalogWithBackup();
+      if (!snap || !Array.isArray(snap.addresses)) {
+        $("#gMsg").textContent = "Ingen gyldig backup funnet.";
+        return;
+      }
+      CAT = snap;
+      $("#gMsg").textContent = `Backup lastet (${CAT.addresses.length}). Husk å lagre for å skrive tilbake.`;
       renderList();
-      setMsg('Gjenopprettet ✔︎');
     }catch(e){
-      console.error(e); setMsg('Feil ved gjenoppretting');
+      console.error(e);
+      $("#gMsg").textContent = "Feil ved henting av backup.";
     }
   }
 
-  document.addEventListener('DOMContentLoaded', ()=> {
-    try{
-      mountAdmin();
-      console.log('del-G.js (admin) lastet');
-    }catch(e){ console.error(e); setMsg('Init-feil i del-G'); }
+  // ---- Init ved DOM ready ----
+  document.addEventListener("DOMContentLoaded", () => {
+    buildAdminUI();
+    // Last inn katalog automatisk ved åpning (kan kommenteres ut hvis ikke ønsket)
+    // loadCatalog();
   });
 })();
