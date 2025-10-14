@@ -7,12 +7,66 @@
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="del-B.css">
   <style>
-    body {margin:0;font-family:sans-serif;background:#111;color:#fff;}
-    nav {display:flex;justify-content:center;gap:10px;padding:10px;background:#222;}
-    nav button {background:#333;color:#fff;border:none;padding:8px 16px;border-radius:6px;}
-    section {display:none;padding:1rem;}
-    section.active {display:block;}
-    footer {text-align:center;padding:10px;font-size:12px;color:#aaa;}
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #111;
+      color: #fff;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+      background: #222;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    nav button {
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    nav button:hover {
+      background: #444;
+    }
+    section {
+      display: none;
+      padding: 1rem;
+      max-width: 1000px;
+      margin: auto;
+    }
+    section.active {
+      display: block;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    footer {
+      text-align: center;
+      padding: 12px;
+      font-size: 12px;
+      color: #aaa;
+      border-top: 1px solid #333;
+    }
+    button.main {
+      background: #00804b;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    button.main:hover {
+      background: #00985d;
+    }
   </style>
 </head>
 
@@ -28,7 +82,7 @@
   <section id="home" class="active">
     <h2>Velkommen til Brøyterute</h2>
     <p>Versjon 9.11 – Romerike Trefelling</p>
-    <button id="startBtn">Start ny runde</button>
+    <button id="startBtn" class="main">Start ny runde</button>
   </section>
 
   <section id="work">
@@ -44,6 +98,7 @@
   <section id="admin">
     <h2>Admin</h2>
     <div id="adminCatalog"></div>
+    <div id="adminMap"></div>
   </section>
 
   <section id="service">
@@ -59,11 +114,20 @@
     v9.11 – Romerike Trefelling
   </footer>
 
+  <!-- Navigering mellom seksjoner -->
   <script>
     function show(id) {
       document.querySelectorAll("section").forEach(sec => sec.classList.remove("active"));
       document.getElementById(id).classList.add("active");
     }
+
+    // Enkel feilmelding nederst om noe går galt
+    window.addEventListener('error', (e) => {
+      const box = document.createElement('div');
+      box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#b00020;color:#fff;padding:8px 12px;font:12px system-ui;z-index:99999';
+      box.textContent = 'JS-feil: ' + (e.message || 'ukjent');
+      document.body.appendChild(box);
+    });
   </script>
 
   <!-- De separate modulene -->
@@ -73,5 +137,14 @@
   <script src="del-F.js?v=911" defer></script>
   <script src="del-G.js?v=911" defer></script>
   <script src="del-H.js?v=911" defer></script>
+
+  <!-- Service Worker for PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => console.log("✅ Service Worker aktiv"))
+        .catch(err => console.warn("⚠️ SW-feil:", err));
+    }
+  </script>
 </body>
 </html>
