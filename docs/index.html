@@ -1619,13 +1619,15 @@ host.querySelectorAll('button[data-down]').forEach(btn=>{
     try{
       $('catMsg').textContent = 'Publiserer til MASTER …';
       const active = CAT.addresses.filter(a=>a?.active!==false);
-      const stops = active.map(a=>({
-        n: a.name || '',
-        t: a.task || CFG.DEFAULT_TASKS[0],
-        f: false, b: false, p: [],
-        twoDriverRec: !!a.twoDriverRec,
-        pinsCount: 0, pinsLockedYear: null
-      }));
+      const nowSeason = window.BroyteHelpers.seasonKey();
+const stops = active.map(a=>({
+  n: a.name || '',
+  t: a.task || CFG.DEFAULT_TASKS[0],
+  f: false, b: false, p: [],
+  twoDriverRec: !!a.twoDriverRec,
+  pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0,
+  pinsLockedYear: (Number.isFinite(a.pinsCount) && a.pinsCount > 0) ? nowSeason : null
+}));
       const payload = {
         version: CFG.VERSION,
         updated: Date.now(),
