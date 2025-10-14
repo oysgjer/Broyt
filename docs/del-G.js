@@ -1,7 +1,4 @@
-<!-- del-G.js -->
-<script>
 (()=>{
-  // -- Sikker start ----------------------------------------------------------
   if(!window.Core){ console.error('Del C må lastes før Del G.'); return; }
   if(!Core.cfg){   console.error('Del D må lastes før Del G.'); }
 
@@ -14,7 +11,6 @@
                         .replace(/>/g,"&gt;")
                         .replace(/"/g,"&quot;"));
 
-  // liten helper: sørg for at "brøytestikker" er med i oppgaven
   const normalizeTask = (t)=>{
     t = String(t||"").trim();
     return /brøytestikker/i.test(t) ? t : (t ? `${t} + brøytestikker` : "Snø + brøytestikker");
@@ -22,7 +18,6 @@
 
   let CAT = { addresses: [], updated: 0, version: CFG.VERSION };
 
-  // -- UI mount --------------------------------------------------------------
   function mountAdmin(){
     const host = document.getElementById('adminCatalog');
     if(!host) return;
@@ -49,11 +44,9 @@
     document.getElementById('gCsv').onclick     = exportCSV;
     document.getElementById('gRestore').onclick = restoreFromBackup;
 
-    // auto-last første gang
     loadCatalog();
   }
 
-  // -- Render liste ----------------------------------------------------------
   function renderList(){
     const host = document.getElementById('gList');
     if(!host) return;
@@ -86,13 +79,11 @@
       </div>
     `).join('');
 
-    // inputs
     host.querySelectorAll('input[data-k]').forEach(el=>{
       el.oninput = ()=>{
         const i = +el.dataset.i, k = el.dataset.k;
         if (k==='twoDriverRec' || k==='active'){
           CAT.addresses[i][k] = (k==='active') ? el.checked : !!el.checked;
-          if (k==='active' && el.checked) CAT.addresses[i].active = true;
         } else if (k==='pinsCount'){
           CAT.addresses[i][k] = parseInt(el.value||'0', 10) || 0;
         } else {
@@ -106,7 +97,6 @@
       sel.onchange = ()=>{ CAT.addresses[+sel.dataset.i].task = sel.value; };
     });
 
-    // flytt/slett
     host.querySelectorAll('button[data-del]').forEach(b=> b.onclick = ()=>{
       CAT.addresses.splice(+b.dataset.del,1); renderList();
     });
@@ -124,7 +114,6 @@
     setMsg(`Rader: ${CAT.addresses.length}`);
   }
 
-  // -- Actions ---------------------------------------------------------------
   function setMsg(t){ const m=document.getElementById('gMsg'); if(m) m.textContent=t; }
 
   async function loadCatalog(){
@@ -151,34 +140,24 @@
   async function saveCatalogWithBackup(){
     try{
       setMsg('Lagrer (backup)…');
-      // 1) backup
       const backup = { version: CFG.VERSION, updated: Date.now(), by: Core?.displayName?.() || 'admin', snapshot: CAT };
       await fetch(`https://api.jsonbin.io/v3/b/${BINS.BACKUP}`, { method:'PUT', headers: headers(), body: JSON.stringify(backup) });
-      // 2) save catalog
       const rec = { version: CFG.VERSION, updated: Date.now(), by: Core?.displayName?.() || 'admin', addresses: CAT.addresses };
       await fetch(`https://api.jsonbin.io/v3/b/${BINS.CATALOG}`, { method:'PUT', headers: headers(), body: JSON.stringify(rec) });
       setMsg('Katalog lagret ✔︎');
-    }catch(e){
-      console.error(e); setMsg('Feil ved lagring (nøkkel?)');
-    }
+    }catch(e){ console.error(e); setMsg('Feil ved lagring'); }
   }
 
   async function publishToMaster(){
     try{
-      setMsg('Publiserer til MASTER …');
-      const nowSeason = Core.seasonKey ? Core.seasonKey() : (()=>{
-        const d=new Date(), y=d.getFullYear(), m=d.getMonth()+1;
-        return m>=7 ? `${y}/${(y+1).toString().slice(-2)}` : `${y-1}/${y.toString().slice(-2)}`;
-      })();
-
+      setMsg('Publiserer …');
       const active = (CAT.addresses||[]).filter(a=>a?.active!==false);
       const stops = active.map(a=>({
         n: a.name || '',
         t: normalizeTask(a.task || CFG.DEFAULT_TASKS[0]),
         f: false, b: false, p: [],
         twoDriverRec: !!a.twoDriverRec,
-        pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0,
-        pinsLockedYear: (Number.isFinite(a.pinsCount) && a.pinsCount>0) ? nowSeason : null
+        pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0
       }));
 
       const payload = {
@@ -194,9 +173,7 @@
         method:'PUT', headers: headers(), body: JSON.stringify(payload)
       });
       setMsg(`Publisert ${stops.length} adresser ✔︎`);
-    }catch(e){
-      console.error(e); setMsg('Feil ved publisering');
-    }
+    }catch(e){ console.error(e); setMsg('Feil ved publisering'); }
   }
 
   function exportCSV(){
@@ -226,22 +203,18 @@
       const snap = js?.record?.snapshot;
       if(!snap?.addresses){ setMsg('Fant ingen snapshot i backup'); return; }
       CAT = { ...snap };
-      await saveCatalogWithBackup(); // lagre tilbake som gjeldende + ny backup
+      await saveCatalogWithBackup();
       renderList();
-      setMsg('Gjenopprettet fra backup ✔︎');
+      setMsg('Gjenopprettet ✔︎');
     }catch(e){
       console.error(e); setMsg('Feil ved gjenoppretting');
     }
   }
 
-  // -- Start når DOM er klar --------------------------------------------------
   document.addEventListener('DOMContentLoaded', ()=> {
     try{
       mountAdmin();
       console.log('del-G.js (admin) lastet');
-    }catch(e){
-      console.error(e); setMsg('Init-feil i del-G');
-    }
+    }catch(e){ console.error(e); setMsg('Init-feil i del-G'); }
   });
 })();
-</script>
