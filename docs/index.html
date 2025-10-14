@@ -1619,11 +1619,11 @@ document.querySelectorAll('#pinFiltersAdmin .btn').forEach(btn=>{
   };
 });
 
-  function wireService(){
-    $('svcSave')     && ($('svcSave').onclick     = window.saveServiceReportCsv || null);
-    $('svcGuide')    && ($('svcGuide').onclick    = window.downloadGuideTxt || null);
-    $('svcSaveHtml') && ($('svcSaveHtml').onclick = window.saveDayHtmlReport || null);
-  }
+function wireService(){
+  $('svcSave')     && ($('svcSave').onclick     = ()=> window.saveServiceReportCsv && window.saveServiceReportCsv());
+  $('svcGuide')    && ($('svcGuide').onclick    = ()=> window.downloadGuideTxt && window.downloadGuideTxt());
+  $('svcSaveHtml') && ($('svcSaveHtml').onclick = ()=> window.saveDayHtmlReport && window.saveDayHtmlReport());
+}
 
   /* ---------- Oppstart ---------- */
   document.addEventListener('DOMContentLoaded', ()=>{
