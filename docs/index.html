@@ -460,7 +460,7 @@ function apiKey(){
 function headers(){ return {"Content-Type":"application/json","X-Master-Key": apiKey()}; }
 
 /* --- HELPERS --- */
-const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(String(id).replace(/^#/, ''));
 const esc = s => String(s ?? "");
 const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
 const fmtDT   = ts => ts ? new Date(ts).toLocaleString("no-NO") : "—";
