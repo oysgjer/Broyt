@@ -439,7 +439,7 @@ function makeDefaultState(){
 
     lastSyncAt:null,
     lastSyncBy:"",
-    ui:{ pinFilter:"all", adminPinFilter:"all" },
+    ui:{ pinFilter:"all", adminPinFilter:"all", cursor:0 },
     lastActiveAt:Date.now(),
     dayLog:{ dateKey:dateKey(new Date()), entries:[] }
   };
@@ -477,9 +477,26 @@ function idxList(){
   const rem = state.stops.map((s,i)=>({i,s})).filter(x=>!x.s.f && !x.s.b).map(x=>x.i);
   return state.direction==="forward" ? rem : rem.slice().reverse();
 }
-function cur(){ const l=idxList(); return l.length? state.stops[l[0]] : null; }
-function curIndex(){ const l=idxList(); return l.length? l[0] : -1; }
-function nxt(){ const l=idxList(); return l.length>1? state.stops[l[1]] : null; }
+function cur(){
+  const l = idxList();
+  const c = (state.ui?.cursor ?? 0);
+  if (!l.length) return null;
+  const pos = Math.min(c, l.length - 1);
+  return state.stops[l[pos]];
+}
+function curIndex(){
+  const l = idxList();
+  const c = (state.ui?.cursor ?? 0);
+  if (!l.length) return -1;
+  const pos = Math.min(c, l.length - 1);
+  return l[pos];
+}
+function nxt(){
+  const l = idxList();
+  const c = (state.ui?.cursor ?? 0);
+  if (l.length <= c + 1) return null;
+  return state.stops[l[c+1]];
+}
 function prog(){
   const total=state.stops.length;
   const done=state.stops.filter(s=>s.f).length;
@@ -566,7 +583,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
   // Endringshandlere (lagrer state + oppdaterer UI)
   $("role").onchange = ()=>{ state.role=$("role").value; save(); window.BroyteWork?.renderWork?.(); };
-  $("direction").onchange = ()=>{ state.direction=$("direction").value; save(); window.BroyteWork?.renderWork?.(); };
+  $("direction").onchange = ()=>{
+  state.direction = $("direction").value;
+  state.ui = state.ui || {};
+  state.ui.cursor = 0;
+  save();
+  window.BroyteWork?.renderWork?.();
+};
   $("bigBtn").onchange = ()=>{ state.hanske=$("bigBtn").checked; document.body.classList.toggle("hanske",state.hanske); save(); };
   $("autoCheck").onchange = ()=>{ state.autoCheck=$("autoCheck").checked; save(); };
   $("useCustomName").onchange = ()=>{
@@ -590,8 +613,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
   $("btnResetAll").onclick  = ()=> {
     if(!confirm("Nullstille ALLE adresser?")) return;
     state.stops.forEach(s=>{ s.f=false; s.b=false; s.started=null; s.finished=null; });
-    save(); window.BroyteWork?.renderWork?.(); window.BroyteWork?.renderRegister?.();
-    window.BroyteSync?.syncPush?.();
+state.ui = state.ui || {};
+state.ui.cursor = 0;
+save(); window.BroyteWork?.renderWork?.(); window.BroyteWork?.renderRegister?.();
+window.BroyteSync?.syncPush?.();
   };
   $("btnRoundByEquip").onclick = ()=> {
     if(!confirm("Nullstille status for adresser som matcher valgt utstyr?")) return;
@@ -601,9 +626,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const ok = (!needSnow || state.equipment.plog || state.equipment.fres) &&
                  (!needGrus || state.equipment.stro);
       if(ok){ s.f=false; s.b=false; s.started=null; s.finished=null; }
-    });
-    save(); window.BroyteWork?.renderWork?.(); window.BroyteWork?.renderRegister?.();
-    window.BroyteSync?.syncPush?.();
+});
+state.ui = state.ui || {};
+state.ui.cursor = 0;
+save(); window.BroyteWork?.renderWork?.(); window.BroyteWork?.renderRegister?.();
+window.BroyteSync?.syncPush?.();
   };
 
   // 
@@ -715,7 +742,10 @@ window.addEventListener('error', (ev) => {
         pinsCount:0,pinsLockedYear:null
       }));
       if(!stops.length) return alert("Ingen aktive adresser i katalogen.");
-      state.stops=stops; save(); renderRegister(); renderWork();
+      state.stops = stops;
+state.ui = state.ui || {};
+state.ui.cursor = 0;
+save(); renderRegister(); renderWork();
       await syncPush();
       $("pinFilterInfo").textContent=`Katalog hentet (${stops.length})`;
     }catch(e){ alert("Feil ved kataloghenting."); $("pinFilterInfo").textContent="Feil ved henting."; }
@@ -892,7 +922,21 @@ function renderAdmin(){
     const c=cur(); if(!c)return;
     const note=prompt("Hvorfor ikke mulig?","")||""; c.details=note; c.b=true; save(); renderWork(); syncPush();
   }
-  function nextHandler(){ const n=nxt(); if(n)navTo(n.n); }
+  function nextHandler(){
+  const l = idxList();
+  const c = (state.ui?.cursor ?? 0);
+  if (l.length === 0) return;
+  if (c < l.length - 1) {
+    state.ui = state.ui || {};
+    state.ui.cursor = c + 1;   // hopp videre, ikke rør status
+    save();
+    renderWork();
+    const now = cur();
+    if (now) navTo(now.n);
+  } else {
+    alert("Ingen flere adresser å hoppe til.");
+  }
+}
   function incidentHandler(){ const c=cur(); prompt("Uhell registrert ved "+(c?.n||"ukjent")+". Kort beskrivelse:",""); alert("Uhell logget."); }
 
   /* ---------- LIVE POSISJON ---------- */
@@ -1350,7 +1394,9 @@ function renderAdmin(){
     $('btnResetAll') && ($('btnResetAll').onclick = ()=>{
       if(!confirm('Nullstille ALLE adresser?')) return;
       (state.stops||[]).forEach(s=>{ s.f=false; s.b=false; s.started=null; s.finished=null; });
-      save(); WK.renderWork(); WK.renderRegister(); SY.syncPush();
+state.ui = state.ui || {};
+state.ui.cursor = 0;
+save(); WK.renderWork(); WK.renderRegister(); SY.syncPush();
     });
     $('btnRoundByEquip') && ($('btnRoundByEquip').onclick = ()=>{
       if(!confirm('Nullstille status for adresser som matcher valgt utstyr?')) return;
