@@ -1629,6 +1629,19 @@ function renderCatList(){
   }
 
   // Eksponer til knappene som allerede er wired i Del F
+async function loadCatalog(){
+  try{
+    $('catMsg').textContent = 'Laster katalog …';
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.CATALOG}/latest`, { headers: headers() });
+    const js = await r.json();
+    CAT = js?.record || { addresses: [], version: CFG.VERSION, updated: 0 };
+    CAT.addresses = Array.isArray(CAT.addresses) ? CAT.addresses : [];
+    $('catMsg').textContent = `Lastet ${CAT.addresses.length} adresser`;
+    renderCatList();
+  }catch(e){
+    $('catMsg').textContent = 'Feil ved lasting (sjekk nøkkel).';
+  }
+}
   window.loadCatalog = loadCatalog;
   window.editCatalogRow = editCatalogRow;
   window.saveCatalogWithBackup = saveCatalogWithBackup;
