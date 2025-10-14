@@ -539,11 +539,19 @@ function bootDefaults(){
 }
 
 /* --- Eksporter helpers til senere deler --- */
+// ========== NORMALIZE TASK ==========
+function normalizeTask(t){
+  t = String(t || "").trim();
+  return /brøytestikker/i.test(t)
+    ? t
+    : (t ? `${t} + brøytestikker` : "Snø + brøytestikker");
+}
 window.BroyteHelpers = {
   $, save, loadState, apiKey, headers, esc, fmtTime, fmtDT,
   displayName, dateKey, seasonKey, touchActivity, applyTheme,
   idxList, cur, curIndex, nxt, prog, navTo, mapsSearch,
   initGeolocation, bootDefaults
+  normalizeTask   // 
 };
 
 /* --- Lett UI-init + tabs --- */
