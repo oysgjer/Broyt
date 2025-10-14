@@ -1,86 +1,77 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Brøyterute – v9.10 (Romerike Trefelling)</title>
-
-  <!-- Tema-farge for mobilstatuslinje -->
-  <meta name="theme-color" content="#0f9d58" />
-
-  <!-- PWA-manifest (Del H) -->
-  <link rel="manifest" href="manifest.json" />
-
-  <!-- Stil (Del B) -->
-  <link rel="stylesheet" href="del-B.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brøyterute</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="del-B.css">
+  <style>
+    body {margin:0;font-family:sans-serif;background:#111;color:#fff;}
+    nav {display:flex;justify-content:center;gap:10px;padding:10px;background:#222;}
+    nav button {background:#333;color:#fff;border:none;padding:8px 16px;border-radius:6px;}
+    section {display:none;padding:1rem;}
+    section.active {display:block;}
+    footer {text-align:center;padding:10px;font-size:12px;color:#aaa;}
+  </style>
 </head>
-<body>
-  <!-- Root for dynamisk innlasting av Del A (markup) -->
-  <div id="__boot">Laster …</div>
 
-  <noscript>Du må aktivere JavaScript for å bruke Brøyterute.</noscript>
+<body>
+  <nav>
+    <button onclick="show('home')">Hjem</button>
+    <button onclick="show('work')">Under arbeid</button>
+    <button onclick="show('addresses')">Adresse-register</button>
+    <button onclick="show('admin')">Admin</button>
+    <button onclick="show('service')">Service</button>
+  </nav>
+
+  <section id="home" class="active">
+    <h2>Velkommen til Brøyterute</h2>
+    <p>Versjon 9.11 – Romerike Trefelling</p>
+    <button id="startBtn">Start ny runde</button>
+  </section>
+
+  <section id="work">
+    <h2>Under arbeid</h2>
+    <div id="workList"></div>
+  </section>
+
+  <section id="addresses">
+    <h2>Adresse-register</h2>
+    <div id="addressList"></div>
+  </section>
+
+  <section id="admin">
+    <h2>Admin</h2>
+    <div id="adminCatalog"></div>
+  </section>
+
+  <section id="service">
+    <h2>Service</h2>
+    <ul>
+      <li><input type="checkbox"> Sjekk olje (foran)</li>
+      <li><input type="checkbox"> Sjekk olje (bak)</li>
+      <li><input type="checkbox"> Smør forstilling</li>
+    </ul>
+  </section>
+
+  <footer>
+    v9.11 – Romerike Trefelling
+  </footer>
 
   <script>
-    // Enkel, trygg sekvensiell laster for A→G
-    (function () {
-      const rootMarker = document.getElementById('__boot');
-
-      function loadScript(src) {
-        return new Promise((resolve, reject) => {
-          const s = document.createElement('script');
-          s.src = src;
-          s.async = false;            // behold rekkefølgen
-          s.onload = resolve;
-          s.onerror = () => reject(new Error('Kunne ikke laste ' + src));
-          document.head.appendChild(s);
-        });
-      }
-
-      async function boot() {
-        try {
-          // 1) Hent og injiser Del A (HTML-skjellett)
-          const res = await fetch('del-A.html', { cache: 'no-cache' });
-          if (!res.ok) throw new Error('del-A.html svarte ikke (' + res.status + ')');
-          const html = await res.text();
-
-          // Bytt ut placeholder og sett faktisk markup i <body>
-          // Vi bruker insertAdjacentHTML for å unngå å erstatte hele body-noden
-          rootMarker.insertAdjacentHTML('beforebegin', html);
-          rootMarker.remove();
-
-          // 2) Last JS-delene i korrekt rekkefølge
-          // C: konfig/state/helpers
-          await loadScript('del-C.js');
-          // D: synk, vær, foto, logging, live-posisjon
-          await loadScript('del-D.js');
-          // E: admin-kart/Leaflet
-          await loadScript('del-E.js');
-          // F: oppstart, wiring, PWA-registrering (kaller sw.js)
-          await loadScript('del-F.js');
-          // G: katalog-editor (admin)
-          await loadScript('del-G.js');
-
-          // Ferdig – Del F tar seg av første render og SW-registrering
-          console.log('Brøyterute — alle deler lastet (A→G).');
-        } catch (err) {
-          console.error(err);
-          // Myk feilmelding på skjermen
-          const msg = document.createElement('div');
-          msg.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#b00020;color:#fff;padding:10px 12px;font:14px system-ui;z-index:99999';
-          msg.textContent = 'Feil under oppstart: ' + (err && err.message ? err.message : err);
-          document.body.appendChild(msg);
-        }
-      }
-
-      boot();
-    })();
+    function show(id) {
+      document.querySelectorAll("section").forEach(sec => sec.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
   </script>
-  <link rel="stylesheet" href="del-B.css">
-<script src="del-C.js?v=910" defer></script>
-<script src="del-D.js?v=910" defer></script>
-<script src="del-E.js?v=910" defer></script>
-<script src="del-F.js?v=910" defer></script>
-<script src="del-G.js?v=910" defer></script>
-<script src="del-H.js?v=910" defer></script>
+
+  <!-- De separate modulene -->
+  <script src="del-C.js?v=911" defer></script>
+  <script src="del-D.js?v=911" defer></script>
+  <script src="del-E.js?v=911" defer></script>
+  <script src="del-F.js?v=911" defer></script>
+  <script src="del-G.js?v=911" defer></script>
+  <script src="del-H.js?v=911" defer></script>
 </body>
 </html>
