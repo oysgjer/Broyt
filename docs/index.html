@@ -671,6 +671,18 @@ window.addEventListener('error', (ev) => {
   const { $, save, apiKey, headers, esc, fmtTime, fmtDT,
           displayName, dateKey, seasonKey, touchActivity,
           idxList, cur, curIndex, nxt, prog, navTo, mapsSearch } = H;
+function hideKeyRow(){
+  const kb = $('keyBlock'), sk = $('saveKey'), ek = $('editKey');
+  if (kb) kb.style.display = 'none';
+  if (sk) sk.style.display = 'none';
+  if (ek) ek.style.display = 'inline';
+}
+function showKeyRow(){
+  const kb = $('keyBlock'), sk = $('saveKey'), ek = $('editKey');
+  if (kb) kb.style.display = 'inline-block';
+  if (sk) sk.style.display = 'inline-block';
+  if (ek) ek.style.display = 'none';
+}
 // Normaliser oppgavetekst: sørg for at "brøytestikker" alltid er med
 function normalizeTask(t){
   t = String(t || "").trim();
