@@ -1583,7 +1583,7 @@ $('editPins') && ($('editPins').onclick = ()=>{
 
     $('add') && ($('add').onclick = ()=>{
       const addr = $('addr')?.value.trim(); if(!addr) return;
-      const task = normalizeTask($('taskSel')?.value || CFG.DEFAULT_TASKS[0]);
+      const task = window.BroyteHelpers.normalizeTask($('taskSel')?.value || CFG.DEFAULT_TASKS[0]);
       const twoDriver = $('twoDriverRec')?.checked || false;
       (state.stops ||= []).push({ n:addr, t:task, f:false, b:false, p:[], started:null, finished:null, details:"", twoDriverRec:twoDriver, pinsCount:0, pinsLockedYear:null });
       $('addr').value = ''; if ($('twoDriverRec')) $('twoDriverRec').checked = false;
