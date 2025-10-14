@@ -4,7 +4,44 @@
   const D = {};
   Core.D = D;
 
-  /* ---------- Hjelpefunksjoner ---------- */
+  /* ---------- Hjelp ---------- */
+  const toStops = (addresses=[]) => {
+    const T = Core.cfg.DEFAULT_TASKS;
+    return addresses
+      .filter(a => a && a.name && a.active !== false)
+      .map(a => ({
+        n: a.name || "",
+        t: Core.normalizeTask(a.task || T[0]),
+        f: false, b: false, p: [],
+        twoDriverRec: !!a.twoDriverRec,
+        pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0,
+        pinsLockedYear: (Number.isFinite(a.pinsCount) && a.pinsCount > 0) ? Core.seasonKey() : null
+      }));
+  };
+
+  async function ensureStopsLoaded() {
+    const S = Core.state;
+    if (Array.isArray(S.stops) && S.stops.length > 0) return true;
+
+    // Prøv hente katalog
+    const cat = await Core.fetchCatalog?.();
+    if (cat && Array.isArray(cat.addresses) && cat.addresses.length) {
+      S.stops = toStops(cat.addresses);
+      Core.save();
+      return S.stops.length > 0;
+    }
+
+    // Fallback: legg inn noen demo-adresser hvis katalog er tom/feil
+    S.stops = [
+      { n:"AMFI Eidsvoll (Råholt)", t:Core.normalizeTask(Core.cfg.DEFAULT_TASKS[0]), f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null },
+      { n:"Råholt barneskole",      t:Core.normalizeTask(Core.cfg.DEFAULT_TASKS[1]), f:false, b:false, p:[], twoDriverRec:true,  pinsCount:0, pinsLockedYear:null },
+      { n:"Råholt ungdomsskole",    t:Core.normalizeTask(Core.cfg.DEFAULT_TASKS[0]), f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null }
+    ];
+    Core.save();
+    return true;
+  }
+
+  /* ---------- UI-render ---------- */
   D.renderList = () => {
     const wrap = Core.$("workList");
     if (!wrap) return;
@@ -12,7 +49,11 @@
     const S = Core.state;
     const stops = S.stops || [];
     if (stops.length === 0) {
-      wrap.innerHTML = `<p style="opacity:.8">Ingen adresser i aktiv runde. Last katalogen i Admin først.</p>`;
+      wrap.innerHTML = `
+        <div class="card">
+          <p style="opacity:.8;margin:0 0 .5rem;">Ingen adresser i aktiv runde.</p>
+          <p style="opacity:.8;margin:0;">Gå til <b>Admin</b> og last katalog – eller trykk <i>Start ny runde</i> på Hjem.</p>
+        </div>`;
       return;
     }
 
@@ -26,9 +67,9 @@
       html += `
         <div class="card ${done}" data-idx="${i}">
           <div class="title-sm"><strong>${Core.esc(s.n)}</strong></div>
-          <div style="font-size:13px;opacity:.8;margin-bottom:6px;">${task}</div>
+          <div style="font-size:13px;opacity:.8;margin-bottom:8px;">${task}</div>
 
-          <div class="btnRow">
+          <div class="btnRow" style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-gray small" data-action="task" data-type="Brøyte" ${disabled}>Brøyte</button>
             <button class="btn btn-gray small" data-action="task" data-type="Frese" ${disabled}>Frese</button>
             <button class="btn btn-gray small" data-action="task" data-type="Strø" ${disabled}>Strø</button>
@@ -39,6 +80,7 @@
     html += `</div>`;
     wrap.innerHTML = html;
 
+    // Handlers
     wrap.querySelectorAll("[data-action='done']").forEach(btn => {
       btn.onclick = (e) => {
         const idx = +e.target.dataset.idx;
@@ -48,14 +90,14 @@
 
     wrap.querySelectorAll("[data-action='task']").forEach(btn => {
       btn.onclick = (e) => {
-        const idx = e.target.closest(".card").dataset.idx;
+        const idx = +e.target.closest(".card").dataset.idx;
         const type = e.target.dataset.type;
-        D.logTask(+idx, type);
+        D.logTask(idx, type);
       };
     });
   };
 
-  /* ---------- Loggfør handling ---------- */
+  /* ---------- Logging ---------- */
   D.logTask = (idx, type) => {
     const S = Core.state;
     const stop = S.stops[idx];
@@ -74,7 +116,7 @@
     console.log(`Loggført ${type} ved ${stop.n}`);
   };
 
-  /* ---------- Marker som ferdig ---------- */
+  /* ---------- Ferdig-toggle ---------- */
   D.toggleDone = (idx) => {
     const S = Core.state;
     const stop = S.stops[idx];
@@ -93,24 +135,34 @@
     D.renderList();
   };
 
-  /* ---------- Start ny runde ---------- */
-  D.startNewRound = () => {
+  /* ---------- Ny runde ---------- */
+  D.startNewRound = async () => {
     const S = Core.state;
     if (!confirm("Start ny runde?\nAlle statusfelt nullstilles.")) return;
 
+    // Sikre at vi faktisk har stopp (prøv å hente katalog)
+    await ensureStopsLoaded();
+
     S.roundNumber = (S.roundNumber || 0) + 1;
-    S.stops.forEach(s => { s.f = false; s.doneAt = null; });
+    (S.stops||[]).forEach(s => { s.f = false; s.b = false; s.started = null; s.finished = null; s.doneAt = null; });
     S.dayLog = { dateKey: Core.dateKey(), entries: [] };
 
     Core.save();
     D.renderList();
+
+    // Naviger til "Under arbeid" hvis show(id) finnes
+    try { if (typeof window.show === "function") window.show("work"); } catch(_) {}
     alert(`Ny runde #${S.roundNumber} startet`);
   };
 
-  /* ---------- Init ved lasting ---------- */
-  document.addEventListener("DOMContentLoaded", () => {
+  /* ---------- Init ---------- */
+  document.addEventListener("DOMContentLoaded", async () => {
+    // Koble “Start ny runde”-knappen
     const btn = Core.$("startBtn");
     if (btn) btn.onclick = D.startNewRound;
+
+    // Last inn adresser om tomt (automatisk)
+    await ensureStopsLoaded();
 
     Core.log("del-D.js lastet");
     D.renderList();
