@@ -1509,17 +1509,24 @@ function renderCatList(){
       ${CFG.DEFAULT_TASKS.map(t => `<option value="${esc(t)}" ${val===t?'selected':''}>${esc(t)}</option>`).join('')}
     </select>`;
 
-  host.innerHTML = CAT.addresses.map((a,idx)=>`
-    <div class="item" style="padding:8px 0;border-bottom:1px solid var(--cardBorder)">
-      <div class="row" style="align-items:center">
-        <input data-k="name"  data-i="${idx}" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2">
-        ${taskSelect(a.task || CFG.DEFAULT_TASKS[0], idx)}
-        <label class="small"><input data-k="twoDriverRec" data-i="${idx}" type="checkbox" ${a.twoDriverRec?'checked':''}> 2 sjåfører</label>
-        <label class="small"><input data-k="active" data-i="${idx}" type="checkbox" ${a.active===false?'':'checked'}> Aktiv</label>
-        <button data-del="${idx}" class="btn btn-red small">Slett</button>
-      </div>
+host.innerHTML = CAT.addresses.map((a,idx)=>`
+  <div class="item" style="padding:8px 0;border-bottom:1px solid var(--cardBorder)">
+    <div class="row" style="align-items:center">
+      <input data-k="name"  data-i="${idx}" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2">
+      ${taskSelect(a.task || CFG.DEFAULT_TASKS[0], idx)}
+      <label class="small"><input data-k="twoDriverRec" data-i="${idx}" type="checkbox" ${a.twoDriverRec?'checked':''}> 2 sjåfører</label>
+      <label class="small"><input data-k="active" data-i="${idx}" type="checkbox" ${a.active===false?'':'checked'}> Aktiv</label>
+
+      <label class="small">
+        📍 <input data-k="pinsCount" data-i="${idx}" type="number" value="${(a.pinsCount ?? 0)}" min="0" style="width:70px"> stk
+      </label>
+
+      <button data-up="${idx}"   class="btn btn-gray small">⬆️</button>
+      <button data-down="${idx}" class="btn btn-gray small">⬇️</button>
+      <button data-del="${idx}"  class="btn btn-red small">Slett</button>
     </div>
-  `).join('');
+  </div>
+`).join('');
 
   // Inputs/checkboxer
   host.querySelectorAll('input[data-k]').forEach(el=>{
