@@ -797,7 +797,7 @@ async function syncPush(){
   async function catalogPull(){
     try{
       $("pinFilterInfo").textContent="Henter katalog …";
-			const r=await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.CATALOG}/latest`, { headers: headers() });
+			const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.CATALOG}/latest`, { headers: headers() });
       const js=await r.json();
       const cat=js?.record?.addresses||[];
       const active=cat.filter(a=>a?.active!==false);
