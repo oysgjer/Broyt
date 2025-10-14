@@ -1496,66 +1496,67 @@ document.querySelectorAll('#pinFiltersAdmin .btn').forEach(btn=>{
 
   let CAT = { addresses: [], updated: 0, version: CFG.VERSION };
 
-  function renderCatList(){
-    const host = $('catList');
-    if (!host) return;
-    if (!CAT.addresses.length){
-      host.innerHTML = '<div class="small muted">– tom katalog –</div>';
-      return;
-    }
-    host.innerHTML = CAT.addresses.map((a,idx)=>`
-      <div class="item" style="padding:8px 0;border-bottom:1px solid var(--cardBorder)">
-        <div class="row" style="align-items:center">
-          <input data-k="name"  data-i="${idx}" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2">
-          <input data-k="task"  data-i="${idx}" value="${esc(a.task||'Snø og grus')}" placeholder="Oppgave" style="flex:1">
-          <label class="small"><input data-k="twoDriverRec" data-i="${idx}" type="checkbox" ${a.twoDriverRec?'checked':''}> 2 sjåfører</label>
-          <label class="small"><input data-k="active" data-i="${idx}" type="checkbox" ${a.active===false?'':'checked'}> Aktiv</label>
-          <button data-del="${idx}" class="btn btn-red small">Slett</button>
-        </div>
+function renderCatList(){
+  const host = $('catList');
+  if (!host) return;
+  if (!CAT.addresses.length){
+    host.innerHTML = '<div class="small muted">– tom katalog –</div>';
+    return;
+  }
+
+  const taskSelect = (val, idx) =>
+    `<select data-k="task" data-i="${idx}" style="flex:1">
+      ${CFG.DEFAULT_TASKS.map(t => `<option value="${esc(t)}" ${val===t?'selected':''}>${esc(t)}</option>`).join('')}
+    </select>`;
+
+  host.innerHTML = CAT.addresses.map((a,idx)=>`
+    <div class="item" style="padding:8px 0;border-bottom:1px solid var(--cardBorder)">
+      <div class="row" style="align-items:center">
+        <input data-k="name"  data-i="${idx}" value="${esc(a.name||'')}" placeholder="Navn/adresse" style="flex:2">
+        ${taskSelect(a.task || CFG.DEFAULT_TASKS[0], idx)}
+        <label class="small"><input data-k="twoDriverRec" data-i="${idx}" type="checkbox" ${a.twoDriverRec?'checked':''}> 2 sjåfører</label>
+        <label class="small"><input data-k="active" data-i="${idx}" type="checkbox" ${a.active===false?'':'checked'}> Aktiv</label>
+        <button data-del="${idx}" class="btn btn-red small">Slett</button>
       </div>
-    `).join('');
+    </div>
+  `).join('');
 
-    // Wiring for inputs
-    host.querySelectorAll('input[data-k]').forEach(el=>{
-      el.oninput = (e)=>{
-        const i = +el.dataset.i, k = el.dataset.k;
-        if (k === 'twoDriverRec' || k === 'active'){
-          CAT.addresses[i][k] = (k==='active') ? el.checked : !!el.checked;
-          if (k==='active' && el.checked) CAT.addresses[i].active = true;
-        } else {
-          CAT.addresses[i][k] = el.value;
-        }
-      };
-      if (el.type==='checkbox'){
-        el.onchange = el.oninput;
+  // Inputs/checkboxer
+  host.querySelectorAll('input[data-k]').forEach(el=>{
+    el.oninput = ()=>{
+      const i = +el.dataset.i, k = el.dataset.k;
+      if (k === 'twoDriverRec' || k === 'active'){
+        CAT.addresses[i][k] = (k==='active') ? el.checked : !!el.checked;
+        if (k==='active' && el.checked) CAT.addresses[i].active = true;
+      } else {
+        CAT.addresses[i][k] = el.value;
       }
-    });
-    host.querySelectorAll('button[data-del]').forEach(btn=>{
-      btn.onclick = ()=>{
-        const i = +btn.dataset.del;
-        CAT.addresses.splice(i,1);
-        renderCatList();
-      };
-    });
+    };
+    if (el.type==='checkbox') el.onchange = el.oninput;
+  });
 
-    const msg = $('catMsg');
-    if (msg) msg.textContent = `Rader: ${CAT.addresses.length}`;
-  }
+  // Select (oppgave)
+  host.querySelectorAll('select[data-k="task"]').forEach(sel=>{
+    sel.onchange = ()=> {
+      const i = +sel.dataset.i;
+      CAT.addresses[i].task = sel.value;
+    };
+  });
 
-  async function loadCatalog(){
-    try{
-      $('catMsg').textContent = 'Laster katalog …';
-      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.CATALOG}/latest`, { headers: headers() });
-      const js = await r.json();
-      CAT = js?.record || { addresses: [], version: CFG.VERSION, updated: 0 };
-      CAT.addresses = Array.isArray(CAT.addresses) ? CAT.addresses : [];
-      $('catMsg').textContent = `Lastet ${CAT.addresses.length} adresser`;
+  // Slett-knapper
+  host.querySelectorAll('button[data-del]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const i = +btn.dataset.del;
+      CAT.addresses.splice(i,1);
       renderCatList();
-    }catch(e){
-      $('catMsg').textContent = 'Feil ved lasting (sjekk nøkkel).';
-    }
-  }
+    };
+  });
 
+  const msg = $('catMsg');
+  if (msg) msg.textContent = `Rader: ${CAT.addresses.length}`;
+}
+      
+      
   function editCatalogRow(){
     CAT.addresses.push({ name:'', task: CFG.DEFAULT_TASKS[0], active:true, twoDriverRec:false });
     renderCatList();
