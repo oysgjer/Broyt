@@ -1,39 +1,78 @@
-// del-D.js – logikk for "Under arbeid"
-console.log("✅ del-D.js lastet");
+/* ===== del-D.js (arbeidsrute / førervisning) ===== */
+(() => {
+  if (!window.Core) return console.error("Del C må lastes før Del D.");
 
-if (!window.Core) console.warn("⚠️ Del C må lastes først for Del D.");
+  const D = {};
+  Core.D = D;
 
-// Når siden vises
-document.addEventListener("DOMContentLoaded", async () => {
-  const section = document.querySelector("#workList");
-  if (!section) return;
+  /* ---------- Opprett visning ---------- */
+  D.renderWorkList = () => {
+    const wrap = Core.$("workList");
+    if (!wrap) return;
 
-  // Hent adresser fra katalog
-  const katalog = await Core.fetchCatalog();
-  if (!Array.isArray(katalog) || katalog.length === 0) {
-    section.innerHTML = "<p>Ingen adresser tilgjengelig.</p>";
-    return;
-  }
-
-  // Bygg liste
-  section.innerHTML = "";
-  katalog.forEach((adr, i) => {
-    const div = document.createElement("div");
-    div.className = "adr";
-    div.innerHTML = `
-      <strong>${adr.navn || adr.name || "Ukjent adresse"}</strong><br>
-      ${adr.type || "Snø og grus"}<br>
-      <button data-i="${i}" class="startBtn">Start jobb</button>
-    `;
-    section.appendChild(div);
-  });
-
-  // Start knapp
-  section.addEventListener("click", e => {
-    if (e.target.classList.contains("startBtn")) {
-      const idx = e.target.dataset.i;
-      const adr = katalog[idx];
-      alert(`Starter arbeid på ${adr.navn || adr.name}`);
+    const S = Core.state;
+    if (!S?.stops?.length) {
+      wrap.innerHTML = `<p>Ingen adresser i listen.</p>`;
+      return;
     }
+
+    let html = `<div class="stack">`;
+    S.stops.forEach((s, i) => {
+      const doneCls = s.f ? "done" : "";
+      const btnTxt = s.f ? "✔ Ferdig" : "Marker som ferdig";
+      html += `
+        <div class="card ${doneCls}" data-idx="${i}">
+          <div><strong>${Core.esc(s.n)}</strong></div>
+          <div style="font-size:13px;opacity:.8">${Core.esc(s.t)}</div>
+          <div style="margin-top:6px">
+            <button class="btn btn-green small" data-action="done" data-idx="${i}">${btnTxt}</button>
+          </div>
+        </div>`;
+    });
+    html += `</div>`;
+    wrap.innerHTML = html;
+
+    // Koble knapper
+    wrap.querySelectorAll("[data-action='done']").forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = +e.target.dataset.idx;
+        D.toggleDone(idx);
+      };
+    });
+  };
+
+  /* ---------- Marker som ferdig ---------- */
+  D.toggleDone = (idx) => {
+    const S = Core.state;
+    if (!S?.stops[idx]) return;
+    const stop = S.stops[idx];
+    stop.f = !stop.f;
+    stop.b = true;
+    stop.doneAt = Date.now();
+    Core.save();
+    Core.touchActivity();
+    D.renderWorkList();
+  };
+
+  /* ---------- Start ny runde ---------- */
+  D.startNewRound = () => {
+    const S = Core.state;
+    if (!confirm("Start ny runde?\nAlle statusfelt nullstilles.")) return;
+
+    S.roundNumber = (S.roundNumber || 0) + 1;
+    S.stops.forEach(s => { s.f = false; s.b = false; s.doneAt = null; });
+    Core.save();
+    D.renderWorkList();
+
+    alert(`Ny runde #${S.roundNumber} startet`);
+  };
+
+  /* ---------- Init ved lasting ---------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = Core.$("startBtn");
+    if (btn) btn.onclick = D.startNewRound;
+
+    Core.log("del-D.js lastet");
+    D.renderWorkList();
   });
-});
+})();
