@@ -5,7 +5,7 @@
   Core.D = D;
 
   /* ---------- Hjelp ---------- */
-  const toStops = (addresses = []) => {
+  const toStopsFromAddresses = (addresses = []) => {
     const T = Core.cfg.DEFAULT_TASKS;
     return addresses
       .filter(a => a && a.name && a.active !== false)
@@ -15,34 +15,78 @@
         f: false, b: false, p: [],
         twoDriverRec: !!a.twoDriverRec,
         pinsCount: Number.isFinite(a.pinsCount) ? a.pinsCount : 0,
-        pinsLockedYear: (Number.isFinite(a.pinsCount) && a.pinsCount > 0)
-          ? Core.seasonKey()
-          : null
+        pinsLockedYear:
+          (Number.isFinite(a.pinsCount) && a.pinsCount > 0)
+            ? Core.seasonKey()
+            : null
       }));
   };
 
+  const toStopsFromMaster = (stops = []) =>
+    (stops || []).map(s => ({
+      n: s.n || "",
+      t: Core.normalizeTask(s.t || Core.cfg.DEFAULT_TASKS[0]),
+      f: false, b: false, p: [],
+      twoDriverRec: !!s.twoDriverRec,
+      pinsCount: Number.isFinite(s.pinsCount) ? s.pinsCount : 0,
+      pinsLockedYear: s.pinsLockedYear || null
+    }));
+
+  async function fetchMasterStops() {
+    try {
+      const { MASTER } = Core.cfg.BINS;
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${MASTER}/latest`, {
+        headers: Core.headers()
+      });
+      if (!res.ok) throw 0;
+      const js = await res.json();
+      const stops = Array.isArray(js?.record?.stops) ? js.record.stops : [];
+      console.log("MASTER hentet:", stops.length);
+      return stops;
+    } catch (_) {
+      console.warn("Klarte ikke å hente MASTER.");
+      return [];
+    }
+  }
+
   async function ensureStopsLoaded() {
     const S = Core.state;
-    if (Array.isArray(S.stops) && S.stops.length > 0) return true;
 
-    // Hent katalog
-    const cat = await Core.fetchCatalog?.();
-    if (cat) {
-      const list =
-        Array.isArray(cat.addresses) ? cat.addresses :
-        Array.isArray(cat.catalog?.addresses) ? cat.catalog.addresses :
-        Array.isArray(cat.catalog) ? cat.catalog : [];
-
-      if (list.length > 0) {
-        S.stops = toStops(list);
-        Core.save();
-        console.log(`Katalog med ${S.stops.length} adresser importert til state`);
-        return true;
-      }
+    // allerede lastet?
+    if (Array.isArray(S.stops) && S.stops.length > 0) {
+      console.log("Stops allerede i state:", S.stops.length);
+      return true;
     }
 
-    // Fallback-demo
-    console.warn("Fant ingen adresser i katalog, bruker fallback.");
+    // 1) prøv KATALOG (Core.fetchCatalog returnerer record)
+    const rec = await Core.fetchCatalog?.();
+    let list = [];
+    if (rec) {
+      list =
+        Array.isArray(rec.addresses) ? rec.addresses :
+        Array.isArray(rec.catalog?.addresses) ? rec.catalog.addresses :
+        Array.isArray(rec.catalog) ? rec.catalog : [];
+    }
+    console.log("KATALOG adresser funnet:", list.length);
+
+    if (list.length > 0) {
+      S.stops = toStopsFromAddresses(list);
+      Core.save();
+      console.log("Importerte fra KATALOG:", S.stops.length);
+      return true;
+    }
+
+    // 2) fallback: prøv MASTER
+    const mStops = await fetchMasterStops();
+    if (mStops.length > 0) {
+      S.stops = toStopsFromMaster(mStops);
+      Core.save();
+      console.log("Importerte fra MASTER:", S.stops.length);
+      return true;
+    }
+
+    // 3) siste fallback: demo-data
+    console.warn("Fant ingen adresser i verken KATALOG eller MASTER – bruker demo.");
     S.stops = [
       { n: "AMFI Eidsvoll (Råholt)", t: Core.normalizeTask(Core.cfg.DEFAULT_TASKS[0]), f: false, b: false, p: [], twoDriverRec: false, pinsCount: 0, pinsLockedYear: null },
       { n: "Råholt barneskole",      t: Core.normalizeTask(Core.cfg.DEFAULT_TASKS[1]), f: false, b: false, p: [], twoDriverRec: true,  pinsCount: 0, pinsLockedYear: null },
@@ -63,7 +107,7 @@
       wrap.innerHTML = `
         <div class="card">
           <p style="opacity:.8;margin:0 0 .5rem;">Ingen adresser i aktiv runde.</p>
-          <p style="opacity:.8;margin:0;">Gå til <b>Admin</b> og last katalog – eller trykk <i>Start ny runde</i> på Hjem.</p>
+          <p style="opacity:.8;margin:0;">Gå til <b>Admin</b> og last katalog, eller trykk <i>Start ny runde</i> på Hjem.</p>
         </div>`;
       return;
     }
@@ -169,7 +213,6 @@
     if (btn) btn.onclick = D.startNewRound;
 
     await ensureStopsLoaded();
-
     Core.log("del-D.js lastet");
     D.renderList();
   });
