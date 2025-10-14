@@ -806,10 +806,12 @@ async function syncPush(){
       const js=await r.json();
       const cat=js?.record?.addresses||[];
       const active=cat.filter(a=>a?.active!==false);
+      const stops = active.map(a => ({
+        n: a.name || "",
         t: normalizeTask(a.task || CFG.DEFAULT_TASKS[0]),
-        f:false,b:false,p:[],
-        twoDriverRec:!!a.twoDriverRec,
-        pinsCount:0,pinsLockedYear:null
+        f: false, b: false, p: [],
+        twoDriverRec: !!a.twoDriverRec,
+        pinsCount: 0, pinsLockedYear: null
       }));
       if(!stops.length) return alert("Ingen aktive adresser i katalogen.");
       state.stops = stops;
