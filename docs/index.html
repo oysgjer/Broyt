@@ -1529,18 +1529,20 @@ host.innerHTML = CAT.addresses.map((a,idx)=>`
 `).join('');
 
   // Inputs/checkboxer
-  host.querySelectorAll('input[data-k]').forEach(el=>{
-    el.oninput = ()=>{
-      const i = +el.dataset.i, k = el.dataset.k;
-      if (k === 'twoDriverRec' || k === 'active'){
-        CAT.addresses[i][k] = (k==='active') ? el.checked : !!el.checked;
-        if (k==='active' && el.checked) CAT.addresses[i].active = true;
-      } else {
-        CAT.addresses[i][k] = el.value;
-      }
-    };
-    if (el.type==='checkbox') el.onchange = el.oninput;
-  });
+	host.querySelectorAll('input[data-k]').forEach(el=>{
+  el.oninput = ()=>{
+    const i = +el.dataset.i, k = el.dataset.k;
+    if (k === 'twoDriverRec' || k === 'active'){
+      CAT.addresses[i][k] = (k==='active') ? el.checked : !!el.checked;
+      if (k==='active' && el.checked) CAT.addresses[i].active = true;
+    } else if (k === 'pinsCount'){
+      CAT.addresses[i][k] = parseInt(el.value || "0", 10);
+    } else {
+      CAT.addresses[i][k] = el.value;
+    }
+  };
+  if (el.type==='checkbox') el.onchange = el.oninput;
+});
 
   // Select (oppgave)
   host.querySelectorAll('select[data-k="task"]').forEach(sel=>{
