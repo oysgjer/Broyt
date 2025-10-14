@@ -1,119 +1,273 @@
-/* === Del B: Stilark (Brøyterute) ========================================= */
-
-/* Tema-variabler (dark som default) */
-:root{
-  --bg:#111; --fg:#f5f7fa; --muted:#b9c2cc;
-  --card:#181a1e; --cardBorder:#2a2f36;
-  --green:#0f9d58; --blue:#0b66ff; --red:#c21d03; --gray:#2f3337;
-  --purple:#7c3aed;
+/* ===== del-B.css ===== */
+/* Grunnleggende tema og layout */
+:root {
+  --bg: #111;
+  --text: #fff;
+  --muted: #aaa;
+  --card: #181a1e;
+  --cardBorder: #2a2f36;
 }
-@media (prefers-color-scheme: light){
-  :root{
-    --bg:#fafafa; --fg:#0b0b0b; --muted:#5b6673;
-    --card:#ffffff; --cardBorder:#e6e7ea; --gray:#e5e7eb;
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  background: #222;
+}
+
+nav button {
+  background: #333;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+nav button:hover {
+  background: #444;
+}
+
+section {
+  display: none;
+  padding: 1rem;
+}
+
+section.active {
+  display: block;
+}
+
+h1, h2 {
+  margin-top: 0;
+}
+
+button {
+  cursor: pointer;
+}
+
+footer {
+  text-align: center;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* --- Knappestiler --- */
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-blue {
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn-blue:hover {
+  background: #1e4ed8;
+}
+
+.btn-green {
+  background: #16a34a;
+  color: #fff;
+}
+
+.btn-green:hover {
+  background: #15803d;
+}
+
+.btn-red {
+  background: #dc2626;
+  color: #fff;
+}
+
+.btn-red:hover {
+  background: #b91c1c;
+}
+
+.btn-gray {
+  background: #374151;
+  color: #fff;
+}
+
+.btn-gray:hover {
+  background: #4b5563;
+}
+
+.small {
+  font-size: 12px;
+}
+
+/* --- Kort og visuelle elementer --- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--cardBorder);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* --- Progress bar --- */
+.progress {
+  width: 100%;
+  height: 14px;
+  border-radius: 6px;
+  background: #222;
+  overflow: hidden;
+}
+
+.progress > .bar {
+  height: 100%;
+  width: 50%;
+  background: #16a34a;
+}
+
+/* --- Vær widget (forberedt for fremtidig bruk) --- */
+.weather {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.weather .pill {
+  border: 1px solid var(--cardBorder);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.weather .now {
+  font-weight: 700;
+}
+
+/* --- Service-siden --- */
+#service input[type="checkbox"] {
+  transform: scale(1.2);
+  margin-right: 8px;
+}
+
+#service li {
+  list-style: none;
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+/* ===========================================================
+   ADMIN-KATALOG / REDIGERINGSVISNING
+   =========================================================== */
+
+#gAdminWrap {
+  background: var(--card);
+  border: 1px solid var(--cardBorder);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+#gList .item {
+  background: #15181d;
+  border: 1px solid #2a2f36;
+  border-radius: 12px;
+  padding: 10px;
+  margin: 10px 0;
+  color: #e9eef5;
+}
+
+#gList input[type="text"],
+#gList input[type="number"],
+#gList select {
+  background: #0f1216;
+  color: #e9eef5;
+  border: 1px solid #2a2f36;
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-height: 38px;
+}
+
+#gList input::placeholder {
+  color: #8a94a6;
+  opacity: 1;
+}
+
+#gList label.small {
+  color: #cbd5e1;
+}
+
+#gList .btn.small {
+  line-height: 1.1;
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
+#adminSyncTxt {
+  margin: 8px 0 12px 0;
+  font-size: 13px;
+  color: #9df;
+  font-weight: 500;
+}
+
+/* --- Lys modus --- */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f8fafc;
+    --text: #111;
+    --muted: #444;
+    --card: #fff;
+    --cardBorder: #d1d5db;
+  }
+
+  nav {
+    background: #e5e7eb;
+  }
+
+  nav button {
+    background: #fff;
+    color: #111;
+    border: 1px solid #d1d5db;
+  }
+
+  nav button:hover {
+    background: #f3f4f6;
+  }
+
+  #gList .item {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #0b0b0b;
+  }
+
+  #gList input[type="text"],
+  #gList input[type="number"],
+  #gList select {
+    background: #ffffff;
+    color: #0b0b0b;
+    border: 1px solid #d1d5db;
+  }
+
+  #gList input::placeholder {
+    color: #6b7280;
+  }
+
+  #gList label.small {
+    color: #374151;
+  }
+
+  #adminSyncTxt {
+    color: #0074d9;
   }
 }
-
-/* Reset / base */
-*{ box-sizing:border-box }
-html,body{ height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif }
-body{ background:var(--bg); color:var(--fg) }
-a{ color:inherit; text-decoration:none }
-button{ cursor:pointer }
-input,select,textarea{
-  background:transparent; color:inherit; border:1px solid var(--cardBorder);
-  border-radius:10px; padding:10px; font-size:16px
-}
-
-/* Layout */
-#app{ min-height:100%; display:grid; grid-template-rows:auto 1fr auto }
-
-/* Header / navigasjon */
-header{
-  display:flex; align-items:center; gap:10px;
-  padding:10px 12px; background:#0b0b0b; color:#fff; border-bottom:1px solid #141414
-}
-header h1{ margin:0; font-size:16px }
-.spacer{ flex:1 }
-
-.nav{ display:flex; gap:8px; flex-wrap:wrap }
-.tab{ border:none; border-radius:12px; padding:8px 12px; background:#25282e; color:#fff }
-.tab.active{ background:var(--green) }
-
-/* Sider / kort */
-.page{ display:none; padding:14px }
-.page.active{ display:block }
-
-.card{
-  background:var(--card); border:1px solid var(--cardBorder);
-  border-radius:16px; padding:14px
-}
-.stack{ display:flex; flex-direction:column; gap:12px }
-.row{ display:flex; flex-wrap:wrap; gap:10px }
-
-/* Knapper */
-.btn{ border:none; border-radius:12px; padding:10px 14px; font-weight:700 }
-.btn-green{ background:var(--green); color:#fff }
-.btn-blue{  background:var(--blue);  color:#fff }
-.btn-red{   background:var(--red);   color:#fff }
-.btn-gray{  background:var(--gray);  color:#111 }
-.btn-purple{background:var(--purple);color:#fff }
-
-/* Typografi */
-.title-lg{ font-size:26px; font-weight:800 }
-.muted{ color:var(--muted) }
-.small{ font-size:12px }
-
-/* Fremdriftslinje */
-.progress{
-  width:100%; height:14px; border-radius:999px;
-  background:#242830; border:1px solid var(--cardBorder); overflow:hidden
-}
-.progress > .bar{
-  height:100%; width:0%;
-  background:linear-gradient(90deg,#0f9d58,#22c55e);
-  transition:width .25s ease
-}
-
-/* Footer */
-.footer{
-  display:flex; justify-content:space-between; align-items:center; gap:10px;
-  padding:8px 12px; background:#0b0b0b; color:#fff; border-top:1px solid #141414;
-  font-size:12px
-}
-
-/* Installer som app */
-.install{ border:1px dashed #334; border-radius:12px; padding:10px; background:#15181d }
-
-/* Vær-widget */
-.weather{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
-.weather .pill{ border:1px solid var(--cardBorder); border-radius:999px; padding:6px 10px }
-.weather .now{ font-weight:700 }
-
-#weatherTimeline{ display:flex; gap:8px; flex-wrap:wrap }
-#weatherTimeline .slot{
-  border:1px solid var(--cardBorder); border-radius:12px; padding:6px 10px; min-width:90px
-}
-
-/* Hanske-modus (større knapper) */
-.hanske .btn{ font-size:22px; padding:16px 20px; border-radius:18px }
-
-/* Service-lista */
-.service-list{ display:flex; flex-direction:column; gap:6px }
-.service-item{ display:flex; align-items:center; gap:8px }
-
-/* Admin-kart (Leaflet beholder) */
-#adminMap{
-  width:100%; min-height:360px;
-  border:1px solid var(--cardBorder); border-radius:12px; overflow:hidden
-}
-
-/* Badges */
-.badge{
-  display:inline-block; border:1px solid var(--cardBorder);
-  border-radius:999px; padding:2px 8px; font-size:12px
-}
-.badge.warn{ border-color:#d97706; color:#f59e0b }
-
-/* Små justeringer */
-.reset-row{ margin-top:6px }
