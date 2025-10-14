@@ -670,6 +670,58 @@ window.addEventListener('error', (ev) => {
   const { $, save, apiKey, headers, esc, fmtTime, fmtDT,
           displayName, dateKey, seasonKey, touchActivity,
           idxList, cur, curIndex, nxt, prog, navTo, mapsSearch } = H;
+/* === START DELTA A: merge-hjelpere (flersjåfør) === */
+function keyOf(s){ return (s?.n||'').trim().toLowerCase(); }
+function hasPinsThisSeason(s){ return s?.pinsLockedYear && String(s.pinsLockedYear)===seasonKey(); }
+
+function mergeStops(remoteArr, localArr){
+  const map = new Map();
+  const clone = obj => JSON.parse(JSON.stringify(obj||{}));
+  const season = seasonKey();
+
+  const addAll = (arr) => (arr||[]).forEach(s=>{
+    const k = keyOf(s);
+    const cur = map.get(k);
+    if(!cur){
+      // første versjon inn
+      map.set(k, clone(s));
+    }else{
+      // flett med eksisterende
+      const m = cur, a = s;
+      m.n = m.n || a.n;         // navn
+      m.t = m.t || a.t;         // oppgave
+      // status: utført/ikke mulig – OR
+      m.f = !!(m.f || a.f);
+      m.b = !!(m.b || a.b);
+      // tider: earliest start, latest finish
+      const minStart = Math.min(m.started ?? Infinity, a.started ?? Infinity);
+      m.started  = Number.isFinite(minStart) ? minStart : null;
+      const maxFin = Math.max(m.finished || 0, a.finished || 0);
+      m.finished = maxFin || null;
+      // bilder: union
+      const pset = new Set([...(m.p||[]), ...(a.p||[])]);
+      m.p = Array.from(pset);
+      // detaljer: behold lengste tekst
+      if ((a.details||"").length > (m.details||"").length) m.details = a.details;
+      // 2 sjåfører: true hvis noen har det
+      m.twoDriverRec = !!(m.twoDriverRec || a.twoDriverRec);
+      // 📍 brøytestikker: lås bare første gang i aktuell sesong
+      const mThis = String(m.pinsLockedYear) === season;
+      const aThis = String(a.pinsLockedYear) === season;
+      if (!mThis && aThis){
+        m.pinsLockedYear = a.pinsLockedYear;
+        m.pinsCount = a.pinsCount || 0;
+      }
+      if (m.pinsCount == null) m.pinsCount = 0;
+    }
+  });
+
+  addAll(remoteArr||[]);
+  addAll(localArr||[]);
+
+  return Array.from(map.values());
+}
+/* === END DELTA A === */
 
   /* ---------- SYNC MASTER ---------- */
   async function syncPull(){
@@ -701,32 +753,44 @@ window.addEventListener('error', (ev) => {
       showKeyRow();
     }
   }
-  async function syncPush(){
-    try{
-      const payload = {
-        version:CFG.VERSION,
-        updated:Date.now(),
-        lastSyncAt:Date.now(),
-        lastSyncBy:displayName(),
-        stops:state.stops,
-        meta:{role:state.role,direction:state.direction}
-      };
-      const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MASTER}`,{
-        method:"PUT",headers:headers(),body:JSON.stringify(payload)
-      });
-      if(!r.ok) throw 0;
-      state.lastSyncAt=payload.lastSyncAt;
-      state.lastSyncBy=payload.lastSyncBy;
-      save(); renderWork();
-      $("syncStatus").textContent = "Synk – Push OK";
-      hideKeyRow();
-    }catch(e){
-      $("syncStatus").textContent = "Synk – Push FEIL";
-      showKeyRow();
-    }
+  /* === START DELTA B: syncPush med fletting (flersjåfør) === */
+async function syncPush(){
+  try{
+    // 1) Trekk ned siste MASTER
+    const latest = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MASTER}/latest`, { headers: headers() }).then(r=>r.json()).catch(()=>null);
+    const remoteStops = latest?.record?.stops || [];
+
+    // 2) Flett remote + local
+    const merged = mergeStops(remoteStops, state.stops);
+
+    // 3) Skyv opp flettet resultat
+    const payload = {
+      version: CFG.VERSION,
+      updated: Date.now(),
+      lastSyncAt: Date.now(),
+      lastSyncBy: displayName(),
+      stops: merged,
+      meta:{ role: state.role, direction: state.direction }
+    };
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${CFG.BINS.MASTER}`, {
+      method: "PUT", headers: headers(), body: JSON.stringify(payload)
+    });
+    if(!r.ok) throw 0;
+
+    // 4) Lokalt: overta flettet
+    state.stops = merged;
+    state.lastSyncAt = payload.lastSyncAt;
+    state.lastSyncBy = payload.lastSyncBy;
+    save();
+    renderWork(); renderRegister(); renderAdmin();
+    $("syncStatus").textContent = "Synk – Push OK";
+    hideKeyRow();
+  }catch(e){
+    $("syncStatus").textContent = "Synk – Push FEIL";
+    showKeyRow();
   }
-  function hideKeyRow(){ $("keyBlock").style.display="none"; $("saveKey").style.display="none"; $("editKey").style.display="inline"; }
-  function showKeyRow(){ $("keyBlock").style.display="inline-block"; $("saveKey").style.display="inline-block"; $("editKey").style.display="none"; }
+}
+/* === END DELTA B === */
 
   /* ---------- KATALOG ---------- */
   async function catalogPull(){
