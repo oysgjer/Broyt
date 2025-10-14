@@ -7,7 +7,7 @@
   Core.cfg = {
     VERSION: "9.11",
 
-    // JSONBin-bøtter (bytt til dine faktiske ID-er ved behov)
+    // JSONBin-bøtter
     BINS: {
       MASTER:   "68e774c9ae596e708f0b9977",
       CATALOG:  "68e782f3d0ea881f409ae08a",
@@ -79,15 +79,8 @@
     dayLog:{ dateKey:Core.dateKey(new Date()), entries:[] }
   });
 
-  Core.save = () => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(Core.state)); } catch(_){}
-  };
-  Core.load = () => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch(_) { return null; }
-  };
+  Core.save = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(Core.state)); } catch(_){} };
+  Core.load = () => { try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; } catch(_) { return null; } };
 
   /* ---------- API-nøkkel / headers ---------- */
   Core.apiKey = () =>
@@ -105,41 +98,7 @@
     return /brøytestikker/i.test(t) ? t : (t ? `${t} + brøytestikker` : "Snø + brøytestikker");
   };
 
-  /* ---------- Første init ---------- */
-  function bootDefaults(){
-    const S = Core.state;
-    if (!Array.isArray(S.stops)) S.stops = [];
-    if (S.stops.length === 0){
-      const T = Core.cfg.DEFAULT_TASKS;
-      S.stops = [
-        { n:"AMFI Eidsvoll (Råholt)", t:T[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null },
-        { n:"Råholt barneskole",      t:T[1], f:false, b:false, p:[], twoDriverRec:true,  pinsCount:0, pinsLockedYear:null },
-        { n:"Råholt ungdomsskole",    t:T[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null }
-      ];
-      Core.save();
-    }
-  }
-
-  /* ---------- Eksponér noen enkle utilities til andre moduler ---------- */
-  Core.fmtTime = (ts) => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
-  Core.fmtDT   = (ts) => ts ? new Date(ts).toLocaleString("no-NO") : "—";
-  Core.touchActivity = () => { if (Core.state){ Core.state.lastActiveAt = Date.now(); Core.save(); } };
-
-  /* ---------- DOM ready ---------- */
-  document.addEventListener("DOMContentLoaded", () => {
-    // hent state / default
-    Core.state = Core.load() || Core.makeDefaultState();
-
-    // legg inn noen små UI-ting hvis de finnes
-    const footer = document.querySelector("footer");
-    if (footer && !/v9\.11/.test(footer.textContent||"")){
-      footer.textContent = `v${Core.cfg.VERSION} – Romerike Trefelling`;
-    }
-
-    bootDefaults();
-    Core.log("del-C.js (core) lastet");
-
-  /* ---------- Felles fetchCatalog() ---------- */
+  /* ---------- Felles fetchCatalog (tilgjengelig med en gang) ---------- */
   Core.fetchCatalog = async () => {
     try {
       const { CATALOG } = Core.cfg.BINS;
@@ -156,7 +115,36 @@
     }
   };
 
-    // Lite hint i konsollen til senere moduler
-    // (del-E/F/G vil ofte logge at Del C må være lastet først)
+  /* ---------- Første init ---------- */
+  function bootDefaults(){
+    const S = Core.state;
+    if (!Array.isArray(S.stops)) S.stops = [];
+    if (S.stops.length === 0){
+      const T = Core.cfg.DEFAULT_TASKS;
+      S.stops = [
+        { n:"AMFI Eidsvoll (Råholt)", t:T[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null },
+        { n:"Råholt barneskole",      t:T[1], f:false, b:false, p:[], twoDriverRec:true,  pinsCount:0, pinsLockedYear:null },
+        { n:"Råholt ungdomsskole",    t:T[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null }
+      ];
+      Core.save();
+    }
+  }
+
+  /* ---------- Eksponér noen enkle utilities ---------- */
+  Core.fmtTime = (ts) => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
+  Core.fmtDT   = (ts) => ts ? new Date(ts).toLocaleString("no-NO") : "—";
+  Core.touchActivity = () => { if (Core.state){ Core.state.lastActiveAt = Date.now(); Core.save(); } };
+
+  /* ---------- DOM ready ---------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    Core.state = Core.load() || Core.makeDefaultState();
+
+    const footer = document.querySelector("footer");
+    if (footer && !/v9\.11/.test(footer.textContent||"")){
+      footer.textContent = `v${Core.cfg.VERSION} – Romerike Trefelling`;
+    }
+
+    bootDefaults();
+    Core.log("del-C.js (core) lastet");
   });
 })();
