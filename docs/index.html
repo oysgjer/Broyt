@@ -206,7 +206,7 @@
 
         <h2 id="curName" class="title-lg">—</h2>
         <div class="muted">Oppgave: <span id="curTask">—</span></div>
-        <div class="muted">Neste: <span id="curNext">—</span></div>
+        <div class="muted">Brøytestikker: <span id="curPins">—</span></div>
 
         <div class="progress-row" style="display:flex;align-items:center;gap:10px">
           <div class="muted" id="progTxt">0 % fullført (0/0)</div>
@@ -225,6 +225,7 @@
           <button id="photo" class="btn btn-gray">📷 Foto</button>
           <button id="nav" class="btn btn-blue">🧭 Naviger</button>
           <button id="next" class="btn btn-gray">🔁 Neste</button>
+          <button id="editPins" class="btn btn-gray">📍 Brøytestikker</button>
           <button id="incident" class="btn btn-red">❗ Uhell</button>
         </div>
 
@@ -822,6 +823,7 @@ Object.assign(window.BroyteSync || (window.BroyteSync = {}), { loadInbox });
     $("curName").textContent=c?esc(c.n):"—";
     $("curTask").textContent=c?esc(c.t):"—";
     $("curNext").textContent=n?esc(n.n):"—";
+    $("curPins").textContent = c ? (c.pinsLockedYear ? (c.pinsCount ?? 0) : "—") : "—";
     $("thumbs").innerHTML=c?.p?.length?c.p.map(src=>`<img src="${src}" style="width:80px">`).join(""):"";
     $("progBar").style.width=p.pct+"%";
     $("progTxt").textContent=`${p.pct}% fullført (${p.cleared}/${p.total})`;
@@ -1424,6 +1426,19 @@ save(); WK.renderWork(); WK.renderRegister(); SY.syncPush();
     $('done')   && ($('done').onclick   = WK.doneHandler);
     $('block')  && ($('block').onclick  = WK.blockHandler);
     $('next')   && ($('next').onclick   = WK.nextHandler);
+      // Manuell endring av brøytestikker
+  $('editPins') && ($('editPins').onclick = ()=>{
+    const c = window.BroyteHelpers.cur(); if(!c) return;
+    const curVal = Number.isFinite(c.pinsCount) ? c.pinsCount : 0;
+    const v = prompt("Antall brøytestikker (tomt for 0):", String(curVal));
+    if (v === null) return; // avbrutt
+    const n = parseInt((v||"").trim() || "0", 10) || 0;
+    c.pinsCount = n;
+    c.pinsLockedYear = (n > 0) ? window.BroyteHelpers.seasonKey() : null;
+    save();
+    window.BroyteWork.renderWork();
+    window.BroyteSync?.syncPush?.();
+  });
     $('nav')    && ($('nav').onclick    = ()=>{ const c=window.BroyteHelpers.cur(); if(c) window.BroyteHelpers.navTo(c.n); });
     $('photo')  && ($('photo').onclick  = ()=> $('fileInput')?.click());
     $('fileInput') && ($('fileInput').onchange = WK.onPhotoChosen);
