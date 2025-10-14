@@ -1510,18 +1510,27 @@ save(); WK.renderWork(); WK.renderRegister(); SY.syncPush();
     $('block')  && ($('block').onclick  = WK.blockHandler);
     $('next')   && ($('next').onclick   = WK.nextHandler);
       // Manuell endring av brøytestikker
-  $('editPins') && ($('editPins').onclick = ()=>{
-    const c = window.BroyteHelpers.cur(); if(!c) return;
-    const curVal = Number.isFinite(c.pinsCount) ? c.pinsCount : 0;
-    const v = prompt("Antall brøytestikker (tomt for 0):", String(curVal));
-    if (v === null) return; // avbrutt
-    const n = parseInt((v||"").trim() || "0", 10) || 0;
-    c.pinsCount = n;
-    c.pinsLockedYear = (n > 0) ? window.BroyteHelpers.seasonKey() : null;
-    save();
-    window.BroyteWork.renderWork();
-    window.BroyteSync?.syncPush?.();
-  });
+  /* === START DELTA C: editPins låst én gang per sesong === */
+$('editPins') && ($('editPins').onclick = ()=>{
+  const c = window.BroyteHelpers.cur(); if (!c) return;
+
+  const locked = c.pinsLockedYear && String(c.pinsLockedYear) === window.BroyteHelpers.seasonKey();
+  if (locked) {
+    alert("Brøytestikker er allerede registrert for inneværende sesong og er låst.");
+    return;
+  }
+
+  const curVal = Number.isFinite(c.pinsCount) ? c.pinsCount : 0;
+  const v = prompt("Antall brøytestikker brukt (låses for sesongen):", String(curVal));
+  if (v === null) return; // avbrutt
+  const n = parseInt((v||"").trim() || "0", 10) || 0;
+  c.pinsCount = n;
+  c.pinsLockedYear = window.BroyteHelpers.seasonKey(); // LÅS for sesongen
+  save();
+  window.BroyteWork.renderWork();
+  window.BroyteSync?.syncPush?.();
+});
+/* === END DELTA C === */
     $('nav')    && ($('nav').onclick    = ()=>{ const c=window.BroyteHelpers.cur(); if(c) window.BroyteHelpers.navTo(c.n); });
     $('photo')  && ($('photo').onclick  = ()=> $('fileInput')?.click());
     $('fileInput') && ($('fileInput').onchange = WK.onPhotoChosen);
