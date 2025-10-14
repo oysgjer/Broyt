@@ -1599,16 +1599,17 @@ document.querySelectorAll('#pinFilters .btn').forEach(btn=>{
     WK.renderRegister();
   };
 });
-  function wireAdmin(){
-    $('adminSync')    && ($('adminSync').onclick    = ()=> WK.renderAdmin());
-    $('catLoad')      && ($('catLoad').onclick      = window.loadCatalog && window.loadCatalog);
-    $('catAdd')       && ($('catAdd').onclick       = window.editCatalogRow ? ()=> window.editCatalogRow(null) : null);
-    $('catSave')      && ($('catSave').onclick      = window.saveCatalogWithBackup || null);
-    $('catPublish')   && ($('catPublish').onclick   = window.publishCatalogToMaster || null);
-    $('catExportCsv') && ($('catExportCsv').onclick = window.exportCatalogCsv || null);
-    $('catRestore')   && ($('catRestore').onclick   = window.restoreCatalogFromBackup || null);
-    $('adminInbox')   && ($('adminInbox').onclick   = SY.loadInbox);
-  }
+function wireAdmin(){
+  // Admin-knapper med "late lookup" (trygge selv om Del G lastes senere)
+  $('adminSync')      && ($('adminSync').onclick      = ()=> SY.loadAdminStatus && SY.loadAdminStatus());
+  $('adminInbox')     && ($('adminInbox').onclick     = ()=> SY.loadInbox && SY.loadInbox());
+  $('catLoad')        && ($('catLoad').onclick        = ()=> window.loadCatalog && window.loadCatalog());
+  $('catAdd')         && ($('catAdd').onclick         = ()=> window.editCatalogRow && window.editCatalogRow());
+  $('catSave')        && ($('catSave').onclick        = ()=> window.saveCatalogWithBackup && window.saveCatalogWithBackup());
+  $('catPublish')     && ($('catPublish').onclick     = ()=> window.publishCatalogToMaster && window.publishCatalogToMaster());
+  $('catExportCsv')   && ($('catExportCsv').onclick   = ()=> window.exportCatalogCsv && window.exportCatalogCsv());
+  $('catRestore')     && ($('catRestore').onclick     = ()=> window.restoreCatalogFromBackup && window.restoreCatalogFromBackup());
+}
 // Filter-knapper (Admin)
 document.querySelectorAll('#pinFiltersAdmin .btn').forEach(btn=>{
   btn.onclick = ()=>{
