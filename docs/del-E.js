@@ -1,5 +1,3 @@
-<!-- del-E.js -->
-<script>
 /* ===== del-E.js (Under arbeid – status + 2 sjåfører) ===== */
 (() => {
   if (!window.Core) { console.warn("Del C må lastes før Del E."); return; }
@@ -30,7 +28,7 @@
   function markOngoing(idx){
     const s = Core.state.stops[idx]; if (!s) return;
     if (!s.started) s.started = Date.now();
-    s.b = false; // tar bort blokkert hvis den var satt
+    s.b = false;
     Core.save(); render();
   }
   function markDone(idx){
@@ -61,12 +59,9 @@
   }
 
   function render(){
-    const host = $("work");         // <section id="work">
-    const listHostId = "workList";  // <div id="workList"> (ligger i index.html)
-    const listHost = $(listHostId);
-    if (!host || !listHost) return;
+    const listHost = document.getElementById("workList");
+    if (!listHost) return;
 
-    // filterrad
     const f = getFilter();
     const btn = (val, label)=>`
       <button data-filter="${val}" class="btn"
@@ -82,7 +77,6 @@
         ${btn("blokkerte","Blokkert")}
       </div>`;
 
-    // rader
     const rows = filteredStops();
     if (!rows.length){
       listHost.innerHTML = toolbarHtml + `<div class="muted">Ingen adresser tilgjengelig.</div>`;
@@ -91,7 +85,7 @@
     }
 
     const rowHtml = rows.map((s, i) => {
-      const idx = Core.state.stops.indexOf(s); // stabil indeks i hoved-array
+      const idx = Core.state.stops.indexOf(s);
       return `
       <div class="card" style="background:#181a1e;border:1px solid #2a2f36;border-radius:16px;padding:12px;margin:10px 0;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -121,8 +115,6 @@
     }).join("");
 
     listHost.innerHTML = toolbarHtml + rowHtml;
-
-    // hook knapper
     hookToolbar();
     listHost.querySelectorAll("[data-act]").forEach(btn=>{
       const idx = +btn.dataset.i;
@@ -137,24 +129,19 @@
   }
 
   function hookToolbar(){
-    const listHost = $("workList");
-    if (!listHost) return;
-    listHost.querySelectorAll("button[data-filter]").forEach(b=>{
+    document.querySelectorAll("[data-filter]").forEach(b=>{
       b.onclick = ()=> setFilter(b.dataset.filter);
     });
   }
 
-  // Start-knappen på Hjem -> gå til Under arbeid
   document.addEventListener("DOMContentLoaded", ()=>{
-    $("startBtn") && ($("startBtn").onclick = ()=> {
+    const startBtn = document.getElementById("startBtn");
+    if (startBtn) startBtn.onclick = ()=> {
       if (typeof window.show === "function") window.show("work");
       render();
-    });
-    // første render ved last
+    };
     render();
   });
 
-  // Eksponer manuelt for debugging hvis ønskelig
   Core.renderWork = render;
 })();
-</script>
