@@ -1,4 +1,3 @@
-<script>
 // ===== del-G.js (Admin – katalog-editor) =====
 (() => {
   if (!window.Core) { console.warn("Del C må lastes før Del G."); return; }
