@@ -147,4 +147,60 @@
     bootDefaults();
     Core.log("del-C.js (core) lastet");
   });
+    /* ---------- Felles status (JSONBin heartbeat) ---------- */
+  Core.status = (() => {
+    const BIN = Core.cfg.BINS.POSITIONS;   // bruker din eksisterende bøtte
+    let pollTimer = null, beatTimer = null;
+
+    async function readAll() {
+      try {
+        const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN}/latest`, { headers: Core.headers() });
+        if (!r.ok) throw 0;
+        const js = await r.json();
+        return js?.record || {};
+      } catch { return {}; }
+    }
+    async function writeAll(obj) {
+      try {
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN}`, {
+          method: "PUT",
+          headers: Core.headers(),
+          body: JSON.stringify(obj || {})
+        });
+      } catch(_){}
+    }
+
+    async function updateSelf(extra={}) {
+      const name = (Core.state.customName || "Ukjent").trim() || "Ukjent";
+      const all = await readAll();
+      all[name] = {
+        name,
+        ts: Date.now(),
+        progress: extra.progress ?? 0,
+        current: extra.current || "",
+        direction: Core.state.direction || "forward",
+        equipment: Core.state.equipment || {}
+      };
+      await writeAll(all);
+    }
+
+    function startHeartbeat() {
+      if (beatTimer) return;
+      updateSelf({ progress: 0 });
+      beatTimer = setInterval(()=> updateSelf({ progress: 0 }), 30000); // hver 30s
+    }
+
+    function startPolling(cb) {
+      if (pollTimer) return;
+      const tick = async () => {
+        const all = await readAll();
+        const list = Object.values(all).sort((a,b)=> (b.ts||0)-(a.ts||0));
+        cb && cb(list);
+      };
+      tick();
+      pollTimer = setInterval(tick, 20000); // hver 20s
+    }
+
+    return { updateSelf, startHeartbeat, startPolling };
+  })();
 })();
