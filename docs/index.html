@@ -1,91 +1,111 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brøyterute – Romerike Trefelling</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="favicon.ico">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Hjelper nettleseren å ikke cache for hardt -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <title>Brøyterute</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="del-B.css?v=912L" />
 
   <style>
-    body {
-      background: #111;
-      color: #eee;
-      font-family: system-ui, sans-serif;
-      margin: 0;
-      padding: 0;
-      text-align: center;
-    }
-    nav {
-      background: #222;
-      padding: 10px;
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    nav button {
-      background: #333;
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    nav button:hover {
-      background: #444;
-    }
-    footer {
-      color: #999;
-      margin: 20px 0;
-      font-size: 14px;
-    }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#111; color:#fff; }
+    nav { display:flex; gap:.75rem; padding:.75rem; justify-content:center; background:#1c1c1c; position:sticky; top:0; z-index:5; }
+    nav button { background:#2a2a2a; color:#fff; border:none; padding:.6rem 1rem; border-radius:.6rem; }
+    main { max-width:980px; margin: 1rem auto; padding: 0 1rem; }
+    section { display:none; }
+    section.active { display:block; }
+    footer { text-align:center; color:#aaa; font-size:.9rem; padding:2rem 0 3rem; }
   </style>
 </head>
+
 <body>
+  <header>
+    <h1 style="text-align:center; font-weight:800; letter-spacing:.5px; margin:1rem 0;">Brøyterute</h1>
+    <nav>
+      <button type="button" onclick="show('home')">Hjem</button>
+      <button type="button" onclick="show('work')">Under arbeid</button>
+      <button type="button" onclick="show('addresses')">Adresse-register</button>
+      <button type="button" onclick="show('admin')">Admin</button>
+      <button type="button" onclick="show('service')">Service</button>
+    </nav>
+  </header>
 
-  <h1>Brøyterute</h1>
-  <nav>
-    <button onclick="showPage('home')">Hjem</button>
-    <button onclick="showPage('work')">Under arbeid</button>
-    <button onclick="showPage('addresses')">Adresse-register</button>
-    <button onclick="showPage('admin')">Admin</button>
-    <button onclick="showPage('service')">Service</button>
-  </nav>
+  <main>
+    <!-- HJEM -->
+    <section id="home" class="active">
+      <h2>Velkommen til Brøyterute</h2>
+      <p>Versjon <span id="ver-inline">—</span> – Romerike Trefelling</p>
+      <button id="startBtn" style="background:#15803d;color:#fff;border:none;border-radius:.6rem;padding:.8rem 1.1rem;">
+        Start ny runde
+      </button>
+    </section>
 
-  <main id="content">
-    <h2>Velkommen til Brøyterute</h2>
-    <p>Versjon <span id="ver">v9.12-L</span> – Romerike Trefelling</p>
-    <button id="startBtn" style="background:#007a1f;color:white;padding:10px 16px;border:none;border-radius:6px;">Start ny runde</button>
+    <!-- UNDER ARBEID -->
+    <section id="work">
+      <h2>Under arbeid</h2>
+      <div id="workPane"></div>
+    </section>
+
+    <!-- ADRESSE-REGISTER -->
+    <section id="addresses">
+      <h2>Adresse-register</h2>
+      <div id="adrPane"></div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="admin">
+      <h2>Admin</h2>
+      <div id="adminPane"></div>
+    </section>
+
+    <!-- SERVICE -->
+    <section id="service">
+      <h2>Service</h2>
+      <div id="servicePane"></div>
+    </section>
   </main>
 
   <footer>
-    <span id="ver-footer">v9.12-L</span> – Romerike Trefelling
+    v<span id="ver">—</span> – Romerike Trefelling
   </footer>
 
-  <!-- ===== JS-filer ===== -->
-  <script src="del-C.js?v=912L"></script>
-  <script src="del-D.js?v=912L"></script>
-  <script src="del-E.js?v=912L"></script>
-  <script src="del-F.js?v=912L"></script>
-  <script src="del-G.js?v=912L"></script>
-  <script src="del-H.js?v=912L"></script>
-
-  <!-- ===== Init og fallback ===== -->
   <script>
+    // Enkel visning av seksjoner (ingen jQuery brukt)
+    function show(id) {
+      document.querySelectorAll("main section").forEach(s => s.classList.remove("active"));
+      const el = document.getElementById(id);
+      if (el) el.classList.add("active");
+      // liten assist til moduler som vil vite aktiv fane
+      window.__activeView = id;
+    }
+
+    // Fyll versjonstekst så snart både DOM og Core finnes
     document.addEventListener("DOMContentLoaded", () => {
-      const verEls = [document.getElementById("ver"), document.getElementById("ver-footer")];
-      const version = window.Core?.cfg?.VERSION || "9.12-L";
-      verEls.forEach(el => { if (el) el.textContent = `v${version}`; });
-
-      console.log("Brøyterute v" + version + " startet");
-
-      window.showPage = function(id) {
-        // enkel sidebytte for testing
-        const main = document.getElementById("content");
-        if (main) main.innerHTML = `<h2>${id}</h2><p>Innhold for ${id} kommer her...</p>`;
+      const putVersion = () => {
+        const ver1 = document.getElementById('ver');
+        const ver2 = document.getElementById('ver-inline');
+        const v = (window.Core && window.Core.cfg && window.Core.cfg.VERSION) ? window.Core.cfg.VERSION : '—';
+        if (ver1) ver1.textContent = v;
+        if (ver2) ver2.textContent = v;
       };
+      putVersion();
+      // prøv igjen når Core har lastet (hvis den kom etter DOM)
+      window.addEventListener('load', putVersion);
     });
   </script>
+
+  <!-- Moduler – med cache-busting -->
+  <script src="del-C.js?v=912L" defer></script>
+  <script src="del-D.js?v=912L" defer></script>
+  <script src="del-E.js?v=912L" defer></script>
+  <script src="del-F.js?v=912L" defer></script>
+  <script src="del-G.js?v=912L" defer></script>
+  <script src="del-H.js?v=912L" defer></script>
 </body>
 </html>
