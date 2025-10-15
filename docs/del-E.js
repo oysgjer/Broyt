@@ -1,190 +1,243 @@
-/* ===== del-E.js (Work UI – avansert med start/slutt + utstyr + sjåfør) ===== */
+<!-- del-E.js -->
+<script>
+/* ===== del-E.js — Adresse-register ===== */
 (() => {
-  if (!window.Core) { console.warn("Del C må lastes før Del E."); return; }
+  if (!window.Core) {
+    console.error("Del C må lastes før Del E.");
+    return;
+  }
   const Core = window.Core;
-  const $ = Core.$;
 
-  // --- helpers ---
-  const idxList = () => {
-    const S = Core.state;
-    const remaining = (S.stops||[]).map((s,i)=>({i,s})).filter(x=>!x.s.f && !x.s.b).map(x=>x.i);
-    return (S.direction==="reverse") ? remaining.slice().reverse() : remaining;
-  };
-  const curIndex = () => {
-    const list = idxList();
-    const c = Core.state.ui?.cursor ?? 0;
-    if (!list.length) return -1;
-    const pos = Math.min(c, list.length - 1);
-    return list[pos];
-  };
-  const curStop = () => {
-    const ci = curIndex();
-    return ci>=0 ? Core.state.stops[ci] : null;
-  };
-  const nxtStop = () => {
-    const list = idxList();
-    const c = Core.state.ui?.cursor ?? 0;
-    if (list.length <= c+1) return null;
-    return Core.state.stops[list[c+1]];
-  };
-  const progress = () => {
-    const total=(Core.state.stops||[]).length;
-    const done = (Core.state.stops||[]).filter(s=>s.f).length;
-    const blocked=(Core.state.stops||[]).filter(s=>s.b).length;
-    const cleared=done+blocked;
-    const pct = total ? Math.round(100*cleared/total) : 0;
-    return {total,done,blocked,cleared,pct};
-  };
-  const seasonLocked = (s) => s?.pinsLockedYear && String(s.pinsLockedYear)===Core.seasonKey();
+  // ---------- helpers ----------
+  const $  = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-  // --- markeringer ---
-  function markOngoing(){
-    const c = curStop(); if(!c) return;
-    c.started = c.started || Date.now();
-    c.driver = Core.displayName();
-    Core.save(); render();
-  }
-  function markDone(){
-    const c = curStop(); if(!c) return;
-
-    // registrer sluttid
-    c.f = true;
-    c.finished = Date.now();
-    if (!c.started) c.started = c.finished;
-    c.driver = Core.displayName();
-
-    Core.save();
-    nextOnly();
-  }
-  function markBlocked(){
-    const c = curStop(); if(!c) return;
-    const note = prompt("Hvorfor ikke mulig?","") || "";
-    c.details = note;
-    c.b = true;
-    c.driver = Core.displayName();
-    c.finished = Date.now();
-    Core.save();
-    render();
-  }
-  function nextOnly(){
-    const list = idxList();
-    const c = Core.state.ui?.cursor ?? 0;
-    if (list.length && c < list.length-1){
-      Core.state.ui = Core.state.ui || {};
-      Core.state.ui.cursor = c+1;
-      Core.save();
-      render();
-    } else render();
+  // Sikre at stops finnes
+  function ensureStops() {
+    const S = Core.state || (Core.state = Core.load() || Core.makeDefaultState());
+    if (!Array.isArray(S.stops)) S.stops = [];
+    return S.stops;
   }
 
-  // --- vis utstyrstekst ---
-  function equipmentString(){
-    const eq = Core.state.equipment || {};
-    const parts = [];
-    if (eq.plog) parts.push("Plog");
-    if (eq.fres) parts.push("Fres");
-    if (eq.stro) parts.push("Strø");
-    return parts.length ? parts.join(" + ") : "Ingen valgt";
+  // Konverter ev. katalog-record til vår interne struktur
+  function mapCatalogToStops(record) {
+    // Forventer format: { addresses: [{ name, task, twoDriverRec?, pinsCount?, pinsLockedYear? }, ...] }
+    const list = Array.isArray(record?.addresses) ? record.addresses : [];
+    return list.map(a => ({
+      n: String(a.name ?? a.n ?? "").trim(),
+      t: Core.normalizeTask(a.task ?? a.t ?? ""),
+      f: false,                 // ferdig flagg lokalt (nullstilles)
+      b: false,                 // “ikke mulig” lokalt (nullstilles)
+      p: Array.isArray(a.p) ? a.p : [],      // evt. pinnelogger hvis den finnes
+      twoDriverRec: !!a.twoDriverRec,
+      pinsCount: Number(a.pinsCount ?? 0) || 0,
+      pinsLockedYear: a.pinsLockedYear ?? null
+    })).filter(x => x.n);
   }
 
-  // --- render ---
-  function render(){
-    const host = $("workList"); if(!host) return;
+  // ---------- UI bygging ----------
+  function buildUI() {
+    const host = $("#addresses");
+    if (!host) return;
 
-    if (!(Core.state.stops||[]).length){
-      host.innerHTML = `<div class="muted">Ingen adresser enda. Hent katalog i Admin-fanen.</div>`;
+    host.innerHTML = `
+      <h2>Adresse-register</h2>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0 1rem 0">
+        <button id="addrFetch" class="btn btn-blue">🔄 Hent fra katalog</button>
+        <button id="addrReset" class="btn">🧹 Nullstill lokal status</button>
+        <span id="addrCount" class="muted" style="align-self:center"></span>
+      </div>
+
+      <div class="card" style="padding:12px;margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:.5rem">Legg til ny adresse (lokalt)</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <input id="addrName" type="text" placeholder="Navn / adresse" style="flex:1;min-width:220px;padding:.5rem;border-radius:6px;border:1px solid #333;background:#111;color:#fff">
+          <select id="addrTask" style="min-width:220px;padding:.5rem;border-radius:6px;border:1px solid #333;background:#111;color:#fff"></select>
+          <label style="display:flex;align-items:center;gap:.5rem"><input id="addrTwo" type="checkbox"> 2 sjåfører</label>
+          <button id="addrAdd" class="btn btn-green">➕ Legg til</button>
+        </div>
+      </div>
+
+      <div id="addrList" style="display:flex;flex-direction:column;gap:.75rem"></div>
+    `;
+
+    // Fyll oppgavevalg
+    const sel = $("#addrTask", host);
+    const tasks = Core.cfg.DEFAULT_TASKS;
+    tasks.forEach(t => {
+      const o = document.createElement("option");
+      o.value = t; o.textContent = t;
+      sel.appendChild(o);
+    });
+
+    // Knapper
+    $("#addrAdd", host).addEventListener("click", onAdd);
+    $("#addrFetch", host).addEventListener("click", onFetch);
+    $("#addrReset", host).addEventListener("click", onReset);
+
+    renderList();
+  }
+
+  // ---------- Render ----------
+  function renderList() {
+    const host = $("#addresses");
+    if (!host) return;
+
+    const listEl = $("#addrList", host);
+    const stops = ensureStops();
+
+    // teller
+    $("#addrCount", host).textContent = `Adresser i runde: ${stops.length}`;
+
+    // liste
+    listEl.innerHTML = "";
+    if (stops.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.textContent = "Ingen adresser enda. Hent katalog i Admin-fanen eller legg til her.";
+      listEl.appendChild(empty);
       return;
     }
 
-    const c = curStop();
-    const n = nxtStop();
-    const p = progress();
-    const drv = Core.displayName();
+    stops.forEach((st, idx) => {
+      const row = document.createElement("div");
+      row.className = "card";
+      row.style.padding = "10px";
 
-    // format tid
-    const fmt = (ts) => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit"}) : "—";
+      // Oppgavevalg
+      const taskSelId = `task_${idx}`;
+      const twoId = `two_${idx}`;
+      const nameId = `name_${idx}`;
 
-    host.innerHTML = `
-      <div class="card" style="background:#181a1e;border:1px solid #2a2f36;border-radius:16px;padding:14px;margin:10px 0;">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <span class="badge">Sjåfør: ${Core.esc(drv)}</span>
-          <span class="badge">Utstyr: ${Core.esc(equipmentString())}</span>
-          <span class="badge">Retning: ${Core.state.direction==="reverse"?"Baklengs":"Vanlig"}</span>
-        </div>
+      row.innerHTML = `
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">
+            <label style="font-size:12px;opacity:.8">Adresse</label>
+            <input id="${nameId}" type="text" value="${Core.esc(st.n)}"
+              style="width:100%;padding:.5rem;border-radius:6px;border:1px solid #333;background:#111;color:#fff">
+          </div>
 
-        <h2 style="margin:10px 0 4px 0">${c?Core.esc(c.n):"—"}</h2>
-        <div class="muted">Oppgave: ${c?Core.esc(c.t):"—"}</div>
-        <div class="muted">Startet: ${fmt(c?.started)} — Ferdig: ${fmt(c?.finished)}</div>
+          <div style="min-width:220px">
+            <label style="font-size:12px;opacity:.8">Oppgave</label>
+            <select id="${taskSelId}"
+              style="width:100%;padding:.5rem;border-radius:6px;border:1px solid #333;background:#111;color:#fff"></select>
+          </div>
 
-        <div class="muted" style="margin-top:4px">Neste: ${n?Core.esc(n.n):"—"}</div>
+          <div style="display:flex;align-items:center;gap:.5rem;min-width:150px">
+            <label><input id="${twoId}" type="checkbox" ${st.twoDriverRec ? "checked":""}> 2 sjåfører</label>
+          </div>
 
-        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-          <div class="muted">${p.pct}% fullført (${p.cleared}/${p.total})</div>
-          <div style="flex:1;height:12px;border-radius:999px;background:#242830;border:1px solid #2a2f36;overflow:hidden">
-            <div style="height:100%;width:${p.pct}%;background:linear-gradient(90deg,#0f9d58,#22c55e)"></div>
+          <div style="display:flex;gap:.5rem;align-items:end">
+            <button class="btn" data-act="save"   data-i="${idx}">💾 Lagre</button>
+            <button class="btn btn-red" data-act="del"    data-i="${idx}">Slett</button>
           </div>
         </div>
 
-        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-          <button id="btnOn"   class="btn-gray">▶️ Pågår</button>
-          <button id="btnOk"   class="btn-green">✅ Ferdig</button>
-          <button id="btnBlock"class="btn-red">⛔ Ikke mulig</button>
-          <button id="btnNext" class="btn-gray">🔁 Neste</button>
+        <div class="muted" style="margin-top:.5rem">
+          Pins: ${st.pinsCount||0} ${st.pinsLockedYear ? `• Låst: ${st.pinsLockedYear}` : ""}
         </div>
+      `;
 
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-          <button id="btnPhoto"class="btn-gray">📷 Foto</button>
-          <button id="btnPins" class="btn-gray">📍 Brøytestikker</button>
-          <button id="btnInc"  class="btn-red">❗ Uhell</button>
-        </div>
+      // fyll task options
+      const tSel = row.querySelector("#"+taskSelId);
+      Core.cfg.DEFAULT_TASKS.forEach(t => {
+        const o = document.createElement("option");
+        o.value = t; o.textContent = t;
+        if (Core.normalizeTask(st.t) === Core.normalizeTask(t)) o.selected = true;
+        tSel.appendChild(o);
+      });
 
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-          <button id="btnBase" class="btn-purple">🏠 Kjør til base</button>
-          <button id="btnGrus" class="btn-blue">🪨 Fyll grus</button>
-          <button id="btnFuel" class="btn-blue">⛽ Fyll drivstoff</button>
-        </div>
+      // events
+      row.querySelector('[data-act="save"]').addEventListener("click", () => {
+        const name = row.querySelector("#"+nameId).value.trim();
+        const task = row.querySelector("#"+taskSelId).value;
+        const two  = row.querySelector("#"+twoId).checked;
 
-        <div id="thumbs" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"></div>
-      </div>
-    `;
+        const stops = ensureStops();
+        const s = stops[idx];
+        s.n = name || s.n;
+        s.t = Core.normalizeTask(task);
+        s.twoDriverRec = !!two;
+        Core.save();
+        flash(row, "Lagret ✅");
+      });
 
-    // wire opp knapper
-    $("#btnOn").onclick = markOngoing;
-    $("#btnOk").onclick = markDone;
-    $("#btnBlock").onclick = markBlocked;
-    $("#btnNext").onclick = nextOnly;
+      row.querySelector('[data-act="del"]').addEventListener("click", () => {
+        const stops = ensureStops();
+        stops.splice(idx,1);
+        Core.save();
+        renderList();
+      });
 
-    $("#btnPhoto").onclick = ()=>$("#workFile")?.click();
-    $("#btnPins").onclick  = ()=>alert("Brøytestikker funksjon – under arbeid");
-    $("#btnInc").onclick   = ()=>alert("Uhell logges senere");
-    $("#btnBase").onclick  = ()=>location.href="https://www.google.com/maps/search/?api=1&query=Hagavegen 8, 2072 Dal";
-    $("#btnGrus").onclick  = ()=>location.href="https://www.google.com/maps/search/?api=1&query=Dal pukkverk";
-    $("#btnFuel").onclick  = ()=>location.href="https://www.google.com/maps/search/?api=1&query=avgiftsfri diesel Dal";
+      listEl.appendChild(row);
+    });
+  }
 
-    // thumbnails
-    const thumbs = $("#thumbs");
-    if (thumbs && c?.p?.length){
-      thumbs.innerHTML = c.p.map(src=>`<img src="${src}" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #2a2f36">`).join("");
+  function flash(row, msg) {
+    const tip = document.createElement("div");
+    tip.textContent = msg;
+    tip.style.cssText = "margin-top:.5rem;font-size:12px;color:#8f8";
+    row.appendChild(tip);
+    setTimeout(()=> tip.remove(), 1500);
+  }
+
+  // ---------- Handlers ----------
+  function onAdd() {
+    const host = $("#addresses");
+    const name = $("#addrName", host).value.trim();
+    const task = $("#addrTask", host).value;
+    const two  = $("#addrTwo", host).checked;
+
+    if (!name) return alert("Skriv inn navn/adresse først.");
+
+    const stops = ensureStops();
+    stops.push({
+      n: name,
+      t: Core.normalizeTask(task),
+      f: false, b: false, p: [],
+      twoDriverRec: !!two,
+      pinsCount: 0,
+      pinsLockedYear: null
+    });
+    Core.save();
+
+    // reset inputs
+    $("#addrName", host).value = "";
+    $("#addrTwo", host).checked = false;
+
+    renderList();
+  }
+
+  async function onFetch() {
+    try {
+      console.info("Laster inn katalog fra JSONBin …");
+      const record = await Core.fetchCatalog();       // fra del-C.js
+      const mapped = mapCatalogToStops(record);
+      if (!mapped.length) {
+        console.warn("Ingen adresser funnet i katalog.");
+        alert("Ingen adresser funnet i katalogen.");
+        return;
+      }
+      const S = Core.state;
+      S.stops = mapped;
+      Core.save();
+      renderList();
+      console.info("Importerte fra KATALOG:", mapped.length);
+    } catch (e) {
+      console.error("Feil ved henting fra katalog:", e);
+      alert("Klarte ikke hente fra katalog (se konsollen).");
     }
   }
 
-  // fileinput
-  function ensureHiddenFile(){
-    if (!$("#workFile")){
-      const inp = document.createElement("input");
-      inp.type="file"; inp.id="workFile"; inp.accept="image/*"; inp.style.display="none";
-      inp.addEventListener("change",e=>addPhoto(e.target.files?.[0]));
-      document.body.appendChild(inp);
-    }
-  }
-  function addPhoto(file){
-    const c = curStop(); if(!c||!file)return;
-    const r = new FileReader();
-    r.onload = ()=>{(c.p ||= []).push(r.result);Core.save();render();};
-    r.readAsDataURL(file);
+  function onReset() {
+    if (!confirm("Nullstill lokal status på alle adresser? (Ferdig/Ikke mulig etc.)")) return;
+    const stops = ensureStops();
+    stops.forEach(s => { s.f = false; s.b = false; }); // behold navn/oppgave/pinner
+    Core.save();
+    renderList();
   }
 
-  document.addEventListener("DOMContentLoaded", ()=>{ensureHiddenFile();render();});
-  window.WorkUI = { render };
-  console.log("del-E.js (v9.11-advanced) lastet");
+  // ---------- Init når DOM er klar ----------
+  document.addEventListener("DOMContentLoaded", buildUI);
 })();
+</script>
