@@ -1,250 +1,326 @@
-/* ===== del-H.js — Adresse-register (hybrid v9.12h) ===== */
+/* ===== del-H.js — Service (Hybrid v9.12h) ===== */
 (() => {
-  const NS = "broyte_v912h_catalog";
+  if (!window.Core) return console.error("Del-C.js må lastes før del-H.");
 
-  // ----- Trygge helpers -----
+  const Core = window.Core;
+  const LS_KEY = "broyte_v912h_service";
+
+  // Struktur vi lagrer lokalt
+  function defaultService() {
+    return {
+      // Vedlikeholdspunkter
+      smurtFres: false,
+      smurtSkjaer: false,     // (tidl. plog)
+      smurtForstilling: false,
+
+      oljeForan: false,
+      oljeBak: false,
+      etterfyltOlje: false,
+      dieselFylt: false,
+
+      annet: false,
+      notes: "",
+
+      // metadata
+      tsSaved: null,
+      by: Core.displayName(),
+      dateKey: Core.dateKey(new Date()),
+      equipmentSnapshot: Core.state?.equipment || {},
+      directionSnapshot: Core.state?.direction || "forward"
+    };
+  }
+
+  function loadService() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return defaultService();
+      const obj = JSON.parse(raw);
+      // Sikre nye felter om vi oppgraderer
+      return Object.assign(defaultService(), obj);
+    } catch {
+      return defaultService();
+    }
+  }
+
+  function saveService(s) {
+    try {
+      s.tsSaved = Date.now();
+      s.by = Core.displayName();
+      s.dateKey = Core.dateKey(new Date());
+      s.equipmentSnapshot = Core.state?.equipment || {};
+      s.directionSnapshot = Core.state?.direction || "forward";
+      localStorage.setItem(LS_KEY, JSON.stringify(s));
+    } catch(_) {}
+  }
+
+  // UI helpers
   const $  = (sel, root=document) => root.querySelector(sel);
-  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const CE = (tag, props={}) => Object.assign(document.createElement(tag), props);
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, s => (
     { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[s]
   ));
-  const log = (...a) => console.log("[del-H]", ...a);
 
-  // ----- Lokal katalog -----
-  function loadLocalCatalog() {
-    try {
-      const raw = localStorage.getItem(NS);
-      if (!raw) return { version: (window.Core?.cfg?.VERSION || "9.12h"), updated: Date.now(), addresses: [] };
-      const js = JSON.parse(raw);
-      if (!Array.isArray(js.addresses)) js.addresses = [];
-      return js;
-    } catch {
-      return { version: (window.Core?.cfg?.VERSION || "9.12h"), updated: Date.now(), addresses: [] };
-    }
-  }
-  function saveLocalCatalog(cat) {
-    try {
-      cat.version = window.Core?.cfg?.VERSION || "9.12h";
-      cat.updated = Date.now();
-      localStorage.setItem(NS, JSON.stringify(cat));
-    } catch(_) {}
-  }
+  // Renderer
+  function renderService() {
+    const host = $("#service");
+    if (!host) return;
 
-  // ----- Synk state <-> katalog -----
-  function catalogToStops(cat) {
-    const Core = window.Core;
-    if (!Core) return;
-    const arr = (cat.addresses || []).map(a => ({
-      n: a.name,
-      t: a.task || (Core.cfg?.DEFAULT_TASKS?.[0] || "Snø + brøytestikker"),
-      f: false,           // ferdig
-      b: false,           // blokkert / ikke mulig
-      p: [],              // pins-historikk lokalt
-      twoDriverRec: !!a.twoDriverRec,
-      pinsCount: a.pinsCount || 0,
-      pinsLockedYear: a.pinsLockedYear ?? null,
-      active: a.active !== false
-    }));
-    Core.state.stops = arr;
-    Core.save();
-  }
+    const S = loadService();
 
-  // Hent synlig antall (aktive) fra state
-  function activeCountFromState() {
-    const Core = window.Core;
-    if (!Core?.state?.stops) return 0;
-    return Core.state.stops.filter(s => s.active !== false).length;
-  }
+    host.innerHTML = "";
+    host.appendChild(CE("h2", { textContent: "Service / Vedlikehold" }));
 
-  // ----- Hent fra JSONBin (hybrid) -----
-  async function tryImportFromJSONBin() {
-    const Core = window.Core;
-    if (!Core || typeof Core.fetchCatalog !== "function") {
-      alert("Del-C (core) mangler. Kan ikke hente katalog.");
-      return;
-    }
-    log("Laster inn katalog fra JSONBin …");
-    const remote = await Core.fetchCatalog(); // { record:{…} } håndteres i del-C
-    const rec = remote?.record || remote;     // noen ganger får vi ren record
-    const addresses = Array.isArray(rec?.addresses) ? rec.addresses : [];
-    if (addresses.length === 0) {
-      alert("Ingen adresser funnet i katalogen.");
-      return;
-    }
-    const cat = loadLocalCatalog();
-    cat.addresses = addresses.map(a => ({
-      name: a.name || a.n || "Uten navn",
-      task: Core.normalizeTask(a.task || a.t || ""),
-      twoDriverRec: !!a.twoDriverRec,
-      pinsCount: a.pinsCount || 0,
-      pinsLockedYear: a.pinsLockedYear ?? null,
-      active: a.active !== false
-    }));
-    saveLocalCatalog(cat);
-    catalogToStops(cat);
-    render(); // oppdater UI
-    alert(`Importerte fra KATALOG: ${cat.addresses.length}`);
-  }
+    // Info-rad (fører, utstyr, retning, sist lagret)
+    const meta = CE("div", { className:"small muted" });
+    const eq = Core.state?.equipment || {};
+    const eqList = [
+      eq.skjaer ? "skjær" : null,
+      eq.fres ? "fres" : null,
+      eq.strokasse ? "strøkasse" : null
+    ].filter(Boolean).join(", ") || "—";
+    meta.textContent = `Fører: ${Core.displayName()} • Utstyr: ${eqList} • Retning: ${Core.state?.direction || "forward"} • Sist lagret: ${Core.fmtDT(S.tsSaved)}`;
+    host.appendChild(meta);
 
-  // ----- Nullstill LOKAL status (ikke katalog) -----
-  function resetLocalStatusOnly() {
-    const Core = window.Core;
-    if (!Core?.state?.stops) return;
-    Core.state.stops.forEach(s => { s.f = false; s.b = false; });
-    Core.save();
-    render();
-  }
+    // Kort med avkryssinger
+    const card = CE("div", { className:"card", style:"padding:12px;margin-top:8px" });
 
-  // ----- Legg til ny adresse lokalt -----
-  function addLocalAddress(name, task, twoDriver=false) {
-    const Core = window.Core;
-    const cat = loadLocalCatalog();
-    cat.addresses.push({
-      name: name.trim(),
-      task: Core.normalizeTask(task),
-      twoDriverRec: !!twoDriver,
-      pinsCount: 0,
-      pinsLockedYear: null,
-      active: true
+    // Gruppe 1 — Smøring
+    card.appendChild(CE("h3", { textContent:"Smøring" }));
+    card.appendChild(makeCheck("smurtFres",        "Smurt fres", S));
+    card.appendChild(makeCheck("smurtSkjaer",      "Smurt skjær", S));
+    card.appendChild(makeCheck("smurtForstilling", "Smurt forstilling", S));
+
+    // Gruppe 2 — Olje
+    card.appendChild(CE("h3", { textContent:"Olje" }));
+    card.appendChild(makeCheck("oljeForan",      "Sjekket olje foran", S));
+    card.appendChild(makeCheck("oljeBak",        "Sjekket olje bak", S));
+    card.appendChild(makeCheck("etterfyltOlje",  "Etterfylt olje", S));
+
+    // Gruppe 3 — Drivstoff
+    card.appendChild(CE("h3", { textContent:"Drivstoff" }));
+    card.appendChild(makeCheck("dieselFylt", "Diesel fylt", S));
+
+    // Gruppe 4 — Annet + notater
+    card.appendChild(CE("h3", { textContent:"Annet" }));
+    card.appendChild(makeCheck("annet", "Annet (se notat)", S));
+
+    const notes = CE("textarea", {
+      placeholder:"Anmerkninger …",
+      value: S.notes || "",
+      style:"width:100%;min-height:120px;margin-top:8px;background:#111;color:#fff;border:1px solid #444;border-radius:8px;padding:10px"
     });
-    saveLocalCatalog(cat);
-    // legg også inn i state-stoppene (på slutten)
-    Core.state.stops.push({
-      n: name.trim(),
-      t: Core.normalizeTask(task),
-      f:false, b:false, p:[],
-      twoDriverRec: !!twoDriver,
-      pinsCount: 0,
-      pinsLockedYear: null,
-      active: true
-    });
-    Core.save();
-    render();
-  }
+    card.appendChild(notes);
 
-  // ----- Slett / toggles -----
-  function toggleActive(idx) {
-    const cat = loadLocalCatalog();
-    if (!cat.addresses[idx]) return;
-    cat.addresses[idx].active = !cat.addresses[idx].active;
-    saveLocalCatalog(cat);
+    // Knapperekke
+    const row = CE("div", { style:"display:flex;flex-wrap:wrap;gap:8px;margin-top:10px" });
+    const btnSave   = CE("button", { className:"btn btn-green", textContent:"💾 Lagre lokalt" });
+    const btnCsv    = CE("button", { className:"btn btn-gray",  textContent:"⬇︎ Eksporter CSV" });
+    const btnTxt    = CE("button", { className:"btn btn-gray",  textContent:"🧾 Last ned brukerark (TXT)" });
+    const btnHtml   = CE("button", { className:"btn btn-blue",  textContent:"🗂️ Lag HTML-rapport (dag)" });
 
-    // speil til state (ved navn-match)
-    const Core = window.Core;
-    const name = cat.addresses[idx].name;
-    const stop = Core?.state?.stops?.find(s => s.n === name);
-    if (stop) { stop.active = cat.addresses[idx].active; Core.save(); }
-    render();
-  }
+    row.append(btnSave, btnCsv, btnTxt, btnHtml);
+    card.appendChild(row);
+    host.appendChild(card);
 
-  function deleteAddress(idx) {
-    const cat = loadLocalCatalog();
-    const row = cat.addresses[idx];
-    if (!row) return;
-    if (!confirm(`Slette "${row.name}" fra lokal katalog?`)) return;
-    cat.addresses.splice(idx, 1);
-    saveLocalCatalog(cat);
-
-    const Core = window.Core;
-    if (Core?.state?.stops) {
-      Core.state.stops = Core.state.stops.filter(s => s.n !== row.name);
-      Core.save();
-    }
-    render();
-  }
-
-  // ----- UI-render -----
-  function render() {
-    const root = $("#addresses");
-    if (!root) return;
-
-    // Rydd og bygg container
-    root.innerHTML = "";
-    const title = CE("h2", { textContent: "Adresse-register" });
-    const info  = CE("div", { className:"muted", style:"margin:-6px 0 10px 0;", textContent:"Hybridmodus: lokalt først, JSONBin ved import." });
-
-    // Topp-knapper
-    const topBar = CE("div", { style:"display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;" });
-    const btnFetch = CE("button", { className:"btn btn-blue", textContent:"🚀 Hent fra katalog" });
-    const btnReset = CE("button", { className:"btn", textContent:"🧹 Nullstill lokal status" });
-
-    btnFetch.addEventListener("click", tryImportFromJSONBin);
-    btnReset.addEventListener("click", () => {
-      if (confirm("Nullstille status for alle stopp LOKALT?")) resetLocalStatusOnly();
-    });
-
-    // Teller
-    const count = CE("div", { style:"margin:8px 0 2px 0;" });
-    count.textContent = `Adresser i runde: ${activeCountFromState()}`;
-
-    // Legg til ny (lokalt)
-    const addCard = CE("div", { className:"card", style:"padding:10px;margin:10px 0;" });
-    const addTitle = CE("div", { className:"muted", textContent:"Legg til ny adresse (lokalt)" });
-
-    const addRow = CE("div", { style:"display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;" });
-    const inpName = CE("input", { className:"input", placeholder:"Navn / adresse", style:"min-width:220px;" });
-    const selTask  = CE("select", { className:"input" });
-    const tasks = (window.Core?.cfg?.DEFAULT_TASKS || ["Snø + brøytestikker","Snø og grus + brøytestikker"]);
-    tasks.forEach(t => selTask.appendChild( CE("option", { value:t, textContent:t }) ));
-    const chkTwo = CE("label", { style:"display:flex;align-items:center;gap:6px;" });
-    chkTwo.appendChild( CE("input", { type:"checkbox" }) );
-    chkTwo.appendChild( CE("span", { textContent:"2 sjåfører" }) );
-
-    const btnAdd = CE("button", { className:"btn btn-green", textContent:"➕ Legg til" });
-    btnAdd.addEventListener("click", () => {
-      const name = inpName.value.trim();
-      if (!name) return alert("Skriv inn navn/adresse først.");
-      addLocalAddress(name, selTask.value, chkTwo.querySelector("input").checked);
-      inpName.value = "";
-      inpName.focus();
-    });
-
-    addRow.append(inpName, selTask, chkTwo, btnAdd);
-    addCard.append(addTitle, addRow);
-
-    // Liste av lokal katalog
-    const listWrap = CE("div", { style:"margin-top:14px;" });
-    const cat = loadLocalCatalog();
-
-    if (cat.addresses.length === 0) {
-      listWrap.appendChild( CE("div", { className:"muted", textContent:"Ingen adresser enda. Hent katalog i Admin-fanen eller legg til her." }) );
-    } else {
-      cat.addresses.forEach((a, i) => {
-        const row = CE("div", { className:"card", style:"padding:10px;margin:8px 0;" });
-
-        const head = CE("div", { style:"display:flex;justify-content:space-between;gap:8px;align-items:center;" });
-        head.appendChild( CE("div", { innerHTML:`<strong>${esc(a.name)}</strong><div class="muted" style="margin-top:2px">${esc(a.task||"")}${a.twoDriverRec?" • 2 sjåfører":""}</div>` }) );
-
-        const right = CE("div", { style:"display:flex;gap:6px;align-items:center;" });
-        const toggle = CE("button", { className:"btn", textContent: a.active!==false ? "Deaktiver" : "Aktiver" });
-        const del    = CE("button", { className:"btn btn-red", textContent:"Slett" });
-
-        toggle.addEventListener("click", () => toggleActive(i));
-        del.addEventListener("click", () => deleteAddress(i));
-
-        right.append(toggle, del);
-        head.appendChild(right);
-        row.appendChild(head);
-        listWrap.appendChild(row);
+    // Handlers
+    // hver checkbox har data-key = felt-navn
+    card.querySelectorAll('input[type="checkbox"][data-key]').forEach(chk=>{
+      chk.addEventListener('change', ()=>{
+        const key = chk.dataset.key;
+        S[key] = !!chk.checked;
+        saveService(S);
+        updateMeta();
       });
-    }
+    });
+    notes.addEventListener('input', ()=>{
+      S.notes = notes.value;
+      saveService(S);
+      updateMeta();
+    });
 
-    topBar.append(btnFetch, btnReset);
-    root.append(title, info, topBar, count, addCard, listWrap);
+    btnSave.addEventListener('click', ()=>{
+      saveService(S);
+      alert("✅ Service-status lagret lokalt!");
+      updateMeta();
+    });
+
+    btnCsv.addEventListener('click', ()=> downloadCSV(S));
+    btnTxt.addEventListener('click', ()=> downloadTXT(S));
+    btnHtml.addEventListener('click', ()=> downloadHTML(S));
+
+    function updateMeta(){
+      meta.textContent = `Fører: ${Core.displayName()} • Utstyr: ${eqList} • Retning: ${Core.state?.direction || "forward"} • Sist lagret: ${Core.fmtDT(Date.now())}`;
+    }
   }
 
-  // ----- Kjør ved DOM ready -----
-  document.addEventListener("DOMContentLoaded", render);
+  function makeCheck(key, label, S) {
+    const wrap = CE("label", { style:"display:flex;align-items:center;gap:8px;margin:6px 0" });
+    const chk  = CE("input", { type:"checkbox", checked:!!S[key] });
+    chk.dataset.key = key;
+    const txt  = CE("span", { textContent: label });
+    wrap.append(chk, txt);
+    return wrap;
+  }
 
-  // I tilfelle brukeren navigerer uten reload (SPA-aktig), re-render enkelt
-  document.addEventListener("click", (e) => {
-    // hvis de klikker på en nav-knapp til Adresse-register
-    const t = e.target;
-    if (t && t.tagName === "BUTTON" && /Adresse/.test(t.textContent || "")) {
-      setTimeout(render, 50);
-    }
-  });
+  // Exports
+  function downloadCSV(S) {
+    const header = [
+      "dateKey","by","direction","equipment","smurtFres","smurtSkjaer","smurtForstilling",
+      "oljeForan","oljeBak","etterfyltOlje","dieselFylt","annet","notes"
+    ];
+    const eq = S.equipmentSnapshot || {};
+    const eqList = [
+      eq.skjaer ? "skjær" : null,
+      eq.fres ? "fres" : null,
+      eq.strokasse ? "strøkasse" : null
+    ].filter(Boolean).join("|");
 
-  log("del-H.js (katalog) lastet");
+    const row = [
+      S.dateKey,
+      S.by,
+      S.directionSnapshot,
+      eqList || "",
+      num(S.smurtFres),
+      num(S.smurtSkjaer),
+      num(S.smurtForstilling),
+      num(S.oljeForan),
+      num(S.oljeBak),
+      num(S.etterfyltOlje),
+      num(S.dieselFylt),
+      num(S.annet),
+      (S.notes||"").replaceAll('"','""')
+    ];
+
+    const csv = [
+      header.join(","),
+      row.map(v => typeof v === "string" ? `"${v}"` : String(v)).join(",")
+    ].join("\n");
+
+    blobDownload(csv, `service-${S.dateKey}.csv`, "text/csv");
+  }
+
+  function downloadTXT(S) {
+    const eq = S.equipmentSnapshot || {};
+    const eqList = [
+      eq.skjaer ? "skjær" : null,
+      eq.fres ? "fres" : null,
+      eq.strokasse ? "strøkasse" : null
+    ].filter(Boolean).join(", ") || "—";
+
+    const lines = [
+      `Brukerark – Service / Vedlikehold`,
+      `Dato: ${S.dateKey}`,
+      `Fører: ${S.by}`,
+      `Retning: ${S.directionSnapshot}`,
+      `Utstyr: ${eqList}`,
+      ``,
+      `[Smøring]`,
+      `- Smurt fres: ${yesno(S.smurtFres)}`,
+      `- Smurt skjær: ${yesno(S.smurtSkjaer)}`,
+      `- Smurt forstilling: ${yesno(S.smurtForstilling)}`,
+      ``,
+      `[Olje]`,
+      `- Sjekket olje foran: ${yesno(S.oljeForan)}`,
+      `- Sjekket olje bak: ${yesno(S.oljeBak)}`,
+      `- Etterfylt olje: ${yesno(S.etterfyltOlje)}`,
+      ``,
+      `[Drivstoff]`,
+      `- Diesel fylt: ${yesno(S.dieselFylt)}`,
+      ``,
+      `[Annet]`,
+      `- Annet: ${yesno(S.annet)}`,
+      ``,
+      `Notater:`,
+      S.notes || "—",
+      ``,
+      `Signatur: ____________________________`
+    ].join("\n");
+
+    blobDownload(lines, `service-${S.dateKey}.txt`, "text/plain");
+  }
+
+  function downloadHTML(S) {
+    const eq = S.equipmentSnapshot || {};
+    const eqList = [
+      eq.skjaer ? "skjær" : null,
+      eq.fres ? "fres" : null,
+      eq.strokasse ? "strøkasse" : null
+    ].filter(Boolean).join(", ") || "—";
+
+    const html = `<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<title>Service-rapport ${S.dateKey}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:20px;background:#111;color:#f5f5f5}
+  .card{background:#181a1e;border:1px solid #2a2f36;border-radius:12px;padding:16px;margin-bottom:12px}
+  h1,h2,h3{margin:0 0 10px}
+  .grid{display:grid;grid-template-columns:160px 1fr;gap:8px}
+  .yes{color:#22c55e} .no{color:#ef4444}
+</style>
+</head>
+<body>
+  <h1>Service-rapport</h1>
+  <div class="card">
+    <div class="grid">
+      <div><b>Dato</b></div><div>${esc(S.dateKey)}</div>
+      <div><b>Fører</b></div><div>${esc(S.by)}</div>
+      <div><b>Retning</b></div><div>${esc(S.directionSnapshot)}</div>
+      <div><b>Utstyr</b></div><div>${esc(eqList)}</div>
+      <div><b>Sist lagret</b></div><div>${esc(new Date(S.tsSaved||Date.now()).toLocaleString("no-NO"))}</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Smøring</h2>
+    <div>Smurt fres: <span class="${S.smurtFres?'yes':'no'}">${yesno(S.smurtFres)}</span></div>
+    <div>Smurt skjær: <span class="${S.smurtSkjaer?'yes':'no'}">${yesno(S.smurtSkjaer)}</span></div>
+    <div>Smurt forstilling: <span class="${S.smurtForstilling?'yes':'no'}">${yesno(S.smurtForstilling)}</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Olje</h2>
+    <div>Sjekket olje foran: <span class="${S.oljeForan?'yes':'no'}">${yesno(S.oljeForan)}</span></div>
+    <div>Sjekket olje bak: <span class="${S.oljeBak?'yes':'no'}">${yesno(S.oljeBak)}</span></div>
+    <div>Etterfylt olje: <span class="${S.etterfyltOlje?'yes':'no'}">${yesno(S.etterfyltOlje)}</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Drivstoff</h2>
+    <div>Diesel fylt: <span class="${S.dieselFylt?'yes':'no'}">${yesno(S.dieselFylt)}</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Annet</h2>
+    <div>Annet: <span class="${S.annet?'yes':'no'}">${yesno(S.annet)}</span></div>
+    <h3 style="margin-top:12px">Notater</h3>
+    <div>${(esc(S.notes)||"—").replace(/\n/g,"<br>")}</div>
+  </div>
+</body>
+</html>`;
+
+    blobDownload(html, `service-${S.dateKey}.html`, "text/html");
+  }
+
+  // Utils
+  function blobDownload(text, filename, mime) {
+    const blob = new Blob([text], { type: mime });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=> {
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 0);
+  }
+  const yesno = (b) => (b ? "Ja" : "Nei");
+  const num = (b) => (b ? 1 : 0);
+
+  // Kjør ved last
+  document.addEventListener("DOMContentLoaded", renderService);
+  console.log("del-H.js (Service hybrid) lastet");
 })();
