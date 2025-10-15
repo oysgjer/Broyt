@@ -1,10 +1,10 @@
-/* ===== del-E.js (Work UI – “v9.10-knapper”) ===== */
+/* ===== del-E.js (Work UI – avansert med start/slutt + utstyr + sjåfør) ===== */
 (() => {
   if (!window.Core) { console.warn("Del C må lastes før Del E."); return; }
   const Core = window.Core;
   const $ = Core.$;
 
-  // --- små helpers ---
+  // --- helpers ---
   const idxList = () => {
     const S = Core.state;
     const remaining = (S.stops||[]).map((s,i)=>({i,s})).filter(x=>!x.s.f && !x.s.b).map(x=>x.i);
@@ -37,29 +37,23 @@
   };
   const seasonLocked = (s) => s?.pinsLockedYear && String(s.pinsLockedYear)===Core.seasonKey();
 
-  // --- actions ---
+  // --- markeringer ---
   function markOngoing(){
     const c = curStop(); if(!c) return;
     c.started = c.started || Date.now();
+    c.driver = Core.displayName();
     Core.save(); render();
   }
   function markDone(){
     const c = curStop(); if(!c) return;
 
-    // Brøytestikker – lås én gang pr sesong
-    if (/brøytestikker/i.test(c.t) && !seasonLocked(c)){
-      const v = prompt("Antall brøytestikker brukt (låses for sesongen):","");
-      if (v===null) return; // avbrutt
-      const n = parseInt((v||"").trim()||"0",10) || 0;
-      c.pinsCount = n;
-      c.pinsLockedYear = Core.seasonKey();
-    }
-
+    // registrer sluttid
     c.f = true;
     c.finished = Date.now();
-    Core.save();
+    if (!c.started) c.started = c.finished;
+    c.driver = Core.displayName();
 
-    // hopp automatisk til neste
+    Core.save();
     nextOnly();
   }
   function markBlocked(){
@@ -67,6 +61,8 @@
     const note = prompt("Hvorfor ikke mulig?","") || "";
     c.details = note;
     c.b = true;
+    c.driver = Core.displayName();
+    c.finished = Date.now();
     Core.save();
     render();
   }
@@ -78,57 +74,23 @@
       Core.state.ui.cursor = c+1;
       Core.save();
       render();
-    }else{
-      render(); // siste – bare re-render
-    }
-  }
-  function editPins(){
-    const c = curStop(); if(!c) return;
-    if (seasonLocked(c)) { alert("Brøytestikker er allerede registrert for inneværende sesong og er låst."); return; }
-    const curVal = Number.isFinite(c.pinsCount) ? c.pinsCount : 0;
-    const v = prompt("Antall brøytestikker brukt (låses for sesongen):", String(curVal));
-    if (v===null) return;
-    const n = parseInt((v||"").trim()||"0",10)||0;
-    c.pinsCount = n;
-    c.pinsLockedYear = Core.seasonKey();
-    Core.save(); render();
-  }
-  function addPhoto(file){
-    const c = curStop(); if(!c || !file) return;
-    const r = new FileReader();
-    r.onload = () => { (c.p ||= []).push(r.result); Core.save(); render(); };
-    r.readAsDataURL(file);
-  }
-  function incident(){
-    const c = curStop();
-    const msg = prompt("Uhell – kort beskrivelse:","") || "";
-    (Core.state.dayLog.entries ||= []).push({type:"incident", at:Date.now(), stop:c?.n||"?", msg});
-    Core.save(); alert("Uhell logget.");
-  }
-  function navTo(address){
-    if(!address) return;
-    location.href = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(address);
+    } else render();
   }
 
-  // --- DOM wiring once ---
-  function ensureHiddenFile(){
-    if (!$("#workFile")){
-      const inp = document.createElement("input");
-      inp.type = "file";
-      inp.id = "workFile";
-      inp.accept = "image/*";
-      inp.style.display = "none";
-      inp.addEventListener("change", (e)=> addPhoto(e.target.files?.[0]));
-      document.body.appendChild(inp);
-    }
+  // --- vis utstyrstekst ---
+  function equipmentString(){
+    const eq = Core.state.equipment || {};
+    const parts = [];
+    if (eq.plog) parts.push("Plog");
+    if (eq.fres) parts.push("Fres");
+    if (eq.stro) parts.push("Strø");
+    return parts.length ? parts.join(" + ") : "Ingen valgt";
   }
 
   // --- render ---
   function render(){
-    ensureHiddenFile();
     const host = $("workList"); if(!host) return;
 
-    // Tom?
     if (!(Core.state.stops||[]).length){
       host.innerHTML = `<div class="muted">Ingen adresser enda. Hent katalog i Admin-fanen.</div>`;
       return;
@@ -137,19 +99,24 @@
     const c = curStop();
     const n = nxtStop();
     const p = progress();
+    const drv = Core.displayName();
 
-    // top card + buttons
+    // format tid
+    const fmt = (ts) => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit"}) : "—";
+
     host.innerHTML = `
       <div class="card" style="background:#181a1e;border:1px solid #2a2f36;border-radius:16px;padding:14px;margin:10px 0;">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span class="badge" style="border:1px solid #2a2f36;border-radius:999px;padding:2px 8px">Rolle: ${Core.esc(Core.displayName())}</span>
-          <span class="badge" style="border:1px solid #2a2f36;border-radius:999px;padding:2px 8px">Retning: ${Core.state.direction==="reverse"?"Baklengs":"Vanlig"}</span>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <span class="badge">Sjåfør: ${Core.esc(drv)}</span>
+          <span class="badge">Utstyr: ${Core.esc(equipmentString())}</span>
+          <span class="badge">Retning: ${Core.state.direction==="reverse"?"Baklengs":"Vanlig"}</span>
         </div>
 
         <h2 style="margin:10px 0 4px 0">${c?Core.esc(c.n):"—"}</h2>
         <div class="muted">Oppgave: ${c?Core.esc(c.t):"—"}</div>
-        <div class="muted">Brøytestikker: ${c ? (c.pinsLockedYear ? (c.pinsCount ?? 0) : "—") : "—"}</div>
-        <div class="muted">Neste: ${n?Core.esc(n.n):"—"}</div>
+        <div class="muted">Startet: ${fmt(c?.started)} — Ferdig: ${fmt(c?.finished)}</div>
+
+        <div class="muted" style="margin-top:4px">Neste: ${n?Core.esc(n.n):"—"}</div>
 
         <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
           <div class="muted">${p.pct}% fullført (${p.cleared}/${p.total})</div>
@@ -162,53 +129,62 @@
           <button id="btnOn"   class="btn-gray">▶️ Pågår</button>
           <button id="btnOk"   class="btn-green">✅ Ferdig</button>
           <button id="btnBlock"class="btn-red">⛔ Ikke mulig</button>
-          <button id="btnPhoto"class="btn-gray">📷 Foto</button>
-          <button id="btnNav"  class="btn-blue">🧭 Naviger</button>
           <button id="btnNext" class="btn-gray">🔁 Neste</button>
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button id="btnPhoto"class="btn-gray">📷 Foto</button>
           <button id="btnPins" class="btn-gray">📍 Brøytestikker</button>
           <button id="btnInc"  class="btn-red">❗ Uhell</button>
         </div>
 
-        <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
           <button id="btnBase" class="btn-purple">🏠 Kjør til base</button>
           <button id="btnGrus" class="btn-blue">🪨 Fyll grus</button>
           <button id="btnFuel" class="btn-blue">⛽ Fyll drivstoff</button>
-          <button id="btnCheap" class="btn-gray">💸 Finn billigste (søk)</button>
         </div>
 
         <div id="thumbs" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
     `;
 
-    // thumbs
+    // wire opp knapper
+    $("#btnOn").onclick = markOngoing;
+    $("#btnOk").onclick = markDone;
+    $("#btnBlock").onclick = markBlocked;
+    $("#btnNext").onclick = nextOnly;
+
+    $("#btnPhoto").onclick = ()=>$("#workFile")?.click();
+    $("#btnPins").onclick  = ()=>alert("Brøytestikker funksjon – under arbeid");
+    $("#btnInc").onclick   = ()=>alert("Uhell logges senere");
+    $("#btnBase").onclick  = ()=>location.href="https://www.google.com/maps/search/?api=1&query=Hagavegen 8, 2072 Dal";
+    $("#btnGrus").onclick  = ()=>location.href="https://www.google.com/maps/search/?api=1&query=Dal pukkverk";
+    $("#btnFuel").onclick  = ()=>location.href="https://www.google.com/maps/search/?api=1&query=avgiftsfri diesel Dal";
+
+    // thumbnails
     const thumbs = $("#thumbs");
     if (thumbs && c?.p?.length){
       thumbs.innerHTML = c.p.map(src=>`<img src="${src}" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #2a2f36">`).join("");
     }
-
-    // wire buttons
-    $("#btnOn").onclick    = markOngoing;
-    $("#btnOk").onclick    = markDone;
-    $("#btnBlock").onclick = markBlocked;
-    $("#btnNext").onclick  = nextOnly;
-    $("#btnPhoto").onclick = ()=> $("#workFile")?.click();
-    $("#btnNav").onclick   = ()=> c && navTo(c.n);
-    $("#btnPins").onclick  = editPins;
-    $("#btnInc").onclick   = incident;
-
-    $("#btnBase").onclick  = ()=> navTo("Hagavegen 8, 2072 Dal");
-    $("#btnGrus").onclick  = ()=> navTo("Dal pukkverk");
-    $("#btnFuel").onclick  = ()=>{
-      const choice = prompt("Velg stasjon: 1) Driv Dal  2) Esso Energi Dal  3) Avbryt","1");
-      if (choice==="1") location.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("Driv Dal avgiftsfri diesel");
-      else if (choice==="2") location.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("Esso Energi Dal avgiftsfri diesel");
-    };
-    $("#btnCheap").onclick = ()=> location.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("avgiftsfri diesel Dal");
   }
 
-  // eksporter en ren render-funksjon så andre kan trigge (Start ny runde etc.)
-  window.WorkUI = { render };
+  // fileinput
+  function ensureHiddenFile(){
+    if (!$("#workFile")){
+      const inp = document.createElement("input");
+      inp.type="file"; inp.id="workFile"; inp.accept="image/*"; inp.style.display="none";
+      inp.addEventListener("change",e=>addPhoto(e.target.files?.[0]));
+      document.body.appendChild(inp);
+    }
+  }
+  function addPhoto(file){
+    const c = curStop(); if(!c||!file)return;
+    const r = new FileReader();
+    r.onload = ()=>{(c.p ||= []).push(r.result);Core.save();render();};
+    r.readAsDataURL(file);
+  }
 
-  document.addEventListener("DOMContentLoaded", render);
-  console.log("del-E.js lastet");
+  document.addEventListener("DOMContentLoaded", ()=>{ensureHiddenFile();render();});
+  window.WorkUI = { render };
+  console.log("del-E.js (v9.11-advanced) lastet");
 })();
