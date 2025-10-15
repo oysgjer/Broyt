@@ -1,4 +1,3 @@
-<script>
 // ===== del-F.js (Adresse-register) =====
 (() => {
   if (!window.Core) { console.warn("Del C må lastes før Del F."); return; }
@@ -120,4 +119,3 @@
 
   Register.init();
 })();
-</script>
