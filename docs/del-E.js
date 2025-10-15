@@ -36,6 +36,7 @@
     s.f = true; s.b = false; s.finished = Date.now();
     if (!s.started) s.started = s.finished;
     Core.save(); render();
+    Core.goServiceAfterDone && Core.goServiceAfterDone();
   }
   function markBlocked(idx){
     const s = Core.state.stops[idx]; if (!s) return;
