@@ -1,115 +1,56 @@
-/* ===== del-G.js (Service / ferdig-eksport) ===== */
+<script>
+// ===== del-G.js (Admin – katalog-editor) =====
 (() => {
   if (!window.Core) { console.warn("Del C må lastes før Del G."); return; }
-  const Core = window.Core;
-  const $ = Core.$;
+  const C = Core;
 
-  // Bygg hele service-UI i #servicePane
-  function renderService() {
-    const host = $("servicePane");
-    if (!host) return;
+  const Admin = (window.Admin = {
+    state:{ addresses:[], updated:0 },
 
-    const S = Core.state.service || {};
-    host.innerHTML = `
-      <div class="card" style="background:#181a1e;border:1px solid #2a2f36;border-radius:16px;padding:16px;margin:10px 0;">
-        <h2 style="margin:0 0 6px 0">Service</h2>
-        <div class="muted" style="margin-bottom:10px">Huk av det som ble gjort etter runden.</div>
+    init(){ document.addEventListener('DOMContentLoaded', Admin.render); },
 
-        <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_fres" ${S.fres?"checked":""}/> Smurt fres
-        </label>
-        <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_plog" ${S.plog?"checked":""}/> Smurt plog
-        </label>
-        <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_steering" ${S.steering?"checked":""}/> Smurt forstilling
-        </label>
-
-        <hr style="margin:10px 0;border-color:#333">
-
-        <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_oilFront" ${S.oilFront?"checked":""}/> Sjekket olje foran
-        </label>
-        <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_oilBack" ${S.oilBack?"checked":""}/> Sjekket olje bak
-        </label>
-        <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_oilFill" ${S.oilFill?"checked":""}/> Etterfylt olje
-        </label>
-        <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_diesel" ${S.diesel?"checked":""}/> Diesel fylt
-        </label>
-
-        <hr style="margin:10px 0;border-color:#333">
-
-        <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_other" ${S.other?"checked":""}/> Annet utført
-        </label>
-
-        <textarea id="svc_notes" placeholder="Notater …"
-          style="width:100%;height:90px;margin-top:8px;background:transparent;color:#fff;border:1px solid #2a2f36;border-radius:10px;padding:8px;">${S.notes||""}</textarea>
-
-        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-          <button id="btnSaveService"
-            style="background:#22c55e;color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700">💾 Lagre service</button>
-          <button id="btnExportRound"
-            style="background:#2563eb;color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700">📦 Fullfør runde (JSON)</button>
+    ui(){
+      return `
+        <h2>Admin</h2>
+        <div class="small" id="admSync" style="color:#9aa4af;margin-bottom:10px">Sist synk: —</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <button id="admLoad" class="btn btn-gray">⟳ Last katalog</button>
+          <button id="admAdd" class="btn btn-blue">➕ Legg til</button>
+          <button id="admSave" class="btn btn-green">💾 Lagre (med backup)</button>
+          <button id="admPublish" class="btn btn-blue">🚀 Publiser til MASTER</button>
+          <button id="admExport" class="btn btn-gray">⬇︎ Eksporter CSV</button>
+          <button id="admRestore" class="btn btn-red">⏪ Gjenopprett fra backup</button>
         </div>
-      </div>
-    `;
+        <div class="small" id="admMsg" style="color:#9aa4af;margin-bottom:8px">—</div>
+        <div id="admList"></div>
+      `;
+    },
 
-    $("btnSaveService").onclick = saveService;
-    $("btnExportRound").onclick = exportRound;
-  }
+    render(){
+      const host = document.getElementById('admin');
+      if (!host) return;
+      host.innerHTML = Admin.ui();
+      Admin.paint();
 
-  // Lagre feltene til state
-  function saveService() {
-    Core.state.service = {
-      fres:       $("#svc_fres").checked,
-      plog:       $("#svc_plog").checked,
-      steering:   $("#svc_steering").checked,
-      oilFront:   $("#svc_oilFront").checked,
-      oilBack:    $("#svc_oilBack").checked,
-      oilFill:    $("#svc_oilFill").checked,
-      diesel:     $("#svc_diesel").checked,
-      other:      $("#svc_other").checked,
-      notes:      $("#svc_notes").value.trim()
-    };
-    Core.save();
-    alert("Service lagret ✅");
-  }
+      // handlers
+      host.querySelector('#admLoad').onclick    = Admin.load;
+      host.querySelector('#admAdd').onclick     = ()=>{ Admin.state.addresses.push({name:'',task:C.cfg.DEFAULT_TASKS[0],active:true,twoDriverRec:false,pinsCount:0}); Admin.paint(); };
+      host.querySelector('#admSave').onclick    = Admin.saveWithBackup;
+      host.querySelector('#admPublish').onclick = Admin.publishToMaster;
+      host.querySelector('#admExport').onclick  = Admin.exportCsv;
+      host.querySelector('#admRestore').onclick = Admin.restore;
+    },
 
-  // Eksporter runden (foreløpig som JSON-fil)
-  function exportRound() {
-    saveService();
-    const data = {
-      version: Core.cfg.VERSION,
-      season: Core.seasonKey(),
-      finishedAt: new Date().toISOString(),
-      driver: Core.displayName(),
-      service: Core.state.service,
-      stops: Core.state.stops,
-      lastSyncAt: Core.state.lastSyncAt,
-      lastSyncBy: Core.state.lastSyncBy
-    };
-    const blob = new Blob([JSON.stringify(data,null,2)], { type:"application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `broeyting_runde_${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    alert("Runde eksportert (JSON). ZIP/e-post kan vi legge på i neste steg.");
-  }
+    paint(){
+      const host = document.getElementById('admList'); if (!host) return;
+      const A = Admin.state.addresses||[];
+      document.getElementById('admMsg').textContent = `Rader: ${A.length}`;
 
-  // Når alt er ferdig, gå til Service
-  Core.goServiceAfterDone = () => {
-    const remaining = (Core.state.stops||[]).filter(s=>!s.f && !s.b).length;
-    if (remaining === 0 && typeof window.show === "function") {
-      window.show("service");
-      renderService();
-    }
-  };
+      if (!A.length){
+        host.innerHTML = `<div class="small" style="color:#9aa4af">– tom katalog –</div>`;
+        return;
+      }
 
-  document.addEventListener("DOMContentLoaded", renderService);
-  console.log("del-G.js (service) lastet");
-})();
+      const opt = C.cfg.DEFAULT_TASKS.map(t=>`<option value="${C.esc(t)}">${C.esc(t)}</option>`).join('');
+
+      host.innerHTML = A.map((row,i
