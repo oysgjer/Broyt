@@ -1,270 +1,186 @@
-/* ===== del-E.js (Hjem / Oppsett & status) – v9.12h ===== */
+/* ===== del-E.js — Admin (status + brøytestikker override) v9.12h ===== */
 (() => {
-  if (!window.Core) {
-    console.error("Del C må lastes før del E.");
-    return;
-  }
+  if (!window.Core) return console.error("Del-C.js må lastes før del-E.js.");
   const Core = window.Core;
 
-  // ---- små hjelpere ----
-  const $   = (sel, root = document) => root.querySelector(sel);
-  const el  = (tag, cls, txt) => {
-    const n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (txt != null) n.textContent = txt;
-    return n;
-  };
+  const $  = (sel, root=document) => root.querySelector(sel);
+  const CE = (tag, props={}) => Object.assign(document.createElement(tag), props);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, s => (
+    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[s]
+  ));
 
-  // ---- påfør tema til dokumentet ----
-  function applyTheme(theme) {
-    const t = theme || "auto";
-    document.documentElement.setAttribute("data-theme", t);
-  }
+  function adminHost() { return $("#admin"); }
 
-  // ---- nullstill runde (beholder katalog og oppsett) ----
-  function resetRound(keepTimes = false) {
-    const S = Core.state;
-    if (!Array.isArray(S.stops)) S.stops = [];
+  /* ---------- FELLES STATUS (poll JSONBin) ---------- */
+  function renderStatusCard(host) {
+    const card = CE("div", { className:"card", style:"padding:12px;margin-bottom:12px" });
+    const title = CE("div", { innerHTML:"<h3 style='margin:0 0 8px'>Status (sjåfører)</h3>" });
+    const list  = CE("div");
 
-    for (const r of S.stops) {
-      // status-felt vi kjenner til i 9.12h
-      r.f = false;       // ferdig
-      r.b = false;       // ikke mulig/ blokkert
-      r.g = false;       // grus/strø utført (hybrid-felt)
-      r.s = false;       // snø/ brøyting utført (hybrid-felt)
-      if (!keepTimes) {
-        delete r.st;     // starttid
-        delete r.et;     // sluttid
+    card.append(title, list);
+    host.appendChild(card);
+
+    // Start heartbeat (oppdater egen status hvert 30s) + polling (hent alle hver 20s)
+    try { Core.status.startHeartbeat(); } catch(_){}
+
+    function renderList(arr){
+      if (!Array.isArray(arr) || arr.length===0) {
+        list.innerHTML = `<div class="small muted">Ingen aktive hjerteslag enda.</div>`;
+        return;
       }
-    }
-    S.ui.cursor = 0;
-    Core.save();
+      list.innerHTML = arr.map(d=>{
+        const agoMs = Date.now() - (d.ts||0);
+        const agoMin = Math.max(0, Math.round(agoMs/60000));
+        const dir = (d.direction==="reverse") ? "Motsatt" : "Normal";
+        const eq = d.equipment||{};
+        const eqList = [
+          eq.skjaer ? "skjær" : null,
+          eq.fres ? "fres" : null,
+          eq.strokasse ? "strøkasse" : null
+        ].filter(Boolean).join(", ") || "—";
+        const pct = Math.max(0, Math.min(100, d.progress||0));
 
-    // “start ny runde” = sender null-progresjon til heartbeat
-    if (Core.status && Core.status.updateSelf) {
-      Core.status.updateSelf({ progress: 0, current: "" });
-      Core.status.startHeartbeat?.();
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2f36">
+            <div style="flex:1">
+              <b>${esc(d.name||"Sjåfør")}</b>
+              <div class="small muted">Retning: ${esc(dir)} • Utstyr: ${esc(eqList)} • Sist sett: ${agoMin} min</div>
+              <div class="progress" style="margin-top:6px"><div class="bar" style="width:${pct}%"></div></div>
+            </div>
+            <div class="badge">${pct}%</div>
+          </div>`;
+      }).join("");
+    }
+
+    try {
+      Core.status.startPolling(renderList);
+    } catch(_){
+      list.innerHTML = `<div class="small muted">Kunne ikke starte status-polling.</div>`;
     }
   }
 
-  // ---- lag UI til Hjem-seksjonen ----
-  function renderHome() {
-    const host = document.getElementById("home");
-    if (!host) return;
+  /* ---------- BRØYTESTIKKER OVERRIDE ---------- */
+  function renderPinsCard(host) {
+    const card = CE("div", { className:"card", style:"padding:12px" });
+    const head = CE("div", { innerHTML:"<h3 style='margin:0 0 8px'>Overstyr brøytestikker</h3><div class='small muted'>Sett/rydde antall for inneværende sesong per adresse.</div>" });
 
-    // tøm seksjonen (men la tittel beholdes hvis du bruker overskrift i HTML)
+    const toolbar = CE("div", { style:"display:flex;gap:8px;flex-wrap:wrap;margin:10px 0" });
+    const inpFind = CE("input", { placeholder:"Søk adresse…", style:"flex:1;min-width:200px" });
+    const btnPublish = CE("button", { className:"btn btn-blue", textContent:"🚀 Publiser til felles (JSONBin)" });
+    toolbar.append(inpFind, btnPublish);
+
+    const list = CE("div");
+
+    card.append(head, toolbar, list);
+    host.appendChild(card);
+
+    function seasonKey(){ return Core.seasonKey(); }
+
+    function rows(filter="") {
+      const q = (filter||"").toLowerCase().trim();
+      const stops = (Core.state?.stops||[]).slice();
+      return stops
+        .map((s, i)=>({s, i}))
+        .filter(x => !q || (x.s.n||"").toLowerCase().includes(q));
+    }
+
+    function render(filter="") {
+      const items = rows(filter);
+      if (items.length===0) {
+        list.innerHTML = `<div class="small muted">Ingen adresser.</div>`;
+        return;
+      }
+      list.innerHTML = items.map(({s, i})=>{
+        const locked = s.pinsLockedYear && String(s.pinsLockedYear)===seasonKey();
+        const badge  = locked ? `<span class="badge">📍 ${s.pinsCount ?? 0} (${esc(s.pinsLockedYear)})</span>` : `<span class="badge">—</span>`;
+        const status = (s.f ? "✅" : (s.b ? "⛔" : ""));
+        return `
+          <div style="padding:8px 0;border-bottom:1px solid #2a2f36;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <b>${esc(s.n)}</b> ${badge} <span class="small muted">${esc(s.t||"")}</span> ${status}
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-gray" data-edit="${i}">Overstyr…</button>
+              <button class="btn btn-red" data-clear="${i}">Rydd lås</button>
+            </div>
+          </div>`;
+      }).join("");
+
+      // Wire knapper
+      list.querySelectorAll("button[data-edit]").forEach(btn=>{
+        btn.onclick = ()=>{
+          const i = +btn.dataset.edit;
+          const s = Core.state.stops[i];
+          const cur = Number.isFinite(s.pinsCount) ? s.pinsCount : 0;
+          const v = prompt(`Antall brøytestikker brukt (låses ${seasonKey()}):`, String(cur));
+          if (v === null) return;
+          const n = parseInt((v||"").trim() || "0", 10);
+          if (!Number.isFinite(n) || n < 0) return alert("Ugyldig tall.");
+          s.pinsCount = n;
+          s.pinsLockedYear = seasonKey();
+          Core.save();
+          render(inpFind.value);
+        };
+      });
+      list.querySelectorAll("button[data-clear]").forEach(btn=>{
+        btn.onclick = ()=>{
+          const i = +btn.dataset.clear;
+          const s = Core.state.stops[i];
+          if (!confirm(`Fjerne sesong-lås for «${s.n}»?`)) return;
+          s.pinsCount = 0;
+          s.pinsLockedYear = null;
+          Core.save();
+          render(inpFind.value);
+        };
+      });
+    }
+
+    inpFind.addEventListener("input", ()=> render(inpFind.value));
+    render("");
+
+    // Publiser til felles (MASTER) — valgfritt (krever API-key)
+    btnPublish.onclick = async ()=>{
+      try{
+        const stops = (Core.state?.stops||[]).map(s=>({
+          n:s.n, t:s.t, f:!!s.f, b:!!s.b, p:Array.isArray(s.p)?s.p:[],
+          twoDriverRec: !!s.twoDriverRec,
+          pinsCount: Number.isFinite(s.pinsCount) ? s.pinsCount : 0,
+          pinsLockedYear: s.pinsLockedYear || null,
+          started: s.started||null, finished: s.finished||null, details: s.details||""
+        }));
+        const payload = {
+          version: Core.cfg.VERSION,
+          updated: Date.now(),
+          lastSyncAt: Date.now(),
+          lastSyncBy: Core.displayName(),
+          stops,
+          meta:{ from:"admin-override" }
+        };
+        const r = await fetch(`https://api.jsonbin.io/v3/b/${Core.cfg.BINS.MASTER}`, {
+          method:"PUT",
+          headers: Core.headers(),
+          body: JSON.stringify(payload)
+        });
+        if (!r.ok) throw 0;
+        alert("Publisert til felles (MASTER) ✔︎");
+      }catch(_){
+        alert("Kunne ikke publisere (sjekk nett/JSONBin-nøkkel).");
+      }
+    };
+  }
+
+  /* ---------- HOVED RENDER ---------- */
+  function renderAdmin() {
+    const host = adminHost();
+    if (!host) return;
     host.innerHTML = "";
 
-    const wrap = el("div", "home-wrap");
-    host.appendChild(wrap);
+    host.appendChild(CE("h2", { textContent:"Admin" }));
 
-    // overskrift
-    wrap.appendChild(el("h2", "", "Hjem"));
-
-    // versjonstekst
-    const ver = el("div", "muted", `Versjon v${Core.cfg.VERSION} – Romerike Trefelling`);
-    ver.style.marginBottom = "10px";
-    wrap.appendChild(ver);
-
-    // --- innstillinger card ---
-    const card = el("div", "card");
-    wrap.appendChild(card);
-
-    // Navn
-    const rowName = el("div", "row");
-    const lblName = el("label", "", "Navn");
-    lblName.style.minWidth = "80px";
-    const inpName = el("input");
-    inpName.type = "text";
-    inpName.placeholder = "Sjåførnavn";
-    inpName.value = Core.state.customName || "";
-    inpName.id = "homeName";
-    inpName.addEventListener("input", () => {
-      Core.state.customName = inpName.value.trim();
-      Core.save();
-      Core.status?.updateSelf?.({});
-      updateSummary();
-    });
-    rowName.append(lblName, inpName);
-    card.appendChild(rowName);
-
-    // Retning
-    const rowDir = el("div", "row");
-    const lblDir = el("label", "", "Retning");
-    lblDir.style.minWidth = "80px";
-    const selDir = el("select");
-    ["forward:Vanlig", "reverse:Motsatt"].forEach(opt => {
-      const [val, txt] = opt.split(":");
-      const o = el("option");
-      o.value = val;
-      o.textContent = txt;
-      selDir.appendChild(o);
-    });
-    selDir.value = Core.state.direction || "forward";
-    selDir.id = "homeDirection";
-    selDir.addEventListener("change", () => {
-      Core.state.direction = selDir.value;
-      Core.save();
-      Core.status?.updateSelf?.({});
-      updateSummary();
-    });
-    rowDir.append(lblDir, selDir);
-    card.appendChild(rowDir);
-
-    // Utstyr
-    const rowEq = el("div", "row");
-    const lblEq = el("label", "", "Utstyr");
-    lblEq.style.minWidth = "80px";
-
-    const eqWrap = el("div", "equip");
-    const mkChk = (key, t) => {
-      const box = el("label", "chk");
-      const i = el("input");
-      i.type = "checkbox";
-      i.checked = !!Core.state.equipment?.[key];
-      i.addEventListener("change", () => {
-        Core.state.equipment = Core.state.equipment || {};
-        Core.state.equipment[key] = i.checked;
-        Core.save();
-        Core.status?.updateSelf?.({});
-        updateSummary();
-      });
-      box.append(i, el("span", "", t));
-      return box;
-    };
-    eqWrap.append(
-      mkChk("plog", "Skjær"),
-      mkChk("fres", "Fres"),
-      mkChk("stro", "Strøkasse")
-    );
-    rowEq.append(lblEq, eqWrap);
-    card.appendChild(rowEq);
-
-    // Hanskemodus
-    const rowGlove = el("div", "row");
-    const lblGlove = el("label", "", "Hanske");
-    lblGlove.style.minWidth = "80px";
-    const chkGlove = el("input");
-    chkGlove.type = "checkbox";
-    chkGlove.checked = !!Core.state.hanske;
-    chkGlove.addEventListener("change", () => {
-      Core.state.hanske = chkGlove.checked;
-      document.documentElement.toggleAttribute("data-glove", chkGlove.checked);
-      Core.save();
-      updateSummary();
-    });
-    rowGlove.append(lblGlove, chkGlove);
-    card.appendChild(rowGlove);
-
-    // Tema
-    const rowTheme = el("div", "row");
-    const lblTheme = el("label", "", "Tema");
-    lblTheme.style.minWidth = "80px";
-    const selTheme = el("select");
-    [["auto","Auto"],["dark","Mørk"],["light","Lys"]].forEach(([v,t])=>{
-      const o = el("option"); o.value=v; o.textContent=t; selTheme.appendChild(o);
-    });
-    selTheme.value = Core.state.theme || "auto";
-    selTheme.addEventListener("change", ()=>{
-      Core.state.theme = selTheme.value;
-      Core.save();
-      applyTheme(Core.state.theme);
-    });
-    rowTheme.append(lblTheme, selTheme);
-    card.appendChild(rowTheme);
-
-    // Knapper
-    const rowBtn = el("div", "row");
-    rowBtn.style.gap = "8px";
-
-    const btnStart = el("button", "btn btn-green", "Start runde →");
-    btnStart.addEventListener("click", () => {
-      resetRound(false);
-      Core.touchActivity();
-      alert("Ny runde startet.\nAlle adresser er satt til ubehandlet.");
-    });
-
-    const btnReset = el("button", "btn btn-red", "Nullstill runde");
-    btnReset.addEventListener("click", () => {
-      if (!confirm("Nullstille runde lokalt?\n(Dette sletter ikke katalogen)")) return;
-      resetRound(false);
-      Core.touchActivity();
-    });
-
-    const btnSync = el("button", "btn btn-blue", "Synk/status nå");
-    btnSync.addEventListener("click", async () => {
-      btnSync.disabled = true;
-      try {
-        await Core.status?.updateSelf?.({});
-        Core.status?.startHeartbeat?.();
-      } finally {
-        setTimeout(()=> btnSync.disabled=false, 600);
-      }
-    });
-
-    rowBtn.append(btnStart, btnReset, btnSync);
-    card.appendChild(rowBtn);
-
-    // Oppsummering
-    const summary = el("div", "muted");
-    summary.style.marginTop = "10px";
-    summary.id = "homeSummary";
-    card.appendChild(summary);
-
-    function updateSummary() {
-      const s = Core.state;
-      const nm = (s.customName || "—").trim() || "—";
-      const dir = (s.direction === "reverse") ? "Motsatt" : "Vanlig";
-      const ut = [
-        s.equipment?.plog ? "Skjær" : null,
-        s.equipment?.fres ? "Fres" : null,
-        s.equipment?.stro ? "Strøkasse" : null
-      ].filter(Boolean).join(", ") || "—";
-      const hanske = s.hanske ? "På" : "Av";
-      summary.textContent =
-        `Valgt oppsett → Sjåfør: ${nm} · Utstyr: ${ut} · Retning: ${dir} · Hanskemodus: ${hanske}`;
-    }
-    updateSummary();
+    renderStatusCard(host);
+    renderPinsCard(host);
   }
 
-  // ---- init ved DOMContentLoaded ----
-  document.addEventListener("DOMContentLoaded", () => {
-    // sørg for state
-    Core.state = Core.load() || Core.makeDefaultState();
-
-    // start heartbeat (hybrid)
-    Core.status?.startHeartbeat?.();
-
-    // påfør tema og hanskemodus-attributt
-    applyTheme(Core.state.theme);
-    if (Core.state.hanske) {
-      document.documentElement.setAttribute("data-glove", "true");
-    } else {
-      document.documentElement.removeAttribute("data-glove");
-    }
-
-    // tegn UI
-    renderHome();
-
-    console.log("del-E.js (v9.12h – Hjem) lastet");
-  });
-
-  /* --- enkel stil for hjem-rader (brukes oppå din CSS) --- */
-  const css = `
-  #home .card{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:14px;margin-top:8px}
-  #home .row{display:flex;align-items:center;gap:12px;margin:8px 0;flex-wrap:wrap}
-  #home label{opacity:.9}
-  #home input[type="text"]{flex:1;min-width:220px;background:#111;color:#fff;border:1px solid #444;border-radius:6px;padding:8px}
-  #home select{background:#111;color:#fff;border:1px solid #444;border-radius:6px;padding:8px}
-  #home .equip{display:flex;gap:14px;flex-wrap:wrap}
-  #home .equip .chk{display:flex;align-items:center;gap:6px}
-  #home .btn{border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
-  #home .btn-green{background:#198754;color:#fff}
-  #home .btn-blue{background:#0d6efd;color:#fff}
-  #home .btn-red{background:#dc3545;color:#fff}
-  [data-glove="true"] #home .btn{padding:14px 18px;font-size:18px}
-  `;
-  const style = document.createElement("style");
-  style.textContent = css;
-  document.head.appendChild(style);
+  document.addEventListener("DOMContentLoaded", renderAdmin);
+  console.log("del-E.js (Admin) lastet");
 })();
