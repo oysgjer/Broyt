@@ -1,121 +1,112 @@
-// ===== del-F.js (Adresse-register) =====
 (() => {
   if (!window.Core) { console.warn("Del C må lastes før Del F."); return; }
   const C = Core;
 
-  const Register = (window.Register = {
-    init(){ document.addEventListener('DOMContentLoaded', Register.render); },
-    render(){
-      const host = document.getElementById('addresses');
+  const Service = (window.Service = {
+    init() { document.addEventListener("DOMContentLoaded", Service.render); },
+
+    render() {
+      const host = document.getElementById("service");
       if (!host) return;
 
       host.innerHTML = `
-        <h2>Adresse-register</h2>
-        <div class="small" id="regInfo" style="color:#9aa4af;margin-bottom:12px"></div>
+        <h2>Service</h2>
+        <p>Huk av det som ble gjort etter runden.</p>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <button id="regFetch" class="btn btn-blue">↘︎ Hent fra katalog</button>
-          <button id="regClearFlags" class="btn btn-gray">Nullstill lokal status</button>
+        <ul id="srvList" style="list-style:none;padding:0;margin:0 0 1rem 0;"></ul>
+        <textarea id="srvNotes" placeholder="Notater …" style="width:100%;min-height:60px;margin-bottom:1rem;border-radius:8px;padding:6px;background:#1a1a1a;color:#fff;border:1px solid #333;"></textarea>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="srvSave" class="btn btn-green">💾 Lagre service</button>
+          <button id="srvFinish" class="btn btn-blue">🧾 Fullfør runde (JSON)</button>
         </div>
-
-        <div class="card" style="background:#171a1f;border:1px solid #2b3037;border-radius:12px;padding:12px;margin-bottom:14px">
-          <h3 style="margin:0 0 8px 0">Legg til ny adresse (lokalt)</h3>
-          <div style="display:flex; gap:8px; flex-wrap:wrap">
-            <input id="regName" placeholder="Navn / adresse" style="flex:2;min-width:240px">
-            <select id="regTask" style="flex:1;min-width:220px"></select>
-            <label style="display:flex;align-items:center;gap:6px">
-              <input id="regTwo" type="checkbox"> 2 sjåfører
-            </label>
-            <button id="regAdd" class="btn btn-green">+ Legg til</button>
-          </div>
-        </div>
-
-        <div id="regList"></div>
       `;
 
-      // Fyll task-valg
-      const sel = host.querySelector('#regTask');
-      sel.innerHTML = C.cfg.DEFAULT_TASKS.map(t=>`<option>${C.esc(t)}</option>`).join('');
+      Service.paint();
+      document.getElementById("srvSave").onclick = Service.save;
+      document.getElementById("srvFinish").onclick = Service.finishRound;
+    },
 
-      // Info
-      const total = (C.state?.stops||[]).length;
-      host.querySelector('#regInfo').textContent = total ? `Adresser i runde: ${total}` : 'Ingen adresser enda. Hent katalog eller legg til lokalt.';
+    items: [
+      "Smurt fres",
+      "Smurt plog",
+      "Smurt forstilling",
+      "",
+      "Sjekket olje foran",
+      "Sjekket olje bak",
+      "Etterfylt olje",
+      "Diesel fylt",
+      "",
+      "Annet"
+    ],
 
-      // Liste
-      const list = host.querySelector('#regList');
-      const rows = (C.state?.stops||[]).map(s=>{
-        const pinsBadge = s.pinsLockedYear ? `<span class="badge" style="margin-left:6px">📍${s.pinsCount??0}</span>` : '';
-        const two = s.twoDriverRec ? `<span class="badge" style="margin-left:6px">👥 2</span>` : '';
-        const status = s.f ? '✅' : (s.b ? '⛔' : '');
-        return `
-          <div class="item" style="padding:10px;border:1px solid #2b3037;border-radius:10px;margin-bottom:8px;background:#111318">
-            <div style="font-weight:700">${C.esc(s.n)} ${two} ${pinsBadge}</div>
-            <div class="small" style="color:#9aa4af">${C.esc(s.t)} ${status}</div>
-          </div>`;
-      }).join('') || `<div class="small" style="color:#9aa4af">– tomt –</div>`;
-      list.innerHTML = rows;
+    paint() {
+      const host = document.getElementById("srvList");
+      if (!host) return;
+      const s = C.state.service || {};
 
-      // Handlere
-      host.querySelector('#regFetch').onclick = async ()=>{
-        try{
-          console.log('Laster inn katalog fra JSONBin …');
-          const rec = await C.fetchCatalog();
-          const src = Array.isArray(rec.addresses) ? rec.addresses : [];
-          if (!src.length){ console.warn('Ingen adresser funnet i katalog'); return; }
+      host.innerHTML = Service.items
+        .map(txt => {
+          if (txt === "") return `<li><hr style="border:none;border-top:1px solid #333;margin:6px 0"></li>`;
+          const id = txt.toLowerCase().replace(/\s+/g, "_");
+          return `
+            <li style="margin:4px 0">
+              <label><input type="checkbox" data-k="${id}" ${s[id] ? "checked" : ""}> ${C.esc(txt)}</label>
+            </li>`;
+        })
+        .join("");
 
-          // Importer (merge basert på navn)
-          const key = s => (s?.name||s?.n||'').trim().toLowerCase();
-          const have = new Set((C.state.stops||[]).map(s=>key(s)));
-          let added = 0;
-          src.forEach(a=>{
-            if (a?.active === false) return;
-            const k = key(a);
-            if (have.has(k)) return;
-            (C.state.stops ||= []).push({
-              n: a.name || '',
-              t: C.normalizeTask(a.task || C.cfg.DEFAULT_TASKS[0]),
-              f:false,b:false,p:[],
-              twoDriverRec: !!a.twoDriverRec,
-              pinsCount: Number.isFinite(a.pinsCount)?a.pinsCount:0,
-              pinsLockedYear: (Number.isFinite(a.pinsCount) && a.pinsCount>0) ? C.seasonKey() : null
-            });
-            added++;
-          });
+      host.querySelectorAll("input[type=checkbox]").forEach(ch => {
+        ch.onchange = () => {
+          const k = ch.dataset.k;
+          C.state.service[k] = ch.checked;
           C.save();
-          Register.render();
-          console.log(`Importerte fra KATALOG: ${added}`);
-        }catch(e){ console.error(e); }
-      };
+        };
+      });
 
-      host.querySelector('#regClearFlags').onclick = ()=>{
-        (C.state.stops||[]).forEach(s=>{ s.f=false; s.b=false; s.started=null; s.finished=null; });
-        C.save(); Register.render();
+      const notes = document.getElementById("srvNotes");
+      notes.value = s.notes || "";
+      notes.oninput = () => {
+        C.state.service.notes = notes.value;
+        C.save();
       };
+    },
 
-      host.querySelector('#regAdd').onclick = ()=>{
-        const name = host.querySelector('#regName').value.trim();
-        if (!name) return;
-        const task = C.normalizeTask(host.querySelector('#regTask').value);
-        const two = !!host.querySelector('#regTwo').checked;
-        (C.state.stops ||= []).push({ n:name, t:task, f:false, b:false, p:[], started:null, finished:null, twoDriverRec:two, pinsCount:0, pinsLockedYear:null });
-        host.querySelector('#regName').value='';
-        host.querySelector('#regTwo').checked=false;
-        C.save(); Register.render();
+    save() {
+      C.state.lastSyncAt = Date.now();
+      C.save();
+      alert("Service lagret!");
+    },
+
+    finishRound() {
+      const data = {
+        driver: C.displayName(),
+        equipment: C.state.equipment,
+        service: C.state.service,
+        finishedAt: new Date().toISOString(),
+        round: C.state.dayLog?.dateKey || C.dateKey()
       };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `service_runde_${C.dateKey()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
   });
 
-  // En liten stilpakke (for knapper/badges hvis ikke allerede i CSS)
-  const style = document.createElement('style');
+  const style = document.createElement("style");
   style.textContent = `
-    .btn{border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}
-    .btn-green{background:#0f9d58;color:#fff}
-    .btn-blue{background:#0b66ff;color:#fff}
-    .btn-gray{background:#2f3337;color:#fff}
-    .badge{display:inline-block;border:1px solid #2b3037;border-radius:999px;padding:2px 8px;font-size:12px;color:#cbd5e1}
-    .small{font-size:12px}
+    #srvList label { color:#fff; cursor:pointer; }
+    #srvList input { margin-right:6px; }
+    .btn { border:none; border-radius:10px; padding:8px 12px; font-weight:700; cursor:pointer; }
+    .btn-green { background:#0f9d58; color:#fff; }
+    .btn-blue { background:#0b66ff; color:#fff; }
   `;
   document.head.appendChild(style);
 
-  Register.init();
+  Service.init();
 })();
