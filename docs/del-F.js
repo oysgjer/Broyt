@@ -1,88 +1,88 @@
-/* ===== del-F.js — Adresse-register (liste/visning) ===== */
+/* ===== del-F.js (Hjem + “Start ny runde”) ===== */
 (() => {
+  if (!window.Core) { console.warn("Del C må lastes før Del F."); return; }
   const Core = window.Core;
-  if (!Core) {
-    console.error('Del C må lastes før Del F.');
-    return;
-  }
+  const $ = Core.$;
 
-  const H     = Core.helpers || {};
-  const state = Core.state;
-  const $id   = (id) => document.getElementById(id);
+  // --- nullstill ALLE stopp (standard) ---
+  function resetRoundAll() {
+    const S = Core.state;
+    if (!Array.isArray(S.stops) || !S.stops.length) return 0;
 
-  // Små hjelpere (uavhengige av resten)
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
-    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])
-  );
-  const seasonKey = Core.seasonKey || (() => {
-    const d=new Date(), y=d.getFullYear(), m=d.getMonth()+1;
-    return m>=7 ? `${y}/${String(y+1).slice(-2)}` : `${y-1}/${String(y).slice(-2)}`;
-  });
-  const hasPinsThisSeason = (s) => s?.pinsLockedYear && String(s.pinsLockedYear) === seasonKey();
-
-  // En enkel rad-render
-  function rowHTML(s) {
-    const status =
-      s.f ? '✅' :
-      s.b ? '⛔' : '';
-
-    const pinsBadge = s.pinsLockedYear
-      ? `<span class="badge">📍 ${Number(s.pinsCount||0)}</span>`
-      : '';
-
-    const twoDrv = s.twoDriverRec ? `<span class="badge">👥 2 sjåfører</span>` : '';
-
-    return `
-      <div class="item" style="padding:10px 0;border-bottom:1px solid var(--cardBorder,#333);">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <b style="font-size:15px">${esc(s.n)}</b>
-          ${twoDrv}
-          ${pinsBadge}
-          <span class="muted" style="margin-left:auto">${status}</span>
-        </div>
-        <div class="muted" style="margin-top:4px">${esc(s.t||'')}</div>
-      </div>
-    `;
-  }
-
-  function emptyHTML() {
-    return `<div class="muted" style="padding:12px 0">Ingen adresser enda. Hent katalog i Admin-fanen.</div>`;
-  }
-
-  // Offentlig render-funksjon (kan kalles fra andre deler)
-  function renderRegister() {
-    try {
-      const host = $id('addressList');
-      if (!host) return;
-
-      const arr = Array.isArray(state?.stops) ? state.stops : [];
-      if (!arr.length) {
-        host.innerHTML = emptyHTML();
-        return;
+    let changed = 0;
+    S.stops.forEach(s => {
+      if (s.f || s.b || s.started || s.finished) {
+        s.f = false; s.b = false;
+        s.started = null; s.finished = null;
+        changed++;
       }
+    });
+    S.ui = S.ui || {};
+    S.ui.cursor = 0;
+    Core.save();
+    console.log(`Runde nullstilt – ${changed} adresser reset`);
+    return changed;
+  }
 
-      // Valgfri enkel sortering: ikke-ferdige først, deretter alfabetisk
-      const sorted = arr.slice().sort((a,b)=>{
-        const ca = (a.f||a.b)?1:0, cb=(b.f||b.b)?1:0;
-        if (ca!==cb) return ca-cb;
-        return (a.n||'').localeCompare(b.n||'','no');
-      });
+  // --- (valgfritt) nullstill etter utstyr – kan aktiveres senere ---
+  function resetRoundByEquipment() {
+    const S = Core.state;
+    if (!Array.isArray(S.stops) || !S.stops.length) return 0;
 
-      host.innerHTML = sorted.map(rowHTML).join('');
-    } catch (e) {
-      console.error('Register render feilet:', e);
+    const eq = S.equipment || {plog:true,fres:false,stro:false};
+    let changed = 0;
+    S.stops.forEach(s => {
+      const t = String(s.t || "");
+      const needSnow = /Snø/i.test(t);
+      const needGrus = /grus/i.test(t);
+      const okSnow   = (!needSnow) || eq.plog || eq.fres;
+      const okGrus   = (!needGrus) || eq.stro;
+
+      if (okSnow && okGrus) {
+        if (s.f || s.b || s.started || s.finished) {
+          s.f = false; s.b = false;
+          s.started = null; s.finished = null;
+          changed++;
+        }
+      }
+    });
+    S.ui = S.ui || {};
+    S.ui.cursor = 0;
+    Core.save();
+    console.log(`Runde (etter utstyr) nullstilt – ${changed} adresser reset`);
+    return changed;
+  }
+
+  // --- naviger til faner (bruker show() fra index.html) ---
+  function go(tabId){ try{ window.show && window.show(tabId); }catch(_){} }
+
+  // --- wire Hjem-knappen(e) ---
+  function wireHome() {
+    const start = $("startBtn");
+    if (start) {
+      start.onclick = () => {
+        // Nullstill ALT som default (enkel og forutsigbar oppførsel)
+        resetRoundAll();
+        // Gå til “Under arbeid” og vis knappene/lista
+        go("work");
+        window.WorkUI?.render?.();
+      };
+    }
+
+    // Om du senere legger inn en egen knapp for “etter utstyr”, kan den peke hit:
+    const startEquip = $("startEquipBtn");
+    if (startEquip) {
+      startEquip.onclick = () => {
+        resetRoundByEquipment();
+        go("work");
+        window.WorkUI?.render?.();
+      };
     }
   }
 
-  // Re-render ved relevante hendelser
-  document.addEventListener('DOMContentLoaded', renderRegister);
+  document.addEventListener("DOMContentLoaded", wireHome);
 
-  // Når katalog-data er hentet/oppdatert (del-H utløser disse eventene)
-  window.addEventListener('catalog:loaded', renderRegister);
-  window.addEventListener('catalog:updated', renderRegister);
-
-  // Eksponer så andre kan trigge det
-  window.Register = Object.assign(window.Register || {}, { render: renderRegister });
-
-  console.log('del-F.js lastet');
+  // Eksponer litt (kan være nyttig i konsoll/testing)
+  window.__StartRound = { resetRoundAll, resetRoundByEquipment };
+  console.log("del-F.js lastet");
 })();
