@@ -1,4 +1,4 @@
-/* ===== del-F.js — ADRESSE-REGISTER (hybrid v9.12h) ===== */
+/* ===== del-F.js — ADRESSE-REGISTER (hybrid + import fra flere kilder) ===== */
 (() => {
   if (!window.Core) return console.error("Del-C.js må lastes før del-F.js.");
   const Core = window.Core;
@@ -17,7 +17,7 @@
     try { localStorage.setItem(LSK, JSON.stringify(obj||{})); } catch {}
   }
 
-  /* ---------- Importer fra katalog -> Core.state.stops ---------- */
+  /* ---------- Speil katalog -> app-state ---------- */
   function catalogToState(catalog){
     const S = Core.state || Core.makeDefaultState();
     const arr = Array.isArray(catalog?.addresses) ? catalog.addresses : [];
@@ -36,7 +36,7 @@
     Core.save();
   }
 
-  /* ---------- Nullstill lokal status (arbeidsfelt, ikke katalog) ---------- */
+  /* ---------- Nullstill KUN arbeidsstatus ---------- */
   function resetLocalStatus(){
     const S = Core.state || Core.makeDefaultState();
     (S.stops||[]).forEach(s=>{
@@ -59,7 +59,7 @@
 
     body.innerHTML = "";
     if (!cnt){
-      body.innerHTML = `<div class="muted">Ingen adresser enda. Hent katalog i Admin-fanen, eller legg til under.</div>`;
+      body.innerHTML = `<div class="muted">Ingen adresser enda. Hent fra en av knappene over, eller legg til under.</div>`;
       return;
     }
 
@@ -78,7 +78,7 @@
     });
   }
 
-  /* ---------- Legg til én lokalt (oppdaterer både katalog + state) ---------- */
+  /* ---------- Legg til én lokalt (oppdaterer katalog + state) ---------- */
   function addLocal(name, task, two){
     const cat = readLocalCatalog();
     const list = Array.isArray(cat.addresses) ? cat.addresses : [];
@@ -95,14 +95,101 @@
     catalogToState(next);
   }
 
-  /* ---------- Bygg UI ---------- */
+  /* ---------- Import-kilder ---------- */
+
+  // 1) Lokal katalog (den vi lagrer i Admin)
+  function importFromLocal(){
+    const cat = readLocalCatalog();
+    const has = Array.isArray(cat.addresses) && cat.addresses.length;
+    if (!has){ alert("Ingen adresser funnet i lokal katalog."); return; }
+    catalogToState(cat);
+    renderList();
+  }
+
+  // 2) GitHub JSON (sett Core.cfg.REMOTE_CATALOG_URL til rå-URL)
+  async function importFromGitHub(){
+    const url = Core?.cfg?.REMOTE_CATALOG_URL;
+    if (!url){ alert("Ingen REMOTE_CATALOG_URL satt i Core.cfg."); return; }
+    try{
+      const r = await fetch(url, { cache:"no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      // valider minimalt
+      if (!Array.isArray(data?.addresses)) throw new Error("Fant ingen addresses[] i JSON.");
+      // speil inn i lokal katalog og app-state
+      writeLocalCatalog(data);
+      catalogToState(data);
+      renderList();
+      alert(`Importert ${data.addresses.length} adresser fra GitHub.`);
+    }catch(e){
+      console.error(e);
+      alert("Klarte ikke hente fra GitHub.");
+    }
+  }
+
+  // 3) JSONBin (kan feile pga CORS uten whitelist; vi prøver – med valgfri proxy)
+  async function importFromJsonBin(){
+    const bin = Core?.cfg?.BINS?.CATALOG;
+    const key = Core?.apiKey?.() || "";
+    if (!bin || !key){ alert("Mangler JSONBin-ID eller API-nøkkel."); return; }
+
+    // Proxy kan hjelpe litt, men ikke garantert:
+    const base = `https://api.jsonbin.io/v3/b/${bin}/latest`;
+    const url  = (Core?.cfg?.CORS_PROXY || "") + base;
+
+    try{
+      const r = await fetch(url, {
+        headers: {
+          "Content-Type":"application/json",
+          "X-Master-Key": key
+        },
+        cache:"no-store",
+        mode:"cors"
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const js = await r.json();
+      const data = js?.record || {};
+      if (!Array.isArray(data?.addresses)) throw new Error("Fant ingen addresses[] i JSONBin-respons.");
+      writeLocalCatalog(data);
+      catalogToState(data);
+      renderList();
+      alert(`Importert ${data.addresses.length} adresser fra JSONBin.`);
+    }catch(e){
+      console.error(e);
+      alert("Kunne ikke hente fra JSONBin i nettleser (CORS/401). Bruk GitHub/lim-inn eller sett opp whitelist/proxy.");
+    }
+  }
+
+  // 4) Lim inn JSON manuelt (alltid mulig)
+  function importFromPaste(){
+    const txt = prompt("Lim inn katalog-JSON (hele objektet med { addresses: [...] }):");
+    if (!txt) return;
+    try{
+      const data = JSON.parse(txt);
+      if (!Array.isArray(data?.addresses)) throw new Error("Fant ikke addresses[].");
+      writeLocalCatalog(data);
+      catalogToState(data);
+      renderList();
+      alert(`Importert ${data.addresses.length} adresser fra lim-inn.`);
+    }catch(e){
+      alert("Ugyldig JSON.");
+    }
+  }
+
+  /* ---------- UI ---------- */
   function renderUI(){
     const host = $("#addresses"); if (!host) return;
+
+    const hasJsonBin = !!(Core?.cfg?.BINS?.CATALOG && (Core?.apiKey?.() || ""));
+    const hasGitHub  = !!Core?.cfg?.REMOTE_CATALOG_URL;
 
     host.innerHTML = `
       <div class="card" style="max-width:1000px">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <button id="btnImport" class="btn btn-blue">🚀 Hent fra katalog</button>
+          <button id="btnImportLocal" class="btn">📦 Hent fra <b>lokal</b> katalog</button>
+          ${hasGitHub ? `<button id="btnImportGit" class="btn btn-blue">⬇️ Hent fra GitHub</button>` : ``}
+          ${hasJsonBin ? `<button id="btnImportBin" class="btn btn-purple">🛰️ Hent fra JSONBin</button>` : ``}
+          <button id="btnPaste" class="btn">📋 Lim inn JSON…</button>
           <button id="btnReset"  class="btn">🧹 Nullstill lokal status</button>
         </div>
 
@@ -123,17 +210,10 @@
       </div>
     `;
 
-    // Knapper
-    $("#btnImport").onclick = () => {
-      const cat = readLocalCatalog();
-      const has = Array.isArray(cat.addresses) && cat.addresses.length;
-      if (!has){
-        alert("Ingen adresser funnet i katalogen.");
-        return;
-      }
-      catalogToState(cat);
-      renderList();
-    };
+    $("#btnImportLocal").onclick = importFromLocal;
+    const g = $("#btnImportGit"); if (g) g.onclick = importFromGitHub;
+    const b = $("#btnImportBin"); if (b) b.onclick = importFromJsonBin;
+    $("#btnPaste").onclick = importFromPaste;
 
     $("#btnReset").onclick = () => {
       if (!confirm("Nullstille lokal status? (pågår/ferdig, tider, snø/grus osv.)")) return;
@@ -151,7 +231,6 @@
       renderList();
     };
 
-    // Første visning
     renderList();
   }
 
