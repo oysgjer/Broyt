@@ -16,23 +16,32 @@
         <div class="muted" style="margin-bottom:10px">Huk av det som ble gjort etter runden.</div>
 
         <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_plog" ${S.plog?"checked":""}/> Puss av plog
+          <input type="checkbox" id="svc_fres" ${S.fres?"checked":""}/> Smurt fres
         </label>
         <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_fres" ${S.fres?"checked":""}/> Rens fres
+          <input type="checkbox" id="svc_plog" ${S.plog?"checked":""}/> Smurt plog
         </label>
         <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_stro" ${S.stro?"checked":""}/> Etterfyll strø
+          <input type="checkbox" id="svc_steering" ${S.steering?"checked":""}/> Smurt forstilling
+        </label>
+
+        <hr style="margin:10px 0;border-color:#333">
+
+        <label style="display:block;margin:4px 0">
+          <input type="checkbox" id="svc_oilFront" ${S.oilFront?"checked":""}/> Sjekket olje foran
         </label>
         <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_oilFront" ${S.oilFront?"checked":""}/> Smurt front
+          <input type="checkbox" id="svc_oilBack" ${S.oilBack?"checked":""}/> Sjekket olje bak
         </label>
         <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_oilBack" ${S.oilBack?"checked":""}/> Smurt bak
+          <input type="checkbox" id="svc_oilFill" ${S.oilFill?"checked":""}/> Etterfylt olje
         </label>
         <label style="display:block;margin:4px 0">
-          <input type="checkbox" id="svc_steering" ${S.steering?"checked":""}/> Kontrollert styring
+          <input type="checkbox" id="svc_diesel" ${S.diesel?"checked":""}/> Diesel fylt
         </label>
+
+        <hr style="margin:10px 0;border-color:#333">
+
         <label style="display:block;margin:4px 0">
           <input type="checkbox" id="svc_other" ${S.other?"checked":""}/> Annet utført
         </label>
@@ -56,12 +65,13 @@
   // Lagre feltene til state
   function saveService() {
     Core.state.service = {
-      plog:       $("#svc_plog").checked,
       fres:       $("#svc_fres").checked,
-      stro:       $("#svc_stro").checked,
+      plog:       $("#svc_plog").checked,
+      steering:   $("#svc_steering").checked,
       oilFront:   $("#svc_oilFront").checked,
       oilBack:    $("#svc_oilBack").checked,
-      steering:   $("#svc_steering").checked,
+      oilFill:    $("#svc_oilFill").checked,
+      diesel:     $("#svc_diesel").checked,
       other:      $("#svc_other").checked,
       notes:      $("#svc_notes").value.trim()
     };
@@ -91,7 +101,7 @@
     alert("Runde eksportert (JSON). ZIP/e-post kan vi legge på i neste steg.");
   }
 
-  // Kalles fra del-E når en oppgave settes "Ferdig" – bytt fane når alt er klart
+  // Når alt er ferdig, gå til Service
   Core.goServiceAfterDone = () => {
     const remaining = (Core.state.stops||[]).filter(s=>!s.f && !s.b).length;
     if (remaining === 0 && typeof window.show === "function") {
