@@ -1,411 +1,349 @@
-/* ===== del-F.js (UNDER ARBEID – Snø/Strø deloppgaver + dobbel fremdrift) ===== */
+<!-- del-F.js -->
+<script>
+/* ===== del-F.js – Under arbeid ===== */
 (() => {
-  if (!window.Core) { console.error('Core mangler – last del-C.js først'); return; }
-  const { $, esc, state: _S, save, fmtTime, seasonKey } = Core;
+  if (!window.Core) { console.error("Core mangler – last del-C.js først"); return; }
+  const Core = window.Core;
 
-  // --- State helpers ---
-  const S = () => Core.state;
-  const stops = () => (Core.state.stops ||= []);
-  const dir = () => (Core.state.direction || 'forward');
+  /* ---------- CSS injiseres lett ---------- */
+  const style = document.createElement('style');
+  style.textContent = `
+  #work .work-head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  #work .badge { display:inline-block; border:1px solid #2a2f36; border-radius:999px; padding:2px 8px; font-size:12px; color:#b9c2cc; }
+  #work .muted { color:#b9c2cc; font-size:12px; }
+  #work .title { font-weight:700; font-size:18px; margin:8px 0 0 0; }
+  #work .progress { position:relative; width:100%; height:14px; border-radius:999px; background:#242830; border:1px solid #2a2f36; overflow:hidden; }
+  #work .progress .bar { position:absolute; top:0; bottom:0; left:0; width:0%; background:linear-gradient(90deg,#0f9d58,#22c55e); transition:width .25s ease; }
+  #work .progress.reverse .bar { right:0; left:auto; }
+  #work .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #work .btn { background:#333; color:#fff; border:none; padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer; }
+  #work .btn-green { background:#0f9d58; }
+  #work .btn-blue  { background:#0b66ff; }
+  #work .btn-red   { background:#c21d03; }
+  #work .btn-gray  { background:#2f3337; }
+  #work .list .card { background:#181a1e; border:1px solid #2a2f36; border-radius:14px; padding:12px; margin:10px 0; }
+  #work .line { display:flex; justify-content:space-between; gap:8px; }
+  #work .small { font-size:12px; }
+  #work .pill { display:inline-block; border:1px solid #2a2f36; border-radius:999px; padding:2px 8px; font-size:12px; }
+  `;
+  document.head.appendChild(style);
 
-  // --- Migrering til deloppgaver (én gang) ---
-  function migrateStopsShape() {
-    (stops() || []).forEach(s => {
-      // Krev deloppgavefelt
-      if (typeof s.snowDone !== 'boolean') s.snowDone = !!s.f;             // fallback fra v9.10
-      if (typeof s.gritDone !== 'boolean') s.gritDone = false;
-      if (typeof s.blocked !== 'boolean')  s.blocked  = !!s.b;
-      // Tidsstempler (deloppgaver)
-      s.snowStart  = s.snowStart  ?? null;
-      s.snowFinish = s.snowFinish ?? (s.f ? (s.finished || null) : null);
-      s.gritStart  = s.gritStart  ?? null;
-      s.gritFinish = s.gritFinish ?? null;
-      // Oppgave-tekst
-      s.t = Core.normalizeTask(s.t || '');
-      // Pins
-      s.pinsCount = Number.isFinite(s.pinsCount) ? s.pinsCount : 0;
-      s.pinsLockedYear = s.pinsLockedYear ?? null;
-      // Behold legacy felt (f/b/finished) for bakoverkompabilitet, men vi bruker dem ikke videre
+  /* ---------- Interne helpers ---------- */
+  function ensureStopShape(s){
+    // migrer gamle felt -> nye delmål (snow/grit)
+    if (!s.snow) s.snow = { started:null, finished:null, done:!!s.f, by:"" };
+    if (!s.grit) s.grit = { started:null, finished:null, done:false, by:"" };
+    if (s.f && !s.snow.done) s.snow.done = true;
+    if (s.started && !s.snow.started) s.snow.started = s.started;
+    if (s.finished && !s.snow.finished) s.snow.finished = s.finished;
+    // brøytestikker-feltene beholdes som før (pinsCount / pinsLockedYear)
+  }
+
+  function requiresGrit(s){
+    // Oppgaven avgjør om grus (🪨) kreves
+    const t = String(s.t||"");
+    return /grus/i.test(t);
+  }
+
+  function listOrder(){
+    const S = Core.state;
+    const base = (S.stops||[]).map((s,i)=>({i,s}));
+    // filtrer ikke-utførte først: vi lar alt vises, men progress teller krav
+    const arr = base;
+    return (S.direction === 'reverse') ? arr.slice().reverse() : arr;
+  }
+
+  function totals(){
+    const stops = Core.state.stops || [];
+    let need = 0, done = 0;
+    stops.forEach(s=>{
+      ensureStopShape(s);
+      // ❄️ alltid krav
+      need += 1;
+      if (s.snow?.done) done += 1;
+      // 🪨 krav bare hvis oppgaven krever grus
+      if (requiresGrit(s)){
+        need += 1;
+        if (s.grit?.done) done += 1;
+      }
     });
+    const pct = need ? Math.round(100*done/need) : 0;
+    return { need, done, pct };
   }
 
-  // --- Deloppgave-regler ---
-  const requiresGrit = s => /grus/i.test(s?.t || '');
-  const needsSnow = s => !s.snowDone && !s.blocked;
-  const needsGrit = s => requiresGrit(s) && !s.gritDone && !s.blocked;
-
-  // Aktiv arbeidsmodus: "snow" | "grit"
-  function getMode() {
-    const ui = (S().ui ||= {});
-    ui.mode = ui.mode || 'snow';
-    return ui.mode;
-  }
-  function setMode(m) {
-    (S().ui ||= {}).mode = m === 'grit' ? 'grit' : 'snow';
-    save();
-    renderWork();
-  }
-  function toggleMode() {
-    setMode(getMode() === 'snow' ? 'grit' : 'snow');
+  function currentName(){
+    const arr = listOrder();
+    const idx = Core.state.ui?.cursor || 0;
+    return arr[idx]?.s?.n || "—";
   }
 
-  // Indeksliste etter retning + aktiv modus
-  function idxList() {
-    const arr = stops().map((s, i) => ({ i, s }))
-      .filter(x => (getMode() === 'snow' ? needsSnow(x.s) : needsGrit(x.s)))
-      .map(x => x.i);
-    return dir() === 'forward' ? arr : arr.slice().reverse();
-  }
-  function curIndex() {
-    const l = idxList();
-    const c = (S().ui?.cursor ?? 0);
-    if (!l.length) return -1;
-    const pos = Math.min(c, l.length - 1);
-    return l[pos];
-  }
-  function curStop() {
-    const i = curIndex();
-    return i >= 0 ? stops()[i] : null;
-  }
-  function nextStop() {
-    const l = idxList();
-    const c = (S().ui?.cursor ?? 0);
-    if (l.length <= c + 1) return null;
-    return stops()[l[c + 1]];
+  function setCursor(i){
+    Core.state.ui = Core.state.ui || {};
+    Core.state.ui.cursor = i;
+    Core.save();
   }
 
-  // --- Total fremdrift = deloppgaver fullført / deloppgaver som trengs ---
-  function totalSubtasks() {
-    return stops().reduce((acc, s) => acc + (requiresGrit(s) ? 2 : 1), 0);
-  }
-  function doneSubtasks() {
-    return stops().reduce((acc, s) => {
-      const need2 = requiresGrit(s);
-      const d1 = s.snowDone ? 1 : 0;
-      const d2 = (need2 && s.gritDone) ? 1 : 0;
-      const blk = s.blocked ? (need2 ? 2 : 1) : 0;
-      return acc + Math.max(d1 + d2, blk);
-    }, 0);
-  }
-  function globalProgress() {
-    const total = totalSubtasks();
-    const done  = doneSubtasks();
-    const pct   = total ? Math.round((100 * done) / total) : 0;
-    return { total, done, pct };
+  function advanceCursor(){
+    const arr = listOrder();
+    const cur = Core.state.ui?.cursor || 0;
+    if (cur < arr.length-1){
+      setCursor(cur+1);
+    }
   }
 
-  // --- Heartbeat: retningprogresjon (bruker fortsatt Core.status) ---
-  function computeDirectionalFromHeartbeat(list) {
-    const fwd = list.filter(x => (x.direction || 'forward') === 'forward' && Number.isFinite(x.progress));
-    const rev = list.filter(x => (x.direction || 'forward') === 'reverse' && Number.isFinite(x.progress));
-    const avg = a => a.length ? Math.min(100, Math.max(0, Math.round(a.reduce((s, x) => s + (x.progress || 0), 0) / a.length))) : 0;
-    return { forwardPct: avg(fwd), reversePct: avg(rev) };
-  }
+  function now() { return Date.now(); }
 
-  // --- UI bygg om nødvendig ---
-  function ensureWorkSkeleton() {
-    const host = document.getElementById('work');
-    if (!host || host.dataset.wired === '1') return;
+  function renderHeader(host){
+    const t = totals();
+    const dir = Core.state.direction === 'reverse' ? 'Motsatt' : 'Normal';
+    const eq = Core.state.equipment || {};
+    // visningsnavn i henhold til ønsket terminologi
+    const eqList = []
+      .concat(eq.plog||eq.skjaer ? ['Skjær'] : [])
+      .concat(eq.fres ? ['Fres'] : [])
+      .concat(eq.stro||eq.strokasse ? ['Strøkasse'] : []);
+    const who = Core.displayName();
 
     host.innerHTML = `
-      <div class="card stack">
-        <div class="row" style="align-items:center;gap:8px;justify-content:space-between">
-          <div class="row" style="align-items:center;gap:8px">
-            <div id="driverLbl" class="muted">Rolle: —</div>
-            <div id="directionLbl" class="badge">Retning: —</div>
-            <div id="equipLbl" class="badge">Utstyr: —</div>
-          </div>
-          <button id="modeBtn" class="btn btn-gray small">Bytt modus: Snø ⇄ Strø</button>
-        </div>
-
-        <h2 id="curName" class="title-lg">—</h2>
-        <div class="muted">Oppgave: <span id="curTask">—</span></div>
-        <div class="muted">Arbeidsmodus: <span id="curMode">—</span></div>
-        <div class="muted">Neste: <span id="curNext">—</span></div>
-
-        <div class="progress-card">
-          <div class="progress" id="progressTrack">
-            <div class="bar bar-total" id="progBar"></div>
-            <div class="bar bar-forward" id="progForward"></div>
-            <div class="bar bar-reverse" id="progReverse"></div>
-          </div>
-          <div class="progress-legend">
-            <span class="pill pill-total">Samlet</span>
-            <span class="pill pill-forward">Vanlig</span>
-            <span class="pill pill-reverse">Baklengs</span>
-          </div>
-          <div class="muted" id="progTxt">0 % fullført (0/0)</div>
-        </div>
-
-        <div id="subtaskBadges" class="row" style="gap:8px;align-items:center"></div>
-
-        <div class="thumbs" id="thumbs"></div>
-
-        <div class="row">
-          <button id="ongo" class="btn btn-gray">▶️ Start</button>
-          <button id="done" class="btn btn-green">✅ Utført</button>
-          <button id="block" class="btn btn-red">⛔ Ikke mulig</button>
-          <button id="photo" class="btn btn-gray">📷 Foto</button>
-          <button id="nav" class="btn btn-blue">🧭 Naviger</button>
-          <button id="next" class="btn btn-gray">🔁 Neste</button>
-          <button id="editPins" class="btn btn-gray">📍 Brøytestikker</button>
-          <button id="incident" class="btn btn-red">❗ Uhell</button>
-        </div>
-
-        <div class="small muted" id="lastSyncTextWork">—</div>
+      <div class="work-head">
+        <span class="badge">Sjåfør: ${Core.esc(who)}</span>
+        <span class="badge">Retning: ${dir}</span>
+        <span class="badge">Utstyr: ${eqList.join(', ') || '—'}</span>
       </div>
 
-      <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none">
-    `;
+      <div class="row" style="margin-top:8px">
+        <div class="muted" id="wkProgTxt">${t.pct}% fullført (${t.done}/${t.need})</div>
+      </div>
+      <div class="progress ${Core.state.direction==='reverse'?'reverse':''}" style="margin:6px 0 14px">
+        <div class="bar" id="wkProgBar" style="width:${t.pct}%"></div>
+      </div>
 
-    // Lett stil
-    if (!document.getElementById('work-progress-styles')) {
-      const css = document.createElement('style'); css.id = 'work-progress-styles';
-      css.textContent = `
-        .progress-card{display:flex;flex-direction:column;gap:6px;margin:8px 0}
-        .progress{position:relative;width:100%;height:14px;border-radius:999px;background:#242830;border:1px solid var(--cardBorder);overflow:hidden}
-        .progress .bar{position:absolute;top:0;height:100%;transition:width .3s ease}
-        .bar-total{left:0;width:0;background:linear-gradient(90deg,#16a34a,#22c55e)}
-        .bar-forward{left:0;width:0;opacity:.8;background:rgba(59,130,246,.85)}
-        .bar-reverse{right:0;width:0;opacity:.8;background:rgba(124,58,237,.85)}
-        .progress-legend{display:flex;gap:8px;align-items:center}
-        .pill{border:1px solid var(--cardBorder);border-radius:999px;padding:2px 8px;font-size:12px}
-        .pill-total{background:linear-gradient(90deg,#16a34a,#22c55e);color:#fff;border:none}
-        .pill-forward{background:rgba(59,130,246,.85);color:#fff;border:none}
-        .pill-reverse{background:rgba(124,58,237,.85);color:#fff;border:none}
-        .badge.good{border-color:#22c55e;color:#22c55e}
-        .badge.warn{border-color:#d97706;color:#f59e0b}
-        .badge.bad{border-color:#ef4444;color:#ef4444}
+      <div class="line">
+        <div class="small muted">Nå: <b id="wkCurName">${Core.esc(currentName())}</b></div>
+        <div class="small muted" id="wkLastSync">—</div>
+      </div>
+    `;
+  }
+
+  function fmtHM(ts){
+    if(!ts) return '—';
+    const d=new Date(ts);
+    return d.toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  function renderList(host){
+    const rows = listOrder();
+    const cur = Core.state.ui?.cursor || 0;
+    host.innerHTML = rows.map((x,idx)=>{
+      const s = x.s; ensureStopShape(s);
+      const curMark = (idx===cur) ? ' (nå)' : '';
+      const gritReq = requiresGrit(s);
+
+      return `
+        <div class="card" data-idx="${idx}">
+          <div class="line">
+            <div class="title">${Core.esc(s.n)}${curMark}</div>
+            <div>
+              ${s.twoDriverRec?`<span class="pill">👥</span>`:''}
+              ${s.pinsLockedYear?`<span class="pill">📍${s.pinsCount??0}</span>`:''}
+            </div>
+          </div>
+          <div class="small muted">${Core.esc(s.t || '')}</div>
+
+          <div class="row" style="margin-top:8px">
+            <button class="btn btn-gray act-start"   data-idx="${idx}">Start</button>
+            <button class="btn btn-green act-snow"   data-idx="${idx}">Fullført ❄️</button>
+            ${gritReq
+              ? `<button class="btn btn-blue act-grit" data-idx="${idx}">Strødd 🪨</button>`
+              : `<button class="btn btn-blue act-grit" data-idx="${idx}" title="Oppgaven krever ikke strø – valgfritt">Strødd 🪨</button>`}
+            <button class="btn btn-gray act-next"   data-idx="${idx}">Neste →</button>
+          </div>
+
+          <div class="small muted" style="margin-top:6px">
+            ❄️ ${s.snow.started?`Startet kl ${fmtHM(s.snow.started)}`:'Ikke startet'}
+            ${s.snow.finished?` · Ferdig kl ${fmtHM(s.snow.finished)}`:''}
+            ${s.snow.by?` · av ${Core.esc(s.snow.by)}`:''}
+          </div>
+          <div class="small muted">
+            🪨 ${s.grit.started?`Startet kl ${fmtHM(s.grit.started)}`:'Ikke startet'}
+            ${s.grit.finished?` · Ferdig kl ${fmtHM(s.grit.finished)}`:''}
+            ${s.grit.by?` · av ${Core.esc(s.grit.by)}`:''}
+          </div>
+        </div>
       `;
-      document.head.appendChild(css);
-    }
-
-    host.dataset.wired = '1';
+    }).join('');
   }
 
-  // --- RENDER ---
-  function renderSubtaskBadges(s) {
-    const snowTxt = s.snowDone ? `Snø: ferdig ${fmtStamp(s.snowFinish)}` :
-                    s.snowStart ? `Snø: startet ${fmtStamp(s.snowStart)}` : 'Snø: ikke startet';
-    const gritTxt = requiresGrit(s)
-      ? (s.gritDone ? `Strø: ferdig ${fmtStamp(s.gritFinish)}`
-        : (s.gritStart ? `Strø: startet ${fmtStamp(s.gritStart)}` : 'Strø: ikke startet'))
-      : 'Strø: ikke nødvendig';
+  function updateProgressUI(){
+    const t = totals();
+    const bar = document.getElementById('wkProgBar');
+    const txt = document.getElementById('wkProgTxt');
+    if (bar) bar.style.width = t.pct + '%';
+    if (txt) txt.textContent = `${t.pct}% fullført (${t.done}/${t.need})`;
 
-    return `
-      <span class="badge ${s.snowDone?'good':(s.snowStart?'warn':'')}">${esc(snowTxt)}</span>
-      <span class="badge ${requiresGrit(s) ? (s.gritDone?'good':(s.gritStart?'warn':'')) : ''}">${esc(gritTxt)}</span>
-      ${s.blocked ? `<span class="badge bad">⛔ Blokkert${s.details?': '+esc(s.details):''}</span>` : ''}
-    `;
-  }
-  const fmtStamp = (ts) => ts ? new Date(ts).toLocaleTimeString('no-NO', {hour:'2-digit',minute:'2-digit'}) : '—';
-
-  function renderWork() {
-    ensureWorkSkeleton();
-
-    // Topp-info
-    const equip = S().equipment || {};
-    const equipStr = [
-      equip.plog ? 'Skjær' : null,
-      equip.fres ? 'Fres' : null,
-      equip.stro ? 'Strøkasse' : null
-    ].filter(Boolean).join(', ') || '—';
-
-    const c = curStop();
-    const n = nextStop();
-    const GP = globalProgress();
-
-    $('driverLbl').textContent    = "Rolle: " + Core.displayName();
-    $('directionLbl').textContent = "Retning: " + (dir() === 'forward' ? 'Vanlig' : 'Baklengs');
-    $('equipLbl').textContent     = "Utstyr: " + equipStr;
-
-    $('curName').textContent = c ? esc(c.n) : "—";
-    $('curTask').textContent = c ? esc(c.t || '') : "—";
-    $('curMode').textContent = (getMode() === 'snow' ? 'Snø (skjær/fres)' : 'Strø (strøkasse)');
-    $('curNext').textContent = n ? esc(n.n) : "—";
-
-    $('subtaskBadges').innerHTML = c ? renderSubtaskBadges(c) : '';
-
-    // Bilder
-    $('thumbs').innerHTML = (c && Array.isArray(c.p) && c.p.length)
-      ? c.p.map(src => `<img src="${src}" style="width:80px;border-radius:6px;border:1px solid var(--cardBorder)">`).join('')
-      : '';
-
-    // Progresjon
-    $('progBar').style.width = GP.pct + "%";
-    $('progTxt').textContent = `${GP.pct}% fullført (${GP.done}/${GP.total})`;
-
-    // Sist synk (om SYNC oppdaterer)
-    const when = Core.fmtTime(S().lastSyncAt);
-    const who  = S().lastSyncBy || '—';
-    $('lastSyncTextWork').textContent = `Sist synk: ${when} (${who})`;
-
-    // Mode-knapp label
-    const mb = $('modeBtn');
-    if (mb) mb.textContent = `Bytt modus: ${getMode()==='snow' ? 'Snø ⇄ Strø' : 'Strø ⇄ Snø'}`;
+    // fellesstatus
+    Core.status.updateSelf({
+      progress: t.pct,
+      current: currentName()
+    }).catch?.(()=>{});
   }
 
-  function renderDirectionalBarsFromHeartbeat(list) {
-    const { forwardPct, reversePct } = computeDirectionalFromHeartbeat(list);
-    const fBar = $('progForward'), rBar = $('progReverse');
-    if (fBar) fBar.style.width = forwardPct + "%";
-    if (rBar) rBar.style.width = reversePct + "%";
+  function updateCurName(){
+    const el = document.getElementById('wkCurName');
+    if (el) el.textContent = currentName();
   }
 
-  // --- HANDLERS ---
-  function onModeToggle() { toggleMode(); }
-
-  function onStart() {
-    const c = curStop(); if (!c) return;
-    if (getMode() === 'snow') c.snowStart = c.snowStart || Date.now();
-    else                      c.gritStart = c.gritStart || Date.now();
-    save(); renderWork();
-    Core.status?.updateSelf?.({ current: c.n, progress: globalProgress().pct });
-    window.SYNC?.syncPush?.();
+  function updateLastSync(){
+    const el = document.getElementById('wkLastSync');
+    if (!el) return;
+    const t = Core.fmtTime(Core.state.lastSyncAt);
+    const by = Core.state.lastSyncBy || '—';
+    el.textContent = `Sist synk: ${t} (${by})`;
   }
 
-  function onDone() {
-    const i = curIndex(); if (i < 0) return;
-    const c = stops()[i];
+  function actStart(idx){
+    const arr = listOrder();
+    const real = arr[idx]?.i;
+    if (real == null) return;
+    const s = Core.state.stops[real]; ensureStopShape(s);
+    const who = Core.displayName();
 
-    // Brøytestikker (spør kun én gang per sesong, og bare hvis oppgaven inneholder brøytestikker)
-    if (/brøytestikker/i.test(c.t || '')) {
-      const locked = c.pinsLockedYear && String(c.pinsLockedYear) === seasonKey();
-      if (!locked) {
-        const v = prompt("Antall brøytestikker brukt (låses for sesongen):", "");
-        if (v === null) return; // avbrutt
-        const n = parseInt((v || "").trim() || "0", 10) || 0;
-        c.pinsCount = n;
-        c.pinsLockedYear = seasonKey();
+    // marker start for ❄️ (og for 🪨 dersom utstyr = strøkasse og grit ikke startet)
+    if (!s.snow.started) s.snow.started = now();
+    if (!s.snow.by) s.snow.by = who;
+    // starter ikke automatisk grit – det starter når man trykker "Strødd" (eller Start hvis man har strøkasse?)
+    Core.save();
+    updateCurName();
+    renderList(Core.qs('#workList'));
+    updateProgressUI();
+  }
+
+  function actSnowDone(idx){
+    const arr = listOrder();
+    const real = arr[idx]?.i;
+    if (real == null) return;
+    const s = Core.state.stops[real]; ensureStopShape(s);
+    const who = Core.displayName();
+
+    if (!s.snow.started) s.snow.started = now();
+    s.snow.done = true;
+    s.snow.finished = now();
+    s.snow.by = who;
+
+    // gammelt felt for kompatibilitet (om noe annet leser det)
+    s.f = true;
+    s.finished = s.snow.finished;
+
+    Core.save();
+    renderList(Core.qs('#workList'));
+    updateProgressUI();
+
+    // hopp til neste
+    const cur = Core.state.ui?.cursor || 0;
+    if (cur === idx) advanceCursor();
+    updateCurName();
+  }
+
+  function actGritDone(idx){
+    const arr = listOrder();
+    const real = arr[idx]?.i;
+    if (real == null) return;
+    const s = Core.state.stops[real]; ensureStopShape(s);
+    const who = Core.displayName();
+
+    if (!s.grit.started) s.grit.started = now();
+    s.grit.done = true;
+    s.grit.finished = now();
+    s.grit.by = who;
+
+    Core.save();
+    renderList(Core.qs('#workList'));
+    updateProgressUI();
+  }
+
+  function actNext(idx){
+    const cur = Core.state.ui?.cursor || 0;
+    if (idx === cur){
+      advanceCursor();
+      updateCurName();
+      // scroll litt ned for å vise ny "nå"
+      const list = Core.qs('#workList');
+      if (list){
+        const card = list.querySelector(`[data-idx="${cur+1}"]`);
+        if (card) card.scrollIntoView({behavior:'smooth', block:'start'});
       }
-    }
-
-    if (getMode() === 'snow') {
-      c.snowDone   = true;
-      c.snowFinish = Date.now();
     } else {
-      c.gritDone   = true;
-      c.gritFinish = Date.now();
-    }
-
-    // Hopp til neste som trengs i AKTIV modus
-    const list = idxList();
-    const curPos = (S().ui?.cursor ?? 0);
-    if (curPos < list.length - 1) (S().ui ||= {}).cursor = curPos + 1;
-
-    save(); renderWork();
-    Core.status?.updateSelf?.({ current: nextStop()?.n || "", progress: globalProgress().pct });
-    window.SYNC?.syncPush?.();
-  }
-
-  function onBlock() {
-    const i = curIndex(); if (i < 0) return;
-    const c = stops()[i];
-    const note = prompt("Hvorfor ikke mulig?", "") || "";
-    c.details = note;
-    c.blocked = true;
-    // marker deloppgavene som “ikke aktuelt” via blokkering (progress tar hensyn)
-    save();
-
-    // Flytt cursor i aktiv modus
-    const list = idxList();
-    const curPos = (S().ui?.cursor ?? 0);
-    if (curPos < list.length - 1) (S().ui ||= {}).cursor = curPos + 1;
-
-    renderWork();
-    Core.status?.updateSelf?.({ current: nextStop()?.n || "", progress: globalProgress().pct });
-    window.SYNC?.syncPush?.();
-  }
-
-  function onNext() {
-    const list = idxList();
-    const curPos = (S().ui?.cursor ?? 0);
-    if (!list.length) return;
-    if (curPos < list.length - 1) {
-      (S().ui ||= {}).cursor = curPos + 1;
-      save(); renderWork();
-      onNav(); // valgfritt: åpne navigasjon
-    } else {
-      alert("Ingen flere adresser i denne modusen.");
+      setCursor(idx);
+      updateCurName();
+      renderList(Core.qs('#workList'));
     }
   }
 
-  function onNav() {
-    const c = curStop(); if (!c) return;
-    location.href = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(c.n);
+  function attachListHandlers(){
+    const list = Core.qs('#workList');
+    if (!list) return;
+    list.onclick = (e)=>{
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const idx = parseInt(btn.dataset.idx, 10);
+      if (btn.classList.contains('act-start')) return actStart(idx);
+      if (btn.classList.contains('act-snow'))  return actSnowDone(idx);
+      if (btn.classList.contains('act-grit'))  return actGritDone(idx);
+      if (btn.classList.contains('act-next'))  return actNext(idx);
+    };
   }
 
-  function onPhoto() {
-    const input = $('fileInput'); if (input) input.click();
-  }
-  function onPhotoChosen(e) {
-    const f = e.target.files?.[0]; if (!f) return;
-    const r = new FileReader();
-    r.onload = () => { const c = curStop(); if (!c) return; (c.p ||= []).push(r.result); save(); renderWork(); window.SYNC?.syncPush?.(); };
-    r.readAsDataURL(f); e.target.value = "";
-  }
+  function render(){
+    const headHost = Core.qs('#work');
+    if (!headHost) return;
+    // topp
+    const top = document.createElement('div');
+    renderHeader(top);
+    headHost.innerHTML = '';
+    headHost.appendChild(top);
 
-  function onEditPins() {
-    const c = curStop(); if (!c) return;
+    // liste
+    const listWrap = document.createElement('div');
+    listWrap.id = 'workList';
+    headHost.appendChild(listWrap);
 
-    const locked = c.pinsLockedYear && String(c.pinsLockedYear) === seasonKey();
-    if (locked) {
-      alert("Brøytestikker er allerede registrert og låst for inneværende sesong.");
-      return;
-    }
-    const curVal = Number.isFinite(c.pinsCount) ? c.pinsCount : 0;
-    const v = prompt("Antall brøytestikker brukt (låses for sesongen):", String(curVal));
-    if (v === null) return;
-    const n = parseInt((v || "").trim() || "0", 10) || 0;
-    c.pinsCount = n;
-    c.pinsLockedYear = seasonKey();
-    save(); renderWork(); window.SYNC?.syncPush?.();
+    renderList(listWrap);
+    updateLastSync();
+    updateProgressUI();
+    attachListHandlers();
   }
 
-  function onIncident() {
-    const c = curStop();
-    const msg = prompt("Kort beskrivelse av uhell" + (c ? ` ved ${c.n}` : "") + ":", "");
-    if (msg) alert("Uhell logget.");
-  }
-
-  function wireWorkButtons() {
-    $('modeBtn')   && ($('modeBtn').onclick   = onModeToggle);
-    $('ongo')      && ($('ongo').onclick      = onStart);
-    $('done')      && ($('done').onclick      = onDone);
-    $('block')     && ($('block').onclick     = onBlock);
-    $('next')      && ($('next').onclick      = onNext);
-    $('nav')       && ($('nav').onclick       = onNav);
-    $('photo')     && ($('photo').onclick     = onPhoto);
-    $('fileInput') && ($('fileInput').onchange= onPhotoChosen);
-    $('editPins')  && ($('editPins').onclick  = onEditPins);
-    $('incident')  && ($('incident').onclick  = onIncident);
-  }
-
-  // --- Start ---
-  document.addEventListener('DOMContentLoaded', () => {
-    migrateStopsShape();
-    // init cursor hvis nødvendig
-    const l = idxList();
-    if (l.length && (S().ui?.cursor ?? 0) >= l.length) (S().ui ||= {}).cursor = 0;
-
-    ensureWorkSkeleton();
-    wireWorkButtons();
-    renderWork();
-
-    // Heartbeat/felles status
-    try {
-      Core.status?.startHeartbeat?.();
-      Core.status?.startPolling?.((list) => {
-        renderDirectionalBarsFromHeartbeat(list);
+  /* ---------- Koble til navigasjon + knapp "Start ny runde" ---------- */
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // Når man trykker "Start ny runde" i Hjem
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn){
+      startBtn.addEventListener('click', ()=>{
+        // index.html show('work') bytter seksjon; vi re-render etter en liten delay
+        setTimeout(()=> render(), 50);
       });
-    } catch (_) {}
+    }
 
-    // Jevnlig oppdater den samlede baren
-    setInterval(() => {
-      const GP = globalProgress();
-      const bar = $('progBar'); if (bar) bar.style.width = GP.pct + '%';
-      const txt = $('progTxt'); if (txt) txt.textContent = `${GP.pct}% fullført (${GP.done}/${GP.total})`;
-    }, 5000);
+    // Når man manuelt går til "Under arbeid"-fanen via navbar
+    const nav = document.querySelector('nav');
+    if (nav){
+      nav.addEventListener('click', (e)=>{
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.textContent && /under arbeid/i.test(b.textContent)){
+          setTimeout(()=> render(), 50);
+        }
+      });
+    }
+
+    // Oppdater "sist synk" periodisk (dersom andre moduler setter lastSyncAt)
+    setInterval(updateLastSync, 5000);
+
+    // Start heartbeat (fellesstatus)
+    Core.status?.startHeartbeat?.();
   });
 
+  // Eksponer for debugging/andre moduler
+  Core.Work = { render };
 })();
+</script>
