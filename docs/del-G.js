@@ -1,112 +1,141 @@
-/* ===== del-G.js (admin) ===== */
+/* ===== del-G.js (ADMIN) ===== */
 (() => {
   if (!window.Core) { console.warn("Del C må lastes før Del G."); return; }
-  const { $, qs, qsa, save, state, cfg } = Core;
+  const { Core } = window;
 
-  function initAdmin() {
-    const box = $("#adminCatalog");
-    if (!box) return;
-
-    box.innerHTML = `
-      <div class="row" style="gap:8px;margin-bottom:10px">
-        <button id="btnLoadCat" class="btn">Last katalog</button>
-        <button id="btnExport" class="btn">Eksporter CSV</button>
-      </div>
-      <div class="small muted" id="adminHint">Sist synk: —</div>
-      <div id="adminList" style="margin-top:10px"></div>
-    `;
-
-    $("#btnLoadCat").onclick = loadCatalog;
-    $("#btnExport").onclick = exportCsv;
-
-    renderList();
-  }
-
-  async function loadCatalog() {
-    $("#adminHint").textContent = "Laster inn katalog fra JSONBin…";
-    const js = await Core.fetchCatalog();
-    const arr = js.addresses || [];
-    if (arr.length) {
-      // importer til local state hvis ønskelig – her bare lagrer som stops hvis tomt
-      if (!Array.isArray(Core.state.stops) || Core.state.stops.length === 0) {
-        Core.state.stops = arr.map(a => ({
-          n: a.n, t: a.t || Core.cfg.DEFAULT_TASKS[0],
-          f:false, b:false, p:[], twoDriverRec:!!a.twoDriverRec,
-          pinsCount: a.pinsCount || 0,
-          pinsLockedYear: a.pinsLockedYear ?? null
-        }));
-        save();
-      }
-      $("#adminHint").textContent = `Katalog hentet ✔ (${arr.length})`;
-    } else {
-      $("#adminHint").textContent = "Ingen adresser funnet i katalog";
+  function h(tag, attrs = {}, ...kids) {
+    const el = document.createElement(tag);
+    for (const [k,v] of Object.entries(attrs||{})) {
+      if (k === "class") el.className = v;
+      else if (k === "style") el.setAttribute("style", v);
+      else el[k] = v;
     }
-    renderList();
-  }
-
-  function exportCsv() {
-    const rows = [["Adresse","Oppgave","Pinner","Låst år"]];
-    (Core.state.stops||[]).forEach(s=>{
-      rows.push([s.n, s.t, s.pinsCount||0, s.pinsLockedYear ?? ""]);
+    kids.flat().forEach(k => {
+      if (k == null) return;
+      el.appendChild(k.nodeType ? k : document.createTextNode(String(k)));
     });
-    const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], {type:"text/csv"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "katalog.csv"; a.click();
-    URL.revokeObjectURL(url);
+    return el;
   }
 
-  function renderList() {
-    const box = $("#adminList");
-    if (!box) return;
-    const S = Core.state;
-    const yNow = new Date().getFullYear();
-
-    box.innerHTML = (S.stops||[]).map((st, i) => {
-      const locked = st.pinsLockedYear === yNow;
-      const dis = locked ? "disabled" : "";
-      return `
-        <div class="card">
-          <div class="title-lg">${Core.esc(st.n)}</div>
-          <div class="muted small">${Core.esc(st.t)}</div>
-
-          <div class="row" style="margin-top:8px">
-            <label>Brøytepinner (i år):</label>
-            <input type="number" min="0" id="pin_${i}" value="${st.pinsCount||0}" ${dis} style="width:90px" />
-            <label class="small">
-              <input type="checkbox" id="lock_${i}" ${locked ? "checked" : ""}/>
-              Lås for ${yNow}
-            </label>
-            <span class="spacer"></span>
-            <button class="btn" data-act="save" data-i="${i}">Lagre</button>
-            <button class="btn btn-red" data-act="override" data-i="${i}">Overstyr pinner</button>
-          </div>
-        </div>`;
-    }).join("");
-
-    box.onclick = (e) => {
-      const b = e.target.closest("button[data-act]");
-      if (!b) return;
-      const i = +b.dataset.i;
-      const st = Core.state.stops[i];
-      if (!st) return;
-
-      if (b.dataset.act === "save") {
-        const y = new Date().getFullYear();
-        const v = +($("#pin_"+i).value || 0);
-        const lock = $("#lock_"+i).checked;
-        st.pinsCount = Math.max(0, v|0);
-        st.pinsLockedYear = lock ? y : null;
-        Core.touchActivity(); save(); renderList();
-      } else if (b.dataset.act === "override") {
-        // ADMIN-OVERRIDE: lås opp og gjør feltet redigerbart
-        st.pinsLockedYear = null;
-        Core.touchActivity(); save(); renderList();
-        alert("🔓 Pinner låst opp for denne adressen.");
-      }
-    };
+  function timeAgo(ts){
+    if (!ts) return "—";
+    const s = Math.max(0, Math.floor((Date.now()-ts)/1000));
+    if (s < 60)  return `${s}s siden`;
+    const m = Math.floor(s/60);
+    if (m < 60)  return `${m}m siden`;
+    const h = Math.floor(m/60);
+    return `${h}t siden`;
   }
 
-  document.addEventListener("DOMContentLoaded", initAdmin);
+  function equipPretty(eq){
+    if (!eq) return "—";
+    const names = [];
+    if (eq.plog) names.push(Core.equipLabel("plog"));      // Skjær
+    if (eq.fres) names.push(Core.equipLabel("fres"));      // Fres
+    if (eq.stro) names.push(Core.equipLabel("stro"));      // Strøkasse
+    return names.join(", ") || "—";
+  }
+
+  function renderStatusList(list){
+    const cont = Core.qs("#adminStatusList");
+    if (!cont) return;
+
+    cont.innerHTML = "";
+    if (!list || list.length === 0) {
+      cont.appendChild(h("div",{class:"muted"}, "Ingen aktive statuser enda."));
+      return;
+    }
+
+    list.forEach(s => {
+      const row = h("div", { class: "admin-status-row" },
+        h("div", { class: "admin-status-main" },
+          h("div", { class:"admin-status-name" }, s.name || "Ukjent"),
+          h("div", { class:"admin-status-sub"  },
+            `Sist: ${timeAgo(s.ts)} • Retning: ${s.direction || "—"} • Utstyr: ${equipPretty(s.equipment)}`
+          ),
+          h("div", { class:"admin-status-sub"  },
+            `Adresse: ${s.current || "—"}`
+          )
+        ),
+        h("div", { class: "admin-status-progress" },
+          h("div", { class:"bar" },
+            h("div", {
+              class:"fill",
+              style:`width:${Math.max(0, Math.min(100, Number(s.progress||0)))}%`
+            })
+          ),
+          h("div", { class:"pct" }, `${Math.round(s.progress||0)}%`)
+        )
+      );
+      cont.appendChild(row);
+    });
+  }
+
+  function ensureStyles(){
+    if (document.getElementById("admin-status-css")) return;
+    const css = `
+      #adminStatusBox{border:1px solid #333;border-radius:10px;padding:12px;margin:8px 0 16px 0;background:#161616}
+      #adminStatusBox .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+      #adminStatusList{display:flex;flex-direction:column;gap:10px}
+      .admin-status-row{display:flex;justify-content:space-between;gap:16px;align-items:center;border:1px solid #2a2a2a;border-radius:8px;padding:10px;background:#0e0e0e}
+      .admin-status-name{font-weight:700}
+      .admin-status-sub{font-size:12px;color:#a7a7a7;margin-top:2px}
+      .admin-status-progress{min-width:180px;display:flex;align-items:center;gap:8px}
+      .admin-status-progress .bar{flex:1;height:8px;background:#222;border-radius:6px;overflow:hidden}
+      .admin-status-progress .fill{height:100%}
+      .admin-status-progress .fill{background:linear-gradient(90deg,#00c853,#64dd17);}
+      .admin-status-progress .pct{font-size:12px;color:#ddd;min-width:32px;text-align:right}
+      .btn{cursor:pointer;border:none;border-radius:6px;padding:6px 10px}
+      .btn.secondary{background:#2b2b2b;color:#ddd}
+    `;
+    const el = document.createElement("style");
+    el.id = "admin-status-css";
+    el.textContent = css;
+    document.head.appendChild(el);
+  }
+
+  function mountAdminStatus(){
+    const sec = Core.qs("#admin");
+    if (!sec) return;
+
+    ensureStyles();
+
+    let box = Core.qs("#adminStatusBox");
+    if (!box) {
+      box = h("div",{id:"adminStatusBox"},
+        h("div",{class:"hdr"},
+          h("div",{style:"font-weight:700"}, "Felles status (live)"),
+          h("div",{},
+            h("button",{class:"btn secondary", id:"btnManualRefresh"},"Oppdater nå")
+          )
+        ),
+        h("div",{id:"adminStatusList"})
+      );
+      // Plasser øverst i admin-seksjonen
+      sec.prepend(box);
+      Core.qs("#btnManualRefresh")?.addEventListener("click", async ()=>{
+        try {
+          const all = await Core.status.startPolling(()=>{}); // no-op; vi bruker updateSelf direkte under
+        } catch(_){}
+      });
+    }
+
+    // start live
+    try {
+      Core.status.startHeartbeat();                // trygg å kalle flere ganger
+      Core.status.startPolling(renderStatusList);  // live feed
+    } catch(e){
+      console.warn("Kunne ikke starte status-poll/heartbeat:", e);
+    }
+  }
+
+  // Monter ved DOMReady + hver gang man klikker på "Admin"-fanen
+  document.addEventListener("DOMContentLoaded", mountAdminStatus);
+  document.addEventListener("click", (ev)=>{
+    const t = ev.target;
+    if (t && t.matches && t.matches("nav button")) {
+      const txt = (t.textContent||"").trim().toLowerCase();
+      if (txt === "admin") setTimeout(mountAdminStatus, 0);
+    }
+  });
 })();
