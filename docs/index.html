@@ -1,193 +1,91 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Brøyterute</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brøyterute – Romerike Trefelling</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="del-B.css">
+  <link rel="icon" href="favicon.ico">
+
   <style>
-    body{margin:0;background:#111;color:#fff;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
-    header{padding:22px 16px 8px}
-    header h1{margin:0;font-size:28px;letter-spacing:.5px;opacity:.9}
-    nav{display:flex;gap:10px;flex-wrap:wrap;padding:10px 12px;background:#1c1c1c;position:sticky;top:0;z-index:5}
-    nav button{background:#2a2a2a;color:#fff;border:none;border-radius:9px;padding:10px 16px;cursor:pointer}
-    nav button.active{background:#3b82f6}
-    main{padding:16px}
-    section{display:none}
-    section.active{display:block}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;background:#1f2937}
-    .btn{border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
-    .btn.green{background:#16a34a;color:#fff}
-    .btn.blue{background:#2563eb;color:#fff}
-    .btn.red{background:#dc2626;color:#fff}
-    .btn.gray{background:#374151;color:#fff}
-    .muted{opacity:.8}
-    .card{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px}
-    .list{display:grid;gap:12px}
-    .progress{height:10px;background:#222;border-radius:6px;overflow:hidden}
-    .progress > .bar{height:100%;background:#22c55e;width:0%}
-    label.chk{display:flex;align-items:center;gap:8px;margin:6px 0}
-    input[type="text"],select,textarea{background:#0b1020;color:#fff;border:1px solid #334155;border-radius:8px;padding:8px 10px}
-    textarea{width:100%;min-height:110px}
-    footer{padding:18px;text-align:center;color:#aaa}
-    .grid2{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    body {
+      background: #111;
+      color: #eee;
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    nav {
+      background: #222;
+      padding: 10px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    nav button {
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    nav button:hover {
+      background: #444;
+    }
+    footer {
+      color: #999;
+      margin: 20px 0;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
-  <header><h1>Brøyterute</h1></header>
 
+  <h1>Brøyterute</h1>
   <nav>
-    <button data-tab="home" class="active">Hjem</button>
-    <button data-tab="work">Under arbeid</button>
-    <button data-tab="addresses">Adresse-register</button>
-    <button data-tab="admin">Admin</button>
-    <button data-tab="service">Service</button>
+    <button onclick="showPage('home')">Hjem</button>
+    <button onclick="showPage('work')">Under arbeid</button>
+    <button onclick="showPage('addresses')">Adresse-register</button>
+    <button onclick="showPage('admin')">Admin</button>
+    <button onclick="showPage('service')">Service</button>
   </nav>
 
-  <main>
-    <!-- HJEM -->
-    <section id="home" class="active">
-      <div class="card">
-        <h2>Hjem</h2>
-        <p class="muted">Versjon <span id="ver"></span> – Romerike Trefelling</p>
-
-        <div class="grid2" style="margin-top:10px">
-          <div class="card">
-            <div class="list">
-              <div class="row">
-                <label style="min-width:72px">Navn</label>
-                <input id="homeName" type="text" placeholder="Sjåførnavn">
-              </div>
-
-              <div class="row">
-                <label style="min-width:72px">Retning</label>
-                <select id="homeDir">
-                  <option value="forward">Vanlig</option>
-                  <option value="reverse">Motsatt</option>
-                </select>
-              </div>
-
-              <div>
-                <div class="muted" style="margin-bottom:6px">Utstyr</div>
-                <label class="chk"><input id="eqSkjaer" type="checkbox">Skjær</label>
-                <label class="chk"><input id="eqFres" type="checkbox">Fres</label>
-                <label class="chk"><input id="eqStrokasse" type="checkbox">Strøkasse</label>
-              </div>
-
-              <label class="chk"><input id="hanske" type="checkbox">Hanskemodus (større knapper)</label>
-
-              <div class="row" style="margin-top:6px">
-                <button id="homeStart" class="btn green">Start runde →</button>
-                <button id="homeReset" class="btn red">Nullstill runde</button>
-                <button id="homeSync" class="btn blue">Synk/status nå</button>
-              </div>
-
-              <div class="muted" id="homeSummary"></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="muted">Fremdrift i runde</div>
-            <div class="progress" style="margin-top:6px"><div id="homeProgress" class="bar"></div></div>
-            <div id="homeProgressTxt" class="muted" style="margin-top:8px">—</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- UNDER ARBEID -->
-    <section id="work">
-      <h2>Under arbeid</h2>
-      <div class="muted">Rolle: <span id="workRole"></span>  Retning: <span id="workDir"></span></div>
-      <div class="progress" style="margin:8px 0 14px"><div id="workBar" class="bar"></div></div>
-      <div id="workList" class="list"></div>
-    </section>
-
-    <!-- ADRESSE-REGISTER -->
-    <section id="addresses">
-      <h2>Adresse-register</h2>
-      <div class="row" style="margin:8px 0">
-        <button id="arImport" class="btn blue">Hent fra katalog</button>
-        <button id="arResetLocal" class="btn gray">Nullstill lokal status</button>
-        <button id="arExport" class="btn green">Eksporter katalog (JSON)</button>
-        <input id="arImportFile" type="file" accept="application/json" style="display:none">
-        <button id="arImportBtn" class="btn">Importer katalog (JSON)</button>
-      </div>
-      <div class="muted">Adresser i runde: <span id="arCount">0</span></div>
-
-      <div class="card" style="margin-top:10px">
-        <div class="row">
-          <input id="arNewName" type="text" placeholder="Navn / adresse" style="flex:1">
-          <select id="arNewTask">
-            <option>Snø + brøytestikker</option>
-            <option>Snø og grus + brøytestikker</option>
-          </select>
-          <label class="chk"><input id="arNewTwo" type="checkbox">2 sjåfører</label>
-          <button id="arAdd" class="btn green">+ Legg til</button>
-        </div>
-      </div>
-
-      <div id="arList" class="list" style="margin-top:12px"></div>
-    </section>
-
-    <!-- ADMIN -->
-    <section id="admin">
-      <h2>Admin</h2>
-      <div class="row" style="margin:8px 0">
-        <button id="adSave" class="btn green">💾 Lagre katalog</button>
-        <button id="adExport" class="btn blue">⬇️ Eksporter JSON</button>
-        <input id="adImportFile" type="file" accept="application/json" style="display:none">
-        <button id="adImport" class="btn">⬆️ Importer JSON</button>
-      </div>
-      <p class="muted">Rediger navn/oppgave, 2-sjåfører og brøytestikker. Lås pinner for sesong.</p>
-      <div id="adList" class="list"></div>
-    </section>
-
-    <!-- SERVICE -->
-    <section id="service">
-      <h2>Service</h2>
-      <p class="muted">Huk av det som ble gjort etter runden.</p>
-      <div class="card">
-        <label class="chk"><input id="svFres" type="checkbox">Smurt fres</label>
-        <label class="chk"><input id="svSkjaer" type="checkbox">Smurt skjær</label>
-        <label class="chk"><input id="svForst" type="checkbox">Smurt forstilling</label>
-        <label class="chk"><input id="svOljeF" type="checkbox">Sjekket olje foran</label>
-        <label class="chk"><input id="svOljeB" type="checkbox">Sjekket olje bak</label>
-        <label class="chk"><input id="svEtter" type="checkbox">Etterfylt olje</label>
-        <label class="chk"><input id="svDiesel" type="checkbox">Diesel fylt</label>
-        <label class="chk"><input id="svOther" type="checkbox">Annet</label>
-        <textarea id="svNotes" placeholder="Notater …"></textarea>
-        <div class="row" style="margin-top:8px">
-          <button id="svSave" class="btn green">💾 Lagre service</button>
-          <button id="svFinish" class="btn blue">📦 Fullfør runde (JSON)</button>
-        </div>
-      </div>
-    </section>
+  <main id="content">
+    <h2>Velkommen til Brøyterute</h2>
+    <p>Versjon <span id="ver">v9.12-L</span> – Romerike Trefelling</p>
+    <button id="startBtn" style="background:#007a1f;color:white;padding:10px 16px;border:none;border-radius:6px;">Start ny runde</button>
   </main>
 
-  <footer>v—</footer>
+  <footer>
+    <span id="ver-footer">v9.12-L</span> – Romerike Trefelling
+  </footer>
 
-  <!-- Moduler -->
-  <script src="del-C.js?v=912L" defer></script>
-  <script src="del-D.js?v=912L" defer></script>
-  <script src="del-E.js?v=912L" defer></script>
-  <script src="del-F.js?v=912L" defer></script>
-  <script src="del-G.js?v=912L" defer></script>
-  <script src="del-H.js?v=912L" defer></script>
+  <!-- ===== JS-filer ===== -->
+  <script src="del-C.js?v=912L"></script>
+  <script src="del-D.js?v=912L"></script>
+  <script src="del-E.js?v=912L"></script>
+  <script src="del-F.js?v=912L"></script>
+  <script src="del-G.js?v=912L"></script>
+  <script src="del-H.js?v=912L"></script>
 
+  <!-- ===== Init og fallback ===== -->
   <script>
-    // enkel tab-navigasjon
-    const tabs = [...document.querySelectorAll('nav button')];
-    const secs = [...document.querySelectorAll('main section')];
-    tabs.forEach(b=>b.addEventListener('click',()=>{
-      tabs.forEach(x=>x.classList.remove('active'));
-      b.classList.add('active');
-      const t=b.dataset.tab;
-      secs.forEach(s=>s.classList.toggle('active', s.id===t));
-      window.scrollTo({top:0,behavior:'smooth'});
-    }));
+    document.addEventListener("DOMContentLoaded", () => {
+      const verEls = [document.getElementById("ver"), document.getElementById("ver-footer")];
+      const version = window.Core?.cfg?.VERSION || "9.12-L";
+      verEls.forEach(el => { if (el) el.textContent = `v${version}`; });
+
+      console.log("Brøyterute v" + version + " startet");
+
+      window.showPage = function(id) {
+        // enkel sidebytte for testing
+        const main = document.getElementById("content");
+        if (main) main.innerHTML = `<h2>${id}</h2><p>Innhold for ${id} kommer her...</p>`;
+      };
+    });
   </script>
 </body>
 </html>
