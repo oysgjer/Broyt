@@ -1,6 +1,5 @@
 /* ===== del-C.js (CORE / grunnmur) ===== */
 (() => {
-  // Globalt namespace
   const Core = (window.Core = window.Core || {});
 
   /* ---------- Konfig ---------- */
@@ -23,7 +22,6 @@
       "Snø og grus + brøytestikker"
     ],
 
-    // Fallback-nøkkel – kan overskrives i appen (Lagre nøkkel)
     DEFAULT_API_KEY:
       "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma"
   };
@@ -36,6 +34,9 @@
     { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[s]
   ));
   Core.log = (...a) => console.log(...a);
+
+  // ✅ Utstyrsnavn
+  Core.equipLabel = (k) => ({ plog:"Skjær", fres:"Fres", stro:"Strøkasse" }[k] || k);
 
   /* ---------- Dato/visning ---------- */
   Core.dateKey = (d) => (d||new Date()).toISOString().slice(0,10);
@@ -62,14 +63,11 @@
     customName:"",
     theme:"auto",
 
-    // arbeidsliste
     stops:[],
-
-    // service
     service:{
-      plog:false, fres:false, stro:false,
-      oilFront:false, oilBack:false, steering:false,
-      other:false, notes:""
+      plog:false,fres:false,stro:false,
+      oilFront:false,oilBack:false,steering:false,
+      other:false,notes:""
     },
 
     lastSyncAt:null,
@@ -79,8 +77,8 @@
     dayLog:{ dateKey:Core.dateKey(new Date()), entries:[] }
   });
 
-  Core.save = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(Core.state)); } catch(_){} };
-  Core.load = () => { try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; } catch(_) { return null; } };
+  Core.save = () => { try{localStorage.setItem(LS_KEY,JSON.stringify(Core.state));}catch(_){ } };
+  Core.load = () => { try{const raw=localStorage.getItem(LS_KEY);return raw?JSON.parse(raw):null;}catch(_){return null;} };
 
   /* ---------- API-nøkkel / headers ---------- */
   Core.apiKey = () =>
@@ -98,13 +96,11 @@
     return /brøytestikker/i.test(t) ? t : (t ? `${t} + brøytestikker` : "Snø + brøytestikker");
   };
 
-  /* ---------- Felles fetchCatalog (tilgjengelig med en gang) ---------- */
+  /* ---------- fetchCatalog ---------- */
   Core.fetchCatalog = async () => {
     try {
       const { CATALOG } = Core.cfg.BINS;
-      const res = await fetch(`https://api.jsonbin.io/v3/b/${CATALOG}/latest`, {
-        headers: Core.headers()
-      });
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${CATALOG}/latest`, { headers: Core.headers() });
       if (!res.ok) throw new Error("Feil ved henting");
       const js = await res.json();
       console.log("Katalog hentet (core)", js);
@@ -122,125 +118,58 @@
     if (S.stops.length === 0){
       const T = Core.cfg.DEFAULT_TASKS;
       S.stops = [
-        { n:"AMFI Eidsvoll (Råholt)", t:T[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null },
-        { n:"Råholt barneskole",      t:T[1], f:false, b:false, p:[], twoDriverRec:true,  pinsCount:0, pinsLockedYear:null },
-        { n:"Råholt ungdomsskole",    t:T[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0, pinsLockedYear:null }
+        { n:"AMFI Eidsvoll (Råholt)", t:T[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0 },
+        { n:"Råholt barneskole",      t:T[1], f:false, b:false, p:[], twoDriverRec:true,  pinsCount:0 },
+        { n:"Råholt ungdomsskole",    t:T[0], f:false, b:false, p:[], twoDriverRec:false, pinsCount:0 }
       ];
       Core.save();
     }
   }
 
-  /* ---------- Eksponér noen enkle utilities ---------- */
   Core.fmtTime = (ts) => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
   Core.fmtDT   = (ts) => ts ? new Date(ts).toLocaleString("no-NO") : "—";
   Core.touchActivity = () => { if (Core.state){ Core.state.lastActiveAt = Date.now(); Core.save(); } };
 
-  /* ---------- DOM ready ---------- */
   document.addEventListener("DOMContentLoaded", () => {
     Core.state = Core.load() || Core.makeDefaultState();
-
     const footer = document.querySelector("footer");
-    if (footer && !/v9\.11/.test(footer.textContent||"")){
+    if (footer && !/v9\.11/.test(footer.textContent||""))
       footer.textContent = `v${Core.cfg.VERSION} – Romerike Trefelling`;
-    }
-
     bootDefaults();
     Core.log("del-C.js (core) lastet");
   });
 
-
   /* ---------- Felles status (JSONBin heartbeat) – med auto CORS-proxy ---------- */
   Core.status = (() => {
     const BIN = Core.cfg.BINS.POSITIONS;
-
-    // Bruk proxy automatisk fra GitHub Pages og file://
     const needProxy =
       (typeof location !== "undefined" &&
         (location.hostname.endsWith("github.io") || location.protocol === "file:"));
+    const wrapUrl = (url) => needProxy ? `https://cors.isomorphic-git.org/${url}` : url;
 
-    const wrapUrl = (url) =>
-      needProxy ? `https://cors.isomorphic-git.org/${url}` : url;
-
-    // Felles fetch som håndterer proxy, feil og enkel retry/backoff
     async function jfetch(url, opts = {}, tryNo = 0) {
       const res = await fetch(wrapUrl(url), {
-        mode: "cors",
-        headers: { ...(Core.headers()), ...(opts.headers || {}) },
-        ...opts,
-      }).catch((e) => ({ ok: false, _netErr: e }));
-
-      if (!res || res._netErr) {
-        if (tryNo < 2) {
-          await new Promise((r) => setTimeout(r, 400 * (tryNo + 1)));
-          return jfetch(url, opts, tryNo + 1);
-        }
-        throw new Error("Nettverksfeil mot JSONBin");
-      }
-
-      if ([401, 403, 429].includes(res.status) && tryNo < 2) {
-        await new Promise((r) => setTimeout(r, 600 * (tryNo + 1)));
-        return jfetch(url, opts, tryNo + 1);
-      }
-
+        mode:"cors",
+        headers:{...(Core.headers()),...(opts.headers||{})}, ...opts
+      }).catch((e)=>({ok:false,_netErr:e}));
+      if(!res||res._netErr){ if(tryNo<2){await new Promise(r=>setTimeout(r,400*(tryNo+1)));return jfetch(url,opts,tryNo+1);} throw new Error("Nettverksfeil mot JSONBin");}
+      if([401,403,429].includes(res.status)&&tryNo<2){await new Promise(r=>setTimeout(r,600*(tryNo+1)));return jfetch(url,opts,tryNo+1);}
       return res;
     }
 
-    async function readAll() {
-      try {
-        const r = await jfetch(`https://api.jsonbin.io/v3/b/${BIN}/latest`);
-        if (!r.ok) throw new Error(`JSONBin READ ${r.status}`);
-        const js = await r.json();
-        return js?.record || {};
-      } catch (e) {
-        console.warn("status.readAll():", e);
-        return {};
-      }
-    }
+    async function readAll(){ try{const r=await jfetch(`https://api.jsonbin.io/v3/b/${BIN}/latest`); if(!r.ok)throw new Error(`READ ${r.status}`); const js=await r.json(); return js?.record||{};}catch(e){console.warn("status.readAll():",e);return{};} }
+    async function writeAll(obj){ try{const r=await jfetch(`https://api.jsonbin.io/v3/b/${BIN}`,{method:"PUT",body:JSON.stringify(obj||{})}); if(!r.ok)throw new Error(`WRITE ${r.status}`);}catch(e){console.warn("status.writeAll():",e);} }
 
-    async function writeAll(obj) {
-      try {
-        const r = await jfetch(`https://api.jsonbin.io/v3/b/${BIN}`, {
-          method: "PUT",
-          body: JSON.stringify(obj || {}),
-        });
-        if (!r.ok) throw new Error(`JSONBin WRITE ${r.status}`);
-      } catch (e) {
-        console.warn("status.writeAll():", e);
-      }
-    }
-
-    async function updateSelf(extra = {}) {
-      const name = (Core.state?.customName || "Ukjent").trim() || "Ukjent";
-      const all = await readAll();
-      all[name] = {
-        name,
-        ts: Date.now(),
-        progress: extra.progress ?? 0,
-        current: extra.current || "",
-        direction: Core.state?.direction || "forward",
-        equipment: Core.state?.equipment || {},
-      };
+    async function updateSelf(extra={}) {
+      const name=(Core.state?.customName||"Ukjent").trim()||"Ukjent";
+      const all=await readAll();
+      all[name]={ name, ts:Date.now(), progress:extra.progress??0, current:extra.current||"", direction:Core.state?.direction||"forward", equipment:Core.state?.equipment||{} };
       await writeAll(all);
     }
 
-    let pollTimer = null, beatTimer = null;
-
-    function startHeartbeat() {
-      if (beatTimer) return;
-      updateSelf({ progress: 0 });
-      beatTimer = setInterval(() => updateSelf({ progress: 0 }), 30000);
-    }
-
-    function startPolling(cb) {
-      if (pollTimer) return;
-      const tick = async () => {
-        const all = await readAll();
-        const list = Object.values(all).sort((a, b) => (b.ts || 0) - (a.ts || 0));
-        cb && cb(list);
-      };
-      tick();
-      pollTimer = setInterval(tick, 20000);
-    }
+    let pollTimer=null, beatTimer=null;
+    function startHeartbeat(){ if(beatTimer)return; updateSelf({progress:0}); beatTimer=setInterval(()=>updateSelf({progress:0}),30000); }
+    function startPolling(cb){ if(pollTimer)return; const tick=async()=>{const all=await readAll(); const list=Object.values(all).sort((a,b)=>(b.ts||0)-(a.ts||0)); cb&&cb(list);}; tick(); pollTimer=setInterval(tick,20000); }
 
     return { updateSelf, startHeartbeat, startPolling };
   })();
