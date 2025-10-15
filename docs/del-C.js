@@ -147,60 +147,102 @@
     bootDefaults();
     Core.log("del-C.js (core) lastet");
   });
-    /* ---------- Felles status (JSONBin heartbeat) ---------- */
+
+
+  /* ---------- Felles status (JSONBin heartbeat) – med auto CORS-proxy ---------- */
   Core.status = (() => {
-    const BIN = Core.cfg.BINS.POSITIONS;   // bruker din eksisterende bøtte
-    let pollTimer = null, beatTimer = null;
+    const BIN = Core.cfg.BINS.POSITIONS;
+
+    // Bruk proxy automatisk fra GitHub Pages og file://
+    const needProxy =
+      (typeof location !== "undefined" &&
+        (location.hostname.endsWith("github.io") || location.protocol === "file:"));
+
+    const wrapUrl = (url) =>
+      needProxy ? `https://cors.isomorphic-git.org/${url}` : url;
+
+    // Felles fetch som håndterer proxy, feil og enkel retry/backoff
+    async function jfetch(url, opts = {}, tryNo = 0) {
+      const res = await fetch(wrapUrl(url), {
+        mode: "cors",
+        headers: { ...(Core.headers()), ...(opts.headers || {}) },
+        ...opts,
+      }).catch((e) => ({ ok: false, _netErr: e }));
+
+      if (!res || res._netErr) {
+        if (tryNo < 2) {
+          await new Promise((r) => setTimeout(r, 400 * (tryNo + 1)));
+          return jfetch(url, opts, tryNo + 1);
+        }
+        throw new Error("Nettverksfeil mot JSONBin");
+      }
+
+      if ([401, 403, 429].includes(res.status) && tryNo < 2) {
+        await new Promise((r) => setTimeout(r, 600 * (tryNo + 1)));
+        return jfetch(url, opts, tryNo + 1);
+      }
+
+      return res;
+    }
 
     async function readAll() {
       try {
-        const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN}/latest`, { headers: Core.headers() });
-        if (!r.ok) throw 0;
+        const r = await jfetch(`https://api.jsonbin.io/v3/b/${BIN}/latest`);
+        if (!r.ok) throw new Error(`JSONBin READ ${r.status}`);
         const js = await r.json();
         return js?.record || {};
-      } catch { return {}; }
-    }
-    async function writeAll(obj) {
-      try {
-        await fetch(`https://api.jsonbin.io/v3/b/${BIN}`, {
-          method: "PUT",
-          headers: Core.headers(),
-          body: JSON.stringify(obj || {})
-        });
-      } catch(_){}
+      } catch (e) {
+        console.warn("status.readAll():", e);
+        return {};
+      }
     }
 
-    async function updateSelf(extra={}) {
-      const name = (Core.state.customName || "Ukjent").trim() || "Ukjent";
+    async function writeAll(obj) {
+      try {
+        const r = await jfetch(`https://api.jsonbin.io/v3/b/${BIN}`, {
+          method: "PUT",
+          body: JSON.stringify(obj || {}),
+        });
+        if (!r.ok) throw new Error(`JSONBin WRITE ${r.status}`);
+      } catch (e) {
+        console.warn("status.writeAll():", e);
+      }
+    }
+
+    async function updateSelf(extra = {}) {
+      const name = (Core.state?.customName || "Ukjent").trim() || "Ukjent";
       const all = await readAll();
       all[name] = {
         name,
         ts: Date.now(),
         progress: extra.progress ?? 0,
         current: extra.current || "",
-        direction: Core.state.direction || "forward",
-        equipment: Core.state.equipment || {}
+        direction: Core.state?.direction || "forward",
+        equipment: Core.state?.equipment || {},
       };
       await writeAll(all);
     }
 
+    let pollTimer = null, beatTimer = null;
+
     function startHeartbeat() {
       if (beatTimer) return;
       updateSelf({ progress: 0 });
-      beatTimer = setInterval(()=> updateSelf({ progress: 0 }), 30000); // hver 30s
+      beatTimer = setInterval(() => updateSelf({ progress: 0 }), 30000);
     }
 
     function startPolling(cb) {
       if (pollTimer) return;
       const tick = async () => {
         const all = await readAll();
-        const list = Object.values(all).sort((a,b)=> (b.ts||0)-(a.ts||0));
+        const list = Object.values(all).sort((a, b) => (b.ts || 0) - (a.ts || 0));
         cb && cb(list);
       };
       tick();
-      pollTimer = setInterval(tick, 20000); // hver 20s
+      pollTimer = setInterval(tick, 20000);
     }
 
     return { updateSelf, startHeartbeat, startPolling };
   })();
+
 })();
