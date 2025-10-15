@@ -9,13 +9,13 @@
 
     // JSONBin-bøtter
     BINS: {
-      MASTER:   "68e774c9ae596e708f0b9977",
-      CATALOG:  "68e782f3d0ea881f409ae08a",
-      BACKUP:   "68e7b4d2ae596e708f0bde7d",
-      INBOX:    "68e7833843b1c97be95ff286",
-      REPORTS:  "68e89e3443b1c97be9611c48",
-      POSITIONS:"68ed41ee43b1c97be9661c65",
-      MAPLAYERS:"68ed425cae596e708f11d25f"
+      MASTER:    "68e774c9ae596e708f0b9977",
+      CATALOG:   "68e782f3d0ea881f409ae08a",
+      BACKUP:    "68e7b4d2ae596e708f0bde7d",
+      INBOX:     "68e7833843b1c97be95ff286",
+      REPORTS:   "68e89e3443b1c97be9611c48",
+      POSITIONS: "68ed41ee43b1c97be9661c65",
+      MAPLAYERS: "68ed425cae596e708f11d25f"
     },
 
     DEFAULT_TASKS: [
@@ -27,10 +27,6 @@
     DEFAULT_API_KEY:
       "$2a$10$DK3EUoEj/YsimWzgYG.DMOb4aEFFUiRPdJgmkOzfPQ3Jx2evIIWma"
   };
-
-  /* ---------- CORS proxy wrapper ---------- */
-  // Bruker isomorphic-git sin åpne CORS-proxy som tillater alle metoder og headere
-  const wrapUrl = (url) => `https://cors.isomorphic-git.org/${url.replace(/^https?:\/\//,'https://')}`;
 
   /* ---------- Små helpers ---------- */
   Core.$   = (id) => document.getElementById(String(id).replace(/^#/, ""));
@@ -59,8 +55,8 @@
   Core.makeDefaultState = () => ({
     role:"driver1",
     direction:"forward",
-    // Utstyr-keys oppdatert: skjær / fres / strøkasse
-    equipment:{skjær:true,fres:false,strøkasse:false},
+    // NB: navn i UI kan være "Skjær/Fres/Strøkasse", men state-feltene beholdes
+    equipment:{plog:true,fres:false,stro:false},
     autoCheck:true,
     hanske:false,
     useCustomName:false,
@@ -70,7 +66,7 @@
     // arbeidsliste
     stops:[],
 
-    // service (samme struktur som før – UI mapper disse)
+    // service
     service:{
       plog:false, fres:false, stro:false,
       oilFront:false, oilBack:false, steering:false,
@@ -103,23 +99,29 @@
     return /brøytestikker/i.test(t) ? t : (t ? `${t} + brøytestikker` : "Snø + brøytestikker");
   };
 
-  /* ---------- Felles fetchCatalog (via proxy) ---------- */
+  /* ---------- Hent katalog (robust) ---------- */
   Core.fetchCatalog = async () => {
     try {
       const { CATALOG } = Core.cfg.BINS;
-      const url = wrapUrl(`https://api.jsonbin.io/v3/b/${CATALOG}/latest`);
-      const res = await fetch(url, { headers: Core.headers() });
-      if (!res.ok) throw new Error("Feil ved henting");
-      const js = await res.json();
-      console.log("Katalog hentet (core)", js);
-      return js?.record || {};
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${CATALOG}/latest`, {
+        headers: Core.headers()
+      });
+      if (!res.ok) throw new Error(`Feil ved henting (HTTP ${res.status})`);
+      const js  = await res.json();
+      const rec = js?.record || {};
+      // Returner hele record hvis den inneholder addresses; ellers tom liste
+      const out = (rec && Array.isArray(rec.addresses))
+        ? rec
+        : { addresses: [], error: false };
+      console.log("Katalog hentet (core)", out);
+      return out;
     } catch (e) {
       console.error("fetchCatalog-feil:", e);
       return { addresses: [], error: true };
     }
   };
 
-  /* ---------- Første init ---------- */
+  /* ---------- Første init av lokale defaults ---------- */
   function bootDefaults(){
     const S = Core.state;
     if (!Array.isArray(S.stops)) S.stops = [];
@@ -134,10 +136,67 @@
     }
   }
 
-  /* ---------- Eksponér noen enkle utilities ---------- */
+  /* ---------- Små utilities ---------- */
   Core.fmtTime = (ts) => ts ? new Date(ts).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
   Core.fmtDT   = (ts) => ts ? new Date(ts).toLocaleString("no-NO") : "—";
   Core.touchActivity = () => { if (Core.state){ Core.state.lastActiveAt = Date.now(); Core.save(); } };
+
+  /* ---------- Felles status (heartbeat/poll) ---------- */
+  Core.status = (() => {
+    const BIN = Core.cfg.BINS.POSITIONS;
+    let pollTimer = null, beatTimer = null;
+
+    async function readAll() {
+      try {
+        const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN}/latest`, { headers: Core.headers() });
+        if (!r.ok) throw 0;
+        const js = await r.json();
+        return js?.record || {};
+      } catch { return {}; }
+    }
+    async function writeAll(obj) {
+      try {
+        await fetch(`https://api.jsonbin.io/v3/b/${BIN}`, {
+          method: "PUT",
+          headers: Core.headers(),
+          body: JSON.stringify(obj || {})
+        });
+      } catch(_){}
+    }
+
+    async function updateSelf(extra={}) {
+      const name = (Core.state?.customName || "Ukjent").trim() || "Ukjent";
+      const all = await readAll();
+      all[name] = {
+        name,
+        ts: Date.now(),
+        progress: extra.progress ?? 0,
+        current: extra.current || "",
+        direction: Core.state?.direction || "forward",
+        equipment: Core.state?.equipment || {}
+      };
+      await writeAll(all);
+    }
+
+    function startHeartbeat() {
+      if (beatTimer) return;
+      updateSelf({ progress: 0 });
+      beatTimer = setInterval(()=> updateSelf({ progress: 0 }), 30000); // hver 30s
+    }
+
+    function startPolling(cb) {
+      if (pollTimer) return;
+      const tick = async () => {
+        const all = await readAll();
+        const list = Object.values(all).sort((a,b)=> (b.ts||0)-(a.ts||0));
+        cb && cb(list);
+      };
+      tick();
+      pollTimer = setInterval(tick, 20000); // hver 20s
+    }
+
+    return { updateSelf, startHeartbeat, startPolling };
+  })();
 
   /* ---------- DOM ready ---------- */
   document.addEventListener("DOMContentLoaded", () => {
@@ -151,64 +210,4 @@
     bootDefaults();
     Core.log("del-C.js (core) lastet");
   });
-
-  /* ---------- Felles status (JSONBin heartbeat) via proxy ---------- */
-  Core.status = (() => {
-    const BIN = Core.cfg.BINS.POSITIONS;
-    let pollTimer = null, beatTimer = null;
-
-    const readAll = async () => {
-      try {
-        const url = wrapUrl(`https://api.jsonbin.io/v3/b/${BIN}/latest`);
-        const r = await fetch(url, { headers: Core.headers() });
-        if (!r.ok) throw 0;
-        const js = await r.json();
-        return js?.record || {};
-      } catch { return {}; }
-    };
-
-    const writeAll = async (obj) => {
-      try {
-        const url = wrapUrl(`https://api.jsonbin.io/v3/b/${BIN}`);
-        await fetch(url, {
-          method: "PUT",
-          headers: Core.headers(),
-          body: JSON.stringify(obj || {})
-        });
-      } catch(_){}
-    };
-
-    const updateSelf = async (extra={}) => {
-      const name = (Core.state.customName || "Ukjent").trim() || "Ukjent";
-      const all = await readAll();
-      all[name] = {
-        name,
-        ts: Date.now(),
-        progress: extra.progress ?? 0,
-        current: extra.current || "",
-        direction: Core.state.direction || "forward",
-        equipment: Core.state.equipment || {}
-      };
-      await writeAll(all);
-    };
-
-    const startHeartbeat = () => {
-      if (beatTimer) return;
-      updateSelf({ progress: 0 });
-      beatTimer = setInterval(()=> updateSelf({ progress: 0 }), 30000); // hver 30s
-    };
-
-    const startPolling = (cb) => {
-      if (pollTimer) return;
-      const tick = async () => {
-        const all = await readAll();
-        const list = Object.values(all).sort((a,b)=> (b.ts||0)-(a.ts||0));
-        cb && cb(list);
-      };
-      tick();
-      pollTimer = setInterval(tick, 20000); // hver 20s
-    };
-
-    return { updateSelf, startHeartbeat, startPolling };
-  })();
 })();
