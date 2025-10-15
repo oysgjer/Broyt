@@ -1,88 +1,122 @@
-/* ===== del-F.js (Hjem + “Start ny runde”) ===== */
+/* ===== del-F.js (Hjem: førstegangsnavn + utstyr/retning + start) ===== */
 (() => {
   if (!window.Core) { console.warn("Del C må lastes før Del F."); return; }
   const Core = window.Core;
-  const $ = Core.$;
+  const $    = Core.$;
 
-  // --- nullstill ALLE stopp (standard) ---
-  function resetRoundAll() {
+  function renderHome(){
+    const host = document.getElementById("home");
+    if (!host) return;
+
     const S = Core.state;
-    if (!Array.isArray(S.stops) || !S.stops.length) return 0;
+    const eq = S.equipment || {};
 
-    let changed = 0;
-    S.stops.forEach(s => {
-      if (s.f || s.b || s.started || s.finished) {
-        s.f = false; s.b = false;
-        s.started = null; s.finished = null;
-        changed++;
-      }
+    host.innerHTML = `
+      <h2>Velkommen til Brøyterute</h2>
+      <p>Versjon ${Core.esc(Core.cfg.VERSION)} – Romerike Trefelling</p>
+
+      <div class="card" style="background:#181a1e;border:1px solid #2a2f36;border-radius:14px;padding:14px;margin:12px 0;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <label class="badge">Sjåfør</label>
+          <input id="homeName" type="text" placeholder="Navn" value="${Core.esc(S.customName||"")}"
+                 style="min-width:200px;background:transparent;color:#fff;border:1px solid #2a2f36;border-radius:10px;padding:8px">
+          <label class="small" style="display:flex;gap:6px;align-items:center">
+            <input id="homeUseName" type="checkbox" ${S.useCustomName?'checked':''}>
+            Bruk eget navn
+          </label>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:8px 0">
+          <label>Retning</label>
+          <select id="homeDir" style="background:transparent;color:#fff;border:1px solid #2a2f36;border-radius:10px;padding:8px">
+            <option value="forward" ${S.direction!=="reverse"?'selected':''}>Vanlig</option>
+            <option value="reverse" ${S.direction==="reverse"?'selected':''}>Baklengs</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:8px 0">
+          <label style="display:flex;gap:6px;align-items:center">
+            <input id="eq_plog" type="checkbox" ${eq.plog?'checked':''}> Plog
+          </label>
+          <label style="display:flex;gap:6px;align-items:center">
+            <input id="eq_fres" type="checkbox" ${eq.fres?'checked':''}> Fres
+          </label>
+          <label style="display:flex;gap:6px;align-items:center">
+            <input id="eq_stro" type="checkbox" ${eq.stro?'checked':''}> Strø
+          </label>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+          <button id="startBtn" class="btn-green" style="border:none;border-radius:10px;padding:10px 14px;font-weight:700">Start runde</button>
+          <button id="resetBtn" class="btn-red" style="border:none;border-radius:10px;padding:10px 14px;font-weight:700">Nullstill alle</button>
+        </div>
+      </div>
+    `;
+
+    // Handlers
+    $("#homeName").addEventListener("input", e=>{
+      Core.state.customName = e.target.value.trim();
+      Core.save();
     });
-    S.ui = S.ui || {};
-    S.ui.cursor = 0;
-    Core.save();
-    console.log(`Runde nullstilt – ${changed} adresser reset`);
-    return changed;
+    $("#homeUseName").addEventListener("change", e=>{
+      Core.state.useCustomName = !!e.target.checked;
+      Core.save();
+    });
+    $("#homeDir").addEventListener("change", e=>{
+      Core.state.direction = e.target.value;
+      Core.state.ui = Core.state.ui || {};
+      Core.state.ui.cursor = 0;                  // hopp til start når retning endres
+      Core.save();
+      window.WorkUI?.render?.();
+    });
+    $("#eq_plog").addEventListener("change", e=>{
+      Core.state.equipment.plog = !!e.target.checked; Core.save();
+    });
+    $("#eq_fres").addEventListener("change", e=>{
+      Core.state.equipment.fres = !!e.target.checked; Core.save();
+    });
+    $("#eq_stro").addEventListener("change", e=>{
+      Core.state.equipment.stro = !!e.target.checked; Core.save();
+    });
+
+    $("#startBtn").addEventListener("click", ()=>{
+      // Gå til Under arbeid + render
+      document.querySelector('nav button[onclick="show(\'work\')"]')?.click();
+      window.WorkUI?.render?.();
+    });
+
+    $("#resetBtn").addEventListener("click", ()=>{
+      if (!confirm("Nullstille status for ALLE adresser?")) return;
+      (Core.state.stops||[]).forEach(s=>{
+        s.f=false; s.b=false; s.started=null; s.finished=null; s.details="";
+      });
+      Core.state.ui = Core.state.ui || {};
+      Core.state.ui.cursor = 0;
+      Core.save();
+      window.WorkUI?.render?.();
+      alert("Alle adresser nullstilt.");
+    });
   }
 
-  // --- (valgfritt) nullstill etter utstyr – kan aktiveres senere ---
-  function resetRoundByEquipment() {
+  // Førstegang: be om navn (en gang) hvis tomt
+  function firstRunNamePrompt(){
     const S = Core.state;
-    if (!Array.isArray(S.stops) || !S.stops.length) return 0;
-
-    const eq = S.equipment || {plog:true,fres:false,stro:false};
-    let changed = 0;
-    S.stops.forEach(s => {
-      const t = String(s.t || "");
-      const needSnow = /Snø/i.test(t);
-      const needGrus = /grus/i.test(t);
-      const okSnow   = (!needSnow) || eq.plog || eq.fres;
-      const okGrus   = (!needGrus) || eq.stro;
-
-      if (okSnow && okGrus) {
-        if (s.f || s.b || s.started || s.finished) {
-          s.f = false; s.b = false;
-          s.started = null; s.finished = null;
-          changed++;
-        }
+    if (!S.useCustomName || !S.customName){
+      const v = prompt("Skriv sjåførnavn (du kan endre senere på Hjem):", S.customName||"");
+      if (v !== null){
+        S.customName = (v||"").trim();
+        S.useCustomName = !!S.customName;
+        Core.save();
       }
-    });
-    S.ui = S.ui || {};
-    S.ui.cursor = 0;
-    Core.save();
-    console.log(`Runde (etter utstyr) nullstilt – ${changed} adresser reset`);
-    return changed;
-  }
-
-  // --- naviger til faner (bruker show() fra index.html) ---
-  function go(tabId){ try{ window.show && window.show(tabId); }catch(_){} }
-
-  // --- wire Hjem-knappen(e) ---
-  function wireHome() {
-    const start = $("startBtn");
-    if (start) {
-      start.onclick = () => {
-        // Nullstill ALT som default (enkel og forutsigbar oppførsel)
-        resetRoundAll();
-        // Gå til “Under arbeid” og vis knappene/lista
-        go("work");
-        window.WorkUI?.render?.();
-      };
-    }
-
-    // Om du senere legger inn en egen knapp for “etter utstyr”, kan den peke hit:
-    const startEquip = $("startEquipBtn");
-    if (startEquip) {
-      startEquip.onclick = () => {
-        resetRoundByEquipment();
-        go("work");
-        window.WorkUI?.render?.();
-      };
     }
   }
 
-  document.addEventListener("DOMContentLoaded", wireHome);
+  document.addEventListener("DOMContentLoaded", ()=>{
+    firstRunNamePrompt();
+    renderHome();
+  });
 
-  // Eksponer litt (kan være nyttig i konsoll/testing)
-  window.__StartRound = { resetRoundAll, resetRoundByEquipment };
-  console.log("del-F.js lastet");
+  // eksporter om vi trenger å rerendere fra andre deler
+  window.HomeUI = { render: renderHome };
+  console.log("del-F.js lastet (Hjem med navn + utstyr + retning)");
 })();
