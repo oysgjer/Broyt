@@ -1,5 +1,3 @@
-<!-- del-E.js -->
-<script>
 /* ===== del-E.js — Adresse-register ===== */
 (() => {
   if (!window.Core) {
@@ -7,35 +5,26 @@
     return;
   }
   const Core = window.Core;
-
-  // ---------- helpers ----------
   const $  = (sel, root=document) => root.querySelector(sel);
-  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-  // Sikre at stops finnes
   function ensureStops() {
     const S = Core.state || (Core.state = Core.load() || Core.makeDefaultState());
     if (!Array.isArray(S.stops)) S.stops = [];
     return S.stops;
   }
 
-  // Konverter ev. katalog-record til vår interne struktur
   function mapCatalogToStops(record) {
-    // Forventer format: { addresses: [{ name, task, twoDriverRec?, pinsCount?, pinsLockedYear? }, ...] }
     const list = Array.isArray(record?.addresses) ? record.addresses : [];
     return list.map(a => ({
       n: String(a.name ?? a.n ?? "").trim(),
       t: Core.normalizeTask(a.task ?? a.t ?? ""),
-      f: false,                 // ferdig flagg lokalt (nullstilles)
-      b: false,                 // “ikke mulig” lokalt (nullstilles)
-      p: Array.isArray(a.p) ? a.p : [],      // evt. pinnelogger hvis den finnes
+      f: false, b: false, p: Array.isArray(a.p) ? a.p : [],
       twoDriverRec: !!a.twoDriverRec,
       pinsCount: Number(a.pinsCount ?? 0) || 0,
       pinsLockedYear: a.pinsLockedYear ?? null
     })).filter(x => x.n);
   }
 
-  // ---------- UI bygging ----------
   function buildUI() {
     const host = $("#addresses");
     if (!host) return;
@@ -61,10 +50,9 @@
       <div id="addrList" style="display:flex;flex-direction:column;gap:.75rem"></div>
     `;
 
-    // Fyll oppgavevalg
+    // Oppgavevalg
     const sel = $("#addrTask", host);
-    const tasks = Core.cfg.DEFAULT_TASKS;
-    tasks.forEach(t => {
+    Core.cfg.DEFAULT_TASKS.forEach(t => {
       const o = document.createElement("option");
       o.value = t; o.textContent = t;
       sel.appendChild(o);
@@ -76,9 +64,9 @@
     $("#addrReset", host).addEventListener("click", onReset);
 
     renderList();
+    console.log("del-E.js: UI bygget");
   }
 
-  // ---------- Render ----------
   function renderList() {
     const host = $("#addresses");
     if (!host) return;
@@ -86,11 +74,9 @@
     const listEl = $("#addrList", host);
     const stops = ensureStops();
 
-    // teller
     $("#addrCount", host).textContent = `Adresser i runde: ${stops.length}`;
-
-    // liste
     listEl.innerHTML = "";
+
     if (stops.length === 0) {
       const empty = document.createElement("div");
       empty.className = "muted";
@@ -104,7 +90,6 @@
       row.className = "card";
       row.style.padding = "10px";
 
-      // Oppgavevalg
       const taskSelId = `task_${idx}`;
       const twoId = `two_${idx}`;
       const nameId = `name_${idx}`;
@@ -128,8 +113,8 @@
           </div>
 
           <div style="display:flex;gap:.5rem;align-items:end">
-            <button class="btn" data-act="save"   data-i="${idx}">💾 Lagre</button>
-            <button class="btn btn-red" data-act="del"    data-i="${idx}">Slett</button>
+            <button class="btn" data-act="save" data-i="${idx}">💾 Lagre</button>
+            <button class="btn btn-red" data-act="del"  data-i="${idx}">Slett</button>
           </div>
         </div>
 
@@ -138,7 +123,6 @@
         </div>
       `;
 
-      // fyll task options
       const tSel = row.querySelector("#"+taskSelId);
       Core.cfg.DEFAULT_TASKS.forEach(t => {
         const o = document.createElement("option");
@@ -147,7 +131,6 @@
         tSel.appendChild(o);
       });
 
-      // events
       row.querySelector('[data-act="save"]').addEventListener("click", () => {
         const name = row.querySelector("#"+nameId).value.trim();
         const task = row.querySelector("#"+taskSelId).value;
@@ -181,37 +164,26 @@
     setTimeout(()=> tip.remove(), 1500);
   }
 
-  // ---------- Handlers ----------
   function onAdd() {
     const host = $("#addresses");
     const name = $("#addrName", host).value.trim();
     const task = $("#addrTask", host).value;
     const two  = $("#addrTwo", host).checked;
-
     if (!name) return alert("Skriv inn navn/adresse først.");
 
     const stops = ensureStops();
-    stops.push({
-      n: name,
-      t: Core.normalizeTask(task),
-      f: false, b: false, p: [],
-      twoDriverRec: !!two,
-      pinsCount: 0,
-      pinsLockedYear: null
-    });
+    stops.push({ n:name, t:Core.normalizeTask(task), f:false, b:false, p:[], twoDriverRec:!!two, pinsCount:0, pinsLockedYear:null });
     Core.save();
 
-    // reset inputs
     $("#addrName", host).value = "";
     $("#addrTwo", host).checked = false;
-
     renderList();
   }
 
   async function onFetch() {
     try {
       console.info("Laster inn katalog fra JSONBin …");
-      const record = await Core.fetchCatalog();       // fra del-C.js
+      const record = await Core.fetchCatalog();
       const mapped = mapCatalogToStops(record);
       if (!mapped.length) {
         console.warn("Ingen adresser funnet i katalog.");
@@ -232,12 +204,15 @@
   function onReset() {
     if (!confirm("Nullstill lokal status på alle adresser? (Ferdig/Ikke mulig etc.)")) return;
     const stops = ensureStops();
-    stops.forEach(s => { s.f = false; s.b = false; }); // behold navn/oppgave/pinner
+    stops.forEach(s => { s.f = false; s.b = false; });
     Core.save();
     renderList();
   }
 
-  // ---------- Init når DOM er klar ----------
-  document.addEventListener("DOMContentLoaded", buildUI);
+  // Start når DOM er klar (tåler både defer og ikke)
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", buildUI);
+  } else {
+    buildUI();
+  }
 })();
-</script>
