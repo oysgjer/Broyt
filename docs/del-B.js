@@ -1,288 +1,307 @@
-// Del-B – Under arbeid
-// Henter runde/valg fra BroytState, synker adresser, filtrerer etter oppdragstype,
-// håndterer Naviger, Ferdig, Grus utført og Brøytestikker + Avslutt dialog.
+// Del-B – Under arbeid (én adresse om gangen, store knapper)
 
 (function () {
-  const q = (sel) => document.querySelector(sel);
+  const $ = (s) => document.querySelector(s);
+
   const els = {
-    round: q('#b_round'),
-    job: q('#b_job'),
-    dir: q('#b_dir'),
-    season: q('#b_season'),
-    syncLbl: q('#b_sync'),
-    count: q('#b_count'),
-    hint: q('#b_hint'),
-    list: q('#b_list'),
-    prog: q('#b_prog_done'),
-    syncBtn: q('#b_sync_btn'),
-    saveBtn: q('#b_save_btn'),
-    finishBtn: q('#b_finish_btn'),
-    modal: q('#b_finish_modal'),
-    finishSame: q('#b_finish_same'),
-    finishSwitch: q('#b_finish_switch'),
-    finishClose: q('#b_finish_close'),
-    finishCancel: q('#b_finish_cancel'),
+    // meta
+    round: $('#b_round'), job: $('#b_job'), dir: $('#b_dir'), season: $('#b_season'), sync: $('#b_sync'),
+    // progress / hint
+    prog: $('#b_prog_done'), hint: $('#b_hint'),
+    // kort
+    name: $('#b_name'), group: $('#b_group'), equip: $('#b_equipment'),
+    stCount: $('#b_stikker_count'), stChk: $('#b_stikker_chk'), stLbl: $('#b_stikker_lbl'),
+    // index
+    idx: $('#b_index'), total: $('#b_total'),
+    // knapper
+    nav: $('#b_nav'),
+    actStart: $('#act_start'), actSkip: $('#act_skip'), actBlock: $('#act_block'), actDone: $('#act_done'), actAcc: $('#act_acc'),
+    prevBtn: $('#prev_btn'), nextBtn: $('#next_btn'),
+    // synk
+    syncBtn: $('#b_sync_btn'), saveBtn: $('#b_save_btn'),
+    // status
+    status: $('#b_status'),
+    // dialog
+    finishBtn: $('#b_finish_btn'), modal: $('#b_finish_modal'),
+    finishSame: $('#b_finish_same'), finishSwitch: $('#b_finish_switch'), finishClose: $('#b_finish_close'), finishCancel: $('#b_finish_cancel'),
   };
 
   const API = window.APP_CFG?.API_BASE;
   const BIN = window.APP_CFG?.BIN_ID;
 
-  const state = {
+  const S = {
     season: window.BroytState?.getSeason?.() || '',
     round: window.BroytState?.getRound?.() || null,
     prefs: window.BroytState?.getPrefs?.() || null,
     addresses: [],
     filtered: [],
+    i: 0 // peker til aktuell adresse i filtrert liste
   };
 
-  // ---- Sky-IO (direkte via Worker – samme som før)
-  async function fetchLatest() {
-    const url = `${API}b/${BIN}/latest`;
-    const r = await fetch(url, { cache: 'no-store' });
+  // --- Nett (via Worker)
+  async function getLatest() {
+    const r = await fetch(`${API}b/${BIN}/latest`, { cache:'no-store' });
     if (!r.ok) throw new Error(`GET ${r.status}`);
     const data = await r.json();
     return data && data.record ? data.record : data;
   }
-
   async function putPayload(payload) {
-    const url = `${API}b/${BIN}`;
-    const r = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify(payload),
+    const r = await fetch(`${API}b/${BIN}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
     });
     if (!r.ok) throw new Error(`PUT ${r.status}`);
     const data = await r.json();
     return data && data.record ? data.record : data;
   }
 
-  // ---- Rendering
-  function setMeta(syncMsg = '') {
-    els.round.textContent  = state.round?.number ?? '–';
-    els.job.textContent    = state.round?.job ?? '–';
-    els.dir.textContent    = state.round?.driver?.direction ?? '–';
-    els.season.textContent = state.season || '–';
-    els.syncLbl.textContent = syncMsg || 'OK';
-  }
+  // --- Mapping
+  function mapAddr(a) {
+    const st = (a.stikkerSeason && a.stikkerSeason.season === S.season) ? a.stikkerSeason
+      : { season:S.season, done:false, doneAt:null };
 
-  function filterByJob(list) {
-    const job = state.round?.job || 'SNØ';
-    if (job === 'GRUS') {
-      return list.filter(a => Array.isArray(a.equipment) && a.equipment.includes('stro'));
-    }
-    return list; // SNØ → alle aktive
-  }
+    // antall stikker (admin-låst verdi). Vi leser hvilket som helst av disse feltene:
+    const stCount = Number(a.stikkerCount ?? a.stikker_target ?? a.stikkerAntall ?? 0) || 0;
 
-  function mapIncomingAddress(a) {
-    // Standardiser felter
-    const st = a.stikkerSeason && a.stikkerSeason.season === state.season
-      ? a.stikkerSeason
-      : { season: state.season, done:false, doneAt:null };
+    // statusfelt (én av: idle, started, skipped, blocked, done, accident)
+    const status = a.status || (a.done ? 'done' : 'idle');
+
     return {
       name: a.name || 'Uten navn',
       group: a.group || '',
       equipment: Array.isArray(a.equipment) ? a.equipment : [],
       active: a.active !== false,
+      // runde-felt
       done: !!a.done,
       grusDone: !!a.grusDone,
-      stikkerSeason: st
+      status,          // 'idle'|'started'|'skipped'|'blocked'|'done'|'accident'
+      startedAt: a.startedAt || null,
+      finishedAt: a.finishedAt || null,
+      notes: a.notes || '',
+      // sesong
+      stikkerSeason: st,
+      stikkerCount: stCount
     };
   }
 
-  function render() {
-    const list = state.filtered;
-    els.count.textContent = `${list.length} adresser`;
-    els.hint.textContent = (state.round?.job === 'GRUS')
-      ? 'Viser kun adresser som skal ha grus.'
-      : 'Viser alle aktive adresser.';
+  function filterByJob(list) {
+    const job = S.round?.job || 'SNØ';
+    if (job === 'GRUS') {
+      return list.filter(a => Array.isArray(a.equipment) && a.equipment.includes('stro'));
+    }
+    return list;
+  }
 
-    els.list.innerHTML = '';
-    list.forEach((a, idx) => {
-      const card = document.createElement('div');
-      card.className = 'b-card';
-      card.dataset.i = String(idx);
+  // --- Render én adresse
+  function renderAddress() {
+    const total = S.filtered.length;
+    els.total.textContent = String(total);
+    if (!total) {
+      els.idx.textContent = '0';
+      els.name.textContent = 'Ingen adresser i visning';
+      els.group.textContent = '';
+      els.equip.textContent = '';
+      els.stCount.textContent = '—';
+      els.stChk.checked = false;
+      els.status.textContent = '';
+      return;
+    }
 
-      const eqStr = a.equipment?.length ? ` | Utstyr: ${a.equipment.join(', ')}` : '';
-      const stikkerInfo = a.stikkerSeason?.doneAt
-        ? ` | Stikker satt: ${new Date(a.stikkerSeason.doneAt).toLocaleDateString()}`
-        : '';
+    // pekeren må være innenfor [0, total-1]
+    if (S.i < 0) S.i = 0;
+    if (S.i > total - 1) S.i = total - 1;
 
-      card.innerHTML = `
-        <header>
-          <div class="grow">
-            <div><strong>${a.name}</strong></div>
-            <div class="muted">Gruppe: ${a.group || '-'}${eqStr}${stikkerInfo}</div>
-          </div>
-          <div class="right">
-            <label class="muted"><input type="checkbox" data-k="done" ${a.done?'checked':''}> Ferdig</label>
-          </div>
-        </header>
+    els.idx.textContent = String(S.i + 1);
 
-        <div class="row" style="margin-top:8px;">
-          <button data-k="nav">🧭 Naviger</button>
-          ${state.round?.job === 'GRUS' ? `
-            <label class="muted"><input type="checkbox" data-k="grus" ${a.grusDone?'checked':''}> Grus utført</label>
-          ` : ''}
-          <label class="muted"><input type="checkbox" data-k="stikker" ${a.stikkerSeason?.done?'checked':''}>
-            Brøytestikker satt (${state.season})
-          </label>
-        </div>
-      `;
-      els.list.appendChild(card);
-    });
+    const a = S.filtered[S.i];
+    els.name.textContent = a.name;
+    els.group.textContent = a.group ? `Gruppe: ${a.group}` : ' ';
+    els.equip.textContent = a.equipment?.length ? `Utstyr (behov): ${a.equipment.join(', ')}` : ' ';
+    els.stCount.textContent = (a.stikkerCount > 0) ? `${a.stikkerCount} stk` : '—';
+    els.stChk.checked = !!a.stikkerSeason?.done;
+    els.stLbl.textContent = `Stikker satt (${S.season})`;
 
-    // enkel progresjon: andel ferdig i filtrert liste
-    const doneCount = list.filter(a=>a.done).length;
+    // statuslinje
+    const statusTxt = {
+      idle: 'Ikke påbegynt',
+      started: 'Pågår…',
+      skipped: 'Hoppet over',
+      blocked: 'Ikke mulig',
+      done: 'Ferdig',
+      accident: 'Uhell registrert'
+    }[a.status] || '—';
+    els.status.textContent = statusTxt;
+
+    // navigasjonsknapp fungerer alltid
+    els.nav.onclick = () => {
+      const query = [a.name, a.group].filter(Boolean).join(', ');
+      window.open(`https://www.google.com/maps?q=${encodeURIComponent(query)}`, '_blank');
+    };
+  }
+
+  // --- Render progresjon
+  function renderProgress() {
+    const list = S.filtered;
+    const doneCount = list.filter(a => a.status === 'done').length;
     const pct = list.length ? Math.round((doneCount / list.length) * 100) : 0;
     els.prog.style.width = `${pct}%`;
   }
 
-  // ---- List events
-  els.list.addEventListener('click', (e) => {
-    const card = e.target.closest('.b-card'); if(!card) return;
-    const i = +card.dataset.i;
-    const addr = state.filtered[i];
-    const key = e.target.dataset.k;
+  // --- Status-endringer
+  function setStatus(a, status) {
+    a.status = status;
+    if (status === 'started') a.startedAt = a.startedAt || Date.now();
+    if (status === 'done')    a.finishedAt = Date.now();
+    if (status !== 'done')    a.finishedAt = null;
+    // ved ferdig: også sett done=true (runde-felt for kompatibilitet)
+    a.done = (status === 'done');
+  }
 
-    if (key === 'nav') {
-      const query = [addr.name, addr.group].filter(Boolean).join(', ');
-      const url = `https://www.google.com/maps?q=${encodeURIComponent(query)}`;
-      window.open(url, '_blank');
-    }
-  });
+  // --- Knapper (aksjoner)
+  els.actStart.onclick = () => {
+    const a = S.filtered[S.i];
+    setStatus(a, 'started');
+    renderAddress();
+  };
+  els.actSkip.onclick = () => {
+    const a = S.filtered[S.i];
+    setStatus(a, 'skipped');
+    next();
+  };
+  els.actBlock.onclick = () => {
+    const a = S.filtered[S.i];
+    setStatus(a, 'blocked');
+    next();
+  };
+  els.actDone.onclick = () => {
+    const a = S.filtered[S.i];
+    setStatus(a, 'done');
+    renderProgress();
+    next();
+  };
+  els.actAcc.onclick = () => {
+    const a = S.filtered[S.i];
+    setStatus(a, 'accident');
+    renderAddress();
+  };
 
-  els.list.addEventListener('change', (e) => {
-    const card = e.target.closest('.b-card'); if(!card) return;
-    const i = +card.dataset.i;
-    const addr = state.filtered[i];
-    const key = e.target.dataset.k;
+  function prev() { S.i = Math.max(0, S.i - 1); renderAddress(); }
+  function next() { S.i = Math.min(S.filtered.length - 1, S.i + 1); renderAddress(); }
+  els.prevBtn.onclick = prev;
+  els.nextBtn.onclick = next;
 
-    if (key === 'done') {
-      addr.done = !!e.target.checked;
-    }
-    if (key === 'grus') {
-      addr.grusDone = !!e.target.checked;
-    }
-    if (key === 'stikker') {
-      addr.stikkerSeason = addr.stikkerSeason || { season: state.season, done:false, doneAt:null };
-      addr.stikkerSeason.season = state.season;
-      addr.stikkerSeason.done = !!e.target.checked;
-      addr.stikkerSeason.doneAt = e.target.checked ? Date.now() : null;
-    }
-    render(); // oppdater progresjon
-  });
+  // stikker (sesong)
+  els.stChk.onchange = (e) => {
+    const a = S.filtered[S.i];
+    a.stikkerSeason = a.stikkerSeason || { season:S.season, done:false, doneAt:null };
+    a.stikkerSeason.season = S.season;
+    a.stikkerSeason.done = !!e.target.checked;
+    a.stikkerSeason.doneAt = e.target.checked ? Date.now() : null;
+  };
 
-  // ---- Synk / Lagre
-  async function doSync() {
+  // --- Synk / lagre
+  async function sync() {
     try {
-      els.syncLbl.textContent = 'Henter...';
-      const cloud = await fetchLatest();
-
-      // Hent adresser uansett format (array / {addresses} / {snapshot:{addresses}})
+      els.sync.textContent = 'Henter…';
+      const cloud = await getLatest();
       const arr = Array.isArray(cloud) ? cloud
         : Array.isArray(cloud.addresses) ? cloud.addresses
         : (cloud.snapshot && Array.isArray(cloud.snapshot.addresses)) ? cloud.snapshot.addresses
         : [];
 
-      state.addresses = arr.filter(a => a.active !== false).map(mapIncomingAddress);
-      applyFilter();
+      S.addresses = arr.filter(a => a.active !== false).map(mapAddr);
+      S.filtered = filterByJob(S.addresses);
+
+      // startposisjon styres av Retning:
+      // Normal  → start på 0
+      // Motsatt → start på siste
+      S.i = (S.round?.driver?.direction === 'Motsatt') ? Math.max(0, S.filtered.length - 1) : 0;
+
+      // meta/hint
+      els.hint.textContent = (S.round?.job === 'GRUS') ? 'Viser kun adresser med grus-behov.' : 'Viser alle aktive adresser.';
       setMeta('OK');
-      render();
+      renderAddress();
+      renderProgress();
     } catch (e) {
       console.error(e);
-      els.syncLbl.textContent = 'Feil';
+      els.sync.textContent = 'Feil';
       alert('Synk feilet: ' + e.message);
     }
   }
 
-  async function doSave() {
+  async function save() {
     try {
-      els.syncLbl.textContent = 'Lagrer...';
+      els.sync.textContent = 'Lagrer…';
       const payload = {
         version: window.APP_CFG?.APP_VER || '9.x',
-        round: state.round?.number || 1,
+        round: S.round?.number || 1,
         updated: Date.now(),
-        by: state.round?.driver?.name || 'driver',
-        driver: state.round?.driver || {},
-        season: state.season,
-        addresses: state.addresses
+        by: S.round?.driver?.name || 'driver',
+        driver: S.round?.driver || {},
+        season: S.season,
+        addresses: S.addresses
       };
       await putPayload(payload);
       setMeta('Lagret');
     } catch (e) {
       console.error(e);
-      els.syncLbl.textContent = 'Feil';
+      els.sync.textContent = 'Feil';
       alert('Lagring feilet: ' + e.message);
     }
   }
+  els.syncBtn.onclick = sync;
+  els.saveBtn.onclick = save;
 
-  // ---- Avslutt dialog
-  function openFinishModal()  { els.modal.classList.remove('hidden'); }
-  function closeFinishModal() { els.modal.classList.add('hidden'); }
-  els.finishBtn.addEventListener('click', openFinishModal);
-  els.finishCancel.addEventListener('click', closeFinishModal);
+  // --- Avslutt dialog
+  function openFinish()  { els.modal.classList.remove('hidden'); }
+  function closeFinish() { els.modal.classList.add('hidden'); }
+  els.finishBtn.onclick = openFinish;
+  els.finishCancel.onclick = closeFinish;
 
-  // 1) Ny runde – samme oppdrag
-  els.finishSame.addEventListener('click', () => {
-    // nullstill runde-felt i alle
-    state.addresses.forEach(a => { a.done=false; a.grusDone=false; });
-    // ny runde i state
-    const next = window.BroytState?.startRound?.({
-      job: state.round?.job, driver: state.round?.driver
-    });
-    state.round = next || state.round;
-    applyFilter(); render(); setMeta('Ny runde');
-    closeFinishModal();
-  });
+  els.finishSame.onclick = () => {
+    // nullstill runde-felt (ikke sesong)
+    S.addresses.forEach(a => { a.done=false; a.status='idle'; a.grusDone=false; a.startedAt=null; a.finishedAt=null; });
+    const next = window.BroytState?.startRound?.({ job: S.round?.job, driver: S.round?.driver });
+    S.round = next || S.round;
+    S.filtered = filterByJob(S.addresses);
+    S.i = (S.round?.driver?.direction === 'Motsatt') ? Math.max(0, S.filtered.length - 1) : 0;
+    renderAddress(); renderProgress(); setMeta('Ny runde'); closeFinish();
+  };
 
-  // 2) Bytt oppdragstype
-  els.finishSwitch.addEventListener('click', () => {
-    const nextJob = state.round?.job === 'GRUS' ? 'SNØ' : 'GRUS';
-    state.addresses.forEach(a => { a.done=false; a.grusDone=false; });
-    const next = window.BroytState?.startRound?.({
-      job: nextJob, driver: state.round?.driver
-    });
-    state.round = next || state.round;
-    applyFilter(); render(); setMeta('Ny runde (byttet)');
-    closeFinishModal();
-  });
+  els.finishSwitch.onclick = () => {
+    const nextJob = S.round?.job === 'GRUS' ? 'SNØ' : 'GRUS';
+    S.addresses.forEach(a => { a.done=false; a.status='idle'; a.grusDone=false; a.startedAt=null; a.finishedAt=null; });
+    const next = window.BroytState?.startRound?.({ job: nextJob, driver: S.round?.driver });
+    S.round = next || S.round;
+    S.filtered = filterByJob(S.addresses);
+    S.i = (S.round?.driver?.direction === 'Motsatt') ? Math.max(0, S.filtered.length - 1) : 0;
+    renderAddress(); renderProgress(); setMeta('Ny runde (byttet)'); closeFinish();
+  };
 
-  // 3) Avslutt (til Hjem)
-  els.finishClose.addEventListener('click', () => {
+  els.finishClose.onclick = () => {
     window.BroytState?.endRound?.();
-    closeFinishModal();
-    // naviger hjem (hash eller app.go)
+    closeFinish();
     location.hash = '#home';
     if (typeof window.APP?.go === 'function') window.APP.go('home');
-  });
+  };
 
-  // ---- Filter og init
-  function applyFilter() {
-    state.filtered = filterByJob(state.addresses);
+  // --- Meta
+  function setMeta(syncMsg='—') {
+    els.round.textContent = S.round?.number ?? '–';
+    els.job.textContent   = S.round?.job ?? '–';
+    els.dir.textContent   = S.round?.driver?.direction ?? '–';
+    els.season.textContent= S.season || '–';
+    els.sync.textContent  = syncMsg;
   }
 
+  // --- Boot
   function boot() {
-    state.season = window.BroytState?.getSeason?.() || state.season;
-    state.round  = window.BroytState?.getRound?.() || state.round;
-    state.prefs  = window.BroytState?.getPrefs?.() || state.prefs;
+    S.season = window.BroytState?.getSeason?.() || S.season;
+    S.round  = window.BroytState?.getRound?.() || S.round;
+    S.prefs  = window.BroytState?.getPrefs?.() || S.prefs;
 
-    // meta
-    setMeta('–');
-
-    // første hint
-    if (state.round?.job === 'GRUS') {
-      els.hint.textContent = 'Viser kun adresser som skal ha grus.';
-    } else {
-      els.hint.textContent = 'Viser alle aktive adresser.';
-    }
-
-    // hent startdata fra sky
-    doSync();
-
-    // knapper
-    els.syncBtn.addEventListener('click', doSync);
-    els.saveBtn.addEventListener('click', doSave);
+    setMeta('—');
+    els.hint.textContent = (S.round?.job === 'GRUS') ? 'Viser kun adresser med grus-behov.' : 'Viser alle aktive adresser.';
+    sync(); // hent første gang
   }
-
   boot();
 })();
