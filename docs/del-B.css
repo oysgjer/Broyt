@@ -1,0 +1,34 @@
+:root {
+  --b:#e5e7eb; --m:#6b7280;
+  --green:#10b981; --amber:#f59e0b; --red:#ef4444; --blue:#3b82f6; --vio:#7c3aed;
+  --bg:var(--bg);
+}
+.work-wrap { padding: 14px; }
+.title { margin: 0; font-size: 22px; }
+.pills { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+.pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; background:#f8fafc; border:1px solid var(--b); }
+.head-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.muted { color: var(--m); }
+.btn { font-size:16px; padding:10px 14px; border:1px solid var(--b); background:var(--btn-bg); border-radius:10px; }
+.btn-primary { background:var(--primary-bg); border-color:var(--primary-border); }
+.btn-affirm  { background:var(--affirm-bg); border-color:var(--affirm-border); }
+.btn-warn    { background:var(--warn-bg); border-color:var(--warn-border); }
+.btn-danger  { background:var(--danger-bg); border-color:var(--danger-border); }
+.btn-ghost   { background:var(--btn-bg); border:1px dashed var(--b); }
+.btn-lg      { font-size:19px; padding:14px 16px; border-radius:12px; }
+.btn-wide    { width:48%; font-size:18px; padding:12px 0; }
+.progress-all { height:12px; border-radius:8px; background:#f3f4f6; margin:12px 0; position:relative; overflow:hidden; }
+.bar { position:absolute; left:0; top:0; bottom:0; }
+.bar-done { background: var(--progress); width:0%; }
+.hint { margin: 4px 0 10px 0; }
+.card-big { border:1px solid var(--b); border-radius:14px; padding:14px; background:var(--card-bg); }
+.card-head { display:flex; justify-content:space-between; align-items:center; }
+.card-body { margin-top:8px; }
+.addr { margin:0 0 4px 0; font-size:22px; }
+.stikker-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
+.badge { font-size:13px; padding:4px 8px; border-radius:999px; background:#fafafa; border:1px solid var(--b); }
+.badge-info { background:#eef2ff; border-color:#c7d2fe; }
+.actions-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+.actions-grid .btn-lg:nth-child(5) { grid-column: 1 / span 2; }
+.status { margin-top:8px; min-height: 18px; }
+.work-foot { display:flex; justify-content:space-between; gap:10px; margin-top:14px; }

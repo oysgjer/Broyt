@@ -1,0 +1,22 @@
+:root { --b:#e5e7eb; --m:#6b7280; --green:#10b981; --blue:#3b82f6; }
+.svc-wrap { padding:14px; }
+.svc-head h2 { margin:0 0 6px 0; }
+.muted { color: var(--m); }
+.svc-banner { border:1px solid #fde68a; background:#fef3c7; padding:10px; border-radius:10px; margin:8px 0; }
+.hidden { display:none; }
+.svc-list { display:grid; gap:8px; margin:10px 0 12px; }
+.svc-list label { font-size:18px; display:flex; gap:10px; align-items:center; }
+.svc-list input[type="checkbox"] { width:22px; height:22px; }
+.svc-notes textarea { width:100%; border:1px solid var(--b); border-radius:10px; padding:10px; font-size:16px; background:var(--bg); color:var(--fg); }
+.svc-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.btn { font-size:18px; padding:12px 16px; border:1px solid var(--b); border-radius:12px; background:var(--btn-bg); color:var(--fg); }
+.btn-primary { background:var(--primary-bg); border-color:var(--primary-border); }
+.btn-affirm  { background:var(--affirm-bg); border-color:var(--affirm-border); }
+@media (prefers-color-scheme: dark) {
+  body, .svc-wrap { background:var(--bg); color:var(--fg); }
+  .svc-banner { border-color:#f59e0b; background:#451a03; }
+  .btn { background:var(--btn-bg); border-color:#374151; }
+  .btn-primary { background:#312e81; border-color:#4338ca; }
+  .btn-affirm  { background:#064e3b; border-color:#065f46; }
+  .svc-notes textarea { background:var(--bg); color:var(--fg); border-color:#374151; }
+}

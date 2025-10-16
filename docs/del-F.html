@@ -1,0 +1,36 @@
+<!-- Del-F (Service / Vedlikehold) -->
+<link rel="stylesheet" href="./del-F.css">
+
+<section id="service" class="svc-wrap card">
+  <header class="svc-head">
+    <h2>Service</h2>
+    <div id="svc_required_banner" class="svc-banner hidden">
+      <strong>Denne runden krever service før avslutning.</strong>
+      <div class="muted">Runde <span data-round>–</span> • Sjåfør <span data-driver>–</span></div>
+    </div>
+  </header>
+
+  <p class="muted">Huk av det som ble gjort etter runden.</p>
+
+  <div class="svc-list">
+    <label><input type="checkbox" data-svc="plow_clean"> Puss av plog</label>
+    <label><input type="checkbox" data-svc="fres_clean"> Rens fres</label>
+    <label><input type="checkbox" data-svc="refill_sand"> Etterfyll strø</label>
+    <label><input type="checkbox" data-svc="grease_front"> Smurt front</label>
+    <label><input type="checkbox" data-svc="grease_back"> Smurt bak</label>
+    <label><input type="checkbox" data-svc="steering_check"> Kontrollert styring</label>
+    <label><input type="checkbox" data-svc="other"> Annet utført</label>
+  </div>
+
+  <label class="svc-notes">
+    <div class="muted">Notater …</div>
+    <textarea id="svc_notes" rows="4" placeholder="Fritekst"></textarea>
+  </label>
+
+  <div class="svc-actions">
+    <button id="svc_save" class="btn btn-affirm">💾 Lagre service</button>
+    <button id="svc_finish" class="btn btn-primary">🏁 Fullfør runde (JSON)</button>
+  </div>
+</section>
+
+<script src="./del-F.js"></script>
