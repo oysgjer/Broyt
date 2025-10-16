@@ -29,6 +29,8 @@
   const API = window.APP_CFG?.API_BASE;
   const BIN = window.APP_CFG?.BIN_ID;
 
+  const LS_SERVICE_REQ = 'broyt:serviceRequired';
+
   const S = {
     season: window.BroytState?.getSeason?.() || '',
     round: window.BroytState?.getRound?.() || null,
@@ -106,7 +108,6 @@
       return;
     }
 
-    // pekeren må være innenfor [0, total-1]
     if (S.i < 0) S.i = 0;
     if (S.i > total - 1) S.i = total - 1;
 
@@ -120,7 +121,6 @@
     els.stChk.checked = !!a.stikkerSeason?.done;
     els.stLbl.textContent = `Stikker satt (${S.season})`;
 
-    // statuslinje
     const statusTxt = {
       idle: 'Ikke påbegynt',
       started: 'Pågår…',
@@ -131,7 +131,6 @@
     }[a.status] || '—';
     els.status.textContent = statusTxt;
 
-    // navigasjonsknapp fungerer alltid
     els.nav.onclick = () => {
       const query = [a.name, a.group].filter(Boolean).join(', ');
       window.open(`https://www.google.com/maps?q=${encodeURIComponent(query)}`, '_blank');
@@ -152,7 +151,6 @@
     if (status === 'started') a.startedAt = a.startedAt || Date.now();
     if (status === 'done')    a.finishedAt = Date.now();
     if (status !== 'done')    a.finishedAt = null;
-    // ved ferdig: også sett done=true (runde-felt for kompatibilitet)
     a.done = (status === 'done');
   }
 
@@ -212,11 +210,8 @@
       S.filtered = filterByJob(S.addresses);
 
       // startposisjon styres av Retning:
-      // Normal  → start på 0
-      // Motsatt → start på siste
       S.i = (S.round?.driver?.direction === 'Motsatt') ? Math.max(0, S.filtered.length - 1) : 0;
 
-      // meta/hint
       els.hint.textContent = (S.round?.job === 'GRUS') ? 'Viser kun adresser med grus-behov.' : 'Viser alle aktive adresser.';
       setMeta('OK');
       renderAddress();
@@ -257,8 +252,8 @@
   els.finishBtn.onclick = openFinish;
   els.finishCancel.onclick = closeFinish;
 
+  // 1) Ny runde – samme oppdrag
   els.finishSame.onclick = () => {
-    // nullstill runde-felt (ikke sesong)
     S.addresses.forEach(a => { a.done=false; a.status='idle'; a.grusDone=false; a.startedAt=null; a.finishedAt=null; });
     const next = window.BroytState?.startRound?.({ job: S.round?.job, driver: S.round?.driver });
     S.round = next || S.round;
@@ -267,6 +262,7 @@
     renderAddress(); renderProgress(); setMeta('Ny runde'); closeFinish();
   };
 
+  // 2) Bytt oppdragstype
   els.finishSwitch.onclick = () => {
     const nextJob = S.round?.job === 'GRUS' ? 'SNØ' : 'GRUS';
     S.addresses.forEach(a => { a.done=false; a.status='idle'; a.grusDone=false; a.startedAt=null; a.finishedAt=null; });
@@ -277,11 +273,20 @@
     renderAddress(); renderProgress(); setMeta('Ny runde (byttet)'); closeFinish();
   };
 
+  // 3) Avslutt → **tving Service**
   els.finishClose.onclick = () => {
-    window.BroytState?.endRound?.();
+    const payload = {
+      round: S.round?.number || 0,
+      startedAt: S.round?.startedAt || Date.now(),
+      job: S.round?.job || 'SNØ',
+      driver: S.round?.driver?.name || 'driver',
+      createdAt: Date.now()
+    };
+    localStorage.setItem(LS_SERVICE_REQ, JSON.stringify(payload));
     closeFinish();
-    location.hash = '#home';
-    if (typeof window.APP?.go === 'function') window.APP.go('home');
+    // send til Service-siden (del-F)
+    location.hash = '#service';
+    if (typeof window.APP?.go === 'function') window.APP.go('service');
   };
 
   // --- Meta
