@@ -1,0 +1,34 @@
+:root { --b:#e5e7eb; --m:#6b7280; --ok:#10b981; --busy:#3b82f6; --warn:#f59e0b; --err:#ef4444; --skip:#9ca3af; }
+
+.status-wrap { padding:14px; }
+.status-head { display:flex; flex-direction:column; gap:8px; }
+.filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.inline { display:flex; gap:6px; align-items:center; }
+.grow { flex:1; }
+.small { font-size:12px; }
+
+.tbl { width:100%; border-collapse:collapse; }
+.tbl th, .tbl td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--b); }
+.tbl thead th { position:sticky; top:0; background:var(--card-bg); z-index:1; }
+.tbl tbody tr:hover { background: rgba(0,0,0,.03); }
+
+.badge { font-size:12px; padding:3px 8px; border-radius:999px; border:1px solid var(--b); background:var(--pill-bg); }
+.badge-idle { color:var(--m); }
+.badge-started { background:#e0e7ff; border-color:#c7d2fe; }
+.badge-done { background:#ecfdf5; border-color:#bbf7d0; }
+.badge-skip { background:#f3f4f6; border-color:#e5e7eb; color:#6b7280; }
+.badge-block { background:#fee2e2; border-color:#fecaca; }
+
+.tag { font-size:11px; padding:2px 6px; border-radius:6px; border:1px solid var(--b); margin-right:4px; }
+.tag-me { background:#d1fae5; border-color:#bbf7d0; }
+.tag-other { background:#ede9fe; border-color:#ddd6fe; }
+
+.now-row { background: rgba(59,130,246,.10); }     /* radmarkering “nå” */
+.next-row { background: rgba(16,185,129,.08); }    /* radmarkering “neste” */
+
+/* Mørk-modus små tweaks */
+@media (prefers-color-scheme: dark) {
+  .tbl tbody tr:hover { background: rgba(255,255,255,.04); }
+  .now-row  { background: rgba(59,130,246,.18); }
+  .next-row { background: rgba(16,185,129,.15); }
+}
