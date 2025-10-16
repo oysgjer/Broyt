@@ -1,78 +1,48 @@
-:root { --b:#374151; --m:#9ca3af; }
+/* Under arbeid – høy kontrast, mobilvennlig */
+:root { --b:#334155; --m:#9fb0c0; }
 
-/* Kort og heading */
-.work-wrap { padding: 16px; }
-.title { margin: 0; font-size: 24px; }
+.work-wrap{padding:16px}
+.title{margin:0; font-size:24px}
 
-/* Piller */
-.pills { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
-.pill { font-size: 14px; padding: 5px 12px; border-radius: 999px; background:#0f172a; color:#e5e7eb; border:1px solid #334155; }
+.pills{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+.pill{font-size:14px; padding:6px 12px; border-radius:999px; background:#0f172a; color:#e5e7eb; border:1px solid #334155}
 
-/* Knapper – høy kontrast og store trykkflater */
-.btn {
-  font-size:18px; padding:12px 16px; border-radius:12px;
-  background:#111827; color:#f9fafb; border:1px solid #4b5563;
-}
-.btn:hover { filter: brightness(1.08); }
-.btn-ghost   { background:transparent; color:#e5e7eb; border:1px dashed #4b5563; }
-.btn-lg      { font-size:20px; padding:16px 18px; border-radius:14px; }
-.btn-wide    { width:48%; font-size:18px; padding:12px 0; }
-.btn-nav     { font-size:20px; padding:14px 20px; border-radius:999px; }
+.btn{font-size:18px; padding:12px 16px; border-radius:12px; background:#121a28; color:#f9fafb; border:1px solid #3b465a}
+.btn-ghost{background:transparent; border:1px dashed #3b465a; color:#e5e7eb}
+.btn-lg{font-size:20px; padding:16px 18px; border-radius:14px}
+.btn-wide{width:48%}
+.btn-primary{background:#1e3a8a; border-color:#60a5fa}
+.btn-affirm{background:#065f46; border-color:#10b981}
+.btn-warn{background:#7c2d12; border-color:#f59e0b}
 
-.btn-affirm  { background:#065f46; border-color:#10b981; }
-.btn-warn    { background:#7c2d12; border-color:#f59e0b; }
-.btn-primary { background:#1e3a8a; border-color:#60a5fa; }
+.progress-all{height:14px; border-radius:10px; background:#0b1220; margin:14px 0; position:relative; overflow:hidden; box-shadow:inset 0 0 0 1px #1f2937}
+.bar{position:absolute; left:0; top:0; bottom:0}
+.bar-me{background:#10b981}
+.bar-other{background:#7c3aed; opacity:.7}
 
-/* Progresjonslinje – tydelig */
-.progress-all { height:14px; border-radius:10px; background:#0b1220; margin:14px 0; position:relative; overflow:hidden; box-shadow: inset 0 0 0 1px #1f2937; }
-.bar { position:absolute; left:0; top:0; bottom:0; }
-.bar-me    { background:#10b981; }
-.bar-other { background:#7c3aed; opacity:.7; }
+.hint{margin:6px 0 12px; color:var(--m)}
+.card-big{border:1px solid #334155; border-radius:16px; padding:16px; background:#0b1220}
+.card-head{display:flex; justify-content:space-between; align-items:center}
+.addr{margin:0 0 6px; font-size:22px}
 
-/* Hint */
-.hint { margin: 4px 0 12px 0; color: var(--m); font-size:14px; }
+.now-next{display:flex; gap:12px; margin:10px 0 14px}
+.now-next .lbl{font-size:13px; color:#94a3b8}
+.now-next .val{font-size:18px}
+.now,.next{flex:1; border:1px dashed #334155; border-radius:12px; padding:10px 12px; background:#0a1422}
 
-/* Kort */
-.card-big { border:1px solid #334155; border-radius:16px; padding:16px; background:#0b1220; }
-.card-head { display:flex; justify-content:space-between; align-items:center; }
-.addr { margin:0 0 6px 0; font-size:22px; }
+.stikker-line{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px}
+.times{margin-top:10px; font-size:14px}
+.hide-on-idle{display:none}
 
-/* Nå / Neste */
-.now-next { display:flex; gap:12px; margin:10px 0 14px; }
-.now-next .lbl { font-size:13px; color:#94a3b8; }
-.now-next .val { font-size:17px; }
-.now, .next { flex:1; border:1px dashed #334155; border-radius:12px; padding:10px 12px; background:#0a0f1c; }
+.actions-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px}
+.actions-grid .btn-lg:nth-child(5){grid-column:1 / span 2}
 
-/* Stikkerlinje */
-.stikker-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
-.badge { font-size:13px; padding:4px 8px; border-radius:999px; background:#0b1220; border:1px solid #334155; color:#e5e7eb; }
-.badge-info { background:#1e293b; border-color:#334155; }
+.status{margin-top:10px; min-height:20px; color:#cbd5e1}
+.work-foot{display:flex; justify-content:space-between; gap:12px; margin-top:16px}
 
-/* Tider */
-.times { margin-top:10px; font-size:14px; }
-.hide-on-idle { display:none; }
-
-/* Handlinger */
-.actions-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
-.actions-grid .btn-lg:nth-child(5) { grid-column: 1 / span 2; }
-
-.status { margin-top:10px; min-height: 20px; color:#cbd5e1; }
-
-/* Bunnnavigasjon (skjules hvis autoNavNext) */
-.work-foot { display:flex; justify-content:space-between; gap:12px; margin-top:16px; }
-
-/* Modal (for "Ikke mulig") */
-.modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
-.modal.hidden { display:none; }
-.modal-card { width:min(640px, calc(100% - 28px)); background:#0b1220; color:#e5e7eb; border:1px solid #334155; border-radius:14px; padding:16px; }
-.modal-card h3 { margin:0 0 8px; }
-.modal-card textarea { width:100%; border:1px solid #334155; border-radius:10px; padding:10px; background:#0a0f1c; color:#e5e7eb; }
-.modal-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-
-/* Mobiltilpasning */
-@media (max-width: 420px) {
-  .btn { font-size:17px; padding:12px 14px; }
-  .btn-lg { font-size:19px; padding:14px 16px; }
-  .addr { font-size:21px; }
-  .now-next .val { font-size:16px; }
+@media (max-width:420px){
+  .btn{font-size:17px; padding:12px 14px}
+  .btn-lg{font-size:19px; padding:14px 16px}
+  .addr{font-size:21px}
+  .now-next .val{font-size:17px}
 }
