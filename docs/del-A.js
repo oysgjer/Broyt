@@ -1,4 +1,4 @@
-// Del-A (Hjem) – lagrer fører, retning, utstyr, oppdrag og preferanser (tema + auto-navigasjon)
+// Del-A (Hjem) – start runde m/ dato-bassert nummer og prefs
 (function () {
   const $ = (s) => document.querySelector(s);
 
@@ -43,24 +43,52 @@
       ...extra
     };
     window.BroytState?.setPrefs?.(prefs);
-    // tema
     try { window.applyTheme?.(prefs.theme); } catch {}
     return prefs;
   }
 
-  // bindings
+  // hjelpe: rundenr per dato
+  const pad = (n) => String(n).padStart(2,'0');
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+  function dateLabel(ts) {
+    const d = new Date(ts);
+    return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${String(d.getFullYear()).slice(-2)}`;
+  }
+  function getRoundSeqForToday() {
+    const key = 'broyt:roundsByDay';
+    let map = {};
+    try { map = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+    const day = todayKey();
+    const next = (map[day] || 0) + 1;
+    map[day] = next;
+    localStorage.setItem(key, JSON.stringify(map));
+    return next; // 1,2,3...
+  }
+
   els.theme.addEventListener('change', () => savePrefs());
   els.autoNav.addEventListener('change', () => savePrefs());
 
   // start runde
   els.start.addEventListener('click', () => {
     const prefs = savePrefs();
-    const round = window.BroytState?.startRound?.({
+    const startedAt = Date.now();
+    const number = getRoundSeqForToday();
+    const roundObj = {
+      number,                 // rundenr for DAGEN
+      startedAt,
+      dateStr: dateLabel(startedAt),
       job: prefs.lastJob,
-      driver: prefs.driver
-    });
-    els.hint.textContent = `Runde ${round?.number ?? ''} startet (${prefs.lastJob}, ${prefs.driver.direction}).`;
-    // gå til under arbeid
+      driver: { ...prefs.driver }
+    };
+
+    // lagre i vår state (og ev. BroytState hvis tilgjengelig)
+    try { window.BroytState?.startRound?.(roundObj); } catch {}
+    localStorage.setItem('broyt:round', JSON.stringify(roundObj));
+
+    els.hint.textContent = `Startet Runde (${number}) ${roundObj.dateStr} – ${prefs.lastJob}, ${prefs.driver.direction}`;
     if (typeof window.APP?.go === 'function') window.APP.go('work'); else location.hash = '#work';
   });
 })();
