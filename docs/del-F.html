@@ -13,12 +13,15 @@
   <p class="muted">Huk av det som ble gjort etter runden.</p>
 
   <div class="svc-list">
-    <label><input type="checkbox" data-svc="plow_clean"> Puss av plog</label>
-    <label><input type="checkbox" data-svc="fres_clean"> Rens fres</label>
-    <label><input type="checkbox" data-svc="refill_sand"> Etterfyll strø</label>
-    <label><input type="checkbox" data-svc="grease_front"> Smurt front</label>
-    <label><input type="checkbox" data-svc="grease_back"> Smurt bak</label>
-    <label><input type="checkbox" data-svc="steering_check"> Kontrollert styring</label>
+    <label><input type="checkbox" data-svc="plow_grease"> Skjær smurt</label>
+    <label><input type="checkbox" data-svc="fres_grease"> Fres smurt</label>
+    <label><input type="checkbox" data-svc="front_grease"> Forstilling smurt</label>
+
+    <label><input type="checkbox" data-svc="oil_front"> Oljenivå sjekket foran</label>
+    <label><input type="checkbox" data-svc="oil_back"> Oljenivå sjekket bak</label>
+    <label><input type="checkbox" data-svc="oil_refill"> Etterfylt olje</label>
+
+    <label><input type="checkbox" data-svc="fuel_filled"> Fylt diesel</label>
     <label><input type="checkbox" data-svc="other"> Annet utført</label>
   </div>
 
@@ -29,7 +32,7 @@
 
   <div class="svc-actions">
     <button id="svc_save" class="btn btn-affirm">💾 Lagre service</button>
-    <button id="svc_finish" class="btn btn-primary">🏁 Fullfør runde (JSON)</button>
+    <button id="svc_finish" class="btn btn-primary">🏁 Fullfør runde</button>
   </div>
 </section>
 
