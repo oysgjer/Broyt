@@ -1,6 +1,6 @@
-// Del-C (Status) – oversikt + nullstilling (viste / hele runden)
-(function () {
-  const $ = (s) => document.querySelector(s);
+// Status – tydelig UI + robust nullstilling (viste / hele runden)
+(function(){
+  const $ = (s)=>document.querySelector(s);
 
   const API = window.APP_CFG?.API_BASE;
   const BIN = window.APP_CFG?.BIN_ID;
@@ -11,53 +11,68 @@
     search: $('#c_search'),
     counts: $('#c_counts'),
     tbody:  $('#c_tbody'),
-    table:  $('#c_table'),
     reset:  $('#c_reset'),
     resetRound: $('#c_reset_round'),
   };
 
   const S = {
-    round:  loadRound(),
+    round: loadRound(),
     season: window.BroytState?.getSeason?.() || '',
-    list:   [],
-    filtered: [],
-    iNow:    0,
+    list: [],
+    filtered: []
   };
 
   function loadRound(){
-    try { return JSON.parse(localStorage.getItem('broyt:round')||'null'); } catch { return null; }
+    try{ return JSON.parse(localStorage.getItem('broyt:round')||'null'); }catch{ return null; }
   }
 
-  // --- Nett
-  async function getLatest() {
-    const r = await fetch(`${API}b/${BIN}/latest`, { cache:'no-store' });
-    if (!r.ok) throw new Error(`GET ${r.status}`);
+  // ---- Nett ----
+  async function getLatest(){
+    const r = await fetch(`${API}b/${BIN}/latest`, {cache:'no-store'});
+    if(!r.ok) throw new Error(`GET ${r.status}`);
     const data = await r.json();
-    return data && data.record ? data.record : data;
+    // støtt både ren-array, {addresses}, og {snapshot.addresses}
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.addresses)) return data.addresses;
+    if (data.snapshot && Array.isArray(data.snapshot.addresses)) return data.snapshot.addresses;
+    return [];
   }
-  async function putPayload(payload) {
+  async function putAddresses(nextAddresses, extra={}){
+    // skriv fulle data tilbake men behold serviceLogs/backups fra latest
+    const r0 = await fetch(`${API}b/${BIN}/latest`, {cache:'no-store'});
+    const raw = await r0.json();
+    const cloud = (raw && raw.record) ? raw.record : raw;
+    const payload = {
+      version: window.APP_CFG?.APP_VER || '9.x',
+      updated: Date.now(),
+      by: (S.round?.driver?.name || 'admin'),
+      season: S.season,
+      addresses: nextAddresses,
+      serviceLogs: Array.isArray(cloud?.serviceLogs) ? cloud.serviceLogs : [],
+      backups: Array.isArray(cloud?.backups) ? cloud.backups : [],
+      ...extra
+    };
     const r = await fetch(`${API}b/${BIN}`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     });
-    if (!r.ok) throw new Error(`PUT ${r.status}`);
-    const data = await r.json();
-    return data && data.record ? data.record : data;
+    if(!r.ok) throw new Error(`PUT ${r.status}`);
+    return (await r.json());
   }
 
-  function mapAddr(a) {
+  // ---- Map/visning ----
+  function mapAddr(a){
     const status = a.status || (a.done ? 'done' : 'idle');
     const doneBy = Array.isArray(a.doneBy) ? [...new Set(a.doneBy)] : (a.done ? ['ukjent'] : []);
     const st = (a.stikkerSeason && a.stikkerSeason.season === S.season)
       ? a.stikkerSeason : {season:S.season, done:false, doneAt:null};
-
     return {
-      name: a.name || 'Uten navn',
-      group: a.group || '',
-      equipment: Array.isArray(a.equipment) ? a.equipment : [],
+      name: (a.name||'').trim(),
+      group: a.group||'',
+      equipment: Array.isArray(a.equipment)?a.equipment:[],
       status,
-      startedAt: a.startedAt || null,
-      finishedAt: a.finishedAt || null,
+      startedAt: a.startedAt||null,
+      finishedAt: a.finishedAt||null,
       doneBy,
       stikkerCount: Number(a.stikkerCount ?? a.stikker_target ?? a.stikkerAntall ?? 0) || 0,
       stikkerSeason: st,
@@ -65,19 +80,20 @@
     };
   }
 
-  function fmtTime(t) {
-    if (!t) return '—';
+  function fmtTime(t){
+    if(!t) return '—';
     const d = new Date(t);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   }
 
-  // --- Filter/søk
-  function applyFilters() {
-    const text = (els.search.value || '').toLowerCase().trim();
-    const scope = els.scope.value;
+  function applyFilters(){
+    const text = (els.search.value||'').toLowerCase().trim();
+    const scope = els.scope.value; // ALLE | SNO | GRUS
+    let arr = S.list.filter(a => a.active !== false);
 
-    let arr = S.list.slice();
     if (scope === 'GRUS') arr = arr.filter(a => a.equipment?.includes('stro'));
+    // SNO = alle aktive (kan snøryddes)
+
     if (text) {
       arr = arr.filter(a =>
         a.name.toLowerCase().includes(text) ||
@@ -89,63 +105,40 @@
     renderTable();
   }
 
-  function renderCounts() {
+  function renderCounts(){
     const n = S.filtered.length;
     const c = { idle:0, started:0, skipped:0, blocked:0, done:0 };
-    S.filtered.forEach(a => { c[a.status] = (c[a.status] || 0) + 1; });
+    S.filtered.forEach(a => { c[a.status] = (c[a.status]||0)+1; });
     els.counts.textContent = `${n} adresser • Ikke påbegynt: ${c.idle||0} • Pågår: ${c.started||0} • Ferdig: ${c.done||0} • Hoppet over: ${c.skipped||0} • Ikke mulig: ${c.blocked||0}`;
   }
 
-  function computeNowIndex() {
-    const dir = S.round?.driver?.direction || 'Normal';
-    const seq = S.filtered;
-    if (!seq.length) { S.iNow = 0; return; }
-    if (dir === 'Motsatt') {
-      let idx = seq.length - 1;
-      while (idx > 0 && (seq[idx].status === 'done' || seq[idx].status === 'blocked' || seq[idx].status === 'skipped')) idx--;
-      S.iNow = idx;
-    } else {
-      let idx = 0;
-      while (idx < seq.length-1 && (seq[idx].status === 'done' || seq[idx].status === 'blocked' || seq[idx].status === 'skipped')) idx++;
-      S.iNow = idx;
-    }
-  }
-
-  function statusBadge(s) {
+  function badge(s){
     const map = {
-      'idle':   { cls:'badge badge-idle',   txt:'Ikke påbegynt' },
-      'started':{ cls:'badge badge-started',txt:'Pågår' },
-      'skipped':{ cls:'badge badge-skip',   txt:'Hoppet over' },
-      'blocked':{ cls:'badge badge-block',  txt:'Ikke mulig' },
-      'done':   { cls:'badge badge-done',   txt:'Ferdig' },
-    };
-    const {cls, txt} = map[s] || map['idle'];
-    return `<span class="${cls}">${txt}</span>`;
+      idle:['badge badge-idle','Ikke påbegynt'],
+      started:['badge badge-started','Pågår'],
+      skipped:['badge badge-skip','Hoppet over'],
+      blocked:['badge badge-block','Ikke mulig'],
+      done:['badge badge-done','Ferdig']
+    }[s] || ['badge','—'];
+    return `<span class="${map[0]}">${map[1]}</span>`;
   }
 
-  function renderTable() {
-    computeNowIndex();
+  function renderTable(){
     const me = S.round?.driver?.name || '';
-    const dir = S.round?.driver?.direction || 'Normal';
-
-    els.tbody.innerHTML = S.filtered.map((a, i) => {
-      const isNow = (i === S.iNow);
-      const isNext = (dir === 'Motsatt') ? (i === S.iNow - 1) : (i === S.iNow + 1);
-
+    els.tbody.innerHTML = S.filtered.map((a,i)=>{
       const who = (a.doneBy && a.doneBy.length)
-        ? a.doneBy.map(n => `<span class="tag ${n===me?'tag-me':'tag-other'}">${n}</span>`).join(' ')
+        ? a.doneBy.map(n=>`<span class="tag ${n===me?'tag-me':'tag-other'}">${n}</span>`).join(' ')
         : '<span class="muted">—</span>';
-
-      const stikkerTxt = (a.stikkerCount > 0)
+      const stikkerTxt = (a.stikkerCount>0)
         ? `${a.stikkerSeason?.done ? '✅' : '⬜️'} ${a.stikkerCount} stk`
         : '—';
 
       return `
-        <tr class="${isNow?'now-row':''} ${isNext?'next-row':''}">
+        <tr>
           <td>${i+1}</td>
           <td>${a.name}</td>
           <td>${a.group || '—'}</td>
-          <td>${statusBadge(a.status)}</td>
+          <td>${badge(a.status)}</td>
           <td>${fmtTime(a.startedAt)}</td>
           <td>${fmtTime(a.finishedAt)}</td>
           <td>${who}</td>
@@ -155,80 +148,71 @@
     }).join('');
   }
 
-  async function sync() {
-    try {
+  async function sync(){
+    try{
       els.sync.disabled = true;
-      const cloud = await getLatest();
-      const arr = Array.isArray(cloud) ? cloud
-        : Array.isArray(cloud.addresses) ? cloud.addresses
-        : (cloud.snapshot && Array.isArray(cloud.snapshot.addresses)) ? cloud.snapshot.addresses
-        : [];
-      S.list = arr.filter(a => a.active !== false).map(mapAddr);
+      const latest = await getLatest();
+      S.list = latest.map(mapAddr);
       applyFilters();
-    } catch (e) {
-      alert('Kunne ikke hente status: ' + e.message);
+    } catch(e){
+      alert('Kunne ikke hente status: '+e.message);
     } finally {
       els.sync.disabled = false;
     }
   }
 
-  // --- Nullstill viste
-  async function resetVisible() {
-    const n = S.filtered.length;
-    if (!n) return alert('Ingen adresser i visning å nullstille.');
-    const scope = els.scope.value;
-    const ok = confirm(`Nullstille ${n} viste adresser?\nDette fjerner status, tider og "Utført av". Stikker beholdes.\nFilter: ${scope}.`);
-    if (!ok) return;
-    await doReset(S.filtered.map(a => a.name));
+  // ---- Nullstilling (robust) ----
+  function namesSetFrom(arr){
+    // trim for å matche små variasjoner
+    return new Set(arr.map(a => (a.name||'').trim()));
   }
 
-  // --- Nullstill hele runden (alle i gjeldende runde/job)
-  async function resetWholeRound() {
-    const scope = els.scope.value;
-    const base = (scope === 'GRUS') ? S.list.filter(a => a.equipment?.includes('stro')) : S.list.slice();
-    const names = base.map(a => a.name);
-    const ok = confirm(`Nullstille hele runden (${names.length} adresser)?\nDette fjerner status, tider og "Utført av". Stikker beholdes.`);
-    if (!ok) return;
-    await doReset(names);
+  async function resetVisible(){
+    if (!S.filtered.length) return alert('Ingen adresser i visning å nullstille.');
+    const ok = confirm(`Nullstille ${S.filtered.length} viste adresser?\nDette fjerner status/tider/"Utført av". Stikker beholdes.`);
+    if(!ok) return;
+    await doReset(namesSetFrom(S.filtered));
   }
 
-  async function doReset(namesToResetArr) {
-    const namesToReset = new Set(namesToResetArr);
-    try {
-      els.reset.disabled = true;
-      els.resetRound.disabled = true;
+  async function resetRound(){
+    // hele runden: respekter filter "GRUS" vs "SNO"
+    const scope = els.scope.value;
+    const base = (scope==='GRUS') ? S.list.filter(a=>a.equipment?.includes('stro')) : S.list;
+    if (!base.length) return alert('Ingen adresser å nullstille.');
+    const ok = confirm(`Nullstille hele runden (${base.length} adresser)?\nDette fjerner status/tider/"Utført av". Stikker beholdes.`);
+    if(!ok) return;
+    await doReset(namesSetFrom(base));
+  }
 
-      const cloud = await getLatest();
-      const list = Array.isArray(cloud) ? cloud
-        : Array.isArray(cloud.addresses) ? cloud.addresses
-        : (cloud.snapshot && Array.isArray(cloud.snapshot.addresses)) ? cloud.snapshot.addresses
-        : [];
+  async function doReset(namesSet){
+    try{
+      els.reset.disabled = true; els.resetRound.disabled = true;
 
-      const next = list.map(a => {
-        if (!namesToReset.has(a.name)) return a;
-        return { ...a, status:'idle', done:false, startedAt:null, finishedAt:null, doneBy:[] };
+      // hent fersk snapshot og bygg neste liste
+      const current = await getLatest();
+      const next = current.map(a=>{
+        const nm = (a.name||'').trim();
+        if(!namesSet.has(nm)) return a;
+        return {
+          ...a,
+          status:'idle',
+          done:false,
+          startedAt:null,
+          finishedAt:null,
+          doneBy:[]
+        };
       });
 
-      const payload = {
-        version: window.APP_CFG?.APP_VER || '9.x',
-        updated: Date.now(),
-        by: (S.round?.driver?.name || 'admin'),
-        season: S.season,
-        addresses: next,
-        serviceLogs: Array.isArray(cloud.serviceLogs) ? cloud.serviceLogs : [],
-        backups: Array.isArray(cloud.backups) ? cloud.backups : []
-      };
-      await putPayload(payload);
-
-      S.list = next.filter(a => a.active !== false).map(mapAddr);
+      await putAddresses(next);
+      // lokalt refresh
+      S.list = next.map(mapAddr);
       applyFilters();
       alert('Nullstilling fullført.');
-    } catch (e) {
+    } catch(e){
       console.error(e);
-      alert('Nullstilling feilet: ' + e.message);
+      alert('Nullstilling feilet: '+e.message);
     } finally {
-      els.reset.disabled = false;
-      els.resetRound.disabled = false;
+      els.reset.disabled = false; els.resetRound.disabled = false;
     }
   }
 
@@ -237,12 +221,13 @@
   els.scope.addEventListener('change', applyFilters);
   els.search.addEventListener('input', applyFilters);
   els.reset.addEventListener('click', resetVisible);
-  els.resetRound.addEventListener('click', resetWholeRound);
+  if (els.resetRound) els.resetRound.addEventListener('click', resetRound);
 
   // boot
   (function boot(){
+    // sett standard scope ut fra runde
     const job = (S.round?.job === 'GRUS') ? 'GRUS' : 'SNO';
-    els.scope.value = job;
+    if ($('#c_scope')) $('#c_scope').value = job;
     sync();
   })();
 })();
