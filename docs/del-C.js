@@ -31,17 +31,19 @@
     const r = await fetch(`${API}b/${BIN}/latest`, {cache:'no-store'});
     if(!r.ok) throw new Error(`GET ${r.status}`);
     const data = await r.json();
-    // støtt både ren-array, {addresses}, og {snapshot.addresses}
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data.addresses)) return data.addresses;
-    if (data.snapshot && Array.isArray(data.snapshot.addresses)) return data.snapshot.addresses;
+    const d = (data && data.record) ? data.record : data;
+    if (Array.isArray(d)) return d;
+    if (Array.isArray(d.addresses)) return d.addresses;
+    if (d.snapshot && Array.isArray(d.snapshot.addresses)) return d.snapshot.addresses;
     return [];
   }
-  async function putAddresses(nextAddresses, extra={}){
-    // skriv fulle data tilbake men behold serviceLogs/backups fra latest
+
+  async function putAddresses(nextAddresses){
+    // behold ekstra felter fra latest (serviceLogs/backups)
     const r0 = await fetch(`${API}b/${BIN}/latest`, {cache:'no-store'});
     const raw = await r0.json();
     const cloud = (raw && raw.record) ? raw.record : raw;
+
     const payload = {
       version: window.APP_CFG?.APP_VER || '9.x',
       updated: Date.now(),
@@ -49,9 +51,9 @@
       season: S.season,
       addresses: nextAddresses,
       serviceLogs: Array.isArray(cloud?.serviceLogs) ? cloud.serviceLogs : [],
-      backups: Array.isArray(cloud?.backups) ? cloud.backups : [],
-      ...extra
+      backups: Array.isArray(cloud?.backups) ? cloud.backups : []
     };
+
     const r = await fetch(`${API}b/${BIN}`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)
@@ -92,7 +94,7 @@
     let arr = S.list.filter(a => a.active !== false);
 
     if (scope === 'GRUS') arr = arr.filter(a => a.equipment?.includes('stro'));
-    // SNO = alle aktive (kan snøryddes)
+    // SNO = alle aktive
 
     if (text) {
       arr = arr.filter(a =>
@@ -125,7 +127,7 @@
 
   function renderTable(){
     const me = S.round?.driver?.name || '';
-    els.tbody.innerHTML = S.filtered.map((a,i)=>{
+    const rows = S.filtered.map((a,i)=>{
       const who = (a.doneBy && a.doneBy.length)
         ? a.doneBy.map(n=>`<span class="tag ${n===me?'tag-me':'tag-other'}">${n}</span>`).join(' ')
         : '<span class="muted">—</span>';
@@ -146,6 +148,7 @@
         </tr>
       `;
     }).join('');
+    $('#c_tbody').innerHTML = rows;
   }
 
   async function sync(){
@@ -161,11 +164,8 @@
     }
   }
 
-  // ---- Nullstilling (robust) ----
-  function namesSetFrom(arr){
-    // trim for å matche små variasjoner
-    return new Set(arr.map(a => (a.name||'').trim()));
-  }
+  // ---- Nullstilling ----
+  function namesSetFrom(arr){ return new Set(arr.map(a => (a.name||'').trim())); }
 
   async function resetVisible(){
     if (!S.filtered.length) return alert('Ingen adresser i visning å nullstille.');
@@ -175,7 +175,6 @@
   }
 
   async function resetRound(){
-    // hele runden: respekter filter "GRUS" vs "SNO"
     const scope = els.scope.value;
     const base = (scope==='GRUS') ? S.list.filter(a=>a.equipment?.includes('stro')) : S.list;
     if (!base.length) return alert('Ingen adresser å nullstille.');
@@ -188,7 +187,6 @@
     try{
       els.reset.disabled = true; els.resetRound.disabled = true;
 
-      // hent fersk snapshot og bygg neste liste
       const current = await getLatest();
       const next = current.map(a=>{
         const nm = (a.name||'').trim();
@@ -204,7 +202,7 @@
       });
 
       await putAddresses(next);
-      // lokalt refresh
+      // lokal refresh
       S.list = next.map(mapAddr);
       applyFilters();
       alert('Nullstilling fullført.');
@@ -221,11 +219,10 @@
   els.scope.addEventListener('change', applyFilters);
   els.search.addEventListener('input', applyFilters);
   els.reset.addEventListener('click', resetVisible);
-  if (els.resetRound) els.resetRound.addEventListener('click', resetRound);
+  els.resetRound.addEventListener('click', resetRound);
 
   // boot
   (function boot(){
-    // sett standard scope ut fra runde
     const job = (S.round?.job === 'GRUS') ? 'GRUS' : 'SNO';
     if ($('#c_scope')) $('#c_scope').value = job;
     sync();
