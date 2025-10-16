@@ -1,46 +1,40 @@
-<!-- ===== del-A.html (Hjem) ===== -->
-<section id="home" class="active">
-  <h2>Velkommen til Brøyterute</h2>
-  <p>Versjon <span id="verHome">—</span> – Romerike Trefelling</p>
+<!-- Del-A (Hjem) -->
+<section class="card" id="home">
+  <h2 style="margin:0 0 8px 0;">Hjem</h2>
 
-  <div class="card" style="max-width:680px">
-    <h3>Før du starter</h3>
-
-    <label>Navn på sjåfør</label>
-    <input id="homeName" type="text" placeholder="F.eks. Oystein" />
-
-    <div class="row">
-      <div class="col">
-        <label>Retning</label>
-        <select id="homeDirection">
-          <option value="forward">Vanlig</option>
-          <option value="reverse">Motsatt</option>
-        </select>
-      </div>
-      <div class="col">
-        <label>Hanskeflate (store knapper)</label>
-        <label class="switch">
-          <input id="homeHanske" type="checkbox" />
-          <span></span>
-        </label>
-      </div>
-    </div>
-
-    <fieldset>
-      <legend>Utstyr</legend>
-      <label><input id="equipPlog" type="checkbox" /> Plog</label>
-      <label><input id="equipFres" type="checkbox" /> Fres</label>
-      <label><input id="equipStro" type="checkbox" /> Strø</label>
-    </fieldset>
-
-    <div class="row" style="margin-top:10px">
-      <button id="saveHome" class="btn btn-green">Lagre</button>
-      <button id="saveAndStart" class="btn btn-blue">Lagre & start ny runde</button>
-    </div>
+  <div class="row" style="margin-top:6px;">
+    <label for="a_driver" style="min-width:96px;">Fører-navn</label>
+    <input id="a_driver" type="text" placeholder="Navn" class="grow">
   </div>
 
-  <div id="teamStatus" class="card" style="max-width:680px;margin-top:14px">
-    <h3>Felles status (sjåfører)</h3>
-    <div id="teamStatusList" class="small muted">Ingen data enda…</div>
+  <div class="row" style="margin-top:8px;">
+    <span style="min-width:96px;">Retning</span>
+    <label><input type="radio" name="a_dir" value="Normal" checked> Normal</label>
+    <label><input type="radio" name="a_dir" value="Motsatt"> Motsatt</label>
+  </div>
+
+  <div class="row" style="margin-top:8px;">
+    <span style="min-width:96px;">Utstyr (på traktoren)</span>
+    <label><input type="checkbox" id="a_eq_plow"> Skjær</label>
+    <label><input type="checkbox" id="a_eq_fres"> Fres</label>
+    <label><input type="checkbox" id="a_eq_sand"> Strøkasse</label>
+  </div>
+
+  <div class="row" style="margin-top:8px;">
+    <span style="min-width:96px;">Oppdragstype</span>
+    <label><input type="radio" name="a_job" value="SNØ" checked> Snø</label>
+    <label><input type="radio" name="a_job" value="GRUS"> Grus</label>
+  </div>
+
+  <div id="a_hint" class="muted" style="margin-top:6px;"></div>
+
+  <div class="toolbar" style="margin-top:10px;">
+    <button id="a_start">🏁 Start runde</button>
+  </div>
+
+  <div class="muted" style="margin-top:6px;">
+    Tips: Du kan ha Skjær/Fres påmontert selv om Oppdragstype = Grus.
   </div>
 </section>
+
+<script src="./del-A.js"></script>
