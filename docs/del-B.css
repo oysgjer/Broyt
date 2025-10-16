@@ -1,24 +1,24 @@
 :root {
   --b:#e5e7eb; --m:#6b7280;
 }
+
+/* layout */
 .work-wrap { padding: 14px; }
 .title { margin: 0; font-size: 22px; }
 .pills { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
 .pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; background:#f8fafc; border:1px solid var(--b); }
+
 .head-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .btn { font-size:16px; padding:10px 14px; border:1px solid var(--b); border-radius:10px; }
-.btn-primary { }
 .btn-ghost   { border-style:dashed; }
 .btn-lg      { font-size:19px; padding:14px 16px; border-radius:12px; }
 .btn-wide    { width:48%; font-size:18px; padding:12px 0; }
-
-/* NAVIGER-knappen: stor og tydelig i topp */
 .btn-nav { font-size:18px; padding:12px 18px; border-radius:999px; }
 
 .progress-all { height:12px; border-radius:8px; background:#1f2937; margin:12px 0; position:relative; overflow:hidden; }
 .bar { position:absolute; left:0; top:0; bottom:0; }
-.bar-me    { background: var(--progress, #10b981); }   /* grønn */
-.bar-other { background: #7c3aed; opacity:.55; }       /* lilla (andre) */
+.bar-me    { background: var(--progress, #10b981); }
+.bar-other { background: #7c3aed; opacity:.55; }
 
 .hint { margin: 4px 0 10px 0; color: var(--m); }
 .card-big { border:1px solid var(--b); border-radius:14px; padding:14px; }
@@ -42,3 +42,32 @@
 
 .status { margin-top:8px; min-height: 18px; }
 .work-foot { display:flex; justify-content:space-between; gap:10px; margin-top:14px; }
+
+/* Modal */
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:50; }
+.modal.hidden { display:none; }
+.modal-card { width:min(640px, calc(100% - 28px)); background:var(--card-bg); color:var(--fg); border:1px solid var(--border); border-radius:12px; padding:14px; }
+.modal-card h3 { margin:0 0 6px; }
+.modal-card textarea { width:100%; border:1px solid var(--border); border-radius:8px; padding:8px; background:var(--bg); color:var(--fg); }
+.modal-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+
+/* Dark pills fix (kontrast) */
+html[data-theme="dark"] .pill,
+html[data-theme="auto"] .pill {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+  border-color: #374151 !important;
+}
+
+html[data-theme="dark"] .badge,
+html[data-theme="auto"] .badge {
+  background: #0b1220 !important;
+  color: #e5e7eb !important;
+  border-color: #2b3445 !important;
+}
+html[data-theme="dark"] .badge-info,
+html[data-theme="auto"] .badge-info {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e5e7eb !important;
+}
