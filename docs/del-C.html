@@ -2,49 +2,14 @@
 <link rel="stylesheet" href="./del-C.css">
 
 <section id="status" class="status-wrap card">
-  <header class="status-head">
-    <h2>Status</h2>
-    <div class="filters">
-      <button id="c_sync" class="btn">⟳ Oppdater</button>
-      <label class="inline">
-        Vis:
-        <select id="c_scope">
-          <option value="ALLE">Alle</option>
-          <option value="SNO">Snø</option>
-          <option value="GRUS">Grus</option>
-        </select>
-      </label>
-      <label class="inline grow">
-        Søk:
-        <input id="c_search" type="text" placeholder="Søk navn/gruppe…">
-      </label>
+  <h2>Status</h2>
 
-      <!-- NY: Nullstill-knapp -->
-      <button id="c_reset" class="btn">🧹 Nullstill viste</button>
+  <!-- Rad 1: Oppdater + filter + søk -->
+  <div class="filters">
+    <button id="c_sync" class="btn">⟳ Oppdater</button>
 
-      <span class="muted small" id="c_counts">—</span>
-    </div>
-  </header>
-
-  <div class="table-wrap">
-    <table class="tbl" id="c_table" aria-label="Adresse-status">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Adresse</th>
-          <th>Gruppe</th>
-          <th>Status</th>
-          <th>Start</th>
-          <th>Ferdig</th>
-          <th>Utført av</th>
-          <th>Stikker</th>
-        </tr>
-      </thead>
-      <tbody id="c_tbody">
-        <!-- fylles av JS -->
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<script src="./del-C.js"></script>
+    <label class="inline">
+      Vis:
+      <select id="c_scope">
+        <option value="ALLE">Alle</option>
+        <option value="SNO
