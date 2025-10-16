@@ -23,10 +23,9 @@
 .tag-me { background:#d1fae5; border-color:#bbf7d0; }
 .tag-other { background:#ede9fe; border-color:#ddd6fe; }
 
-.now-row { background: rgba(59,130,246,.10); }     /* radmarkering “nå” */
-.next-row { background: rgba(16,185,129,.08); }    /* radmarkering “neste” */
+.now-row { background: rgba(59,130,246,.10); }
+.next-row { background: rgba(16,185,129,.08); }
 
-/* Mørk-modus små tweaks */
 @media (prefers-color-scheme: dark) {
   .tbl tbody tr:hover { background: rgba(255,255,255,.04); }
   .now-row  { background: rgba(59,130,246,.18); }
