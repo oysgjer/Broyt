@@ -32,6 +32,7 @@
     @media (max-width:720px){ .grid.cols-2 { grid-template-columns: 1fr; } }
     .hidden{ display:none !important; }
     footer.app { padding:12px 16px; border-top:1px solid var(--b); color:var(--m); font-size:12px;}
+    .badge { font-size:11px; border:1px solid var(--b); border-radius:999px; padding:2px 6px; background:#fafafa; }
   </style>
 
   <!-- Konfig -->
@@ -41,6 +42,16 @@
       BIN_ID:   '68e7b4d2ae596e708f0bde7d',
       APP_VER:  '9.12h – Romerike Trefelling'
     };
+
+    /************ Sesong (brøytestikker tas kun én gang pr sesong) ************/
+    const LS_SEASON = 'broyt_v912h_season';
+    function defaultSeason() {
+      const now = new Date();
+      const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear()-1; // sesong starter aug
+      return `${y}-${String((y+1)).slice(2)}`; // 2025-26
+    }
+    let CURRENT_SEASON = localStorage.getItem(LS_SEASON) || defaultSeason();
+    localStorage.setItem(LS_SEASON, CURRENT_SEASON);
   </script>
 </head>
 <body>
@@ -72,6 +83,7 @@
           </select>
           <span class="pill">Runde: <span id="roundNo">1</span></span>
           <span class="pill">Versjon: <span id="appVer">—</span></span>
+          <span class="pill">Sesong: <span id="seasonLbl">—</span></span>
           <span class="pill">Synk: <span id="syncLabel">—</span></span>
         </div>
         <div class="row" style="margin-top:8px">
@@ -119,14 +131,12 @@
     <!-- ADRESSE-REGISTER -->
     <section id="tab-register" class="hidden">
       <section class="card">
-        <strong>Adresse-register (redigerbart lokalt – lagre til sky for å publisere)</strong>
+        <strong>Adresse-register</strong>
         <div class="grid cols-2" style="margin-top:8px">
           <input id="arName" placeholder="Adressetekst (navn)"/>
           <input id="arGroup" placeholder="Gruppe (valgfritt)"/>
-          <select id="arTask">
-  <option>Snø + brøytestikker</option>
-  <option>Snø og grus + brøytestikker</option>
-</select>
+          <!-- Task er alltid Snø, ikke redigerbar -->
+          <input id="arTaskFixed" value="Snø" disabled />
           <input id="arEquip" placeholder="Utstyr komma-separert (fres, stro)"/>
         </div>
         <div class="toolbar">
@@ -174,6 +184,7 @@
         <strong>Service / Vedlikehold</strong>
         <div class="grid" style="margin-top:8px">
           <button id="svExportZip">📦 Eksporter logg + bilder (ZIP) – kommer straks</button>
+          <button id="svNewSeason">Start ny sesong (nullstill brøytestikker)</button>
           <textarea id="svNotes" rows="4" placeholder="Service-notater for denne runden…"></textarea>
           <div class="row">
             <button id="svClearLocal">Tøm lokal lagring</button>
@@ -250,6 +261,7 @@
       appVer: document.getElementById('appVer'),
       addrCount: document.getElementById('addrCount'),
       syncLabel: document.getElementById('syncLabel'),
+      seasonLbl: document.getElementById('seasonLbl'),
       // under arbeid
       uaList: document.getElementById('uaList'),
       uaOpen: document.getElementById('uaOpen'),
@@ -261,7 +273,6 @@
       arList: document.getElementById('arList'),
       arName: document.getElementById('arName'),
       arGroup: document.getElementById('arGroup'),
-      arTask: document.getElementById('arTask'),
       arEquip: document.getElementById('arEquip'),
       arAdd: document.getElementById('arAdd'),
       arClearDone: document.getElementById('arClearDone'),
@@ -279,17 +290,15 @@
       adCount: document.getElementById('adCount'),
       // service
       svExportZip: document.getElementById('svExportZip'),
+      svNewSeason: document.getElementById('svNewSeason'),
       svNotes: document.getElementById('svNotes'),
       svClearLocal: document.getElementById('svClearLocal'),
       svDownloadLog: document.getElementById('svDownloadLog'),
       svMsg: document.getElementById('svMsg')
     };
 
-    const TASKS = [
-      'Brøyte', 'Frese', 'Strø',
-      'Brøyte og strø', 'Frese og strø',
-      'Snø og grus + brøytestikker'
-    ];
+    // Task er fast "Snø" i hele appen
+    const TASKS = ['Snø'];
 
     let appState = {
       version: window.APP_CFG.APP_VER,
@@ -301,6 +310,8 @@
         direction: 'Standard',
         equipment: { plow:false, fres:false, sand:false }
       },
+      // felter per adresse:
+      // done (runde), grusDone (runde), stikkerSeason {season, done, doneAt}
       addresses: []
     };
 
@@ -343,17 +354,30 @@
       UI.roundNo.textContent = appState.round;
       UI.appVer.textContent = appState.version;
       UI.addrCount.textContent = `${appState.addresses.length} adresser`;
+      UI.seasonLbl.textContent = CURRENT_SEASON;
     }
 
     function renderList() {
       UI.list.innerHTML = '';
       appState.addresses.forEach((a, idx) => {
+        // init standardfelter hvis mangler
+        if (!a.stikkerSeason) a.stikkerSeason = { season: CURRENT_SEASON, done: false, doneAt: null };
+        if (a.stikkerSeason.season !== CURRENT_SEASON) {
+          a.stikkerSeason = { season: CURRENT_SEASON, done: false, doneAt: null };
+        }
+        if (typeof a.grusDone !== 'boolean') a.grusDone = false;
+        if (typeof a.done !== 'boolean') a.done = false;
+
         const card = document.createElement('div');
         card.className = 'card';
         card.dataset.idx = idx;
 
-        const options = TASKS.map(t => `<option ${a.task===t ? 'selected':''}>${t}</option>`).join('');
         const done = a.done ? 'checked' : '';
+        const grus = a.grusDone ? 'checked' : '';
+        const stikkerDone = a.stikkerSeason.done ? 'checked' : '';
+        const stikkerInfo = a.stikkerSeason.doneAt
+          ? ` | Stikker satt: ${new Date(a.stikkerSeason.doneAt).toLocaleDateString()}`
+          : '';
 
         const eqStr = Array.isArray(a.equipment) && a.equipment.length
           ? ` | Utstyr: ${a.equipment.join(', ')}`
@@ -363,15 +387,21 @@
           <header>
             <div>${a.name || 'Uten navn'}</div>
             <div class="right">
-              <label class="muted"><input type="checkbox" data-k="done" ${done}> Ferdig</label>
+              <span class="badge">Snø</span>
+              <label class="muted"><input type="checkbox" data-k="done" ${done}> Ferdig (runde)</label>
             </div>
           </header>
-          <div class="muted" style="margin-top:4px">Gruppe: ${a.group || '-'}${eqStr}</div>
+          <div class="muted" style="margin-top:4px">Gruppe: ${a.group || '-'}${eqStr}${stikkerInfo}</div>
           <div class="row" style="margin-top:8px">
-            <select data-k="task">${options}</select>
             <button data-k="up">↑</button>
             <button data-k="down">↓</button>
             <button data-k="top">⇤ Topp</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <label class="muted"><input type="checkbox" data-k="grus" ${grus}> Grus utført (runde)</label>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <label class="muted"><input type="checkbox" data-k="stikker" ${stikkerDone}> Brøytestikker satt (sesong ${CURRENT_SEASON})</label>
           </div>
         `;
         UI.list.appendChild(card);
@@ -384,15 +414,19 @@
     function renderUnderArbeid(){
       const src = uaFilterOpenOnly ? appState.addresses.filter(a=>!a.done) : appState.addresses;
       UI.uaList.innerHTML = '';
-      src.forEach((a, idx)=>{
+      src.forEach((a)=>{
         const div = document.createElement('div');
         div.className = 'card';
         div.innerHTML = `
           <header>
             <div>${a.name}</div>
-            <div class="right"><span class="pill">${a.task || '-'}</span></div>
+            <div class="right"><span class="badge">Snø</span></div>
           </header>
-          <div class="muted" style="margin-top:4px">Gruppe: ${a.group || '-'} | Utstyr: ${(a.equipment||[]).join(', ') || '-'}</div>
+          <div class="muted" style="margin-top:4px">
+            Gruppe: ${a.group || '-'} | Utstyr: ${(a.equipment||[]).join(', ') || '-'}
+            ${a.grusDone ? ' | Grus utført ✅' : ''}
+            ${a.stikkerSeason?.done ? ` | Stikker ✅ (${new Date(a.stikkerSeason.doneAt).toLocaleDateString()})` : ''}
+          </div>
         `;
         UI.uaList.appendChild(div);
       });
@@ -411,16 +445,15 @@
           <header>
             <div>${a.name}</div>
             <div class="right">
+              <span class="badge">Snø</span>
               <button data-k="del" data-i="${i}">🗑</button>
             </div>
           </header>
           <div class="grid cols-2" style="margin-top:8px">
             <input data-k="name" data-i="${i}" value="${a.name}">
             <input data-k="group" data-i="${i}" value="${a.group || ''}" placeholder="Gruppe">
-            <select data-k="task" data-i="${i}">
-              ${TASKS.map(t=>`<option ${a.task===t?'selected':''}>${t}</option>`).join('')}
-            </select>
             <input data-k="equipment" data-i="${i}" value="${(a.equipment||[]).join(', ')}" placeholder="fres, stro">
+            <div class="muted">Task: Snø (fast)</div>
           </div>
         `;
         UI.arList.appendChild(row);
@@ -450,59 +483,69 @@
         renderList();
       }
     });
+
     UI.list.addEventListener('change', (e) => {
       const card = e.target.closest('.card'); if (!card) return;
       const idx = Number(card.dataset.idx);
       const k = e.target.dataset.k;
 
       if (k === 'done') appState.addresses[idx].done = !!e.target.checked;
-      if (k === 'task') appState.addresses[idx].task = e.target.value;
+      if (k === 'grus') appState.addresses[idx].grusDone = !!e.target.checked;
+      if (k === 'stikker') {
+        const now = Date.now();
+        appState.addresses[idx].stikkerSeason = appState.addresses[idx].stikkerSeason || { season: CURRENT_SEASON, done:false, doneAt:null };
+        appState.addresses[idx].stikkerSeason.season = CURRENT_SEASON;
+        appState.addresses[idx].stikkerSeason.done = !!e.target.checked;
+        appState.addresses[idx].stikkerSeason.doneAt = e.target.checked ? now : null;
+      }
     });
 
-    UI.driverName.addEventListener('input', savePrefs);
-    UI.direction.addEventListener('change', savePrefs);
-    UI.eq.plow.addEventListener('change', savePrefs);
-    UI.eq.fres.addEventListener('change', savePrefs);
-    UI.eq.sand.addEventListener('change', savePrefs);
+    document.getElementById('driverName').addEventListener('input', savePrefs);
+    document.getElementById('direction').addEventListener('change', savePrefs);
+    document.getElementById('eq_plow').addEventListener('change', savePrefs);
+    document.getElementById('eq_fres').addEventListener('change', savePrefs);
+    document.getElementById('eq_sand').addEventListener('change', savePrefs);
 
-    UI.syncBtn.addEventListener('click', async () => { await syncFromCloud(); });
-    UI.saveBtn.addEventListener('click', async () => { await saveToCloud(); });
-    UI.startBtn.addEventListener('click', () => {
-      appState.addresses = appState.addresses.map(a => ({ ...a, done:false }));
+    document.getElementById('btnSync').addEventListener('click', async () => { await syncFromCloud(); });
+    document.getElementById('btnSave').addEventListener('click', async () => { await saveToCloud(); });
+    document.getElementById('btnStartRunde').addEventListener('click', () => {
+      appState.addresses = appState.addresses.map(a => ({ ...a, done:false, grusDone:false }));
       appState.round = (appState.round || 0) + 1;
       appState.updated = Date.now();
       renderList();
-      toast('Ny runde startet. Ferdig-status nullstilt.', true);
+      toast('Ny runde: ferdig + grus nullstilt. Stikker beholdt.', true);
     });
 
     /************ Events – Under arbeid ************/
-    UI.uaShowOpen.addEventListener('click', ()=>{ uaFilterOpenOnly = true; renderUnderArbeid(); });
-    UI.uaShowAll.addEventListener('click', ()=>{ uaFilterOpenOnly = false; renderUnderArbeid(); });
-    UI.uaMarkAllDone.addEventListener('click', ()=>{
+    document.getElementById('uaShowOpen').addEventListener('click', ()=>{ uaFilterOpenOnly = true; renderUnderArbeid(); });
+    document.getElementById('uaShowAll').addEventListener('click', ()=>{ uaFilterOpenOnly = false; renderUnderArbeid(); });
+    document.getElementById('uaMarkAllDone').addEventListener('click', ()=>{
       appState.addresses.forEach(a=> a.done = true);
       renderUnderArbeid(); renderList();
     });
 
     /************ Events – Register ************/
-    UI.arAdd.addEventListener('click', ()=>{
+    document.getElementById('arAdd').addEventListener('click', ()=>{
       const name = UI.arName.value.trim();
       if(!name) return;
       const group = UI.arGroup.value.trim();
-      const task = UI.arTask.value;
       const equipment = UI.arEquip.value.split(',').map(s=>s.trim()).filter(Boolean);
-      appState.addresses.push({ name, group, task, equipment, done:false, active:true });
+      appState.addresses.push({ name, group, task:'Snø', equipment, done:false, grusDone:false, active:true });
       UI.arName.value=''; UI.arGroup.value=''; UI.arEquip.value='';
       renderRegister(); renderList();
     });
-    UI.arClearDone.addEventListener('click', ()=>{
+
+    document.getElementById('arClearDone').addEventListener('click', ()=>{
       appState.addresses = appState.addresses.filter(a=>!a.done);
       renderRegister(); renderList();
     });
-    UI.arSortAlpha.addEventListener('click', ()=>{
+
+    document.getElementById('arSortAlpha').addEventListener('click', ()=>{
       appState.addresses.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
       renderRegister(); renderList();
     });
-    UI.arList.addEventListener('click', (e)=>{
+
+    document.getElementById('arList').addEventListener('click', (e)=>{
       const btn = e.target.closest('button'); if(!btn) return;
       if(btn.dataset.k==='del'){
         const i = +btn.dataset.i;
@@ -510,28 +553,24 @@
         renderRegister(); renderList();
       }
     });
-    UI.arList.addEventListener('input', (e)=>{
+
+    document.getElementById('arList').addEventListener('input', (e)=>{
       const k = e.target.dataset.k; const i = +e.target.dataset.i; if(k==null) return;
       if(k==='name') appState.addresses[i].name = e.target.value;
       if(k==='group') appState.addresses[i].group = e.target.value;
-      if(k==='task') appState.addresses[i].task = e.target.value;
       if(k==='equipment') appState.addresses[i].equipment = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
-    });
-    UI.arList.addEventListener('change', (e)=>{
-      const k = e.target.dataset.k; const i = +e.target.dataset.i; if(k!=='task') return;
-      appState.addresses[i].task = e.target.value;
     });
 
     /************ Events – Admin ************/
-    UI.adExportJson.addEventListener('click', ()=>{
+    document.getElementById('adExportJson').addEventListener('click', ()=>{
       const blob = new Blob([JSON.stringify(appState,null,2)], {type:'application/json'});
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `broeyting_snapshot_runde${appState.round}.json`;
       a.click();
     });
-    UI.adImportJson.addEventListener('click', ()=> UI.adFile.click());
-    UI.adFile.addEventListener('change', async (e)=>{
+    document.getElementById('adImportJson').addEventListener('click', ()=> document.getElementById('adFile').click());
+    document.getElementById('adFile').addEventListener('change', async (e)=>{
       const f = e.target.files[0]; if(!f) return;
       const txt = await f.text();
       try {
@@ -539,56 +578,77 @@
         if(Array.isArray(obj)) { appState.addresses = obj; }
         else if (Array.isArray(obj.addresses)) { appState = { ...appState, ...obj, addresses: obj.addresses }; }
         renderList(); renderRegister(); renderAdminMeta();
-        UI.adStatus.textContent = 'Importert.';
-      } catch { UI.adStatus.textContent = 'Feil i JSON.'; }
+        document.getElementById('adStatus').textContent = 'Importert.';
+      } catch { document.getElementById('adStatus').textContent = 'Feil i JSON.'; }
     });
-    UI.adBackup.addEventListener('click', ()=>{
+    document.getElementById('adBackup').addEventListener('click', ()=>{
       localStorage.setItem(LS_SNAP, JSON.stringify(appState));
-      UI.adStatus.textContent = 'Snapshot lagret lokalt.';
+      document.getElementById('adStatus').textContent = 'Snapshot lagret lokalt.';
     });
-    UI.adRestore.addEventListener('click', ()=>{
+    document.getElementById('adRestore').addEventListener('click', ()=>{
       const raw = localStorage.getItem(LS_SNAP);
-      if(!raw) { UI.adStatus.textContent = 'Ingen snapshot funnet.'; return; }
+      if(!raw) { document.getElementById('adStatus').textContent = 'Ingen snapshot funnet.'; return; }
       try {
         const snap = JSON.parse(raw);
         appState = { ...appState, ...snap };
         renderList(); renderRegister(); renderAdminMeta();
-        UI.adStatus.textContent = 'Snapshot gjenopprettet.';
-      } catch { UI.adStatus.textContent = 'Kunne ikke lese snapshot.'; }
+        document.getElementById('adStatus').textContent = 'Snapshot gjenopprettet.';
+      } catch { document.getElementById('adStatus').textContent = 'Kunne ikke lese snapshot.'; }
     });
-    UI.adPublish.addEventListener('click', async ()=>{
+    document.getElementById('adPublish').addEventListener('click', async ()=>{
       try{
-        UI.adStatus.textContent = 'Publiserer...';
+        document.getElementById('adStatus').textContent = 'Publiserer...';
         await saveToCloud();
-        UI.adStatus.textContent = 'Publisert til sky.';
-      }catch(e){ UI.adStatus.textContent = 'Publisering feilet.'; }
+        document.getElementById('adStatus').textContent = 'Publisert til sky.';
+      }catch(e){ document.getElementById('adStatus').textContent = 'Publisering feilet.'; }
     });
 
     function renderAdminMeta(){
-      UI.adVer.textContent = appState.version;
-      UI.adUpdated.textContent = new Date(appState.updated).toLocaleString();
-      UI.adCount.textContent = appState.addresses.length;
+      document.getElementById('adVer').textContent = appState.version;
+      document.getElementById('adUpdated').textContent = new Date(appState.updated).toLocaleString();
+      document.getElementById('adCount').textContent = appState.addresses.length;
     }
 
     /************ Events – Service ************/
-    UI.svClearLocal.addEventListener('click', ()=>{
+    document.getElementById('svNewSeason').addEventListener('click', ()=>{
+      // Neste sesong
+      const parts = CURRENT_SEASON.split('-'); // "2025-26"
+      const startYear = parseInt(parts[0],10) + 1;
+      const next = `${startYear}-${String(startYear+1).slice(2)}`;
+      CURRENT_SEASON = next;
+      localStorage.setItem(LS_SEASON, CURRENT_SEASON);
+
+      // Nullstill kun brøytestikker
+      appState.addresses = appState.addresses.map(a => ({
+        ...a,
+        stikkerSeason: { season: CURRENT_SEASON, done:false, doneAt:null }
+      }));
+      appState.updated = Date.now();
+      renderList(); renderUnderArbeid(); renderRegister(); renderAdminMeta();
+      document.getElementById('svMsg').textContent = `Ny sesong startet: ${CURRENT_SEASON}. Brøytestikker nullstilt.`;
+    });
+
+    document.getElementById('svClearLocal').addEventListener('click', ()=>{
       localStorage.removeItem(LS_PREF);
       localStorage.removeItem(LS_SNAP);
-      UI.svMsg.textContent = 'Lokal lagring tømt.';
+      document.getElementById('svMsg').textContent = 'Lokal lagring tømt.';
     });
-    UI.svDownloadLog.addEventListener('click', ()=>{
+    document.getElementById('svDownloadLog').addEventListener('click', ()=>{
       const log = {
         round: appState.round,
         updated: appState.updated,
+        season: CURRENT_SEASON,
         driver: appState.driver,
-        notes: UI.svNotes.value,
+        notes: document.getElementById('svNotes').value,
         done: appState.addresses.filter(a=>a.done).map(a=>a.name),
+        grus: appState.addresses.filter(a=>a.grusDone).map(a=>a.name),
+        stikker: appState.addresses.filter(a=>a.stikkerSeason?.done).map(a=>a.name),
         open: appState.addresses.filter(a=>!a.done).map(a=>a.name)
       };
       const blob = new Blob([JSON.stringify(log,null,2)], {type:'application/json'});
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `broeyting_logg_runde${appState.round}.json`;
+      a.download = `broeyting_logg_runde${appState.round}_${CURRENT_SEASON}.json`;
       a.click();
     });
 
@@ -605,10 +665,7 @@
         UI.status.textContent = 'Henter...';
         const cloud = await addressStore.getLatest();
 
-        // Støtt tre formater:
-        // 1) { addresses: [...] }
-        // 2) { snapshot: { addresses: [...] } }
-        // 3) ren array [...]
+        // Støtt tre formater: ren array, {addresses}, {snapshot:{addresses}}
         const addresses =
           Array.isArray(cloud) ? cloud :
           Array.isArray(cloud.addresses) ? cloud.addresses :
@@ -617,14 +674,33 @@
 
         const active = addresses.filter(a => (a.active === undefined ? true : !!a.active));
 
-        appState.addresses = active.map(a => ({
-          done: false,
-          task: a.task || 'Brøyte',
-          group: a.group || '',
-          equipment: a.equipment || [],
-          name: a.name || 'Uten navn',
-          active: a.active !== false
-        }));
+        appState.addresses = active.map(a => {
+          // mappe legacy "task" som kan inneholde "grus" / "brøytestikker" til nye felt
+          const rawTask = (a.task || '').toLowerCase();
+          const hasGrus = rawTask.includes('grus');
+          const hadStikkerWord = rawTask.includes('brøytestikker');
+
+          const stikkerSeason = a.stikkerSeason && a.stikkerSeason.season === CURRENT_SEASON
+            ? a.stikkerSeason
+            : { season: CURRENT_SEASON, done:false, doneAt:null };
+
+          return {
+            name: a.name || 'Uten navn',
+            group: a.group || '',
+            equipment: a.equipment || [],
+            active: a.active !== false,
+            // runde-felter:
+            done: !!a.done,
+            grusDone: typeof a.grusDone === 'boolean' ? a.grusDone : false,
+            // sesong-felt:
+            stikkerSeason: stikkerSeason,
+            // fast task:
+            task: 'Snø',
+            // hint hvis legacy indikerte behov – (vi setter IKKE som gjort)
+            _legacyNeedsGrus: hasGrus,
+            _legacyHadStikkerWord: hadStikkerWord
+          };
+        });
 
         appState.version = cloud.version || (cloud.snapshot && cloud.snapshot.version) || window.APP_CFG.APP_VER;
         appState.updated = Date.now();
@@ -649,6 +725,7 @@
         updated: appState.updated,
         by: appState.by,
         driver: appState.driver,
+        season: CURRENT_SEASON,
         addresses: appState.addresses
       };
       await addressStore.put(payload);
@@ -658,6 +735,7 @@
 
     /************ Boot ************/
     (async function init(){
+      document.getElementById('seasonLbl').textContent = CURRENT_SEASON;
       loadPrefs();
       renderMeta();
       showTab('home');
