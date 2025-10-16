@@ -12,4 +12,43 @@
       Vis:
       <select id="c_scope">
         <option value="ALLE">Alle</option>
-        <option value="SNO
+        <option value="SNO">Snø</option>
+        <option value="GRUS">Grus</option>
+      </select>
+    </label>
+
+    <label class="inline grow">
+      Søk:
+      <input id="c_search" type="text" placeholder="Søk navn/gruppe…">
+    </label>
+  </div>
+
+  <!-- Rad 2: TELLELINJE + NULLSTILL-KNAPPER (NY, ALLTID SYNLIG) -->
+  <div class="filters">
+    <span class="muted small" id="c_counts">—</span>
+    <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap">
+      <button id="c_reset" class="btn">🧹 Nullstill viste</button>
+      <button id="c_reset_round" class="btn">🧹 Nullstill hele runden</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="tbl" id="c_table" aria-label="Adresse-status">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Adresse</th>
+          <th>Gruppe</th>
+          <th>Status</th>
+          <th>Start</th>
+          <th>Ferdig</th>
+          <th>Utført av</th>
+          <th>Stikker</th>
+        </tr>
+      </thead>
+      <tbody id="c_tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<script src="./del-C.js"></script>
