@@ -1,4 +1,4 @@
-// Del-B – Under arbeid (retning fikset, auto-lagring, auto-nav, avslutt -> service)
+// Del-B – Under arbeid (rundetittel med dato, avslutt runde -> service, retning OK)
 (function () {
   const $ = (s) => document.querySelector(s);
 
@@ -22,7 +22,7 @@
 
     finishBtn: $('#b_finish_btn'),
 
-    // "Ikke mulig" modal (valgfritt – beholdt hvis du allerede har den i HTML)
+    // "Ikke mulig" modal (beholdes hvis i HTML)
     blockModal: $('#b_block_modal'),
     blockText:  $('#b_block_text'),
     blockFile:  $('#b_block_file'),
@@ -38,7 +38,7 @@
 
   const S = {
     season: window.BroytState?.getSeason?.() || '',
-    round:  window.BroytState?.getRound?.() || null,
+    round:  loadRound(),
     prefs:  window.BroytState?.getPrefs?.() || {},
     addresses: [],
     filtered: [],
@@ -46,8 +46,21 @@
     saving: false
   };
 
+  const pad = (n)=>String(n).padStart(2,'0');
+  const fmtDate = (t) => {
+    const d = new Date(t);
+    return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${String(d.getFullYear()).slice(-2)}`;
+  };
   const fmtTime = (t) => !t ? '–' : new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
   const openMaps = (q) => window.open(`https://www.google.com/maps?q=${encodeURIComponent(q)}`, '_blank');
+
+  function loadRound(){
+    try { return JSON.parse(localStorage.getItem('broyt:round')||'null'); } catch { return null; }
+  }
+  function clearRound(){
+    localStorage.removeItem('broyt:round');
+    try { window.BroytState?.endRound?.(); } catch {}
+  }
 
   // --- Nett
   async function getLatest() {
@@ -105,7 +118,6 @@
       blockPhoto: a.blockPhoto || null
     };
   }
-
   function filterByJob(list) {
     const job = S.round?.job || 'SNØ';
     if (job === 'GRUS') return list.filter(a => a.equipment?.includes('stro'));
@@ -113,6 +125,18 @@
   }
 
   // --- Render
+  function renderHeaderMeta(syncMsg='—') {
+    const r = S.round || {};
+    const label = (r.number && (r.dateStr || r.startedAt))
+      ? `(${r.number}) ${(r.dateStr || fmtDate(r.startedAt))}`
+      : '–';
+    els.round.textContent = label;
+    els.job.textContent   = r.job || '–';
+    els.dir.textContent   = r.driver?.direction || '–';
+    els.season.textContent= S.season || '–';
+    els.sync.textContent  = syncMsg;
+  }
+
   function renderNowNext() {
     const step = (S.round?.driver?.direction === 'Motsatt') ? -1 : 1;
     const cur = S.filtered[S.i];
@@ -187,20 +211,16 @@
     els.progOther.style.width = `${Math.round((otherDone / n) * 100)}%`;
   }
 
-  // --- Status
+  // --- Statushelpers
   function setStatus(a, status) {
     const me = S.round?.driver?.name || 'driver';
     a.status = status;
-    if (status === 'started') {
-      a.startedAt = a.startedAt || Date.now();
-    }
+    if (status === 'started') a.startedAt = a.startedAt || Date.now();
     if (status === 'done') {
       a.finishedAt = Date.now();
       a.done = true;
       a.doneBy = a.doneBy || [];
       if (!a.doneBy.includes(me)) a.doneBy.push(me);
-    } else if (status === 'idle') {
-      a.done = false;
     } else {
       a.done = false;
     }
@@ -276,9 +296,7 @@
     });
   }
   function openBlockModal() {
-    if (!els.blockModal) { // fallback uten modal
-      const a = S.filtered[S.i]; setStatus(a, 'blocked'); saveQuiet(); goNext(true); return;
-    }
+    if (!els.blockModal) { const a = S.filtered[S.i]; setStatus(a, 'blocked'); saveQuiet(); goNext(true); return; }
     els.blockText.value = '';
     if (els.blockFile) els.blockFile.value = '';
     if (els.blockFileName) els.blockFileName.textContent = 'Ingen fil valgt';
@@ -288,26 +306,24 @@
   function closeBlockModal(){ if (els.blockModal) els.blockModal.classList.add('hidden'); }
   if (els.blockCancel) els.blockCancel.onclick = closeBlockModal;
 
-  // --- Retningsbevisst navigasjon (kritisk fiks)
+  // --- Retningsbevisst navigasjon
   function stepDir() { return (S.round?.driver?.direction === 'Motsatt') ? -1 : 1; }
-
-  function prev(){
-    const step = -stepDir();               // motsatt av "neste"
-    S.i = clampIndex(S.i + step);
-    renderAddress();
-  }
-  function next(){
-    const step = stepDir();                // riktig retning
-    S.i = clampIndex(S.i + step);
-    renderAddress();
-  }
   function clampIndex(idx) {
     if (!S.filtered.length) return 0;
     if (idx < 0) return 0;
     if (idx > S.filtered.length - 1) return S.filtered.length - 1;
     return idx;
   }
-
+  function prev(){
+    const step = -stepDir();
+    S.i = clampIndex(S.i + step);
+    renderAddress();
+  }
+  function next(){
+    const step = stepDir();
+    S.i = clampIndex(S.i + step);
+    renderAddress();
+  }
   function goNext(autoNav=false) {
     next();
     saveQuiet();
@@ -338,21 +354,30 @@
   els.prevBtn.onclick=prev;
   els.nextBtn.onclick=() => goNext(true);
 
-  // --- Avslutt runde: lagre + til Service
+  // --- Avslutt runde: lagre + marker avsluttet + til Service
   els.finishBtn.onclick = async () => {
     try {
+      // merk avsluttet i lokal state
+      const r = loadRound() || {};
+      r.endedAt = Date.now();
+      localStorage.setItem('broyt:round', JSON.stringify(r));
       await saveQuiet();
     } finally {
+      // gi beskjed til Service
+      const r = loadRound() || {};
       const payload = {
-        round: S.round?.number || 0,
-        startedAt: S.round?.startedAt || Date.now(),
-        job: S.round?.job || 'SNØ',
-        driver: S.round?.driver?.name || 'driver',
+        round: r.number || 0,
+        date:  r.dateStr || (r.startedAt ? fmtDate(r.startedAt) : ''),
+        startedAt: r.startedAt || Date.now(),
+        endedAt: r.endedAt || Date.now(),
+        job: r.job || 'SNØ',
+        driver: r.driver?.name || 'driver',
         createdAt: Date.now()
       };
       localStorage.setItem(SERVICE_REQ, JSON.stringify(payload));
-      if (typeof window.APP?.go === 'function') window.APP.go('service');
-      else location.hash = '#service';
+      // tøm aktiv runde slik at ny start får nytt nummer
+      clearRound();
+      if (typeof window.APP?.go === 'function') window.APP.go('service'); else location.hash = '#service';
     }
   };
 
@@ -380,7 +405,7 @@
       S.addresses = arr.filter(a => a.active !== false).map(mapAddr);
       S.filtered = filterByJob(S.addresses);
 
-      // VIKTIG: startposisjon i riktig ende
+      // startposisjon i riktig ende
       S.i = (S.round?.driver?.direction === 'Motsatt')
         ? Math.max(0, S.filtered.length - 1)
         : 0;
@@ -388,7 +413,7 @@
       els.hint.textContent = (S.round?.job === 'GRUS')
         ? 'Viser kun adresser med grus-behov.'
         : 'Viser alle aktive adresser.';
-      setMeta('OK');
+      renderHeaderMeta('OK');
       renderAddress();
       renderProgress();
 
@@ -402,7 +427,7 @@
       }
     } catch (e) {
       console.error(e);
-      els.sync.textContent = 'Feil';
+      renderHeaderMeta('Feil');
     }
   }
   els.syncBtn.onclick = sync;
@@ -412,19 +437,9 @@
   window.addEventListener('focus', () => { flushQueue(); sync(); });
   window.addEventListener('online', () => { flushQueue(); sync(); });
 
-  function setMeta(syncMsg='—') {
-    S.prefs = window.BroytState?.getPrefs?.() || S.prefs || {};
-    S.round = window.BroytState?.getRound?.() || S.round;
-    els.round.textContent = S.round?.number ?? '–';
-    els.job.textContent   = S.round?.job ?? '–';
-    els.dir.textContent   = S.round?.driver?.direction ?? '–';
-    els.season.textContent= S.season || '–';
-    els.sync.textContent  = syncMsg;
-  }
-
   (function boot(){
     S.season = window.BroytState?.getSeason?.() || S.season;
-    setMeta('—');
+    renderHeaderMeta('—');
     sync();
   })();
 
