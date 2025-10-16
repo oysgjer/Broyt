@@ -1,4 +1,4 @@
-// Del-C (Status) – oversikt over alle adresser med filter, søk og Nå/Neste-markering
+// Del-C (Status) – oversikt + nullstilling av viste rader
 (function () {
   const $ = (s) => document.querySelector(s);
 
@@ -11,7 +11,8 @@
     search: $('#c_search'),
     counts: $('#c_counts'),
     tbody:  $('#c_tbody'),
-    table:  $('#c_table')
+    table:  $('#c_table'),
+    reset:  $('#c_reset'),
   };
 
   const S = {
@@ -19,12 +20,22 @@
     season: window.BroytState?.getSeason?.() || '',
     list:   [],
     filtered: [],
-    iNow:    0,
+    iNow:    0, // peker til "nå"
   };
 
+  // --- Nett
   async function getLatest() {
     const r = await fetch(`${API}b/${BIN}/latest`, { cache:'no-store' });
     if (!r.ok) throw new Error(`GET ${r.status}`);
+    const data = await r.json();
+    return data && data.record ? data.record : data;
+  }
+  async function putPayload(payload) {
+    const r = await fetch(`${API}b/${BIN}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error(`PUT ${r.status}`);
     const data = await r.json();
     return data && data.record ? data.record : data;
   }
@@ -55,17 +66,17 @@
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  // --- Filter/søk
   function applyFilters() {
     const text = (els.search.value || '').toLowerCase().trim();
     const scope = els.scope.value; // 'ALLE' | 'SNO' | 'GRUS'
 
     let arr = S.list.slice();
+
     if (scope === 'GRUS') {
+      // Grus: kun adresser som faktisk kan strøs
       arr = arr.filter(a => a.equipment?.includes('stro'));
-    } else if (scope === 'SNO') {
-      // snø = alle aktive
-      arr = arr;
-    }
+    } // Snø: alle aktive
 
     if (text) {
       arr = arr.filter(a =>
@@ -86,6 +97,7 @@
     els.counts.textContent = `${n} adresser • Ikke påbegynt: ${c.idle||0} • Pågår: ${c.started||0} • Ferdig: ${c.done||0} • Hoppet over: ${c.skipped||0} • Ikke mulig: ${c.blocked||0}`;
   }
 
+  // bestem "nå" og "neste" rad (enkelt)
   function computeNowIndex() {
     const dir = S.round?.driver?.direction || 'Normal';
     const seq = S.filtered;
@@ -163,11 +175,79 @@
     }
   }
 
+  // --- Nullstill viste (sett alle viste til idle, null tider, clear doneBy)
+  async function resetVisible() {
+    const n = S.filtered.length;
+    if (!n) return alert('Ingen adresser i visning å nullstille.');
+    const scope = els.scope.value;
+    const ok = confirm(`Nullstille ${n} viste adresser?\n\nDette fjerner status (Pågår/Ferdig/Hoppet over/Ikke mulig), start-/ferdig-tider og "Utført av".\n\nStikker for sesong beholdes.\n\nFiltrering: ${scope}.`);
+    if (!ok) return;
+
+    try {
+      els.reset.disabled = true;
+      els.reset.textContent = 'Nullstiller…';
+
+      // hent fersk sky
+      const cloud = await getLatest();
+      const list = Array.isArray(cloud) ? cloud
+        : Array.isArray(cloud.addresses) ? cloud.addresses
+        : (cloud.snapshot && Array.isArray(cloud.snapshot.addresses)) ? cloud.snapshot.addresses
+        : [];
+
+      // lag oppslag over navn vi skal nullstille
+      const namesToReset = new Set(S.filtered.map(a => a.name));
+
+      // gå gjennom cloud-lista og nullstill matchede navn
+      const next = list.map(a => {
+        if (!namesToReset.has(a.name)) return a; // ikke i visning
+        return {
+          ...a,
+          status: 'idle',
+          done: false,
+          startedAt: null,
+          finishedAt: null,
+          doneBy: [],
+          // bevar stikkerSeason, stikkerCount, equipment, group, osv.
+        };
+      });
+
+      // skriv tilbake
+      const payload = {
+        version: window.APP_CFG?.APP_VER || '9.x',
+        updated: Date.now(),
+        by: (S.round?.driver?.name || 'admin'),
+        season: S.season,
+        addresses: next,
+        // bevar hefter som serviceLogs/backups om de finnes
+        serviceLogs: Array.isArray(cloud.serviceLogs) ? cloud.serviceLogs : [],
+        backups: Array.isArray(cloud.backups) ? cloud.backups : []
+      };
+      await putPayload(payload);
+
+      // lokalt oppdatere og re-tegne
+      S.list = next.filter(a => a.active !== false).map(mapAddr);
+      applyFilters();
+
+      els.reset.textContent = 'Ferdig';
+    } catch (e) {
+      console.error(e);
+      alert('Nullstilling feilet: ' + e.message);
+      els.reset.textContent = 'Feil';
+    } finally {
+      els.reset.disabled = false;
+      setTimeout(() => { els.reset.textContent = '🧹 Nullstill viste'; }, 1200);
+    }
+  }
+
+  // events
   els.sync.addEventListener('click', sync);
   els.scope.addEventListener('change', applyFilters);
   els.search.addEventListener('input', applyFilters);
+  els.reset.addEventListener('click', resetVisible);
 
+  // boot
   (function boot(){
+    // default scope = gjeldende runde
     const job = (S.round?.job === 'GRUS') ? 'GRUS' : 'SNO';
     els.scope.value = job;
     sync();
