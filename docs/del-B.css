@@ -1,0 +1,31 @@
+/* Del-B stil – enkel, mobilvennlig */
+
+.b-wrap { padding: 10px; }
+.b-head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+.b-title { margin: 0; }
+.b-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.pill { font-size:11px; padding:2px 8px; border-radius:999px; background:#f6f6f6; border:1px solid #e5e7eb; }
+
+.b-head-right { display:flex; gap:8px; flex-wrap:wrap; }
+button.primary { background:#eef2ff; border:1px solid #c7d2fe; }
+button.danger { background:#fee2e2; border:1px solid #fecaca; }
+button.ghost { background:#fff; border:1px dashed #e5e7eb; }
+
+.b-progress { height:8px; border-radius:6px; background:#f3f4f6; margin:10px 0; position:relative; overflow:hidden; }
+.b-prog-done { position:absolute; left:0; top:0; bottom:0; background:#10b981; /* grønn */ }
+
+.b-list { display:grid; gap:8px; margin-top:8px; }
+.b-card { border:1px solid #e5e7eb; border-radius:10px; padding:10px; background:#fff; }
+.b-card header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.badge { font-size:11px; border:1px solid #e5e7eb; border-radius:999px; padding:2px 6px; background:#fafafa; }
+
+.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.muted { color:#6b7280; font-size:12px; }
+.right { display:flex; align-items:center; gap:6px; }
+.grow { flex:1; min-width:140px; }
+
+/* Modal */
+.modal { position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,0.35); }
+.modal.hidden { display:none; }
+.modal-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px; width:min(520px, 92vw); }
+.modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
