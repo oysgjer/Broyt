@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Brøyteapp v9.12h – Hybrid</title>
+  <title>Brøyterute v9.12h – Hybrid</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
     h1 { margin: 0 0 12px 0; font-size: 20px; }
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .card { border: 1px solid #ddd; border-radius: 10px; padding: 10px; margin: 8px 0; }
-    .card header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+    .card header { display: flex; justify-content:space-between; align-items:center; font-weight: 600; }
     .muted { color: #666; font-size: 12px; }
     button { padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; background: #f6f6f6; }
     button:active { transform: scale(0.98); }
@@ -84,6 +84,7 @@
         const r = await fetch(`${API_BASE}b/${BIN_ID}/latest`, { cache: 'no-store' });
         if (!r.ok) throw new Error(`GET ${r.status}`);
         const data = await r.json();
+        // JSONBin v3 returnerer {record: ...} – trekk ut record hvis finnes
         return data && data.record ? data.record : data;
       }
 
@@ -122,7 +123,8 @@
 
     const TASKS = [
       'Brøyte', 'Frese', 'Strø',
-      'Brøyte og strø', 'Frese og strø'
+      'Brøyte og strø', 'Frese og strø',
+      'Snø og grus + brøytestikker'
     ];
 
     let appState = {
@@ -155,9 +157,7 @@
       } catch {}
     }
     function savePrefs() {
-      const prefs = {
-        driver: currentDriver()
-      };
+      const prefs = { driver: currentDriver() };
       localStorage.setItem(LS_KEY, JSON.stringify(prefs));
     }
 
@@ -190,6 +190,10 @@
         const options = TASKS.map(t => `<option ${a.task===t ? 'selected':''}>${t}</option>`).join('');
         const done = a.done ? 'checked' : '';
 
+        const eqStr = Array.isArray(a.equipment) && a.equipment.length
+          ? ` | Utstyr: ${a.equipment.join(', ')}`
+          : '';
+
         card.innerHTML = `
           <header>
             <div>${a.name || 'Uten navn'}</div>
@@ -197,7 +201,7 @@
               <label class="muted"><input type="checkbox" data-k="done" ${done}> Ferdig</label>
             </div>
           </header>
-          <div class="muted" style="margin-top:4px">Gruppe: ${a.group || '-'}</div>
+          <div class="muted" style="margin-top:4px">Gruppe: ${a.group || '-'}${eqStr}</div>
           <div class="row" style="margin-top:8px">
             <select data-k="task">${options}</select>
             <button data-k="up">↑</button>
@@ -269,7 +273,6 @@
     });
 
     UI.startBtn.addEventListener('click', () => {
-      // Nullstill ferdig-status, behold rekkefølge og oppgaver
       appState.addresses = appState.addresses.map(a => ({ ...a, done:false }));
       appState.round = (appState.round || 0) + 1;
       appState.updated = Date.now();
@@ -289,13 +292,29 @@
         UI.status.textContent = 'Henter...';
         const cloud = await addressStore.getLatest();
 
-        // Tillat to mulige formater: {addresses:[]} eller ren array
-        const addresses = Array.isArray(cloud) ? cloud
-                         : Array.isArray(cloud.addresses) ? cloud.addresses
-                         : [];
-        appState.addresses = addresses.map(a => ({ done:false, task:'Brøyte', ...a }));
-        // Behold lokale førerinnstillinger; oppdatér meta
-        appState.version = (cloud.version || window.APP_CFG.APP_VER);
+        // Støtt begge formater:
+        // 1) { addresses: [...] }
+        // 2) { snapshot: { addresses: [...] } }
+        // 3) ren array [...]
+        const addresses =
+          Array.isArray(cloud) ? cloud :
+          Array.isArray(cloud.addresses) ? cloud.addresses :
+          (cloud.snapshot && Array.isArray(cloud.snapshot.addresses)) ? cloud.snapshot.addresses :
+          [];
+
+        // Filtrer kun aktive hvis feltet finnes
+        const active = addresses.filter(a => (a.active === undefined ? true : !!a.active));
+
+        appState.addresses = active.map(a => ({
+          done: false,
+          task: a.task || 'Brøyte',
+          group: a.group || '',
+          equipment: a.equipment || [],
+          name: a.name || 'Uten navn'
+        }));
+
+        // Versjon hentes fra toppnivå eller snapshot, eller fallback
+        appState.version = cloud.version || (cloud.snapshot && cloud.snapshot.version) || window.APP_CFG.APP_VER;
         appState.updated = Date.now();
 
         renderList();
