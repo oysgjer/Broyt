@@ -39,6 +39,7 @@
   <link rel="stylesheet" href="./del-B.css">
   <link rel="stylesheet" href="./del-F.css">
   <link rel="stylesheet" href="./del-C.css">
+  <link rel="stylesheet" href="./del-D.css">
 </head>
 <body>
 
@@ -47,6 +48,7 @@
     <a class="link" href="#work">Under arbeid</a>
     <a class="link" href="#service">Service</a>
     <a class="link" href="#status">Status</a>
+    <a class="link" href="#admin">Admin</a>
     <span class="tag">v <script>document.write(window.APP_CFG.APP_VER||'');</script></span>
   </nav>
 
@@ -199,7 +201,7 @@
       <label><input type="checkbox" data-svc="front_grease"> Forstilling smurt</label>
 
       <label><input type="checkbox" data-svc="oil_front"> Oljenivå sjekket foran</label>
-      <label><input type="checkbox" data-svc="oil_back"> Oljenivå sjekket bak</label>
+      <label><input type="checkbox" data-svc="oil_back"> Luknivå sjekket bak</label>
       <label><input type="checkbox" data-svc="oil_refill"> Etterfylt olje</label>
 
       <label><input type="checkbox" data-svc="fuel_filled"> Fylt diesel</label>
@@ -258,18 +260,49 @@
     </div>
   </section>
 
+  <!-- ===== Del-D (Admin) ===== -->
+  <section id="admin" class="admin-wrap card">
+    <header class="admin-head">
+      <h2>Admin</h2>
+      <div class="filters">
+        <button id="d_sync" class="btn">⟳ Hent fra sky</button>
+        <button id="d_add" class="btn">➕ Ny adresse</button>
+        <button id="d_export" class="btn">⤓ Last ned JSON</button>
+        <button id="d_save" class="btn btn-affirm">💾 Publiser (med backup)</button>
+        <span class="muted small" id="d_hint">—</span>
+      </div>
+    </header>
+
+    <div class="table-wrap">
+      <table class="tbl" id="d_table" aria-label="Admin-adresser">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Aktiv</th>
+            <th>Adresse (navn)</th>
+            <th>Gruppe</th>
+            <th>Behov</th>
+            <th>Brøytestikker (antall)</th>
+          </tr>
+        </thead>
+        <tbody id="d_tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- JS -->
   <script src="./del-A.js"></script>
   <script src="./del-B.js"></script>
   <script src="./del-F.js"></script>
   <script src="./del-C.js"></script>
+  <script src="./del-D.js"></script>
 
   <!-- Enkel hash-router -->
   <script>
     function show(hash) {
       if (!hash) hash = '#home';
       const id = hash.replace('#','');
-      ['home','work','service','status'].forEach(s => {
+      ['home','work','service','status','admin'].forEach(s => {
         const el = document.getElementById(s);
         if (el) el.style.display = (s === id) ? '' : 'none';
       });
