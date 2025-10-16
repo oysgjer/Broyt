@@ -1,4 +1,4 @@
-// Del-B – Under arbeid (én adresse) med auto-lagring og (valgfri) auto-navigasjon
+// Del-B – Under arbeid (auto-lagring, offline-kø, auto-synk, "Ikke mulig" med begrunnelse + foto)
 (function () {
   const $ = (s) => document.querySelector(s);
 
@@ -22,10 +22,19 @@
 
     finishBtn: $('#b_finish_btn'), modal: $('#b_finish_modal'),
     finishSame: $('#b_finish_same'), finishSwitch: $('#b_finish_switch'), finishClose: $('#b_finish_close'), finishCancel: $('#b_finish_cancel'),
+
+    // "Ikke mulig" modal
+    blockModal: $('#b_block_modal'),
+    blockText:  $('#b_block_text'),
+    blockFile:  $('#b_block_file'),
+    blockFileName: $('#b_block_file_name'),
+    blockSave:  $('#b_block_save'),
+    blockCancel:$('#b_block_cancel')
   };
 
   const API = window.APP_CFG?.API_BASE;
   const BIN = window.APP_CFG?.BIN_ID;
+  const QKEY = 'broyt:offlineQueue';
 
   const S = {
     season: window.BroytState?.getSeason?.() || '',
@@ -40,6 +49,7 @@
   const fmtTime = (t) => !t ? '–' : new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
   const openMaps = (q) => window.open(`https://www.google.com/maps?q=${encodeURIComponent(q)}`, '_blank');
 
+  // --- Nett
   async function getLatest() {
     const r = await fetch(`${API}b/${BIN}/latest`, { cache: 'no-store' });
     if (!r.ok) throw new Error(`GET ${r.status}`);
@@ -56,6 +66,28 @@
     return data && data.record ? data.record : data;
   }
 
+  // --- Offline-kø
+  function getQueue() {
+    try { return JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch { return []; }
+  }
+  function setQueue(arr) {
+    localStorage.setItem(QKEY, JSON.stringify(arr || []));
+  }
+  async function flushQueue() {
+    const q = getQueue();
+    if (!q.length) return;
+    try {
+      for (const payload of q) {
+        await putPayload(payload);
+      }
+      setQueue([]);
+      els.sync.textContent = 'OK (kø tømt)';
+    } catch (e) {
+      els.sync.textContent = 'Kø venter';
+    }
+  }
+
+  // --- Map / filter
   function mapAddr(a) {
     const st = (a.stikkerSeason && a.stikkerSeason.season === S.season)
       ? a.stikkerSeason : { season: S.season, done: false, doneAt: null };
@@ -70,7 +102,9 @@
       done: status === 'done', doneBy,
       stikkerSeason: st,
       stikkerCount: Number(a.stikkerCount ?? a.stikker_target ?? a.stikkerAntall ?? 0) || 0,
-      notes: a.notes || ''
+      notes: a.notes || '',
+      blockReason: a.blockReason || '',
+      blockPhoto: a.blockPhoto || null  // dataURL (komprimert)
     };
   }
 
@@ -80,6 +114,7 @@
     return list;
   }
 
+  // --- Render
   function renderNowNext() {
     const cur = S.filtered[S.i];
     const nxt = S.filtered[S.i + (S.round?.driver?.direction === 'Motsatt' ? -1 : 1)];
@@ -119,7 +154,7 @@
       idle: 'Ikke påbegynt',
       started: `Pågår… (start ${fmtTime(a.startedAt)})`,
       skipped: 'Hoppet over',
-      blocked: 'Ikke mulig',
+      blocked: a.blockReason ? `Ikke mulig – ${a.blockReason}` : 'Ikke mulig',
       done: `Ferdig ${fmtTime(a.finishedAt)}`,
       accident: 'Uhell registrert'
     }[a.status] || '—';
@@ -153,6 +188,7 @@
     els.progOther.style.width = `${Math.round((otherDone / n) * 100)}%`;
   }
 
+  // --- Status
   function setStatus(a, status) {
     const me = S.round?.driver?.name || 'driver';
     a.status = status;
@@ -171,7 +207,7 @@
     }
   }
 
-  // ---- AUTO-LAGRING ----
+  // --- Merge & lagring
   function mergeAddresses(localArr, cloudArr) {
     const byName = (arr) => Object.fromEntries(arr.map(a => [a.name, a]));
     const L = byName(localArr), C = byName(cloudArr);
@@ -180,21 +216,27 @@
       const aL = L[n], aC = C[n] || {};
       const doneBy = Array.from(new Set([...(aC.doneBy||[]), ...(aL.doneBy||[])]));
       const status = (aL.status === 'done' || aC.status === 'done') ? 'done' : aL.status || aC.status || 'idle';
-      return { ...aC, ...aL, doneBy, status };
+      // ta vare på blockReason/photo om en av sidene har det
+      const blockReason = aL.blockReason || aC.blockReason || '';
+      const blockPhoto  = aL.blockPhoto  || aC.blockPhoto  || null;
+      return { ...aC, ...aL, doneBy, status, blockReason, blockPhoto };
     });
   }
 
   async function saveQuiet() {
-    if (S.saving) return; // enkel sperre
+    if (S.saving) return;
     try {
       S.saving = true;
       els.sync.textContent = 'Lagrer…';
+
       const cloud = await getLatest();
       const cloudList = Array.isArray(cloud) ? cloud
         : Array.isArray(cloud.addresses) ? cloud.addresses
         : (cloud.snapshot && Array.isArray(cloud.snapshot.addresses)) ? cloud.snapshot.addresses
         : [];
+
       const merged = mergeAddresses(S.addresses, cloudList);
+
       const payload = {
         version: window.APP_CFG?.APP_VER || '9.x',
         updated: Date.now(),
@@ -205,23 +247,63 @@
         serviceLogs: Array.isArray(cloud.serviceLogs) ? cloud.serviceLogs : [],
         backups: Array.isArray(cloud.backups) ? cloud.backups : []
       };
-      await putPayload(payload);
+
+      try {
+        await putPayload(payload);
+      } catch (e) {
+        // Nettfeil? legg i kø
+        const q = getQueue();
+        q.push(payload);
+        setQueue(q);
+        els.sync.textContent = 'Kø (offline)';
+        throw e;
+      }
+
       S.addresses = merged;
       S.filtered  = filterByJob(S.addresses);
       renderProgress();
       els.sync.textContent = 'OK';
     } catch (e) {
-      console.error(e);
-      els.sync.textContent = 'Feil';
+      console.warn('saveQuiet feilet:', e.message);
     } finally {
       S.saving = false;
     }
   }
 
-  // knappehandlinger: sett status -> (ev. neste) -> auto-lagre
+  // --- "Ikke mulig" modal med foto
+  let blockPhotoDataUrl = null;
+  els.blockFile.addEventListener('change', async (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) { blockPhotoDataUrl = null; els.blockFileName.textContent = 'Ingen fil valgt'; return; }
+    els.blockFileName.textContent = f.name;
+    blockPhotoDataUrl = await fileToCompressedDataURL(f, 1280, 0.7); // ~komprimer
+  });
+
+  function openBlockModal() {
+    els.blockText.value = '';
+    els.blockFile.value = '';
+    els.blockFileName.textContent = 'Ingen fil valgt';
+    blockPhotoDataUrl = null;
+    els.blockModal.classList.remove('hidden');
+  }
+  function closeBlockModal(){ els.blockModal.classList.add('hidden'); }
+
+  els.blockCancel.onclick = closeBlockModal;
+  els.actBlock.onclick = () => {
+    openBlockModal();
+  };
+  els.blockSave.onclick = () => {
+    const a = S.filtered[S.i];
+    a.blockReason = (els.blockText.value || '').trim();
+    a.blockPhoto  = blockPhotoDataUrl || null;
+    setStatus(a, 'blocked');
+    closeBlockModal();
+    goNext(true);  // neste + lagre
+  };
+
+  // --- Knapper
   els.actStart.onclick = () => { const a = S.filtered[S.i]; setStatus(a, 'started'); renderAddress(); saveQuiet(); };
   els.actSkip.onclick  = () => { const a = S.filtered[S.i]; setStatus(a, 'skipped'); goNext(true); };
-  els.actBlock.onclick = () => { const a = S.filtered[S.i]; setStatus(a, 'blocked'); goNext(true); };
   els.actDone.onclick  = () => { const a = S.filtered[S.i]; setStatus(a, 'done'); renderProgress(); goNext(true); };
   els.actAcc.onclick   = () => { const a = S.filtered[S.i]; setStatus(a, 'accident'); renderAddress(); saveQuiet(); };
 
@@ -229,8 +311,8 @@
   function next(){ S.i = Math.min(S.filtered.length - 1, S.i + 1); renderAddress(); }
 
   function goNext(autoNav=false) {
-    next();               // gå videre
-    saveQuiet();          // lagre automatisk
+    next();
+    saveQuiet();
     if (autoNav && S.prefs?.autoNavNext) {
       const cur = S.filtered[S.i];
       if (cur) {
@@ -248,13 +330,16 @@
     a.stikkerSeason.season = S.season;
     a.stikkerSeason.done = !!e.target.checked;
     a.stikkerSeason.doneAt = e.target.checked ? Date.now() : null;
-    saveQuiet(); // lagre endringen også
+    saveQuiet();
   };
 
-  // ---- Synk/init ----
+  // --- Synk/init + autosynk ved fokus
   async function sync() {
     try {
       els.sync.textContent = 'Henter…';
+      // først tøm ev. kø
+      await flushQueue();
+
       const cloud = await getLatest();
       const arr = Array.isArray(cloud) ? cloud
         : Array.isArray(cloud.addresses) ? cloud.addresses
@@ -271,7 +356,7 @@
       setMeta('OK');
       renderAddress();
       renderProgress();
-      // skjul Forrige/Neste hvis autoNavNext
+      // vis/skjul navigasjonsknapper
       if (S.prefs?.autoNavNext) {
         if (els.prevBtn) els.prevBtn.style.display = 'none';
         if (els.nextBtn) els.nextBtn.style.display = 'none';
@@ -282,12 +367,17 @@
     } catch (e) {
       console.error(e);
       els.sync.textContent = 'Feil';
-      alert('Synk feilet: ' + e.message);
     }
   }
   els.syncBtn.onclick = sync;
-  // Behold "Lagre"-knapp for sikkerhets skyld, men ikke nødvendig
   els.saveBtn.onclick = () => saveQuiet();
+
+  // auto-synk ved fokus/foreground + online
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { flushQueue(); sync(); }
+  });
+  window.addEventListener('focus', () => { flushQueue(); sync(); });
+  window.addEventListener('online', () => { flushQueue(); sync(); });
 
   function setMeta(syncMsg='—') {
     S.prefs = window.BroytState?.getPrefs?.() || S.prefs || {};
@@ -304,4 +394,28 @@
     setMeta('—');
     sync();
   })();
+
+  // --- Utilities: komprimer foto til dataURL (jpeg)
+  function fileToCompressedDataURL(file, maxW=1280, quality=0.7) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxW / Math.max(img.width, img.height));
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 })();
