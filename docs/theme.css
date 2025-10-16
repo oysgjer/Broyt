@@ -201,3 +201,17 @@ html[data-theme="auto"] .btn-danger {
   font-size: 17px;
   min-width: 210px;
 }
+/* --- Global kontrastboost (lys/mørk) --- */
+html[data-theme="dark"] body,
+html[data-theme="auto"] body { background:#0a0f1c; color:#e5e7eb; }
+
+html[data-theme="dark"] .card,
+html[data-theme="auto"] .card { background:#0b1220; border-color:#334155; }
+
+html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea,
+html[data-theme="auto"] input, html[data-theme="auto"] select, html[data-theme="auto"] textarea {
+  background:#0a0f1c; color:#f1f5f9; border:1px solid #334155; border-radius:10px; padding:10px;
+}
+
+html[data-theme="dark"] .tbl thead th,
+html[data-theme="auto"] .tbl thead th { background:#0f172a; color:#e2e8f0; }
