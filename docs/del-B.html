@@ -14,17 +14,32 @@
       </div>
     </div>
     <div class="head-actions">
+      <button id="b_nav_top" class="btn btn-primary btn-nav">🧭 NAVIGER</button>
       <button id="b_sync_btn" class="btn">⟳ Synk</button>
       <button id="b_save_btn" class="btn">💾 Lagre</button>
       <button id="b_finish_btn" class="btn btn-primary">🏁 Avslutt runde</button>
     </div>
   </header>
 
+  <!-- Dobbel fremdriftslinje: grønn = meg, lilla = andre -->
   <div class="progress-all" aria-label="Progresjon">
-    <div id="b_prog_done" class="bar bar-done" style="width:0%"></div>
+    <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
+    <div id="b_prog_me"    class="bar bar-me"    style="width:0%"></div>
   </div>
 
   <div id="b_hint" class="hint muted"></div>
+
+  <!-- Nå / Neste -->
+  <div class="now-next">
+    <div class="now">
+      <div class="lbl">Nå</div>
+      <div class="val" id="b_now">–</div>
+    </div>
+    <div class="next">
+      <div class="lbl">Neste</div>
+      <div class="val" id="b_next">–</div>
+    </div>
+  </div>
 
   <section id="card" class="card-big">
     <header class="card-head">
@@ -44,6 +59,11 @@
           <input type="checkbox" id="b_stikker_chk">
           <span id="b_stikker_lbl">Stikker satt</span>
         </label>
+      </div>
+
+      <div id="b_times" class="muted times">
+        <span id="b_started">Start: –</span>
+        <span id="b_finished" class="hide-on-idle"> • Ferdig: –</span>
       </div>
     </div>
 
