@@ -1,73 +1,78 @@
-:root {
-  --b:#e5e7eb; --m:#6b7280;
-}
+:root { --b:#374151; --m:#9ca3af; }
 
-/* layout */
-.work-wrap { padding: 14px; }
-.title { margin: 0; font-size: 22px; }
+/* Kort og heading */
+.work-wrap { padding: 16px; }
+.title { margin: 0; font-size: 24px; }
+
+/* Piller */
 .pills { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
-.pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; background:#f8fafc; border:1px solid var(--b); }
+.pill { font-size: 14px; padding: 5px 12px; border-radius: 999px; background:#0f172a; color:#e5e7eb; border:1px solid #334155; }
 
-.head-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-.btn { font-size:16px; padding:10px 14px; border:1px solid var(--b); border-radius:10px; }
-.btn-ghost   { border-style:dashed; }
-.btn-lg      { font-size:19px; padding:14px 16px; border-radius:12px; }
+/* Knapper – høy kontrast og store trykkflater */
+.btn {
+  font-size:18px; padding:12px 16px; border-radius:12px;
+  background:#111827; color:#f9fafb; border:1px solid #4b5563;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn-ghost   { background:transparent; color:#e5e7eb; border:1px dashed #4b5563; }
+.btn-lg      { font-size:20px; padding:16px 18px; border-radius:14px; }
 .btn-wide    { width:48%; font-size:18px; padding:12px 0; }
-.btn-nav { font-size:18px; padding:12px 18px; border-radius:999px; }
+.btn-nav     { font-size:20px; padding:14px 20px; border-radius:999px; }
 
-.progress-all { height:12px; border-radius:8px; background:#1f2937; margin:12px 0; position:relative; overflow:hidden; }
+.btn-affirm  { background:#065f46; border-color:#10b981; }
+.btn-warn    { background:#7c2d12; border-color:#f59e0b; }
+.btn-primary { background:#1e3a8a; border-color:#60a5fa; }
+
+/* Progresjonslinje – tydelig */
+.progress-all { height:14px; border-radius:10px; background:#0b1220; margin:14px 0; position:relative; overflow:hidden; box-shadow: inset 0 0 0 1px #1f2937; }
 .bar { position:absolute; left:0; top:0; bottom:0; }
-.bar-me    { background: var(--progress, #10b981); }
-.bar-other { background: #7c3aed; opacity:.55; }
+.bar-me    { background:#10b981; }
+.bar-other { background:#7c3aed; opacity:.7; }
 
-.hint { margin: 4px 0 10px 0; color: var(--m); }
-.card-big { border:1px solid var(--b); border-radius:14px; padding:14px; }
+/* Hint */
+.hint { margin: 4px 0 12px 0; color: var(--m); font-size:14px; }
+
+/* Kort */
+.card-big { border:1px solid #334155; border-radius:16px; padding:16px; background:#0b1220; }
 .card-head { display:flex; justify-content:space-between; align-items:center; }
-.addr { margin:0 0 4px 0; font-size:22px; }
+.addr { margin:0 0 6px 0; font-size:22px; }
 
-.now-next { display:flex; gap:10px; margin:8px 0 12px; }
-.now-next .lbl { font-size:12px; color:var(--m); }
-.now-next .val { font-size:16px; }
-.now, .next { flex:1; border:1px dashed var(--b); border-radius:10px; padding:8px 10px; }
+/* Nå / Neste */
+.now-next { display:flex; gap:12px; margin:10px 0 14px; }
+.now-next .lbl { font-size:13px; color:#94a3b8; }
+.now-next .val { font-size:17px; }
+.now, .next { flex:1; border:1px dashed #334155; border-radius:12px; padding:10px 12px; background:#0a0f1c; }
 
-.stikker-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
-.badge { font-size:13px; padding:4px 8px; border-radius:999px; background:#fafafa; border:1px solid var(--b); }
-.badge-info { background:#eef2ff; border-color:#c7d2fe; }
+/* Stikkerlinje */
+.stikker-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.badge { font-size:13px; padding:4px 8px; border-radius:999px; background:#0b1220; border:1px solid #334155; color:#e5e7eb; }
+.badge-info { background:#1e293b; border-color:#334155; }
 
-.times { margin-top:8px; }
+/* Tider */
+.times { margin-top:10px; font-size:14px; }
 .hide-on-idle { display:none; }
 
-.actions-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+/* Handlinger */
+.actions-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
 .actions-grid .btn-lg:nth-child(5) { grid-column: 1 / span 2; }
 
-.status { margin-top:8px; min-height: 18px; }
-.work-foot { display:flex; justify-content:space-between; gap:10px; margin-top:14px; }
+.status { margin-top:10px; min-height: 20px; color:#cbd5e1; }
 
-/* Modal */
-.modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:50; }
+/* Bunnnavigasjon (skjules hvis autoNavNext) */
+.work-foot { display:flex; justify-content:space-between; gap:12px; margin-top:16px; }
+
+/* Modal (for "Ikke mulig") */
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50; }
 .modal.hidden { display:none; }
-.modal-card { width:min(640px, calc(100% - 28px)); background:var(--card-bg); color:var(--fg); border:1px solid var(--border); border-radius:12px; padding:14px; }
-.modal-card h3 { margin:0 0 6px; }
-.modal-card textarea { width:100%; border:1px solid var(--border); border-radius:8px; padding:8px; background:var(--bg); color:var(--fg); }
-.modal-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+.modal-card { width:min(640px, calc(100% - 28px)); background:#0b1220; color:#e5e7eb; border:1px solid #334155; border-radius:14px; padding:16px; }
+.modal-card h3 { margin:0 0 8px; }
+.modal-card textarea { width:100%; border:1px solid #334155; border-radius:10px; padding:10px; background:#0a0f1c; color:#e5e7eb; }
+.modal-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
 
-/* Dark pills fix (kontrast) */
-html[data-theme="dark"] .pill,
-html[data-theme="auto"] .pill {
-  background: #111827 !important;
-  color: #e5e7eb !important;
-  border-color: #374151 !important;
-}
-
-html[data-theme="dark"] .badge,
-html[data-theme="auto"] .badge {
-  background: #0b1220 !important;
-  color: #e5e7eb !important;
-  border-color: #2b3445 !important;
-}
-html[data-theme="dark"] .badge-info,
-html[data-theme="auto"] .badge-info {
-  background: #1e293b !important;
-  border-color: #334155 !important;
-  color: #e5e7eb !important;
+/* Mobiltilpasning */
+@media (max-width: 420px) {
+  .btn { font-size:17px; padding:12px 14px; }
+  .btn-lg { font-size:19px; padding:14px 16px; }
+  .addr { font-size:21px; }
+  .now-next .val { font-size:16px; }
 }
