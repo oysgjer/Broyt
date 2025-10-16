@@ -1,4 +1,4 @@
-// Del-C (Status) – oversikt over alle adresser med filter, søk og markering av Nå/Neste
+// Del-C (Status) – oversikt over alle adresser med filter, søk og Nå/Neste-markering
 (function () {
   const $ = (s) => document.querySelector(s);
 
@@ -19,10 +19,9 @@
     season: window.BroytState?.getSeason?.() || '',
     list:   [],
     filtered: [],
-    iNow:    0, // peker til "nå" fra Del-B sin retning
+    iNow:    0,
   };
 
-  // --- Nett
   async function getLatest() {
     const r = await fetch(`${API}b/${BIN}/latest`, { cache:'no-store' });
     if (!r.ok) throw new Error(`GET ${r.status}`);
@@ -56,25 +55,18 @@
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  // --- Filter/søk
   function applyFilters() {
     const text = (els.search.value || '').toLowerCase().trim();
     const scope = els.scope.value; // 'ALLE' | 'SNO' | 'GRUS'
 
-    const job = S.round?.job || 'SNØ';
-    const jobFilter = (scope === 'ALLE') ? 'ALLE' : scope; // eksplisitt
-
     let arr = S.list.slice();
-
-    // Oppdragstypefilter
-    if (jobFilter === 'GRUS') {
+    if (scope === 'GRUS') {
       arr = arr.filter(a => a.equipment?.includes('stro'));
-    } else if (jobFilter === 'SNO') {
-      // snø: alle aktive uavhengig av 'stro'
+    } else if (scope === 'SNO') {
+      // snø = alle aktive
       arr = arr;
     }
 
-    // fritekstsøk (i navn + gruppe)
     if (text) {
       arr = arr.filter(a =>
         a.name.toLowerCase().includes(text) ||
@@ -89,16 +81,12 @@
 
   function renderCounts() {
     const n = S.filtered.length;
-    const c = {
-      idle: 0, started: 0, skipped: 0, blocked: 0, done: 0
-    };
+    const c = { idle:0, started:0, skipped:0, blocked:0, done:0 };
     S.filtered.forEach(a => { c[a.status] = (c[a.status] || 0) + 1; });
     els.counts.textContent = `${n} adresser • Ikke påbegynt: ${c.idle||0} • Pågår: ${c.started||0} • Ferdig: ${c.done||0} • Hoppet over: ${c.skipped||0} • Ikke mulig: ${c.blocked||0}`;
   }
 
-  // bestem "nå" og "neste" rad basert på Del-Bs indekslogikk
   function computeNowIndex() {
-    // enkel heuristikk: første som ikke er done/blocked/skipped
     const dir = S.round?.driver?.direction || 'Normal';
     const seq = S.filtered;
     if (!seq.length) { S.iNow = 0; return; }
@@ -175,14 +163,11 @@
     }
   }
 
-  // events
   els.sync.addEventListener('click', sync);
   els.scope.addEventListener('change', applyFilters);
   els.search.addEventListener('input', applyFilters);
 
-  // boot
   (function boot(){
-    // default scope = gjeldende runde
     const job = (S.round?.job === 'GRUS') ? 'GRUS' : 'SNO';
     els.scope.value = job;
     sync();
