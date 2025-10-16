@@ -1,0 +1,50 @@
+<!-- Del-B (Under arbeid) -->
+<link rel="stylesheet" href="./del-B.css">
+
+<section id="work" class="b-wrap card">
+  <header class="b-head">
+    <div class="b-head-left">
+      <h2 class="b-title">Under arbeid</h2>
+      <div class="b-meta">
+        <span class="pill">Runde: <span id="b_round">–</span></span>
+        <span class="pill">Oppdrag: <span id="b_job">–</span></span>
+        <span class="pill">Retning: <span id="b_dir">–</span></span>
+        <span class="pill">Sesong: <span id="b_season">–</span></span>
+        <span class="pill">Synk: <span id="b_sync">–</span></span>
+      </div>
+    </div>
+    <div class="b-head-right">
+      <button id="b_sync_btn">⟳ Synk fra sky</button>
+      <button id="b_save_btn">💾 Lagre til sky</button>
+      <button id="b_finish_btn" class="primary">🏁 Avslutt runde</button>
+    </div>
+  </header>
+
+  <!-- Progressbar hele ruta (enkel) -->
+  <div class="b-progress">
+    <div id="b_prog_done" class="b-prog-done" style="width:0%"></div>
+  </div>
+
+  <div class="row muted" style="margin-top:6px;">
+    <span id="b_count">0 adresser</span>
+    <span id="b_hint" class="muted"></span>
+  </div>
+
+  <div id="b_list" class="b-list"></div>
+</section>
+
+<!-- Avslutt dialog -->
+<div id="b_finish_modal" class="modal hidden">
+  <div class="modal-card">
+    <h3>Runde ferdig?</h3>
+    <p>Hva vil du gjøre nå?</p>
+    <div class="modal-actions">
+      <button id="b_finish_same">Ny runde – samme oppdrag</button>
+      <button id="b_finish_switch">Bytt oppdragstype</button>
+      <button id="b_finish_close" class="danger">Avslutt</button>
+    </div>
+    <button id="b_finish_cancel" class="ghost">Lukk</button>
+  </div>
+</div>
+
+<script src="./del-B.js"></script>
