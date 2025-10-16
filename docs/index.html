@@ -5,22 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Brøyterute v9.12h – Hybrid</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
-    h1 { margin: 0 0 12px 0; font-size: 20px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 10px; margin: 8px 0; }
+    :root { --b:#e5e7eb; --m:#6b7280; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background:#fff; color:#111; }
+    header.app { position:sticky; top:0; background:#fff; border-bottom:1px solid var(--b); padding:12px 16px; z-index:5;}
+    h1 { margin: 0; font-size: 20px; }
+    nav.tabs { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+    nav.tabs button { padding:8px 12px; border:1px solid var(--b); background:#f8fafc; border-radius:10px; }
+    nav.tabs button.active { background:#eef2ff; border-color:#c7d2fe; }
+    main { padding:16px; }
+    .row { display:flex; gap:10px; flex-wrap: wrap; align-items: center; }
+    .card { border: 1px solid var(--b); border-radius: 10px; padding: 10px; margin: 8px 0; background:#fff; }
     .card header { display: flex; justify-content:space-between; align-items:center; font-weight: 600; }
-    .muted { color: #666; font-size: 12px; }
-    button { padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; background: #f6f6f6; }
+    .muted { color: var(--m); font-size: 12px; }
+    button { padding: 8px 10px; border: 1px solid var(--b); border-radius: 8px; background: #f6f6f6; }
     button:active { transform: scale(0.98); }
-    select, input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+    select, input[type="text"], input[type="number"], textarea { padding: 8px; border: 1px solid var(--b); border-radius: 8px; }
     .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background:#f1f1f1; border:1px solid #e3e3e3; }
     .stack { display: grid; gap: 6px; }
     .toolbar { display:flex; gap:8px; flex-wrap: wrap; margin: 8px 0; }
     .right { display:flex; align-items:center; gap:6px; }
-    .grow { flex:1; }
+    .grow { flex:1; min-width:160px; }
     .ok { color:#0a7c2f; }
     .err { color:#b00020; }
+    .grid { display:grid; gap:8px; }
+    .grid.cols-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    @media (max-width:720px){ .grid.cols-2 { grid-template-columns: 1fr; } }
+    .hidden{ display:none !important; }
+    footer.app { padding:12px 16px; border-top:1px solid var(--b); color:var(--m); font-size:12px;}
   </style>
 
   <!-- Konfig -->
@@ -28,54 +39,177 @@
     window.APP_CFG = {
       API_BASE: 'https://jsonbin-proxy.oysgjer.workers.dev/jsonbin/',
       BIN_ID:   '68e7b4d2ae596e708f0bde7d',
-      APP_VER:  '9.12h'
+      APP_VER:  '9.12h – Romerike Trefelling'
     };
   </script>
 </head>
 <body>
-  <h1>Brøyterute v9.12h</h1>
+  <header class="app">
+    <h1>Brøyterute v9.12h</h1>
+    <nav class="tabs">
+      <button data-tab="home" class="active">Hjem</button>
+      <button data-tab="work">Under arbeid</button>
+      <button data-tab="register">Adresse-register</button>
+      <button data-tab="admin">Admin</button>
+      <button data-tab="service">Service/Vedlikehold</button>
+    </nav>
+  </header>
 
-  <section class="card">
-    <div class="row">
-      <label for="driverName">Fører-navn:</label>
-      <input id="driverName" type="text" placeholder="Øystein" class="grow">
-    </div>
-    <div class="row" style="margin-top:8px">
-      <label for="direction">Retning:</label>
-      <select id="direction">
-        <option>Standard</option>
-        <option>Mot klokka</option>
-        <option>Med klokka</option>
-      </select>
-      <span class="pill">Runde: <span id="roundNo">1</span></span>
-      <span class="pill">Versjon: <span id="appVer">—</span></span>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <span>Utstyr:</span>
-      <label><input type="checkbox" id="eq_plow"> Brøyteskjær</label>
-      <label><input type="checkbox" id="eq_fres"> Fres</label>
-      <label><input type="checkbox" id="eq_sand"> Strø/sand</label>
-    </div>
+  <main>
+    <!-- HJEM -->
+    <section id="tab-home">
+      <section class="card">
+        <div class="row">
+          <label for="driverName">Fører-navn:</label>
+          <input id="driverName" type="text" placeholder="Øystein" class="grow">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label for="direction">Retning:</label>
+          <select id="direction">
+            <option>Standard</option>
+            <option>Mot klokka</option>
+            <option>Med klokka</option>
+          </select>
+          <span class="pill">Runde: <span id="roundNo">1</span></span>
+          <span class="pill">Versjon: <span id="appVer">—</span></span>
+          <span class="pill">Synk: <span id="syncLabel">—</span></span>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <span>Utstyr:</span>
+          <label><input type="checkbox" id="eq_plow"> Brøyteskjær</label>
+          <label><input type="checkbox" id="eq_fres"> Fres</label>
+          <label><input type="checkbox" id="eq_sand"> Strø/sand</label>
+        </div>
+        <div class="toolbar">
+          <button id="btnSync">⟳ Hent (synk fra sky)</button>
+          <button id="btnSave">💾 Lagre til sky</button>
+          <button id="btnStartRunde">🏁 Start ny runde</button>
+          <span id="syncStatus" class="muted"></span>
+        </div>
+      </section>
 
-    <div class="toolbar">
-      <button id="btnSync">⟳ Hent (synk fra sky)</button>
-      <button id="btnSave">💾 Lagre til sky</button>
-      <button id="btnStartRunde">🏁 Start ny runde</button>
-      <span id="syncStatus" class="muted"></span>
-    </div>
-  </section>
+      <section class="stack">
+        <div class="row" style="justify-content:space-between; align-items:center;">
+          <strong>Adresse-liste</strong>
+          <div class="right muted">
+            <span id="addrCount">0 adresser</span>
+          </div>
+        </div>
+        <div id="addrList"></div>
+      </section>
+    </section>
 
-  <section class="stack">
-    <div class="row" style="justify-content:space-between; align-items:center;">
-      <strong>Adresse-liste</strong>
-      <div class="right muted">
-        <span id="addrCount">0 adresser</span>
-      </div>
-    </div>
-    <div id="addrList"></div>
-  </section>
+    <!-- UNDER ARBEID -->
+    <section id="tab-work" class="hidden">
+      <section class="card">
+        <div class="row">
+          <strong>Under arbeid</strong>
+          <span class="pill">Åpne: <span id="uaOpen">0</span></span>
+          <span class="pill">Ferdige: <span id="uaDone">0</span></span>
+        </div>
+        <div class="toolbar">
+          <button id="uaShowOpen">Vis kun åpne</button>
+          <button id="uaShowAll">Vis alle</button>
+          <button id="uaMarkAllDone">Marker alt som ferdig</button>
+        </div>
+      </section>
+      <div id="uaList"></div>
+    </section>
+
+    <!-- ADRESSE-REGISTER -->
+    <section id="tab-register" class="hidden">
+      <section class="card">
+        <strong>Adresse-register (redigerbart lokalt – lagre til sky for å publisere)</strong>
+        <div class="grid cols-2" style="margin-top:8px">
+          <input id="arName" placeholder="Adressetekst (navn)"/>
+          <input id="arGroup" placeholder="Gruppe (valgfritt)"/>
+          <select id="arTask">
+            <option>Brøyte</option>
+            <option>Frese</option>
+            <option>Strø</option>
+            <option>Brøyte og strø</option>
+            <option>Frese og strø</option>
+            <option>Snø og grus + brøytestikker</option>
+          </select>
+          <input id="arEquip" placeholder="Utstyr komma-separert (fres, stro)"/>
+        </div>
+        <div class="toolbar">
+          <button id="arAdd">➕ Legg til</button>
+          <button id="arClearDone">Fjern ferdige</button>
+          <button id="arSortAlpha">Sorter A–Å</button>
+        </div>
+      </section>
+      <div id="arList"></div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="tab-admin" class="hidden">
+      <section class="card">
+        <strong>Admin</strong>
+        <div class="grid" style="margin-top:8px">
+          <div class="row">
+            <button id="adExportJson">⬇️ Last ned JSON</button>
+            <button id="adImportJson">⬆️ Importer JSON</button>
+            <input id="adFile" type="file" accept="application/json" class="hidden">
+          </div>
+          <div class="row">
+            <button id="adBackup">🗂 Lag snapshot (lokal)</button>
+            <button id="adRestore">↩️ Gjenopprett snapshot</button>
+          </div>
+          <div class="row">
+            <button id="adPublish">🚀 Publiser til sky (PUT)</button>
+            <span id="adStatus" class="muted"></span>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <strong>Meta</strong>
+        <div class="grid" style="margin-top:8px">
+          <div class="muted">Version: <span id="adVer">—</span></div>
+          <div class="muted">Oppdatert: <span id="adUpdated">—</span></div>
+          <div class="muted">Antall adresser: <span id="adCount">0</span></div>
+        </div>
+      </section>
+    </section>
+
+    <!-- SERVICE / VEDLIKEHOLD -->
+    <section id="tab-service" class="hidden">
+      <section class="card">
+        <strong>Service / Vedlikehold</strong>
+        <div class="grid" style="margin-top:8px">
+          <button id="svExportZip">📦 Eksporter logg + bilder (ZIP) – kommer straks</button>
+          <textarea id="svNotes" rows="4" placeholder="Service-notater for denne runden…"></textarea>
+          <div class="row">
+            <button id="svClearLocal">Tøm lokal lagring</button>
+            <button id="svDownloadLog">Last ned logg (JSON)</button>
+          </div>
+        </div>
+      </section>
+      <div id="svMsg" class="muted"></div>
+    </section>
+  </main>
+
+  <footer class="app">v9.12h – Romerike Trefelling</footer>
 
   <script>
+    /************ Tabs ************/
+    const tabs = document.querySelectorAll('nav.tabs button');
+    const sections = {
+      home: document.getElementById('tab-home'),
+      work: document.getElementById('tab-work'),
+      register: document.getElementById('tab-register'),
+      admin: document.getElementById('tab-admin'),
+      service: document.getElementById('tab-service')
+    };
+    function showTab(id){
+      tabs.forEach(b=>b.classList.toggle('active', b.dataset.tab===id));
+      Object.entries(sections).forEach(([k,el])=> el.classList.toggle('hidden', k!==id));
+      if(id==='work') renderUnderArbeid();
+      if(id==='register') renderRegister();
+      if(id==='admin') renderAdminMeta();
+    }
+    tabs.forEach(b=>b.addEventListener('click', ()=> showTab(b.dataset.tab)));
+
     /************ Data Access (JSONBin via Worker) ************/
     const addressStore = (() => {
       const { API_BASE, BIN_ID } = window.APP_CFG;
@@ -84,7 +218,6 @@
         const r = await fetch(`${API_BASE}b/${BIN_ID}/latest`, { cache: 'no-store' });
         if (!r.ok) throw new Error(`GET ${r.status}`);
         const data = await r.json();
-        // JSONBin v3 returnerer {record: ...} – trekk ut record hvis finnes
         return data && data.record ? data.record : data;
       }
 
@@ -104,6 +237,7 @@
 
     /************ App State ************/
     const UI = {
+      // home
       list: document.getElementById('addrList'),
       status: document.getElementById('syncStatus'),
       driverName: document.getElementById('driverName'),
@@ -118,7 +252,41 @@
       startBtn: document.getElementById('btnStartRunde'),
       roundNo: document.getElementById('roundNo'),
       appVer: document.getElementById('appVer'),
-      addrCount: document.getElementById('addrCount')
+      addrCount: document.getElementById('addrCount'),
+      syncLabel: document.getElementById('syncLabel'),
+      // under arbeid
+      uaList: document.getElementById('uaList'),
+      uaOpen: document.getElementById('uaOpen'),
+      uaDone: document.getElementById('uaDone'),
+      uaShowOpen: document.getElementById('uaShowOpen'),
+      uaShowAll: document.getElementById('uaShowAll'),
+      uaMarkAllDone: document.getElementById('uaMarkAllDone'),
+      // register
+      arList: document.getElementById('arList'),
+      arName: document.getElementById('arName'),
+      arGroup: document.getElementById('arGroup'),
+      arTask: document.getElementById('arTask'),
+      arEquip: document.getElementById('arEquip'),
+      arAdd: document.getElementById('arAdd'),
+      arClearDone: document.getElementById('arClearDone'),
+      arSortAlpha: document.getElementById('arSortAlpha'),
+      // admin
+      adExportJson: document.getElementById('adExportJson'),
+      adImportJson: document.getElementById('adImportJson'),
+      adFile: document.getElementById('adFile'),
+      adBackup: document.getElementById('adBackup'),
+      adRestore: document.getElementById('adRestore'),
+      adPublish: document.getElementById('adPublish'),
+      adStatus: document.getElementById('adStatus'),
+      adVer: document.getElementById('adVer'),
+      adUpdated: document.getElementById('adUpdated'),
+      adCount: document.getElementById('adCount'),
+      // service
+      svExportZip: document.getElementById('svExportZip'),
+      svNotes: document.getElementById('svNotes'),
+      svClearLocal: document.getElementById('svClearLocal'),
+      svDownloadLog: document.getElementById('svDownloadLog'),
+      svMsg: document.getElementById('svMsg')
     };
 
     const TASKS = [
@@ -141,10 +309,11 @@
     };
 
     /************ LocalStorage helpers ************/
-    const LS_KEY = 'broyt_v912h_prefs';
+    const LS_PREF = 'broyt_v912h_prefs';
+    const LS_SNAP = 'broyt_v912h_snapshot';
     function loadPrefs() {
       try {
-        const raw = localStorage.getItem(LS_KEY);
+        const raw = localStorage.getItem(LS_PREF);
         if (!raw) return;
         const p = JSON.parse(raw);
         if (p?.driver?.name) UI.driverName.value = p.driver.name;
@@ -158,7 +327,7 @@
     }
     function savePrefs() {
       const prefs = { driver: currentDriver() };
-      localStorage.setItem(LS_KEY, JSON.stringify(prefs));
+      localStorage.setItem(LS_PREF, JSON.stringify(prefs));
     }
 
     function currentDriver() {
@@ -173,7 +342,7 @@
       };
     }
 
-    /************ Rendering ************/
+    /************ Rendering – Hjem ************/
     function renderMeta() {
       UI.roundNo.textContent = appState.round;
       UI.appVer.textContent = appState.version;
@@ -214,6 +383,54 @@
       renderMeta();
     }
 
+    /************ Rendering – Under arbeid ************/
+    let uaFilterOpenOnly = true;
+    function renderUnderArbeid(){
+      const src = uaFilterOpenOnly ? appState.addresses.filter(a=>!a.done) : appState.addresses;
+      UI.uaList.innerHTML = '';
+      src.forEach((a, idx)=>{
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <header>
+            <div>${a.name}</div>
+            <div class="right"><span class="pill">${a.task || '-'}</span></div>
+          </header>
+          <div class="muted" style="margin-top:4px">Gruppe: ${a.group || '-'} | Utstyr: ${(a.equipment||[]).join(', ') || '-'}</div>
+        `;
+        UI.uaList.appendChild(div);
+      });
+      const doneCount = appState.addresses.filter(a=>a.done).length;
+      UI.uaOpen.textContent = appState.addresses.length - doneCount;
+      UI.uaDone.textContent = doneCount;
+    }
+
+    /************ Rendering – Register ************/
+    function renderRegister(){
+      UI.arList.innerHTML = '';
+      appState.addresses.forEach((a, i)=>{
+        const row = document.createElement('div');
+        row.className = 'card';
+        row.innerHTML = `
+          <header>
+            <div>${a.name}</div>
+            <div class="right">
+              <button data-k="del" data-i="${i}">🗑</button>
+            </div>
+          </header>
+          <div class="grid cols-2" style="margin-top:8px">
+            <input data-k="name" data-i="${i}" value="${a.name}">
+            <input data-k="group" data-i="${i}" value="${a.group || ''}" placeholder="Gruppe">
+            <select data-k="task" data-i="${i}">
+              ${TASKS.map(t=>`<option ${a.task===t?'selected':''}>${t}</option>`).join('')}
+            </select>
+            <input data-k="equipment" data-i="${i}" value="${(a.equipment||[]).join(', ')}" placeholder="fres, stro">
+          </div>
+        `;
+        UI.arList.appendChild(row);
+      });
+    }
+
     /************ Reorder helpers ************/
     function swap(i, j) {
       if (i<0 || j<0 || i>=appState.addresses.length || j>=appState.addresses.length) return;
@@ -222,40 +439,28 @@
       appState.addresses[j] = tmp;
     }
 
-    /************ Wire events ************/
+    /************ Events – Hjem ************/
     UI.list.addEventListener('click', (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
       const card = e.target.closest('.card');
       const idx = Number(card.dataset.idx);
 
-      if (btn.dataset.k === 'up') {
-        swap(idx, idx-1);
-        renderList();
-      }
-      if (btn.dataset.k === 'down') {
-        swap(idx, idx+1);
-        renderList();
-      }
+      if (btn.dataset.k === 'up') { swap(idx, idx-1); renderList(); }
+      if (btn.dataset.k === 'down') { swap(idx, idx+1); renderList(); }
       if (btn.dataset.k === 'top') {
         const [item] = appState.addresses.splice(idx,1);
         appState.addresses.unshift(item);
         renderList();
       }
     });
-
     UI.list.addEventListener('change', (e) => {
-      const card = e.target.closest('.card');
-      if (!card) return;
+      const card = e.target.closest('.card'); if (!card) return;
       const idx = Number(card.dataset.idx);
       const k = e.target.dataset.k;
 
-      if (k === 'done') {
-        appState.addresses[idx].done = !!e.target.checked;
-      }
-      if (k === 'task') {
-        appState.addresses[idx].task = e.target.value;
-      }
+      if (k === 'done') appState.addresses[idx].done = !!e.target.checked;
+      if (k === 'task') appState.addresses[idx].task = e.target.value;
     });
 
     UI.driverName.addEventListener('input', savePrefs);
@@ -264,14 +469,8 @@
     UI.eq.fres.addEventListener('change', savePrefs);
     UI.eq.sand.addEventListener('change', savePrefs);
 
-    UI.syncBtn.addEventListener('click', async () => {
-      await syncFromCloud();
-    });
-
-    UI.saveBtn.addEventListener('click', async () => {
-      await saveToCloud();
-    });
-
+    UI.syncBtn.addEventListener('click', async () => { await syncFromCloud(); });
+    UI.saveBtn.addEventListener('click', async () => { await saveToCloud(); });
     UI.startBtn.addEventListener('click', () => {
       appState.addresses = appState.addresses.map(a => ({ ...a, done:false }));
       appState.round = (appState.round || 0) + 1;
@@ -280,10 +479,128 @@
       toast('Ny runde startet. Ferdig-status nullstilt.', true);
     });
 
+    /************ Events – Under arbeid ************/
+    UI.uaShowOpen.addEventListener('click', ()=>{ uaFilterOpenOnly = true; renderUnderArbeid(); });
+    UI.uaShowAll.addEventListener('click', ()=>{ uaFilterOpenOnly = false; renderUnderArbeid(); });
+    UI.uaMarkAllDone.addEventListener('click', ()=>{
+      appState.addresses.forEach(a=> a.done = true);
+      renderUnderArbeid(); renderList();
+    });
+
+    /************ Events – Register ************/
+    UI.arAdd.addEventListener('click', ()=>{
+      const name = UI.arName.value.trim();
+      if(!name) return;
+      const group = UI.arGroup.value.trim();
+      const task = UI.arTask.value;
+      const equipment = UI.arEquip.value.split(',').map(s=>s.trim()).filter(Boolean);
+      appState.addresses.push({ name, group, task, equipment, done:false, active:true });
+      UI.arName.value=''; UI.arGroup.value=''; UI.arEquip.value='';
+      renderRegister(); renderList();
+    });
+    UI.arClearDone.addEventListener('click', ()=>{
+      appState.addresses = appState.addresses.filter(a=>!a.done);
+      renderRegister(); renderList();
+    });
+    UI.arSortAlpha.addEventListener('click', ()=>{
+      appState.addresses.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+      renderRegister(); renderList();
+    });
+    UI.arList.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      if(btn.dataset.k==='del'){
+        const i = +btn.dataset.i;
+        appState.addresses.splice(i,1);
+        renderRegister(); renderList();
+      }
+    });
+    UI.arList.addEventListener('input', (e)=>{
+      const k = e.target.dataset.k; const i = +e.target.dataset.i; if(k==null) return;
+      if(k==='name') appState.addresses[i].name = e.target.value;
+      if(k==='group') appState.addresses[i].group = e.target.value;
+      if(k==='task') appState.addresses[i].task = e.target.value;
+      if(k==='equipment') appState.addresses[i].equipment = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
+    });
+    UI.arList.addEventListener('change', (e)=>{
+      const k = e.target.dataset.k; const i = +e.target.dataset.i; if(k!=='task') return;
+      appState.addresses[i].task = e.target.value;
+    });
+
+    /************ Events – Admin ************/
+    UI.adExportJson.addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify(appState,null,2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `broeyting_snapshot_runde${appState.round}.json`;
+      a.click();
+    });
+    UI.adImportJson.addEventListener('click', ()=> UI.adFile.click());
+    UI.adFile.addEventListener('change', async (e)=>{
+      const f = e.target.files[0]; if(!f) return;
+      const txt = await f.text();
+      try {
+        const obj = JSON.parse(txt);
+        if(Array.isArray(obj)) { appState.addresses = obj; }
+        else if (Array.isArray(obj.addresses)) { appState = { ...appState, ...obj, addresses: obj.addresses }; }
+        renderList(); renderRegister(); renderAdminMeta();
+        UI.adStatus.textContent = 'Importert.';
+      } catch { UI.adStatus.textContent = 'Feil i JSON.'; }
+    });
+    UI.adBackup.addEventListener('click', ()=>{
+      localStorage.setItem(LS_SNAP, JSON.stringify(appState));
+      UI.adStatus.textContent = 'Snapshot lagret lokalt.';
+    });
+    UI.adRestore.addEventListener('click', ()=>{
+      const raw = localStorage.getItem(LS_SNAP);
+      if(!raw) { UI.adStatus.textContent = 'Ingen snapshot funnet.'; return; }
+      try {
+        const snap = JSON.parse(raw);
+        appState = { ...appState, ...snap };
+        renderList(); renderRegister(); renderAdminMeta();
+        UI.adStatus.textContent = 'Snapshot gjenopprettet.';
+      } catch { UI.adStatus.textContent = 'Kunne ikke lese snapshot.'; }
+    });
+    UI.adPublish.addEventListener('click', async ()=>{
+      try{
+        UI.adStatus.textContent = 'Publiserer...';
+        await saveToCloud();
+        UI.adStatus.textContent = 'Publisert til sky.';
+      }catch(e){ UI.adStatus.textContent = 'Publisering feilet.'; }
+    });
+
+    function renderAdminMeta(){
+      UI.adVer.textContent = appState.version;
+      UI.adUpdated.textContent = new Date(appState.updated).toLocaleString();
+      UI.adCount.textContent = appState.addresses.length;
+    }
+
+    /************ Events – Service ************/
+    UI.svClearLocal.addEventListener('click', ()=>{
+      localStorage.removeItem(LS_PREF);
+      localStorage.removeItem(LS_SNAP);
+      UI.svMsg.textContent = 'Lokal lagring tømt.';
+    });
+    UI.svDownloadLog.addEventListener('click', ()=>{
+      const log = {
+        round: appState.round,
+        updated: appState.updated,
+        driver: appState.driver,
+        notes: UI.svNotes.value,
+        done: appState.addresses.filter(a=>a.done).map(a=>a.name),
+        open: appState.addresses.filter(a=>!a.done).map(a=>a.name)
+      };
+      const blob = new Blob([JSON.stringify(log,null,2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `broeyting_logg_runde${appState.round}.json`;
+      a.click();
+    });
+
     /************ Sync / Save ************/
     function toast(msg, ok=false) {
       UI.status.textContent = msg;
       UI.status.className = `muted ${ok ? 'ok':'err'}`;
+      UI.syncLabel.textContent = ok ? 'OK' : 'Feil';
       setTimeout(()=>{ UI.status.textContent=''; UI.status.className='muted'; }, 4000);
     }
 
@@ -292,7 +609,7 @@
         UI.status.textContent = 'Henter...';
         const cloud = await addressStore.getLatest();
 
-        // Støtt begge formater:
+        // Støtt tre formater:
         // 1) { addresses: [...] }
         // 2) { snapshot: { addresses: [...] } }
         // 3) ren array [...]
@@ -302,7 +619,6 @@
           (cloud.snapshot && Array.isArray(cloud.snapshot.addresses)) ? cloud.snapshot.addresses :
           [];
 
-        // Filtrer kun aktive hvis feltet finnes
         const active = addresses.filter(a => (a.active === undefined ? true : !!a.active));
 
         appState.addresses = active.map(a => ({
@@ -310,14 +626,14 @@
           task: a.task || 'Brøyte',
           group: a.group || '',
           equipment: a.equipment || [],
-          name: a.name || 'Uten navn'
+          name: a.name || 'Uten navn',
+          active: a.active !== false
         }));
 
-        // Versjon hentes fra toppnivå eller snapshot, eller fallback
         appState.version = cloud.version || (cloud.snapshot && cloud.snapshot.version) || window.APP_CFG.APP_VER;
         appState.updated = Date.now();
 
-        renderList();
+        renderList(); renderUnderArbeid(); renderRegister(); renderAdminMeta();
         toast('Synk OK', true);
       } catch (e) {
         console.error(e);
@@ -326,32 +642,29 @@
     }
 
     async function saveToCloud() {
-      try {
-        UI.status.textContent = 'Lagrer...';
-        appState.by = (UI.driverName.value.trim() || 'driver1');
-        appState.driver = currentDriver();
-        appState.updated = Date.now();
+      UI.status.textContent = 'Lagrer...';
+      appState.by = (UI.driverName.value.trim() || 'driver1');
+      appState.driver = currentDriver();
+      appState.updated = Date.now();
 
-        const payload = {
-          version: appState.version,
-          round: appState.round,
-          updated: appState.updated,
-          by: appState.by,
-          driver: appState.driver,
-          addresses: appState.addresses
-        };
-        await addressStore.put(payload);
-        toast('Lagret til sky', true);
-      } catch (e) {
-        console.error(e);
-        toast(`Lagring feilet: ${e.message}`);
-      }
+      const payload = {
+        version: appState.version,
+        round: appState.round,
+        updated: appState.updated,
+        by: appState.by,
+        driver: appState.driver,
+        addresses: appState.addresses
+      };
+      await addressStore.put(payload);
+      toast('Lagret til sky', true);
+      renderAdminMeta();
     }
 
     /************ Boot ************/
     (async function init(){
       loadPrefs();
       renderMeta();
+      showTab('home');
       await syncFromCloud(); // hent ved start
     })();
   </script>
