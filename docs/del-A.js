@@ -1,4 +1,4 @@
-// Del-A (Hjem) – uten state-tillegg. Jobber kun med LocalStorage + routing-signaler.
+// Del-A (Hjem) – med globalt tema-valg
 
 (function () {
   const el = {
@@ -10,14 +10,15 @@
       sand: document.getElementById('a_eq_sand'),
     },
     jobRadios: Array.from(document.querySelectorAll('input[name="a_job"]')),
+    themeSel: document.getElementById('a_theme'),
     startBtn: document.getElementById('a_start'),
     hint: document.getElementById('a_hint'),
   };
 
   const LS_PREFS = 'broyt:prefs';
   const LS_ROUND = 'broyt:currentRound';
+  const THEME_KEY = 'broyt:theme';
 
-  // --- load prefs
   function loadPrefs() {
     try {
       const p = JSON.parse(localStorage.getItem(LS_PREFS) || '{}');
@@ -35,8 +36,16 @@
         const r = el.jobRadios.find(x => x.value === p.lastJob);
         if (r) r.checked = true;
       }
-      updateHint();
     } catch {}
+
+    // Tema
+    try {
+      const t = localStorage.getItem(THEME_KEY) || 'auto';
+      el.themeSel.value = (t === 'light' || t === 'dark') ? t : 'auto';
+      // bruk eksisterende Theme-modul om den finnes
+      if (window.BroytTheme?.set) window.BroytTheme.set(el.themeSel.value);
+    } catch {}
+    updateHint();
   }
 
   function currentPrefs() {
@@ -76,51 +85,45 @@
     }
   }
 
-  // persist on change
+  // persist
   el.driver.addEventListener('input', savePrefs);
   el.dirRadios.forEach(r => r.addEventListener('change', savePrefs));
   el.jobRadios.forEach(r => r.addEventListener('change', savePrefs));
   Object.values(el.eq).forEach(cb => cb.addEventListener('change', savePrefs));
 
-  // --- start round
+  // Tema-valg
+  el.themeSel.addEventListener('change', () => {
+    const val = el.themeSel.value; // 'auto' | 'light' | 'dark'
+    localStorage.setItem(THEME_KEY, val);
+    if (window.BroytTheme?.set) window.BroytTheme.set(val);
+  });
+
+  // start runde
   el.startBtn.addEventListener('click', () => {
     const prefs = currentPrefs();
-
-    // Krev minst ett utstyr krysset
     const anyGear = prefs.driver.equipment.plow || prefs.driver.equipment.fres || prefs.driver.equipment.sand;
     if (!anyGear) {
       alert('Velg minst ett utstyr (Skjær, Fres eller Strøkasse) før du starter runde.');
       return;
     }
-
-    // Lagre prefs
     localStorage.setItem(LS_PREFS, JSON.stringify(prefs));
 
-    // Opprett/oppdater rundeinfo (kun lokalt – del-B kan lese dette)
     const prev = JSON.parse(localStorage.getItem(LS_ROUND) || '{}');
     const number = (prev.number || 0) + 1;
     const round = {
       number,
       startedAt: Date.now(),
-      job: prefs.lastJob,               // 'SNØ' | 'GRUS'
-      driver: prefs.driver,             // inkl. faktisk utstyr på traktoren
+      job: prefs.lastJob,
+      driver: prefs.driver,
     };
     localStorage.setItem(LS_ROUND, JSON.stringify(round));
 
-    // Varsle app-shell/router (hvis finnes)
-    try {
-      window.dispatchEvent(new CustomEvent('app:startRound', { detail: round }));
-    } catch {}
+    try { window.dispatchEvent(new CustomEvent('app:startRound', { detail: round })); } catch {}
 
-    // Naviger til Under arbeid (Del-B)
-    // 1) Hash-router:
+    // til Under arbeid
     location.hash = '#work';
-    // 2) Fallback: custom global
-    if (typeof window.APP?.go === 'function') {
-      window.APP.go('work'); // valgfri, hvis appen din har slik funksjon
-    }
+    if (typeof window.APP?.go === 'function') window.APP.go('work');
   });
 
-  // init
   loadPrefs();
 })();
