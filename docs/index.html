@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Brøyt</title>
 
-  <!-- Globalt tema (må ligge tidlig) -->
+  <!-- Globalt tema -->
   <link rel="stylesheet" href="./theme.css">
   <script src="./shared/theme.js"></script>
 
-  <!-- App-konfig (sky/versjon) -->
+  <!-- App-konfig -->
   <script>
     window.APP_CFG = {
       API_BASE: 'https://jsonbin-proxy.oysgjer.workers.dev/jsonbin/',
@@ -18,10 +18,10 @@
     };
   </script>
 
-  <!-- Felles state (prefs/runde/sesong) -->
+  <!-- Felles state -->
   <script src="./shared/state.js"></script>
 
-  <!-- Litt enkel basis-stil hvis du ikke hadde fra før -->
+  <!-- Basis -->
   <style>
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .card { border:1px solid var(--border); border-radius:12px; padding:14px; margin:12px; background:var(--card-bg); }
@@ -34,14 +34,19 @@
     .btn { background:var(--btn-bg); border:1px solid var(--btn-border); border-radius:10px; padding:8px 12px; }
     .link { text-decoration:none; border:1px solid var(--border); padding:6px 10px; border-radius:999px; }
   </style>
+
+  <!-- Del CSS -->
+  <link rel="stylesheet" href="./del-B.css">
+  <link rel="stylesheet" href="./del-F.css">
+  <link rel="stylesheet" href="./del-C.css">
 </head>
 <body>
 
-  <!-- Toppstripe (valgfri) -->
   <nav class="app">
     <a class="link" href="#home">Hjem</a>
     <a class="link" href="#work">Under arbeid</a>
     <a class="link" href="#service">Service</a>
+    <a class="link" href="#status">Status</a>
     <span class="tag">v <script>document.write(window.APP_CFG.APP_VER||'');</script></span>
   </nav>
 
@@ -55,16 +60,16 @@
     </div>
 
     <div class="row" style="margin-top:8px;">
-      <span style="min-width:96px;">Retning</span>
+      <span style="min-width:96px;">Retning rute</span>
       <label><input type="radio" name="a_dir" value="Normal" checked> Normal</label>
       <label><input type="radio" name="a_dir" value="Motsatt"> Motsatt</label>
     </div>
 
-    <div class="row" style="margin-top:8px;">
-      <span style="min-width:96px;">Utstyr (på traktoren)</span>
-      <label><input type="checkbox" id="a_eq_plow"> Skjær</label>
-      <label><input type="checkbox" id="a_eq_fres"> Fres</label>
-      <label><input type="checkbox" id="a_eq_sand"> Strøkasse</label>
+    <div class="row" style="margin-top:8px; flex-direction:column; align-items:flex-start;">
+      <span>Utstyr (på traktoren)</span>
+      <label style="margin-top:4px;"><input type="checkbox" id="a_eq_plow"> Skjær</label>
+      <label style="margin-top:4px;"><input type="checkbox" id="a_eq_fres"> Fres</label>
+      <label style="margin-top:4px;"><input type="checkbox" id="a_eq_sand"> Strøkasse</label>
     </div>
 
     <div class="row" style="margin-top:8px;">
@@ -73,7 +78,6 @@
       <label><input type="radio" name="a_job" value="GRUS"> Grus</label>
     </div>
 
-    <!-- Tema-valg for hele appen -->
     <div class="row" style="margin-top:8px;">
       <span style="min-width:96px;">Tema</span>
       <select id="a_theme">
@@ -95,8 +99,7 @@
     </div>
   </section>
 
-  <!-- ===== Del-B (Under arbeid – én adresse om gangen) ===== -->
-  <link rel="stylesheet" href="./del-B.css">
+  <!-- ===== Del-B (Under arbeid) ===== -->
   <section id="work" class="work-wrap card">
     <header class="work-head">
       <div class="work-meta">
@@ -110,6 +113,7 @@
         </div>
       </div>
       <div class="head-actions">
+        <button id="b_nav_top" class="btn btn-primary btn-nav">🧭 NAVIGER</button>
         <button id="b_sync_btn" class="btn">⟳ Synk</button>
         <button id="b_save_btn" class="btn">💾 Lagre</button>
         <button id="b_finish_btn" class="btn btn-primary">🏁 Avslutt runde</button>
@@ -117,10 +121,22 @@
     </header>
 
     <div class="progress-all" aria-label="Progresjon">
-      <div id="b_prog_done" class="bar bar-done" style="width:0%"></div>
+      <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
+      <div id="b_prog_me"    class="bar bar-me"    style="width:0%"></div>
     </div>
 
     <div id="b_hint" class="hint muted"></div>
+
+    <div class="now-next">
+      <div class="now">
+        <div class="lbl">Nå</div>
+        <div class="val" id="b_now">–</div>
+      </div>
+      <div class="next">
+        <div class="lbl">Neste</div>
+        <div class="val" id="b_next">–</div>
+      </div>
+    </div>
 
     <section id="card" class="card-big">
       <header class="card-head">
@@ -140,6 +156,11 @@
             <input type="checkbox" id="b_stikker_chk">
             <span id="b_stikker_lbl">Stikker satt</span>
           </label>
+        </div>
+
+        <div id="b_times" class="muted times">
+          <span id="b_started">Start: –</span>
+          <span id="b_finished" class="hide-on-idle"> • Ferdig: –</span>
         </div>
       </div>
 
@@ -161,7 +182,6 @@
   </section>
 
   <!-- ===== Del-F (Service) ===== -->
-  <link rel="stylesheet" href="./del-F.css">
   <section id="service" class="svc-wrap card">
     <header class="svc-head">
       <h2>Service</h2>
@@ -174,12 +194,15 @@
     <p class="muted">Huk av det som ble gjort etter runden.</p>
 
     <div class="svc-list">
-      <label><input type="checkbox" data-svc="plow_clean"> Puss av plog</label>
-      <label><input type="checkbox" data-svc="fres_clean"> Rens fres</label>
-      <label><input type="checkbox" data-svc="refill_sand"> Etterfyll strø</label>
-      <label><input type="checkbox" data-svc="grease_front"> Smurt front</label>
-      <label><input type="checkbox" data-svc="grease_back"> Smurt bak</label>
-      <label><input type="checkbox" data-svc="steering_check"> Kontrollert styring</label>
+      <label><input type="checkbox" data-svc="plow_grease"> Skjær smurt</label>
+      <label><input type="checkbox" data-svc="fres_grease"> Fres smurt</label>
+      <label><input type="checkbox" data-svc="front_grease"> Forstilling smurt</label>
+
+      <label><input type="checkbox" data-svc="oil_front"> Oljenivå sjekket foran</label>
+      <label><input type="checkbox" data-svc="oil_back"> Oljenivå sjekket bak</label>
+      <label><input type="checkbox" data-svc="oil_refill"> Etterfylt olje</label>
+
+      <label><input type="checkbox" data-svc="fuel_filled"> Fylt diesel</label>
       <label><input type="checkbox" data-svc="other"> Annet utført</label>
     </div>
 
@@ -190,33 +213,71 @@
 
     <div class="svc-actions">
       <button id="svc_save" class="btn btn-affirm">💾 Lagre service</button>
-      <button id="svc_finish" class="btn btn-primary">🏁 Fullfør runde (JSON)</button>
+      <button id="svc_finish" class="btn btn-primary">🏁 Fullfør runde</button>
     </div>
   </section>
 
-  <!-- JS for delene (må lastes etter at seksjonene er i DOM) -->
+  <!-- ===== Del-C (Status / Oversikt) ===== -->
+  <section id="status" class="status-wrap card">
+    <header class="status-head">
+      <h2>Status</h2>
+      <div class="filters">
+        <button id="c_sync" class="btn">⟳ Oppdater</button>
+        <label class="inline">
+          Vis:
+          <select id="c_scope">
+            <option value="ALLE">Alle</option>
+            <option value="SNO">Snø</option>
+            <option value="GRUS">Grus</option>
+          </select>
+        </label>
+        <label class="inline grow">
+          Søk:
+          <input id="c_search" type="text" placeholder="Søk navn/gruppe…">
+        </label>
+        <span class="muted small" id="c_counts">—</span>
+      </div>
+    </header>
+
+    <div class="table-wrap">
+      <table class="tbl" id="c_table" aria-label="Adresse-status">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Adresse</th>
+            <th>Gruppe</th>
+            <th>Status</th>
+            <th>Start</th>
+            <th>Ferdig</th>
+            <th>Utført av</th>
+            <th>Stikker</th>
+          </tr>
+        </thead>
+        <tbody id="c_tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- JS -->
   <script src="./del-A.js"></script>
   <script src="./del-B.js"></script>
   <script src="./del-F.js"></script>
+  <script src="./del-C.js"></script>
 
-  <!-- Enkelt "router"-fix: hvis ingen hash → gå til #home.
-       Når man trykker lenker i toppmenyen, scroller vi til riktig seksjon. -->
+  <!-- Enkel hash-router -->
   <script>
     function show(hash) {
       if (!hash) hash = '#home';
       const id = hash.replace('#','');
-      // Skjul alle
-      ['home','work','service'].forEach(s => {
+      ['home','work','service','status'].forEach(s => {
         const el = document.getElementById(s);
         if (el) el.style.display = (s === id) ? '' : 'none';
       });
-      // Scroll til start
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
     window.addEventListener('hashchange', () => show(location.hash));
     if (!location.hash) location.hash = '#home';
     show(location.hash);
-    // Valgfri global
     window.APP = window.APP || {};
     window.APP.go = (id) => { location.hash = '#'+id; };
   </script>
