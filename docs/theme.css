@@ -146,3 +146,58 @@ html[data-theme="dark"] .btn-danger,
 html[data-theme="auto"] .btn-danger {
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
 }
+/* --- Forbedret layout for Hjem-siden (mobil / touch) --- */
+
+#home label,
+#home span,
+#home input,
+#home select {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+#home input[type="text"] {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 320px;
+}
+
+#home input[type="checkbox"],
+#home input[type="radio"] {
+  transform: scale(1.4);
+  margin-right: 6px;
+}
+
+#home .row {
+  margin-bottom: 8px;
+}
+
+#home .btn {
+  font-size: 18px;
+  padding: 10px 18px;
+  border-radius: 10px;
+}
+
+#home select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+/* Gir litt ekstra luft under siste felt */
+#home .muted {
+  margin-top: 10px;
+}
+
+/* Juster kortet for større trykkflater */
+#home.card {
+  padding: 18px 16px;
+}
+
+/* Tema drop-down blir lettere å treffe */
+#home select#a_theme {
+  font-size: 17px;
+  min-width: 210px;
+}
