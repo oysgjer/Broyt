@@ -51,3 +51,98 @@ button{ background:var(--btn-bg); border:1px solid var(--btn-border); }
 .b-prog-done, .bar-done{ background:var(--progress); }
 .modal{ background:var(--modal-bg); }
 input, textarea, select{ background:var(--bg); color:var(--fg); border:1px solid var(--border); }
+/* Forbedret kontrast i mørk modus */
+html[data-theme="dark"], html[data-theme="auto"] {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] body,
+html[data-theme="auto"] body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+html[data-theme="dark"] .btn,
+html[data-theme="auto"] .btn {
+  color: #f9fafb !important;          /* lys tekst */
+  background-color: #1f2937 !important; /* mørk bakgrunn */
+  border-color: #4b5563 !important;
+}
+
+html[data-theme="dark"] .btn-primary,
+html[data-theme="auto"] .btn-primary {
+  background-color: #4338ca !important;
+  color: #f9fafb !important;
+  border-color: #6366f1 !important;
+}
+
+html[data-theme="dark"] .btn-affirm,
+html[data-theme="auto"] .btn-affirm {
+  background-color: #047857 !important;
+  color: #ecfdf5 !important;
+  border-color: #10b981 !important;
+}
+
+html[data-theme="dark"] .btn-warn,
+html[data-theme="auto"] .btn-warn {
+  background-color: #92400e !important;
+  color: #fff7ed !important;
+  border-color: #f59e0b !important;
+}
+
+html[data-theme="dark"] .btn-danger,
+html[data-theme="auto"] .btn-danger {
+  background-color: #7f1d1d !important;
+  color: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: #374151 !important;
+}
+/* 3D-effekt og trykkfølelse på knapper i mørk modus */
+html[data-theme="dark"] .btn,
+html[data-theme="auto"] .btn {
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.05),
+              inset 0 0 0 rgba(0, 0, 0, 0);
+  transition: all 0.15s ease-in-out;
+}
+
+html[data-theme="dark"] .btn:hover,
+html[data-theme="auto"] .btn:hover {
+  box-shadow: 0 3px 6px rgba(255, 255, 255, 0.08),
+              inset 0 0 0 rgba(0, 0, 0, 0);
+  transform: translateY(-1px);
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html[data-theme="dark"] .btn:active,
+html[data-theme="auto"] .btn:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  transform: translateY(1px);
+}
+
+/* Legg til svak “glød” for primære handlinger */
+html[data-theme="dark"] .btn-primary,
+html[data-theme="auto"] .btn-primary {
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+}
+
+html[data-theme="dark"] .btn-affirm,
+html[data-theme="auto"] .btn-affirm {
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
+html[data-theme="dark"] .btn-warn,
+html[data-theme="auto"] .btn-warn {
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+html[data-theme="dark"] .btn-danger,
+html[data-theme="auto"] .btn-danger {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+}
