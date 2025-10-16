@@ -1,4 +1,4 @@
-// Status – tydelig UI + robust nullstilling (viste / hele runden)
+// Status – robust nullstilling (JS lager knappene om de mangler i HTML)
 (function(){
   const $ = (s)=>document.querySelector(s);
 
@@ -6,13 +6,13 @@
   const BIN = window.APP_CFG?.BIN_ID;
 
   const els = {
-    sync:   $('#c_sync'),
-    scope:  $('#c_scope'),
-    search: $('#c_search'),
-    counts: $('#c_counts'),
-    tbody:  $('#c_tbody'),
-    reset:  $('#c_reset'),
-    resetRound: $('#c_reset_round'),
+    sync:   null,
+    scope:  null,
+    search: null,
+    counts: null,
+    tbody:  null,
+    reset:  null,
+    resetRound: null,
   };
 
   const S = {
@@ -34,12 +34,11 @@
     const d = (data && data.record) ? data.record : data;
     if (Array.isArray(d)) return d;
     if (Array.isArray(d.addresses)) return d.addresses;
-    if (d.snapshot && Array.isArray(d.snapshot.addresses)) return d.snapshot.addresses;
+    if (d?.snapshot && Array.isArray(d.snapshot.addresses)) return d.snapshot.addresses;
     return [];
   }
-
   async function putAddresses(nextAddresses){
-    // behold ekstra felter fra latest (serviceLogs/backups)
+    // hent serviceLogs/backups for å bevare dem
     const r0 = await fetch(`${API}b/${BIN}/latest`, {cache:'no-store'});
     const raw = await r0.json();
     const cloud = (raw && raw.record) ? raw.record : raw;
@@ -53,7 +52,6 @@
       serviceLogs: Array.isArray(cloud?.serviceLogs) ? cloud.serviceLogs : [],
       backups: Array.isArray(cloud?.backups) ? cloud.backups : []
     };
-
     const r = await fetch(`${API}b/${BIN}`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)
@@ -148,7 +146,7 @@
         </tr>
       `;
     }).join('');
-    $('#c_tbody').innerHTML = rows;
+    els.tbody.innerHTML = rows;
   }
 
   async function sync(){
@@ -214,17 +212,66 @@
     }
   }
 
-  // events
-  els.sync.addEventListener('click', sync);
-  els.scope.addEventListener('change', applyFilters);
-  els.search.addEventListener('input', applyFilters);
-  els.reset.addEventListener('click', resetVisible);
-  els.resetRound.addEventListener('click', resetRound);
+  // ---- Oppsett/DOM-lenking + fallback for knapper ----
+  function bindDom() {
+    els.sync   = $('#c_sync');
+    els.scope  = $('#c_scope');
+    els.search = $('#c_search');
+    els.counts = $('#c_counts');
+    els.tbody  = $('#c_tbody');
+
+    // Lag knappene hvis de ikke finnes i HTML
+    els.reset = $('#c_reset');
+    els.resetRound = $('#c_reset_round');
+    if (!els.reset || !els.resetRound) {
+      // Finn linja med counts – lag en ny container etter den
+      let countsRow = els.counts && els.counts.parentElement;
+      if (!countsRow) {
+        // fallback: legg knappene etter søkefeltet
+        countsRow = document.createElement('div');
+        countsRow.className = 'filters';
+        const host = document.getElementById('status') || document.body;
+        host.insertBefore(countsRow, host.querySelector('.table-wrap'));
+        const span = document.createElement('span');
+        span.id = 'c_counts';
+        span.className = 'muted small';
+        span.textContent = '—';
+        countsRow.appendChild(span);
+        els.counts = span;
+      }
+      const right = document.createElement('div');
+      right.style.cssText = 'margin-left:auto; display:flex; gap:10px; flex-wrap:wrap';
+
+      const btn1 = document.createElement('button');
+      btn1.id = 'c_reset';
+      btn1.className = 'btn';
+      btn1.textContent = '🧹 Nullstill viste';
+
+      const btn2 = document.createElement('button');
+      btn2.id = 'c_reset_round';
+      btn2.className = 'btn';
+      btn2.textContent = '🧹 Nullstill hele runden';
+
+      right.appendChild(btn1); right.appendChild(btn2);
+      countsRow.appendChild(right);
+
+      els.reset = btn1;
+      els.resetRound = btn2;
+    }
+
+    // events
+    els.sync.addEventListener('click', sync);
+    els.scope.addEventListener('change', applyFilters);
+    els.search.addEventListener('input', applyFilters);
+    els.reset.addEventListener('click', resetVisible);
+    els.resetRound.addEventListener('click', resetRound);
+  }
 
   // boot
   (function boot(){
+    bindDom();
     const job = (S.round?.job === 'GRUS') ? 'GRUS' : 'SNO';
-    if ($('#c_scope')) $('#c_scope').value = job;
+    if (els.scope) els.scope.value = job;
     sync();
   })();
 })();
