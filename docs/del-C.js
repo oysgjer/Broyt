@@ -1,4 +1,4 @@
-// Del-C (Status) – oversikt + nullstilling av viste rader
+// Del-C (Status) – oversikt + nullstilling (viste / hele runden)
 (function () {
   const $ = (s) => document.querySelector(s);
 
@@ -13,15 +13,20 @@
     tbody:  $('#c_tbody'),
     table:  $('#c_table'),
     reset:  $('#c_reset'),
+    resetRound: $('#c_reset_round'),
   };
 
   const S = {
-    round:  window.BroytState?.getRound?.() || null,
+    round:  loadRound(),
     season: window.BroytState?.getSeason?.() || '',
     list:   [],
     filtered: [],
-    iNow:    0, // peker til "nå"
+    iNow:    0,
   };
+
+  function loadRound(){
+    try { return JSON.parse(localStorage.getItem('broyt:round')||'null'); } catch { return null; }
+  }
 
   // --- Nett
   async function getLatest() {
@@ -69,22 +74,16 @@
   // --- Filter/søk
   function applyFilters() {
     const text = (els.search.value || '').toLowerCase().trim();
-    const scope = els.scope.value; // 'ALLE' | 'SNO' | 'GRUS'
+    const scope = els.scope.value;
 
     let arr = S.list.slice();
-
-    if (scope === 'GRUS') {
-      // Grus: kun adresser som faktisk kan strøs
-      arr = arr.filter(a => a.equipment?.includes('stro'));
-    } // Snø: alle aktive
-
+    if (scope === 'GRUS') arr = arr.filter(a => a.equipment?.includes('stro'));
     if (text) {
       arr = arr.filter(a =>
         a.name.toLowerCase().includes(text) ||
         a.group.toLowerCase().includes(text)
       );
     }
-
     S.filtered = arr;
     renderCounts();
     renderTable();
@@ -97,7 +96,6 @@
     els.counts.textContent = `${n} adresser • Ikke påbegynt: ${c.idle||0} • Pågår: ${c.started||0} • Ferdig: ${c.done||0} • Hoppet over: ${c.skipped||0} • Ikke mulig: ${c.blocked||0}`;
   }
 
-  // bestem "nå" og "neste" rad (enkelt)
   function computeNowIndex() {
     const dir = S.round?.driver?.direction || 'Normal';
     const seq = S.filtered;
@@ -127,7 +125,6 @@
 
   function renderTable() {
     computeNowIndex();
-
     const me = S.round?.driver?.name || '';
     const dir = S.round?.driver?.direction || 'Normal';
 
@@ -175,67 +172,63 @@
     }
   }
 
-  // --- Nullstill viste (sett alle viste til idle, null tider, clear doneBy)
+  // --- Nullstill viste
   async function resetVisible() {
     const n = S.filtered.length;
     if (!n) return alert('Ingen adresser i visning å nullstille.');
     const scope = els.scope.value;
-    const ok = confirm(`Nullstille ${n} viste adresser?\n\nDette fjerner status (Pågår/Ferdig/Hoppet over/Ikke mulig), start-/ferdig-tider og "Utført av".\n\nStikker for sesong beholdes.\n\nFiltrering: ${scope}.`);
+    const ok = confirm(`Nullstille ${n} viste adresser?\nDette fjerner status, tider og "Utført av". Stikker beholdes.\nFilter: ${scope}.`);
     if (!ok) return;
+    await doReset(S.filtered.map(a => a.name));
+  }
 
+  // --- Nullstill hele runden (alle i gjeldende runde/job)
+  async function resetWholeRound() {
+    const scope = els.scope.value;
+    const base = (scope === 'GRUS') ? S.list.filter(a => a.equipment?.includes('stro')) : S.list.slice();
+    const names = base.map(a => a.name);
+    const ok = confirm(`Nullstille hele runden (${names.length} adresser)?\nDette fjerner status, tider og "Utført av". Stikker beholdes.`);
+    if (!ok) return;
+    await doReset(names);
+  }
+
+  async function doReset(namesToResetArr) {
+    const namesToReset = new Set(namesToResetArr);
     try {
       els.reset.disabled = true;
-      els.reset.textContent = 'Nullstiller…';
+      els.resetRound.disabled = true;
 
-      // hent fersk sky
       const cloud = await getLatest();
       const list = Array.isArray(cloud) ? cloud
         : Array.isArray(cloud.addresses) ? cloud.addresses
         : (cloud.snapshot && Array.isArray(cloud.snapshot.addresses)) ? cloud.snapshot.addresses
         : [];
 
-      // lag oppslag over navn vi skal nullstille
-      const namesToReset = new Set(S.filtered.map(a => a.name));
-
-      // gå gjennom cloud-lista og nullstill matchede navn
       const next = list.map(a => {
-        if (!namesToReset.has(a.name)) return a; // ikke i visning
-        return {
-          ...a,
-          status: 'idle',
-          done: false,
-          startedAt: null,
-          finishedAt: null,
-          doneBy: [],
-          // bevar stikkerSeason, stikkerCount, equipment, group, osv.
-        };
+        if (!namesToReset.has(a.name)) return a;
+        return { ...a, status:'idle', done:false, startedAt:null, finishedAt:null, doneBy:[] };
       });
 
-      // skriv tilbake
       const payload = {
         version: window.APP_CFG?.APP_VER || '9.x',
         updated: Date.now(),
         by: (S.round?.driver?.name || 'admin'),
         season: S.season,
         addresses: next,
-        // bevar hefter som serviceLogs/backups om de finnes
         serviceLogs: Array.isArray(cloud.serviceLogs) ? cloud.serviceLogs : [],
         backups: Array.isArray(cloud.backups) ? cloud.backups : []
       };
       await putPayload(payload);
 
-      // lokalt oppdatere og re-tegne
       S.list = next.filter(a => a.active !== false).map(mapAddr);
       applyFilters();
-
-      els.reset.textContent = 'Ferdig';
+      alert('Nullstilling fullført.');
     } catch (e) {
       console.error(e);
       alert('Nullstilling feilet: ' + e.message);
-      els.reset.textContent = 'Feil';
     } finally {
       els.reset.disabled = false;
-      setTimeout(() => { els.reset.textContent = '🧹 Nullstill viste'; }, 1200);
+      els.resetRound.disabled = false;
     }
   }
 
@@ -244,10 +237,10 @@
   els.scope.addEventListener('change', applyFilters);
   els.search.addEventListener('input', applyFilters);
   els.reset.addEventListener('click', resetVisible);
+  els.resetRound.addEventListener('click', resetWholeRound);
 
   // boot
   (function boot(){
-    // default scope = gjeldende runde
     const job = (S.round?.job === 'GRUS') ? 'GRUS' : 'SNO';
     els.scope.value = job;
     sync();
