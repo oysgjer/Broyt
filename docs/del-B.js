@@ -1,4 +1,4 @@
-// Del-B – Under arbeid (auto-lagring, offline-kø, auto-synk, "Ikke mulig" med begrunnelse + foto)
+// Del-B – Under arbeid (retning fikset, auto-lagring, auto-nav, avslutt -> service)
 (function () {
   const $ = (s) => document.querySelector(s);
 
@@ -15,15 +15,14 @@
     idx: $('#b_index'), total: $('#b_total'),
     navTop: $('#b_nav_top'), nav: $('#b_nav'),
     actStart: $('#act_start'), actSkip: $('#act_skip'), actBlock: $('#act_block'), actDone: $('#act_done'), actAcc: $('#act_acc'),
-    prevBtn: $('#prev_btn'), nextBtn: $('#next_btn'),
 
+    prevBtn: $('#prev_btn'), nextBtn: $('#next_btn'),
     syncBtn: $('#b_sync_btn'), saveBtn: $('#b_save_btn'),
     status: $('#b_status'),
 
-    finishBtn: $('#b_finish_btn'), modal: $('#b_finish_modal'),
-    finishSame: $('#b_finish_same'), finishSwitch: $('#b_finish_switch'), finishClose: $('#b_finish_close'), finishCancel: $('#b_finish_cancel'),
+    finishBtn: $('#b_finish_btn'),
 
-    // "Ikke mulig" modal
+    // "Ikke mulig" modal (valgfritt – beholdt hvis du allerede har den i HTML)
     blockModal: $('#b_block_modal'),
     blockText:  $('#b_block_text'),
     blockFile:  $('#b_block_file'),
@@ -35,6 +34,7 @@
   const API = window.APP_CFG?.API_BASE;
   const BIN = window.APP_CFG?.BIN_ID;
   const QKEY = 'broyt:offlineQueue';
+  const SERVICE_REQ = 'broyt:serviceRequired';
 
   const S = {
     season: window.BroytState?.getSeason?.() || '',
@@ -77,12 +77,10 @@
     const q = getQueue();
     if (!q.length) return;
     try {
-      for (const payload of q) {
-        await putPayload(payload);
-      }
+      for (const payload of q) await putPayload(payload);
       setQueue([]);
       els.sync.textContent = 'OK (kø tømt)';
-    } catch (e) {
+    } catch {
       els.sync.textContent = 'Kø venter';
     }
   }
@@ -104,7 +102,7 @@
       stikkerCount: Number(a.stikkerCount ?? a.stikker_target ?? a.stikkerAntall ?? 0) || 0,
       notes: a.notes || '',
       blockReason: a.blockReason || '',
-      blockPhoto: a.blockPhoto || null  // dataURL (komprimert)
+      blockPhoto: a.blockPhoto || null
     };
   }
 
@@ -116,8 +114,9 @@
 
   // --- Render
   function renderNowNext() {
+    const step = (S.round?.driver?.direction === 'Motsatt') ? -1 : 1;
     const cur = S.filtered[S.i];
-    const nxt = S.filtered[S.i + (S.round?.driver?.direction === 'Motsatt' ? -1 : 1)];
+    const nxt = S.filtered[S.i + step];
     els.now.textContent = cur ? cur.name : '–';
     els.next.textContent = nxt ? nxt.name : 'Ingen flere';
   }
@@ -216,7 +215,6 @@
       const aL = L[n], aC = C[n] || {};
       const doneBy = Array.from(new Set([...(aC.doneBy||[]), ...(aL.doneBy||[])]));
       const status = (aL.status === 'done' || aC.status === 'done') ? 'done' : aL.status || aC.status || 'idle';
-      // ta vare på blockReason/photo om en av sidene har det
       const blockReason = aL.blockReason || aC.blockReason || '';
       const blockPhoto  = aL.blockPhoto  || aC.blockPhoto  || null;
       return { ...aC, ...aL, doneBy, status, blockReason, blockPhoto };
@@ -251,10 +249,7 @@
       try {
         await putPayload(payload);
       } catch (e) {
-        // Nettfeil? legg i kø
-        const q = getQueue();
-        q.push(payload);
-        setQueue(q);
+        const q = getQueue(); q.push(payload); setQueue(q);
         els.sync.textContent = 'Kø (offline)';
         throw e;
       }
@@ -270,45 +265,48 @@
     }
   }
 
-  // --- "Ikke mulig" modal med foto
+  // --- "Ikke mulig" modal (valgfritt)
   let blockPhotoDataUrl = null;
-  els.blockFile.addEventListener('change', async (ev) => {
-    const f = ev.target.files && ev.target.files[0];
-    if (!f) { blockPhotoDataUrl = null; els.blockFileName.textContent = 'Ingen fil valgt'; return; }
-    els.blockFileName.textContent = f.name;
-    blockPhotoDataUrl = await fileToCompressedDataURL(f, 1280, 0.7); // ~komprimer
-  });
-
+  if (els.blockFile) {
+    els.blockFile.addEventListener('change', async (ev) => {
+      const f = ev.target.files && ev.target.files[0];
+      if (!f) { blockPhotoDataUrl = null; els.blockFileName.textContent = 'Ingen fil valgt'; return; }
+      els.blockFileName.textContent = f.name;
+      blockPhotoDataUrl = await fileToCompressedDataURL(f, 1280, 0.7);
+    });
+  }
   function openBlockModal() {
+    if (!els.blockModal) { // fallback uten modal
+      const a = S.filtered[S.i]; setStatus(a, 'blocked'); saveQuiet(); goNext(true); return;
+    }
     els.blockText.value = '';
-    els.blockFile.value = '';
-    els.blockFileName.textContent = 'Ingen fil valgt';
+    if (els.blockFile) els.blockFile.value = '';
+    if (els.blockFileName) els.blockFileName.textContent = 'Ingen fil valgt';
     blockPhotoDataUrl = null;
     els.blockModal.classList.remove('hidden');
   }
-  function closeBlockModal(){ els.blockModal.classList.add('hidden'); }
+  function closeBlockModal(){ if (els.blockModal) els.blockModal.classList.add('hidden'); }
+  if (els.blockCancel) els.blockCancel.onclick = closeBlockModal;
 
-  els.blockCancel.onclick = closeBlockModal;
-  els.actBlock.onclick = () => {
-    openBlockModal();
-  };
-  els.blockSave.onclick = () => {
-    const a = S.filtered[S.i];
-    a.blockReason = (els.blockText.value || '').trim();
-    a.blockPhoto  = blockPhotoDataUrl || null;
-    setStatus(a, 'blocked');
-    closeBlockModal();
-    goNext(true);  // neste + lagre
-  };
+  // --- Retningsbevisst navigasjon (kritisk fiks)
+  function stepDir() { return (S.round?.driver?.direction === 'Motsatt') ? -1 : 1; }
 
-  // --- Knapper
-  els.actStart.onclick = () => { const a = S.filtered[S.i]; setStatus(a, 'started'); renderAddress(); saveQuiet(); };
-  els.actSkip.onclick  = () => { const a = S.filtered[S.i]; setStatus(a, 'skipped'); goNext(true); };
-  els.actDone.onclick  = () => { const a = S.filtered[S.i]; setStatus(a, 'done'); renderProgress(); goNext(true); };
-  els.actAcc.onclick   = () => { const a = S.filtered[S.i]; setStatus(a, 'accident'); renderAddress(); saveQuiet(); };
-
-  function prev(){ S.i = Math.max(0, S.i - 1); renderAddress(); }
-  function next(){ S.i = Math.min(S.filtered.length - 1, S.i + 1); renderAddress(); }
+  function prev(){
+    const step = -stepDir();               // motsatt av "neste"
+    S.i = clampIndex(S.i + step);
+    renderAddress();
+  }
+  function next(){
+    const step = stepDir();                // riktig retning
+    S.i = clampIndex(S.i + step);
+    renderAddress();
+  }
+  function clampIndex(idx) {
+    if (!S.filtered.length) return 0;
+    if (idx < 0) return 0;
+    if (idx > S.filtered.length - 1) return S.filtered.length - 1;
+    return idx;
+  }
 
   function goNext(autoNav=false) {
     next();
@@ -321,7 +319,42 @@
       }
     }
   }
-  els.prevBtn.onclick=prev; els.nextBtn.onclick=() => goNext(true);
+
+  // --- Knapper
+  els.actStart.onclick = () => { const a = S.filtered[S.i]; setStatus(a, 'started'); renderAddress(); saveQuiet(); };
+  els.actSkip.onclick  = () => { const a = S.filtered[S.i]; setStatus(a, 'skipped'); goNext(true); };
+  els.actBlock.onclick = openBlockModal;
+  if (els.blockSave) els.blockSave.onclick = () => {
+    const a = S.filtered[S.i];
+    a.blockReason = (els.blockText?.value || '').trim();
+    a.blockPhoto  = blockPhotoDataUrl || null;
+    setStatus(a, 'blocked');
+    closeBlockModal();
+    goNext(true);
+  };
+  els.actDone.onclick  = () => { const a = S.filtered[S.i]; setStatus(a, 'done'); renderProgress(); goNext(true); };
+  els.actAcc.onclick   = () => { const a = S.filtered[S.i]; setStatus(a, 'accident'); renderAddress(); saveQuiet(); };
+
+  els.prevBtn.onclick=prev;
+  els.nextBtn.onclick=() => goNext(true);
+
+  // --- Avslutt runde: lagre + til Service
+  els.finishBtn.onclick = async () => {
+    try {
+      await saveQuiet();
+    } finally {
+      const payload = {
+        round: S.round?.number || 0,
+        startedAt: S.round?.startedAt || Date.now(),
+        job: S.round?.job || 'SNØ',
+        driver: S.round?.driver?.name || 'driver',
+        createdAt: Date.now()
+      };
+      localStorage.setItem(SERVICE_REQ, JSON.stringify(payload));
+      if (typeof window.APP?.go === 'function') window.APP.go('service');
+      else location.hash = '#service';
+    }
+  };
 
   // stikker (sesong)
   els.stChk.onchange = (e) => {
@@ -337,7 +370,6 @@
   async function sync() {
     try {
       els.sync.textContent = 'Henter…';
-      // først tøm ev. kø
       await flushQueue();
 
       const cloud = await getLatest();
@@ -347,15 +379,19 @@
         : [];
       S.addresses = arr.filter(a => a.active !== false).map(mapAddr);
       S.filtered = filterByJob(S.addresses);
+
+      // VIKTIG: startposisjon i riktig ende
       S.i = (S.round?.driver?.direction === 'Motsatt')
         ? Math.max(0, S.filtered.length - 1)
         : 0;
+
       els.hint.textContent = (S.round?.job === 'GRUS')
         ? 'Viser kun adresser med grus-behov.'
         : 'Viser alle aktive adresser.';
       setMeta('OK');
       renderAddress();
       renderProgress();
+
       // vis/skjul navigasjonsknapper
       if (S.prefs?.autoNavNext) {
         if (els.prevBtn) els.prevBtn.style.display = 'none';
@@ -372,10 +408,7 @@
   els.syncBtn.onclick = sync;
   els.saveBtn.onclick = () => saveQuiet();
 
-  // auto-synk ved fokus/foreground + online
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { flushQueue(); sync(); }
-  });
+  window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { flushQueue(); sync(); } });
   window.addEventListener('focus', () => { flushQueue(); sync(); });
   window.addEventListener('online', () => { flushQueue(); sync(); });
 
@@ -395,7 +428,7 @@
     sync();
   })();
 
-  // --- Utilities: komprimer foto til dataURL (jpeg)
+  // --- Komprimer foto til dataURL (jpeg)
   function fileToCompressedDataURL(file, maxW=1280, quality=0.7) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
