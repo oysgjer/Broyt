@@ -80,6 +80,14 @@
       <label><input type="radio" name="a_job" value="GRUS"> Grus</label>
     </div>
 
+    <!-- Preferanse: auto-navigasjon -->
+    <div class="row" style="margin-top:8px;">
+      <label title="Åpner Google Maps automatisk til neste adresse etter du trykker Ferdig">
+        <input type="checkbox" id="a_auto_nav">
+        Auto-naviger til neste adresse etter «Ferdig»
+      </label>
+    </div>
+
     <div class="row" style="margin-top:8px;">
       <span style="min-width:96px;">Tema</span>
       <select id="a_theme">
@@ -183,6 +191,39 @@
     </footer>
   </section>
 
+  <!-- Modal: Avslutt runde (som før) -->
+  <div id="b_finish_modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Runde ferdig?</h3>
+      <p>Hva vil du gjøre nå?</p>
+      <div class="modal-actions">
+        <button id="b_finish_same"   class="btn">Ny runde – samme oppdrag</button>
+        <button id="b_finish_switch" class="btn">Bytt oppdragstype</button>
+        <button id="b_finish_close"  class="btn btn-danger">Avslutt</button>
+      </div>
+      <button id="b_finish_cancel" class="btn btn-ghost">Lukk</button>
+    </div>
+  </div>
+
+  <!-- Modal: Ikke mulig – begrunnelse + foto -->
+  <div id="b_block_modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Ikke mulig – begrunnelse</h3>
+      <p class="muted">Skriv kort hva som hindrer jobben, og legg ved bilde hvis ønskelig.</p>
+      <label>
+        <textarea id="b_block_text" rows="4" placeholder="Begrunnelse …"></textarea>
+      </label>
+      <div class="row" style="margin-top:8px;">
+        <input id="b_block_file" type="file" accept="image/*" capture="environment">
+        <span id="b_block_file_name" class="muted">Ingen fil valgt</span>
+      </div>
+      <div class="modal-actions" style="margin-top:10px;">
+        <button id="b_block_save" class="btn btn-affirm">Lagre</button>
+        <button id="b_block_cancel" class="btn">Avbryt</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Del-F (Service) ===== -->
   <section id="service" class="svc-wrap card">
     <header class="svc-head">
@@ -201,7 +242,7 @@
       <label><input type="checkbox" data-svc="front_grease"> Forstilling smurt</label>
 
       <label><input type="checkbox" data-svc="oil_front"> Oljenivå sjekket foran</label>
-      <label><input type="checkbox" data-svc="oil_back"> Luknivå sjekket bak</label>
+      <label><input type="checkbox" data-svc="oil_back"> Oljenivå sjekket bak</label>
       <label><input type="checkbox" data-svc="oil_refill"> Etterfylt olje</label>
 
       <label><input type="checkbox" data-svc="fuel_filled"> Fylt diesel</label>
