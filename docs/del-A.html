@@ -1,4 +1,3 @@
-<!-- Del-A (Hjem) -->
 <section class="card" id="home">
   <h2 style="margin:0 0 8px 0;">Hjem</h2>
 
@@ -8,16 +7,16 @@
   </div>
 
   <div class="row" style="margin-top:8px;">
-    <span style="min-width:96px;">Retning</span>
+    <span style="min-width:96px;">Retning rute</span>
     <label><input type="radio" name="a_dir" value="Normal" checked> Normal</label>
     <label><input type="radio" name="a_dir" value="Motsatt"> Motsatt</label>
   </div>
 
-  <div class="row" style="margin-top:8px;">
-    <span style="min-width:96px;">Utstyr (på traktoren)</span>
-    <label><input type="checkbox" id="a_eq_plow"> Skjær</label>
-    <label><input type="checkbox" id="a_eq_fres"> Fres</label>
-    <label><input type="checkbox" id="a_eq_sand"> Strøkasse</label>
+  <div class="row" style="margin-top:8px; flex-direction:column; align-items:flex-start;">
+    <span>Utstyr (på traktoren)</span>
+    <label style="margin-top:4px;"><input type="checkbox" id="a_eq_plow"> Skjær</label>
+    <label style="margin-top:4px;"><input type="checkbox" id="a_eq_fres"> Fres</label>
+    <label style="margin-top:4px;"><input type="checkbox" id="a_eq_sand"> Strøkasse</label>
   </div>
 
   <div class="row" style="margin-top:8px;">
@@ -39,12 +38,10 @@
   <div id="a_hint" class="muted" style="margin-top:6px;"></div>
 
   <div class="toolbar" style="margin-top:10px;">
-    <button id="a_start" class="btn btn-primary">🏁 Start runde</button>
+    <button id="a_start" class="btn">🏁 Start runde</button>
   </div>
 
   <div class="muted" style="margin-top:6px;">
     Tips: Du kan ha Skjær/Fres påmontert selv om Oppdragstype = Grus.
   </div>
 </section>
-
-<script src="./del-A.js"></script>
