@@ -40,7 +40,7 @@
     <button id="nav-service" onclick="showPage('service')">Service</button>
     <button id="nav-status" onclick="showPage('status')">Status</button>
     <button id="nav-admin"  onclick="showPage('admin')">Admin</button>
-    <span style="margin-left:auto;font-size:12px;opacity:.7">v10.0a</span>
+    <span style="margin-left:auto;font-size:12px;opacity:.7">v10.1a</span>
   </nav>
 
   <main>
@@ -64,7 +64,7 @@
         <legend>Utstyr</legend>
         <label><input type="checkbox" id="a_eq_plow"> Brøyteskjær</label><br>
         <label><input type="checkbox" id="a_eq_fres"> Fres</label><br>
-        <label><input type="checkbox" id="a_eq_sand"> Strø/sand</label>
+        <label><input type="checkbox" id="a_eq_sand"> Strø/sand (strøkasse)</label>
       </fieldset>
 
       <label style="display:block;margin:10px 0 2px">
@@ -80,13 +80,11 @@
     <section id="work" class="card" style="display:none">
       <h2 class="title">Under arbeid</h2>
 
-      <!-- Progresjon: grønn = deg, lilla = andre -->
       <div class="progress-all" title="Grønn: deg • Lilla: andre">
         <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
         <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
       </div>
 
-      <!-- Nå/Neste + Oppgave -->
       <div class="now-stack">
         <div class="now now-wide">
           <div class="now-head"><span class="now-icon">🚜</span><span class="lbl">Nå</span></div>
@@ -102,7 +100,6 @@
         </div>
       </div>
 
-      <!-- Handlinger -->
       <div class="actions-grid">
         <button id="act_start" class="btn btn-lg" type="button">▶️ Start</button>
         <button id="act_skip"  class="btn btn-lg" type="button">⏭️ Hopp over</button>
@@ -113,14 +110,12 @@
 
       <p id="b_status" class="status muted" style="margin-top:8px">Ikke påbegynt</p>
 
-      <!-- Naviger + skjermlås -->
       <div class="row stack-sm" style="gap:10px;margin-top:12px">
         <button id="b_nav_top" class="btn btn-primary btn-lg" type="button">🧭 NAVIGER</button>
         <button id="wl_toggle" class="btn" type="button">🔒 Hold skjermen våken</button>
         <span id="wl_status" class="small muted" style="align-self:center">Skjermlås: ukjent</span>
       </div>
 
-      <!-- Fast verktøylinje nederst -->
       <div class="dock">
         <button id="dock_grus"   class="btn dock-btn" type="button">🚚 Hent grus</button>
         <button id="dock_diesel" class="btn dock-btn" type="button">⛽ Fyll diesel</button>
@@ -150,8 +145,12 @@
       <h2 class="title">Status</h2>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px">
         <button id="st_reload" class="btn">⟳ Oppdater</button>
+        <select id="st_mode" class="btn" style="padding:8px 10px">
+          <option value="snow">Vis runde: Snø</option>
+          <option value="grit">Vis runde: Grus</option>
+        </select>
         <select id="st_filter" class="btn" style="padding:8px 10px">
-          <option value="alle">Vis: Alle</option>
+          <option value="alle">Filter: Alle</option>
           <option value="ikke">Ikke påbegynt</option>
           <option value="pågår">Pågår</option>
           <option value="ferdig">Ferdig</option>
@@ -159,7 +158,7 @@
           <option value="umulig">Ikke mulig</option>
           <option value="uhell">Uhell</option>
         </select>
-        <button id="st_reset_all" class="btn btn-warn">🧼 Nullstill runde</button>
+        <button id="st_reset_all" class="btn btn-warn">🧼 Nullstill denne runden</button>
         <button id="st_reset_mine" class="btn btn-ghost">🧼 Nullstill kun mine</button>
         <span id="st_summary" class="small muted">—</span>
       </div>
@@ -178,7 +177,7 @@
         <div class="row" style="gap:8px;flex-wrap:wrap">
           <button id="rp_print" class="btn">🖨️ Skriv ut / PDF</button>
           <button id="rp_csv" class="btn">📄 Last ned CSV</button>
-          <span class="small muted">Tittel: <strong>Brøyterapport</strong> – dagens dato settes automatisk.</span>
+          <span class="small muted">Tittel: <strong>Brøyterapport</strong> – <span id="rp_date"></span></span>
         </div>
       </div>
     </section>
@@ -187,7 +186,6 @@
     <section id="admin" class="card" style="display:none">
       <h2 class="title">Admin</h2>
 
-      <!-- Nøkkel -->
       <div class="card" style="margin-top:0">
         <h3 style="margin:0 0 8px 0">JSONBin-nøkkel</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -199,13 +197,12 @@
         <div id="adm_key_status" class="small muted" style="margin-top:6px">—</div>
       </div>
 
-      <!-- Innstillinger for hurtigknapper -->
       <div class="card">
-        <h3 style="margin-top:0">Innstillinger – destinasjoner</h3>
+        <h3 style="margin-top:0">Innstillinger – destinasjoner (koordinater)</h3>
         <div class="inline-edit">
-          <label>Grusdepot: <input id="st_grus" type="text" placeholder="Adresse/koordinater"></label>
-          <label>Dieselstasjon: <input id="st_diesel" type="text" placeholder="Adresse/koordinater"></label>
-          <label>Base: <input id="st_base" type="text" placeholder="Adresse/koordinater"></label>
+          <label>Grusdepot (lat,lon): <input id="st_grus" type="text" placeholder="60.2527264,11.1687230"></label>
+          <label>Diesel (lat,lon): <input id="st_diesel" type="text" placeholder="60.2523185,11.1899926"></label>
+          <label>Base (lat,lon): <input id="st_base" type="text" placeholder="60.2664414,11.2208819"></label>
         </div>
         <div class="row" style="gap:8px;margin-top:8px">
           <button id="st_save_settings" class="btn btn-primary">💾 Lagre innstillinger</button>
@@ -213,7 +210,6 @@
         </div>
       </div>
 
-      <!-- Adresser -->
       <div class="row" style="gap:8px;flex-wrap:wrap;margin:10px 0 8px">
         <button id="adm_reload" class="btn">⟳ Hent adresser</button>
         <button id="adm_save" class="btn btn-primary">💾 Lagre adresser</button>
@@ -221,7 +217,7 @@
       </div>
 
       <div class="small muted" style="margin-bottom:8px">
-        Bruk ⬆️/⬇️ for rekkefølge. Rediger <em>navn</em>, <em>gruppe</em>, <em>oppdrag</em> (Snø / Grus). Kryss av <em>Aktiv</em>.
+        Rediger <em>navn</em>, <em>gruppe</em>, avkrysning for <em>Snø</em> og <em>Grus</em>, <em>koordinater</em> (lat/lon), <em>Aktiv</em>. Flytt opp/ned.
       </div>
 
       <ul id="adm_list" class="sort-list" aria-label="Adresse-rekkefølge og redigering"></ul>
@@ -236,7 +232,8 @@
       document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
       const b=document.getElementById('nav-'+id); if(b) b.classList.add('active');
       location.hash='#'+id;
-      if(id==='status') loadStatus();
+      if(id==='status'){ document.getElementById('rp_date').textContent=new Date().toLocaleDateString('no-NO'); loadStatus(); }
+      if(id==='admin'){ loadSettingsToAdmin(); }
     }
     window.addEventListener('hashchange',()=>{
       const id=(location.hash||'#home').replace('#','');
@@ -259,15 +256,24 @@
     });
 
     /* ===== App-state ===== */
-    const S={dir:'Normal', addresses:[], idx:0, driver:'driver', autoNav:false, cloud:null};
+    const S={
+      dir:'Normal', addresses:[], idx:0, driver:'driver', autoNav:false,
+      mode:'snow', // 'snow' eller 'grit' (avledes fra utstyr)
+      cloud:null
+    };
     const STATE_LABEL={ not_started:'Ikke påbegynt', in_progress:'Pågår', done:'Ferdig', skipped:'Hoppet over', blocked:'Ikke mulig', accident:'Uhell' };
     const fmtTime=(t)=>!t?'—':new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
     const fmtDate=()=>new Date().toLocaleDateString('no-NO');
 
     /* ===== JSONBin helpers (via del-A.js) ===== */
-    async function refreshCloud(){ S.cloud=await JSONBIN.getLatest(); if(!S.cloud.status) S.cloud.status={}; if(!S.cloud.settings) S.cloud.settings={}; }
+    async function refreshCloud(){ 
+      S.cloud=await JSONBIN.getLatest(); 
+      if(!S.cloud.statusSnow && S.cloud.status){ S.cloud.statusSnow=S.cloud.status; delete S.cloud.status; } // migrer gammel status
+      if(!S.cloud.statusSnow) S.cloud.statusSnow={};
+      if(!S.cloud.statusGrit) S.cloud.statusGrit={};
+      if(!S.cloud.settings) S.cloud.settings={};
+    }
     async function saveCloud(){ S.cloud.updated=Date.now(); S.cloud.by=S.driver||'driver'; await JSONBIN.putRecord(S.cloud); }
-    function setStatusFor(name,patch){ if(!S.cloud.status) S.cloud.status={}; const cur=S.cloud.status[name]||{}; S.cloud.status[name]={...cur,...patch}; }
 
     /* ===== Hjem → Start runde ===== */
     document.getElementById('a_start').addEventListener('click', async ()=>{
@@ -280,11 +286,22 @@
         };
         localStorage.setItem('BROYT_PREFS',JSON.stringify(prefs));
         S.driver=prefs.driver; S.dir=prefs.dir; S.autoNav=prefs.autoNav;
+        S.mode = prefs.eq.sand ? 'grit' : 'snow';
 
         await JSONBIN.checkConfigOrWarn();
         await refreshCloud();
         const arr=(S.cloud?.snapshot?.addresses && Array.isArray(S.cloud.snapshot.addresses))?S.cloud.snapshot.addresses:(Array.isArray(S.cloud?.addresses)?S.cloud.addresses:[]);
-        S.addresses=(arr||[]).filter(a=>a.active!==false);
+        // ny struktur: a.flags = {snow:boolean,grit:boolean}; migrér hvis mangler
+        const mapped=(arr||[]).map(a=>{
+          const snow = a.flags ? !!a.flags.snow : (a.task? true : true);
+          const grit = a.flags ? !!a.flags.grit : (a.task==='Snø og grus' || a.task==='Grus');
+          return {...a, flags:{snow,grit}};
+        }).filter(a=>a.active!==false);
+
+        // filtrer etter modus
+        S.addresses = mapped.filter(a=> S.mode==='snow' ? a.flags.snow : a.flags.grit);
+
+        // sett start-indeks etter retning
         S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
         uiSetWork();
         showPage('work');
@@ -293,45 +310,87 @@
 
     /* ===== UI helpers ===== */
     function nextIndex(i,d){ return d==='Motsatt'?i-1:i+1; }
-    function mapsUrlFor(q){ return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((q||'')+', Norge'); }
+    function mapsUrlFromAddr(addr){
+      // hvis koordinater
+      if(addr && typeof addr.lat==='number' && typeof addr.lon==='number'){
+        return `https://www.google.com/maps/dir/?api=1&destination=${addr.lat},${addr.lon}`;
+      }
+      // hvis koordinater som strenger
+      if(addr && addr.coords && /,/.test(addr.coords)){
+        return `https://www.google.com/maps/dir/?api=1&destination=${addr.coords}`;
+      }
+      // fallback navn
+      const q=addr?.name||''; return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+', Norge');
+    }
+    function mapsUrlFromCoordsText(text){
+      const t=(text||'').trim();
+      if(/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(t)){ return `https://www.google.com/maps/dir/?api=1&destination=${t}`; }
+      return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(t);
+    }
+    function statusStore(){ return S.mode==='snow' ? S.cloud.statusSnow : S.cloud.statusGrit; }
+    function setStatusFor(name,patch){
+      const bag = statusStore(); const cur=bag[name]||{}; bag[name]={...cur,...patch, driver:S.driver};
+    }
     function updateProgressBars(){
       const total=S.addresses.length||1; let me=0, other=0;
-      if(S.cloud?.status){ for(const k in S.cloud.status){ const st=S.cloud.status[k]; if(st.state==='done'){ if(st.driver===S.driver) me++; else other++; } } }
+      const bag=statusStore();
+      for(const k in bag){ const st=bag[k]; if(st.state==='done'){ if(st.driver===S.driver) me++; else other++; } }
       document.getElementById('b_prog_me').style.width   = Math.min(100,Math.round(100*me/total))+'%';
       document.getElementById('b_prog_other').style.width= Math.min(100,Math.round(100*other/total))+'%';
     }
     function allDone(){
-      const active=S.addresses.map(a=>a.name);
-      return active.length>0 && active.every(nm => (S.cloud.status[nm]?.state==='done'));
+      if(!S.addresses.length) return false;
+      const bag=statusStore(); return S.addresses.every(a => (bag[a.name]?.state==='done'));
     }
     function maybeShowAllDoneDialog(){
       if(!allDone()) return;
-      const go=confirm('Alt er utført for alle adresser 🎉\n\nOK = Gå til Service\nAvbryt = Flere valg');
+      const modeTxt = S.mode==='snow' ? 'Snø' : 'Grus';
+      const go=confirm(`Alt er utført for ${modeTxt}-runden 🎉\n\nOK = Gå til Service\nAvbryt = Flere valg`);
       if(go){ showPage('service'); return; }
-      const choice=prompt('Velg: skriv 1 for "Start grusrunde", 2 for "Nullstill runde", annen tast for å ignorere','1');
-      if(choice==='1'){ startGrusRound(); }
-      else if(choice==='2'){ if(confirm('Sikker på at du vil nullstille hele runden?')) resetRoundAll(); }
+      const choice=prompt('Velg: skriv 1 for "Bytt til andre runde", 2 for "Nullstill denne runden", annen tast for å ignorere','1');
+      if(choice==='1'){ toggleModeAndReload(); }
+      else if(choice==='2'){ if(confirm('Sikker? Nullstiller status i denne runden.')) resetRoundAll(); }
     }
-
     function uiSetWork(){
       const now=S.addresses[S.idx]||null;
       const next=S.addresses[nextIndex(S.idx,S.dir)]||null;
       document.getElementById('b_now').textContent = now?(now.name||'–'):'–';
       document.getElementById('b_next').textContent= next?(next.name||'–'):'–';
       document.getElementById('b_dir').textContent = S.dir;
-      document.getElementById('b_task').textContent= now?(now.task||'Snø'):'—';
-      const st = (S.cloud?.status && now?.name && S.cloud.status[now.name]?.state) || 'not_started';
+      document.getElementById('b_task').textContent= (S.mode==='snow')?'Snø':'Grus';
+      const bag=statusStore();
+      const st = (now?.name && bag[now.name]?.state) || 'not_started';
       document.getElementById('b_status').textContent = STATE_LABEL[st] || '—';
       updateProgressBars();
+    }
+    function toggleModeAndReload(){
+      S.mode = (S.mode==='snow')?'grit':'snow';
+      const arr=(S.cloud?.snapshot?.addresses && Array.isArray(S.cloud.snapshot.addresses))?S.cloud.snapshot.addresses:(Array.isArray(S.cloud?.addresses)?S.cloud.addresses:[]);
+      const mapped=(arr||[]).map(a=>{
+        const snow = a.flags ? !!a.flags.snow : (a.task? true : true);
+        const grit = a.flags ? !!a.flags.grit : (a.task==='Snø og grus' || a.task==='Grus');
+        return {...a, flags:{snow,grit}};
+      }).filter(a=>a.active!==false);
+      S.addresses = mapped.filter(a=> S.mode==='snow' ? a.flags.snow : a.flags.grit);
+      S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
+      uiSetWork(); showPage('work');
     }
 
     /* ===== Handling-knapper ===== */
     async function stepState(patch,nextAfter=true){
       await refreshCloud(); const cur=S.addresses[S.idx]; if(!cur) return;
-      setStatusFor(cur.name,{...patch, driver:S.driver});
+      setStatusFor(cur.name,{...patch});
       await saveCloud(); uiSetWork();
-      if(allDone()) { maybeShowAllDoneDialog(); return; }
-      if(nextAfter){ const ni=nextIndex(S.idx,S.dir); if(ni>=0 && ni<S.addresses.length){ S.idx=ni; uiSetWork(); if(S.autoNav){ const t=S.addresses[S.idx]; if(t) window.open(mapsUrlFor(t.name),'_blank'); } } else { showPage('service'); } }
+      if(allDone()){ maybeShowAllDoneDialog(); return; }
+      if(nextAfter){
+        const ni=nextIndex(S.idx,S.dir);
+        if(ni>=0 && ni<S.addresses.length){
+          S.idx=ni; uiSetWork();
+          if(S.autoNav){ const t=S.addresses[S.idx]; if(t) window.open(mapsUrlFromAddr(t),'_blank'); }
+        }else{
+          showPage('service');
+        }
+      }
     }
 
     document.getElementById('act_start').addEventListener('click', ()=> stepState({state:'in_progress',startedAt:Date.now()}, false));
@@ -344,30 +403,35 @@
     document.getElementById('act_acc').addEventListener('click', async ()=>{
       try{
         const note=prompt('Beskriv uhell (valgfritt)','')||'';
-        // Velg/ta bilde
-        const file=await pickImage();
-        let photo=null;
+        const file=await pickImage(); let photo=null;
         if(file) photo = await compressImage(file, 900, 0.6); // dataURL
         await stepState({state:'accident',finishedAt:Date.now(),note,photo});
       }catch(e){ alert('Feil uhell: '+e.message); }
     });
     document.getElementById('act_done').addEventListener('click', ()=> stepState({state:'done',finishedAt:Date.now()}));
 
-    /* ===== Navigasjon + hurtigknapper ===== */
+    /* ===== Navigasjon + hurtigknapper (med dine KOORDINATER) ===== */
+    function defaultSettingCoords(){
+      return {
+        grusDepot: "60.2527264,11.1687230",
+        diesel:    "60.2523185,11.1899926",
+        base:      "60.2664414,11.2208819"
+      };
+    }
     document.getElementById('b_nav_top').addEventListener('click',()=>{
-      const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFor(target.name),'_blank');
+      const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFromAddr(target),'_blank');
     });
     document.getElementById('dock_grus').addEventListener('click', async ()=>{
-      await refreshCloud(); const q=S.cloud.settings?.grusDepot||'grus'; window.open(mapsUrlFor(q),'_blank');
-      logServiceVisit('grus');
+      await refreshCloud(); const st=S.cloud.settings||{}; const q=st.grusDepot || defaultSettingCoords().grusDepot;
+      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('grus');
     });
     document.getElementById('dock_diesel').addEventListener('click', async ()=>{
-      await refreshCloud(); const q=S.cloud.settings?.diesel||'diesel'; window.open(mapsUrlFor(q),'_blank');
-      logServiceVisit('diesel');
+      await refreshCloud(); const st=S.cloud.settings||{}; const q=st.diesel || defaultSettingCoords().diesel;
+      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('diesel');
     });
     document.getElementById('dock_base').addEventListener('click', async ()=>{
-      await refreshCloud(); const q=S.cloud.settings?.base||'base'; window.open(mapsUrlFor(q),'_blank');
-      logServiceVisit('base');
+      await refreshCloud(); const st=S.cloud.settings||{}; const q=st.base || defaultSettingCoords().base;
+      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('base');
     });
     async function logServiceVisit(type){
       await refreshCloud();
@@ -403,7 +467,7 @@
         });
         const note=document.getElementById('svc_note').value||'';
         if(!Array.isArray(S.cloud.serviceLogs)) S.cloud.serviceLogs=[];
-        S.cloud.serviceLogs.push({ts:Date.now(),driver:S.driver,checks,note,kind:'service'});
+        S.cloud.serviceLogs.push({ts:Date.now(),driver:S.driver,checks,note,kind:'service',roundMode:S.mode});
         await saveCloud();
         document.getElementById('svc_msg').textContent='Service lagret ✅';
         setTimeout(()=>{ document.getElementById('svc_msg').textContent=''; showPage('home'); }, 900);
@@ -414,13 +478,13 @@
     function makeRow(i,a,s){
       const img = s?.photo ? '🖼️' : '';
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${i+1}</td><td>${a.name||''}</td><td>${a.task||'Snø'}</td><td>${STATE_LABEL[s?.state||'not_started']}</td><td>${fmtTime(s?.startedAt)}</td><td>${fmtTime(s?.finishedAt)}</td><td>${s?.driver||'—'}</td><td>${img}</td>`;
+      tr.innerHTML=`<td>${i+1}</td><td>${a.name||''}</td><td>${(S.mode==='snow'?'Snø':'Grus')}</td><td>${STATE_LABEL[s?.state||'not_started']}</td><td>${fmtTime(s?.startedAt)}</td><td>${fmtTime(s?.finishedAt)}</td><td>${s?.driver||'—'}</td><td>${img}</td>`;
       return tr;
     }
-    function summarize(addrs,status){
+    function summarize(addrs,bag){
       let cnt={tot:addrs.length,not:0,prog:0,done:0,skip:0,blk:0,acc:0};
       addrs.forEach(a=>{
-        const st=(status[a.name]||{state:'not_started'}).state;
+        const st=(bag[a.name]||{state:'not_started'}).state;
         if(st==='not_started')cnt.not++; else if(st==='in_progress')cnt.prog++; else if(st==='done')cnt.done++;
         else if(st==='skipped')cnt.skip++; else if(st==='blocked')cnt.blk++; else if(st==='accident')cnt.acc++;
       });
@@ -428,15 +492,21 @@
     }
     async function loadStatus(){
       try{
+        const modeSel=document.getElementById('st_mode').value; // 'snow'|'grit'
         const cloud=await JSONBIN.getLatest();
+        // migrering
+        if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
         const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
-        const addrs=(raw||[]).filter(a=>a.active!==false);
-        const status=cloud?.status||{};
+        const addrs=(raw||[]).map(a=>{ const snow=a.flags?!!a.flags.snow:(a.task?true:true); const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus'); return {...a,flags:{snow,grit}}; })
+          .filter(a=>a.active!==false)
+          .filter(a=> modeSel==='snow'? a.flags.snow : a.flags.grit);
+
+        const bag = (modeSel==='snow') ? (cloud.statusSnow||{}) : (cloud.statusGrit||{});
         const filter=document.getElementById('st_filter').value;
         const tbody=document.getElementById('st_tbody'); tbody.innerHTML='';
 
         addrs.forEach((a,i)=>{
-          const s=status[a.name]||{state:'not_started'};
+          const s=bag[a.name]||{state:'not_started'};
           let ok=true;
           if(filter==='ikke'  && s.state!=='not_started') ok=false;
           if(filter==='pågår' && s.state!=='in_progress') ok=false;
@@ -447,101 +517,71 @@
           if(ok) tbody.appendChild(makeRow(i,a,s));
         });
 
-        const c=summarize(addrs,status);
+        const c=summarize(addrs,bag);
+        const label = (modeSel==='snow')?'Snø':'Grus';
         document.getElementById('st_summary').textContent =
-          `${c.tot} adresser • Ikke påbegynt ${c.not} • Pågår ${c.prog} • Ferdig ${c.done} • Hoppet ${c.skip} • Ikke mulig ${c.blk} • Uhell ${c.acc}`;
+          `${label}-runde: ${c.tot} adresser • Ikke påbegynt ${c.not} • Pågår ${c.prog} • Ferdig ${c.done} • Hoppet ${c.skip} • Ikke mulig ${c.blk} • Uhell ${c.acc}`;
       }catch(e){ alert('Status-feil: '+e.message); }
     }
     document.getElementById('st_reload').addEventListener('click', loadStatus);
     document.getElementById('st_filter').addEventListener('change', loadStatus);
+    document.getElementById('st_mode').addEventListener('change', loadStatus);
 
-    // Nullstilling
+    // Nullstilling per modus
     async function resetRoundAll(){
       await refreshCloud();
-      const names=S.addresses.length?S.addresses.map(a=>a.name)
-        : ((S.cloud.addresses||S.cloud.snapshot?.addresses||[]).filter(a=>a.active!==false).map(a=>a.name));
-      names.forEach(nm=>{ setStatusFor(nm, {state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null}); });
+      const bag=statusStore();
+      S.addresses.forEach(a=>{ bag[a.name]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null}; });
       await saveCloud(); loadStatus(); uiSetWork();
     }
     async function resetRoundMine(){
       await refreshCloud();
-      for(const k in S.cloud.status){
-        if(S.cloud.status[k]?.driver===S.driver){
-          setStatusFor(k, {state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null});
-        }
-      }
+      const bag=statusStore();
+      for(const k in bag){ if(bag[k]?.driver===S.driver){ bag[k]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null}; } }
       await saveCloud(); loadStatus(); uiSetWork();
     }
     document.getElementById('st_reset_all').addEventListener('click', async ()=>{
-      if(confirm('Nullstille HELE runden for alle?')) await resetRoundAll();
+      if(confirm('Nullstille denne runden for alle?')) await resetRoundAll();
     });
     document.getElementById('st_reset_mine').addEventListener('click', async ()=>{
-      if(confirm('Nullstille kun dine punkter?')) await resetRoundMine();
+      if(confirm('Nullstille kun dine punkter i denne runden?')) await resetRoundMine();
     });
-
-    // Grusrunde
-    async function startGrusRound(){
-      await refreshCloud();
-      const all=(S.cloud.addresses||S.cloud.snapshot?.addresses||[]).filter(a=>a.active!==false);
-      const onlyGrus=all.filter(a=> (a.task||'Snø')==='Grus');
-      if(onlyGrus.length===0){ alert('Ingen adresser med oppdrag "Grus".'); return; }
-      // nullstill bare “Grus”-adresser
-      onlyGrus.forEach(a=> setStatusFor(a.name, {state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null}));
-      await saveCloud();
-      // Sett rute til kun grus-liste i minne (visning)
-      S.addresses=onlyGrus;
-      S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
-      // slå på sand
-      const p=JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}'); p.eq=p.eq||{}; p.eq.sand=true; localStorage.setItem('BROYT_PREFS',JSON.stringify(p));
-      uiSetWork(); showPage('work');
-    }
 
     // Rapport
     document.getElementById('rp_print').addEventListener('click', ()=>{ window.print(); });
     document.getElementById('rp_csv').addEventListener('click', async ()=>{
       try{
+        const modeSel=document.getElementById('st_mode').value;
         const cloud=await JSONBIN.getLatest();
+        if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
         const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
-        const addrs=(raw||[]).filter(a=>a.active!==false);
-        const status=cloud?.status||{};
+        const addrs=(raw||[]).map(a=>{ const snow=a.flags?!!a.flags.snow:(a.task?true:true); const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus'); return {...a,flags:{snow,grit}}; })
+          .filter(a=>a.active!==false)
+          .filter(a=> modeSel==='snow'? a.flags.snow : a.flags.grit);
+
+        const bag = (modeSel==='snow') ? (cloud.statusSnow||{}) : (cloud.statusGrit||{});
         const rows=[['#','Adresse','Oppgave','Status','Start','Ferdig','Utført av','Notat']];
         addrs.forEach((a,i)=>{
-          const s=status[a.name]||{};
-          rows.push([String(i+1), a.name||'', a.task||'Snø', STATE_LABEL[s.state||'not_started'], fmtTime(s.startedAt), fmtTime(s.finishedAt), s.driver||'', (s.note||'').replace(/\s+/g,' ').trim()]);
+          const s=bag[a.name]||{};
+          rows.push([String(i+1), a.name||'', (modeSel==='snow'?'Snø':'Grus'), STATE_LABEL[s.state||'not_started'], fmtTime(s.startedAt), fmtTime(s.finishedAt), s.driver||'', (s.note||'').replace(/\s+/g,' ').trim()]);
         });
-        const csv='Brøyterapport,'+fmtDate()+'\n'+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
+        const csv=`Brøyterapport,${fmtDate()},${(modeSel==='snow'?'Snø':'Grus')}\n`+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
         const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob);
-        const a=document.createElement('a'); a.href=url; a.download=`Broeyterapport_${fmtDate()}.csv`; document.body.appendChild(a); a.click(); a.remove();
+        const a=document.createElement('a'); a.href=url; a.download=`Broeyterapport_${fmtDate()}_${(modeSel==='snow'?'Sno':'Grus')}.csv`; document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
       }catch(e){ alert('CSV-feil: '+e.message); }
     });
 
-    /* ===== Admin: lagre innstillinger (destinasjoner) ===== */
+    /* ===== Admin – last/lagre innstillinger ===== */
     async function loadSettingsToAdmin(){
       try{
         await refreshCloud();
-        const st=S.cloud.settings||{};
+        const st={...defaultSettingCoords(), ...(S.cloud.settings||{})};
         document.getElementById('st_grus').value  = st.grusDepot||'';
         document.getElementById('st_diesel').value= st.diesel||'';
         document.getElementById('st_base').value  = st.base||'';
       }catch{}
     }
-    document.getElementById('st_save_settings').addEventListener('click', async ()=>{
-      try{
-        await refreshCloud();
-        S.cloud.settings=S.cloud.settings||{};
-        S.cloud.settings.grusDepot = document.getElementById('st_grus').value.trim();
-        S.cloud.settings.diesel    = document.getElementById('st_diesel').value.trim();
-        S.cloud.settings.base      = document.getElementById('st_base').value.trim();
-        await saveCloud();
-        document.getElementById('st_settings_msg').textContent='Lagret.';
-        setTimeout(()=>document.getElementById('st_settings_msg').textContent='',1200);
-      }catch(e){ alert('Kunne ikke lagre innstillinger: '+e.message); }
-    });
-
-    // Vis admin-innstillinger når siden åpnes
-    window.addEventListener('hashchange',()=>{ if(location.hash==='#admin') loadSettingsToAdmin(); });
-    if(location.hash==='#admin') loadSettingsToAdmin();
 
     /* ===== Bildeverktøy (uhell) ===== */
     function pickImage(){
@@ -550,7 +590,7 @@
         inp.type='file'; inp.accept='image/*'; inp.capture='environment';
         inp.onchange=()=> resolve(inp.files&&inp.files[0]?inp.files[0]:null);
         inp.click();
-        setTimeout(()=>resolve(null), 15000); // failsafe om bruker kansellerer
+        setTimeout(()=>resolve(null), 15000);
       });
     }
     function compressImage(file, maxW=1000, quality=0.7){
@@ -558,8 +598,8 @@
         const fr=new FileReader();
         fr.onload=()=>{ const img=new Image(); img.onload=()=>{
           const scale=maxW/Math.max(img.width, img.height);
-          const w = img.width>img.height ? maxW : Math.round(img.width*scale);
-          const h = img.width>img.height ? Math.round(img.height*scale) : maxW;
+          const w = img.width>=img.height ? maxW : Math.round(img.width*scale);
+          const h = img.width>=img.height ? Math.round(img.height*scale) : maxW;
           const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
           const ctx=cv.getContext('2d'); ctx.drawImage(img,0,0,w,h);
           resolve(cv.toDataURL('image/jpeg', quality));
