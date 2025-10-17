@@ -1,5 +1,4 @@
-// docs/del-E.js
-// Admin: Rediger navn/gruppe/oppdrag + flytt opp/ned + lagre til sky (v9.12i)
+// docs/del-E.js  (uendret fra forrige – admin redigering + flytt opp/ned + lagre)
 (function () {
   const $ = (s) => document.querySelector(s);
   const API = window.APP_CFG?.API_BASE;
@@ -31,7 +30,8 @@
       season: base.season || '',
       addresses: next,
       serviceLogs: Array.isArray(base?.serviceLogs)?base.serviceLogs:[],
-      backups: Array.isArray(base?.backups)?base.backups:[]
+      backups: Array.isArray(base?.backups)?base.backups:[],
+      status: base.status || {}
     };
     await window.JSONBIN.apiFetch(`b/${BIN}`,{method:'PUT',body:JSON.stringify(payload)});
   }
