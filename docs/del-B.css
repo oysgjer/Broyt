@@ -63,7 +63,7 @@ h2.title {
 .bar-me { left:0; background:#22c55e; }
 .bar-other { right:0; background:#a855f7; }
 
-/* --- nå/neste seksjon --- */
+/* --- nå/neste seksjon (NY) --- */
 .now-stack { display:flex; flex-direction:column; gap:12px; margin:10px 0 16px; }
 .now-wide  { width:100%; border:1px dashed #334155; border-radius:14px; padding:12px; background:#0a1422; }
 
@@ -80,7 +80,7 @@ h2.title {
   .next-val{ font-size:18px; }
 }
 
-/* --- handlinger --- */
+/* --- arbeidshandlinger --- */
 .actions-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -94,7 +94,7 @@ h2.title {
   margin-top:14px;
 }
 
-/* --- pills / kontrollpanel --- */
+/* --- små “pills” --- */
 .pills {
   display:flex;
   flex-wrap:wrap;
@@ -107,7 +107,7 @@ h2.title {
   font-size:13px;
 }
 
-/* --- tabell på status --- */
+/* --- status-tabell (brukes av del-C/status) --- */
 .table-wrap { overflow-x:auto; }
 .tbl { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
 .tbl th, .tbl td { border-bottom:1px solid #334155; padding:6px 8px; text-align:left; }
