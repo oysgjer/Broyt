@@ -1,6 +1,6 @@
-/* del-D.js – v10.4.1
-   Fix: implementert JSONBIN.hasAll() + ekstra sikringer i Admin,
-   slik at Adresse-register rendres selv om noe i sky-oppsettet mangler.
+/* del-D.js – v10.4.2
+   Fix: fjernet syntaksfeil i saveAdminAddresses() catch.
+   Admin/Status/Work fungerer igjen, inkl. Adresse-register og navigering.
 */
 
 const $  = (s,root=document)=>root.querySelector(s);
@@ -17,9 +17,7 @@ const JSONBIN={
   get _putUrl(){return localStorage.getItem('BROYT_BIN_PUT')||localStorage.getItem('JSONBIN_BIN_PUT_URL')||'';},
   get _key(){return localStorage.getItem('BROYT_XKEY')||localStorage.getItem('JSONBIN_MASTER')||'';},
 
-  hasAll(){ // nøkkel kan være tom om proxien ikke krever den
-    return !!(this._getUrl && this._putUrl);
-  },
+  hasAll(){ return !!(this._getUrl && this._putUrl); },
 
   setUrlPair(g,p){
     if(g){localStorage.setItem('BROYT_BIN_URL',g);localStorage.setItem('JSONBIN_BIN_URL',g);}
@@ -304,13 +302,15 @@ async function saveAdminAddresses(){
       const snow   = tr.querySelector('.adm-snow').checked;
       const grit   = tr.querySelector('.adm-grit').checked;
       const stakes = tr.querySelector('.adm-stakes').value.trim();
-      const coords = tr.querySelector('.adm-coords').value.trim(); // "lat,lon"
+      const coords = tr.querySelector('.adm-coords').value.trim();
       list.push({active,name,group,flags:{snow,grit},stakes,coords});
     });
     S.cloud.snapshot.addresses = list;
     await saveCloud();
     if(msg) msg.textContent='Lagret.';
-  }catch(e){ if(msg) msg.textContent='Feil: '+(e.message||e)); }
+  }catch(e){
+    if(msg) msg.textContent='Feil: '+(e.message||e);
+  }
 }
 
 /* ------------ init / routing / actions ------------- */
