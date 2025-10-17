@@ -1,7 +1,7 @@
-// docs/del-E.js  (uendret fra forrige – admin redigering + flytt opp/ned + lagre)
+// docs/del-E.js
+// Admin: Rediger navn/gruppe/oppdrag + flytt opp/ned + lagre til sky (v9.12m)
 (function () {
   const $ = (s) => document.querySelector(s);
-  const API = window.APP_CFG?.API_BASE;
   const BIN = window.APP_CFG?.BIN_ID;
 
   const els = {
@@ -29,9 +29,9 @@
       by: (JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}')?.driver || 'admin'),
       season: base.season || '',
       addresses: next,
+      status: base.status || {},
       serviceLogs: Array.isArray(base?.serviceLogs)?base.serviceLogs:[],
-      backups: Array.isArray(base?.backups)?base.backups:[],
-      status: base.status || {}
+      backups: Array.isArray(base?.backups)?base.backups:[]
     };
     await window.JSONBIN.apiFetch(`b/${BIN}`,{method:'PUT',body:JSON.stringify(payload)});
   }
