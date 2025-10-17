@@ -103,23 +103,21 @@ h2.title {
 .pill {
   background:#1e293b;
   border-radius:8px;
-  padding:3px 8px;
+  padding:6px 10px;
   font-size:13px;
+  color:#e6edf3;
 }
 
-/* --- status-tabell (status/del-C) --- */
+/* --- status-tabell (status) --- */
 .table-wrap { overflow-x:auto; }
 .tbl { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
 .tbl th, .tbl td { border-bottom:1px solid #334155; padding:6px 8px; text-align:left; }
 .tbl th { background:#0f172a; color:#e2e8f0; font-weight:600; }
 
-/* --- Admin: sort-liste (drag & drop + edit) --- */
+/* --- Admin: sort-liste (kun opp/ned + redigering) --- */
 .sort-list { list-style:none; margin:0; padding:0; }
 .sort-item { background:#0b1220; border:1px solid #2b3445; border-radius:12px; padding:10px; margin-bottom:8px; }
-.sort-item.dragging { opacity:.6; }
 .item-row { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
-.handle { cursor:grab; user-select:none; font-size:20px; padding:4px 6px; border:1px dashed #334155; border-radius:8px; }
-.handle:active { cursor:grabbing; }
 .item-row .main { flex:1; min-width:220px; }
 .item-row .name { font-weight:700; font-size:16px; margin-bottom:4px; }
 .item-row .meta { margin-top:2px; font-size:13px; opacity:.8; }
@@ -127,26 +125,23 @@ h2.title {
 .moves { display:flex; gap:6px; }
 .inline-edit { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
 .inline-edit input[type="text"]{ background:#0a1422; border:1px solid #334155; border-radius:8px; padding:6px 8px; color:#e6edf3; }
-.inline-edit .equip { display:flex; gap:10px; align-items:center; }
-.inline-edit label { font-size:13px; opacity:.9; }
+.inline-edit select { background:#0a1422; border:1px solid #334155; border-radius:8px; padding:6px 8px; color:#e6edf3; }
 
-/* --- lysmodus --- */
+/* --- lysmodus overstyringer (fjerner “svarte felter”) --- */
 @media (prefers-color-scheme: light) {
-  body { background:#fafafa; color:#111; }
-  .card { background:#fff; border-color:#e5e7eb; }
-  .btn { background:#e9eef6; color:#111; border-color:#cbd5e1; }
-  .btn:hover { background:#dbeafe; }
-  .btn-primary { background:#2563eb; color:#fff; border-color:#2563eb; }
-  .btn-warn { background:#dc2626; }
-  .btn-affirm { background:#16a34a; }
-  .progress-all { background:#e5e7eb; }
-  .bar-me { background:#16a34a; }
-  .bar-other { background:#9333ea; }
+  .pill { background:#e9eef6; color:#111; }
   .now-wide { background:#f8fafc; border-color:#cbd5e1; }
   .tbl th { background:#e2e8f0; color:#111; }
   .tbl td { border-color:#e2e8f0; }
-  .inline-edit input[type="text"]{ background:#fff; border-color:#d1d5db; color:#111; }
+
+  .sort-item{ background:#ffffff; border-color:#e5e7eb; }
+  .item-row .name{ color:#111; }
+  .item-row .meta{ color:#4b5563; opacity:1; }
+  .inline-edit input[type="text"], .inline-edit select {
+    background:#ffffff; color:#111; border-color:#d1d5db;
+  }
 }
+
 /* -- key-banner (nøkkel/konfig-varsel) -- */
 #key-banner{position:sticky;top:0;z-index:9999;background:#7c2d12;color:#fff;
   padding:10px 12px;border-bottom:2px solid #ef4444;display:none}
@@ -156,42 +151,4 @@ h2.title {
 #key-banner .sec{opacity:.9;font-size:13px}
 @media (prefers-color-scheme:light){
   #key-banner{background:#dc2626;border-color:#b91c1c}
-}
-/* === Admin: lys-modus fikser (overstyr mørke felter) === */
-@media (prefers-color-scheme: light) {
-  /* Selve elementboksen */
-  .sort-item{
-    background:#ffffff !important;
-    border-color:#e5e7eb !important;
-  }
-
-  /* Håndtaket (☰) */
-  .handle{
-    background:#f3f4f6;
-    border-color:#cbd5e1;
-    color:#111;
-  }
-
-  /* Tekster */
-  .item-row .name{ color:#111; }
-  .item-row .meta{ color:#4b5563; opacity:1; }
-
-  /* Inline-felter */
-  .inline-edit input[type="text"]{
-    background:#ffffff;
-    color:#111;
-    border-color:#d1d5db;
-  }
-
-  /* Aktiv-kryss får tydelig blå aksent i lys modus */
-  .active-toggle input[type="checkbox"]{
-    accent-color:#2563eb;
-  }
-
-  /* Flytt-knapper */
-  .btn.btn-ghost{
-    background:#ffffff;
-    border-color:#cbd5e1;
-    color:#111;
-  }
 }
