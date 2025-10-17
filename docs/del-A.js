@@ -1,10 +1,10 @@
 // docs/del-A.js
-/* del-A.js — konfig + JSONBin helpers + nøkkelbanner (v9.12m) */
+/* del-A.js — konfig + JSONBin helpers + nøkkelbanner (v10.0a) */
 (function () {
   const APP_CFG = {
     API_BASE: "https://api.jsonbin.io/v3/",
     BIN_ID:   "68e7b4d2ae596e708f0bde7d",   // <-- din BIN-ID (24 hex)
-    APP_VER:  "9.12m"
+    APP_VER:  "10.0a"
   };
   window.APP_CFG = APP_CFG;
 
@@ -16,7 +16,6 @@
   function setKey(v){ if(!v||v.trim().length<10) return false; localStorage.setItem(LS_KEY,v.trim()); return true; }
   function clearKey(){ localStorage.removeItem(LS_KEY); }
 
-  /* Nøkkel-banner */
   function ensureBanner(){
     if(document.getElementById("key-banner")) return;
     const css = `
