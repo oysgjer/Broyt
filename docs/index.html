@@ -40,7 +40,7 @@
     <button id="nav-service" onclick="showPage('service')">Service</button>
     <button id="nav-status" onclick="showPage('status')">Status</button>
     <button id="nav-admin"  onclick="showPage('admin')">Admin</button>
-    <span style="margin-left:auto;font-size:12px;opacity:.7">v9.12i</span>
+    <span style="margin-left:auto;font-size:12px;opacity:.7">v9.12j</span>
   </nav>
 
   <main>
@@ -80,7 +80,7 @@
     <section id="work" class="card" style="display:none">
       <h2 class="title">Under arbeid</h2>
 
-      <div class="progress-all">
+      <div class="progress-all" title="Grønn: deg • Lilla: andre sjåfører">
         <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
         <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
       </div>
@@ -139,13 +139,42 @@
       <button class="btn btn-lg">💾 Lagre service</button>
     </section>
 
-    <!-- STATUS (placeholder) -->
+    <!-- STATUS -->
     <section id="status" class="card" style="display:none">
       <h2 class="title">Status</h2>
-      <p>Status-visningen din kan kobles inn her.</p>
+
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px">
+        <button id="st_reload" class="btn">⟳ Oppdater</button>
+        <select id="st_filter" class="btn" style="padding:8px 10px">
+          <option value="alle">Vis: Alle</option>
+          <option value="ikke">Ikke påbegynt</option>
+          <option value="pågår">Pågår</option>
+          <option value="ferdig">Ferdig</option>
+          <option value="hoppet">Hoppet over</option>
+          <option value="umulig">Ikke mulig</option>
+          <option value="uhell">Uhell</option>
+        </select>
+        <span id="st_summary" class="small muted">—</span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="tbl" id="st_table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Adresse</th>
+              <th>Status</th>
+              <th>Start</th>
+              <th>Ferdig</th>
+              <th>Utført av</th>
+            </tr>
+          </thead>
+          <tbody id="st_tbody"></tbody>
+        </table>
+      </div>
     </section>
 
-    <!-- ADMIN -->
+    <!-- ADMIN (samme som før) -->
     <section id="admin" class="card" style="display:none">
       <h2 class="title">Admin – Adresse-liste</h2>
 
@@ -175,12 +204,14 @@
   </main>
 
   <script>
+    /* ===== Ruter ===== */
     function showPage(id){
       document.querySelectorAll('main section').forEach(s=>s.style.display='none');
       const el=document.getElementById(id); if(el) el.style.display='block';
       document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
       const b=document.getElementById('nav-'+id); if(b) b.classList.add('active');
       location.hash='#'+id;
+      if(id==='status') loadStatus();
     }
     window.addEventListener('hashchange',()=>{
       const id=(location.hash||'#home').replace('#','');
@@ -203,12 +234,22 @@
       }catch{}
     });
 
-    const S={dir:'Normal',addresses:[],idx:0};
+    /* ===== App-state ===== */
+    const S={dir:'Normal',addresses:[],idx:0,driver:'driver',autoNav:false,cloud:null};
+    const STATE_LABEL={
+      not_started:'Ikke påbegynt', in_progress:'Pågår', done:'Ferdig',
+      skipped:'Hoppet over', blocked:'Ikke mulig', accident:'Uhell'
+    };
+
+    function fmt(t){ if(!t) return '—'; try{const d=new Date(t); return d.toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});}catch{return '—'} }
 
     function uiSetWork(){
       const now=S.addresses[S.idx]||null;
       const nextIdx=(S.dir==='Motsatt')?S.idx-1:S.idx+1;
       const next=S.addresses[nextIdx]||null;
+
+      const st = (S.cloud?.status && now?.name && S.cloud.status[now.name]?.state) || 'not_started';
+      document.getElementById('b_status').textContent = STATE_LABEL[st] || '—';
 
       document.getElementById('b_now').textContent=now?(now.name||'–'):'–';
       document.getElementById('b_next').textContent=next?(next.name||'–'):'–';
@@ -218,34 +259,53 @@
       document.getElementById('b_season').textContent=(new Date().getMonth()>=7)
         ? `${new Date().getFullYear()}-${(new Date().getFullYear()+1).toString().slice(-2)}`
         : `${new Date().getFullYear()-1}-${new Date().getFullYear().toString().slice(-2)}`;
-      document.getElementById('b_sync').textContent='—';
+      document.getElementById('b_sync').textContent='OK';
+
+      // progresjon
+      const activeTotal = S.addresses.length || 1;
+      let meDone=0, otherDone=0;
+      if (S.cloud?.status){
+        for (const [k, v] of Object.entries(S.cloud.status)){
+          if (v.state==='done'){
+            if (v.driver===S.driver) meDone++; else otherDone++;
+          }
+        }
+      }
+      const mePct=Math.min(100, Math.round(100*meDone/activeTotal));
+      const otherPct=Math.min(100, Math.round(100*otherDone/activeTotal));
+      document.getElementById('b_prog_me').style.width = mePct+'%';
+      document.getElementById('b_prog_other').style.width = otherPct+'%';
     }
 
-    async function loadAddresses(){
-      const cloud=await JSONBIN.getLatest();
-      const arr=(cloud&&cloud.snapshot&&Array.isArray(cloud.snapshot.addresses))
-        ? cloud.snapshot.addresses
-        : (Array.isArray(cloud?.addresses)?cloud.addresses:[]);
-      S.addresses=arr.filter(a=>a.active!==false);
-    }
-
-    function nextIndex(idx,dir,max){ return dir==='Motsatt'?idx-1:idx+1; }
+    function nextIndex(idx,dir){ return dir==='Motsatt'?idx-1:idx+1; }
     function mapsUrlFor(addr){
       const q=addr?.name?addr.name:'';
       return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+', Norge');
     }
-    function getPrefs(){ try{return JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}')}catch{return{}} }
     function goToNextAndMaybeNavigate(){
-      const prefs=getPrefs();
-      const next=nextIndex(S.idx,S.dir,S.addresses.length);
+      const next=nextIndex(S.idx,S.dir);
       if(next<0||next>=S.addresses.length){ uiSetWork(); return; }
       S.idx=next; uiSetWork();
-      if(prefs.autoNav){
-        const target=S.addresses[S.idx];
-        if(target) window.open(mapsUrlFor(target),'_blank');
-      }
+      if(S.autoNav){ const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFor(target),'_blank'); }
     }
 
+    async function refreshCloud(){
+      S.cloud = await JSONBIN.getLatest();
+      if(!S.cloud.status) S.cloud.status={};
+    }
+    async function saveCloud(){
+      S.cloud.updated=Date.now();
+      S.cloud.by=S.driver||'driver';
+      await JSONBIN.putRecord(S.cloud);
+    }
+
+    function setStatusFor(addrName, patch){
+      if(!S.cloud.status) S.cloud.status={};
+      const cur=S.cloud.status[addrName]||{};
+      S.cloud.status[addrName] = { ...cur, ...patch };
+    }
+
+    /* ===== Start runde ===== */
     document.getElementById('a_start').addEventListener('click',async()=>{
       try{
         const prefs={
@@ -259,10 +319,18 @@
           autoNav:document.getElementById('a_autoNav').checked
         };
         localStorage.setItem('BROYT_PREFS',JSON.stringify(prefs));
-        S.dir=prefs.dir;
+        S.dir=prefs.dir; S.driver=prefs.driver; S.autoNav=prefs.autoNav;
 
         await JSONBIN.checkConfigOrWarn();
-        await loadAddresses();
+        // hent adresser
+        const cloud=await JSONBIN.getLatest();
+        S.cloud=cloud;
+        const arr=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))
+          ? cloud.snapshot.addresses
+          : (Array.isArray(cloud?.addresses)?cloud.addresses:[]);
+        S.addresses = (arr||[]).filter(a=>a.active!==false);
+
+        if(!S.cloud.status) S.cloud.status={};
 
         S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
         uiSetWork();
@@ -270,12 +338,134 @@
       }catch(e){ alert('Kunne ikke starte runde: '+e.message); }
     });
 
-    document.getElementById('act_done').addEventListener('click',()=>{ goToNextAndMaybeNavigate(); });
+    /* ===== Handling-knapper ===== */
+    document.getElementById('act_start').addEventListener('click', async ()=>{
+      try{
+        await refreshCloud();
+        const cur = S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name, { state:'in_progress', startedAt: Date.now(), driver: S.driver });
+        await saveCloud();
+        uiSetWork();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+
+    document.getElementById('act_skip').addEventListener('click', async ()=>{
+      try{
+        await refreshCloud();
+        const cur = S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name, { state:'skipped', finishedAt: Date.now(), driver: S.driver });
+        await saveCloud();
+        uiSetWork();
+        goToNextAndMaybeNavigate();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+
+    document.getElementById('act_block').addEventListener('click', async ()=>{
+      try{
+        const reason = prompt('Hvorfor ikke mulig? (valgfritt)', '') || '';
+        await refreshCloud();
+        const cur = S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name, { state:'blocked', finishedAt: Date.now(), driver: S.driver, note: reason });
+        await saveCloud();
+        uiSetWork();
+        goToNextAndMaybeNavigate();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+
+    document.getElementById('act_acc').addEventListener('click', async ()=>{
+      try{
+        const note = prompt('Beskriv uhell (valgfritt).', '') || '';
+        await refreshCloud();
+        const cur = S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name, { state:'accident', finishedAt: Date.now(), driver: S.driver, note });
+        await saveCloud();
+        uiSetWork();
+        goToNextAndMaybeNavigate();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+
+    document.getElementById('act_done').addEventListener('click', async ()=>{
+      try{
+        await refreshCloud();
+        const cur = S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name, { state:'done', finishedAt: Date.now(), driver: S.driver });
+        await saveCloud();
+        uiSetWork();
+        goToNextAndMaybeNavigate();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+
     document.getElementById('b_nav_top').addEventListener('click',()=>{
       const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFor(target),'_blank');
     });
+    document.getElementById('b_sync_btn').addEventListener('click', async ()=>{
+      try{ await refreshCloud(); uiSetWork(); }catch(e){ alert('Synk-feil: '+e.message); }
+    });
+    document.getElementById('b_save_btn').addEventListener('click', async ()=>{
+      try{ await saveCloud(); alert('Lagret.'); }catch(e){ alert('Feil: '+e.message); }
+    });
+    document.getElementById('b_finish_btn').addEventListener('click', ()=>{
+      showPage('service');
+    });
 
-    /* PWA installer-hint */
+    /* ===== STATUS-SIDE ===== */
+    function makeRow(idx, name, s){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td>${idx+1}</td>
+        <td>${name}</td>
+        <td>${STATE_LABEL[s?.state||'not_started']}</td>
+        <td>${fmt(s?.startedAt)}</td>
+        <td>${fmt(s?.finishedAt)}</td>
+        <td>${s?.driver||'—'}</td>
+      `;
+      return tr;
+    }
+
+    async function loadStatus(){
+      try{
+        const cloud=await JSONBIN.getLatest();
+        const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))
+          ? cloud.snapshot.addresses
+          : (Array.isArray(cloud?.addresses)?cloud.addresses:[]);
+        const addrs=(raw||[]).filter(a=>a.active!==false);
+        const status=cloud?.status||{};
+
+        const filter=document.getElementById('st_filter').value;
+        const tbody=document.getElementById('st_tbody');
+        tbody.innerHTML='';
+
+        let cnt={tot:addrs.length, not:0, prog:0, done:0, skip:0, block:0, acc:0};
+        addrs.forEach((a,i)=>{
+          const s=status[a.name]||{state:'not_started'};
+          if(s.state==='not_started') cnt.not++;
+          else if(s.state==='in_progress') cnt.prog++;
+          else if(s.state==='done') cnt.done++;
+          else if(s.state==='skipped') cnt.skip++;
+          else if(s.state==='blocked') cnt.block++;
+          else if(s.state==='accident') cnt.acc++;
+
+          let ok=true;
+          if(filter==='ikke'  && s.state!=='not_started') ok=false;
+          if(filter==='pågår' && s.state!=='in_progress') ok=false;
+          if(filter==='ferdig'&& s.state!=='done') ok=false;
+          if(filter==='hoppet'&& s.state!=='skipped') ok=false;
+          if(filter==='umulig'&& s.state!=='blocked') ok=false;
+          if(filter==='uhell' && s.state!=='accident') ok=false;
+          if(ok) tbody.appendChild(makeRow(i, a.name, s));
+        });
+
+        document.getElementById('st_summary').textContent =
+          `${cnt.tot} adresser • Ikke påbegynt: ${cnt.not} • Pågår: ${cnt.prog} • Ferdig: ${cnt.done} • Hoppet: ${cnt.skip} • Ikke mulig: ${cnt.block} • Uhell: ${cnt.acc}`;
+      }catch(e){
+        alert('Kunne ikke hente status: '+e.message);
+      }
+    }
+
+    document.getElementById('st_reload').addEventListener('click', loadStatus);
+    document.getElementById('st_filter').addEventListener('change', loadStatus);
+
+    /* ===== PWA hint ===== */
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt',(e)=>{
       e.preventDefault(); deferredPrompt=e;
@@ -287,7 +477,7 @@
       if(hint){ hint.innerHTML="📲 Trykk <strong>Del</strong> → <strong>Legg til på Hjem-skjerm</strong>"; hint.style.display='block'; }
     }
 
-    /* Admin – nøkkel-felt */
+    /* Admin – nøkkel-felt (samme som før) */
     (function(){
       const inp=document.getElementById('adm_key');
       const save=document.getElementById('adm_key_save');
