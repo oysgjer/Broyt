@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Brøyterute – Romerike Trefelling</title>
 
+  <!-- PWA -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#0a0f1c">
   <link rel="apple-touch-icon" href="./icons/icon-512.png">
@@ -15,7 +16,6 @@
   <link rel="stylesheet" href="./del-B.css">
   <script defer src="./del-A.js"></script>
   <script defer src="./del-E.js"></script>
-  <script defer src="./del-I-wakelock.js"></script>
 
   <style>
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0a0f1c;color:#e6edf3}
@@ -31,7 +31,6 @@
       nav button.active{background:#007aff;border-color:#007aff;color:#fff}
       .card{background:#fff;border-color:#e5e7eb}
     }
-    .install-hint{display:none;background:#1d4ed8;color:#fff;text-align:center;padding:10px;border-radius:10px;margin-top:12px;font-size:15px}
   </style>
 </head>
 <body>
@@ -41,14 +40,14 @@
     <button id="nav-service" onclick="showPage('service')">Service</button>
     <button id="nav-status" onclick="showPage('status')">Status</button>
     <button id="nav-admin"  onclick="showPage('admin')">Admin</button>
-    <span style="margin-left:auto;font-size:12px;opacity:.7">v9.12k</span>
+    <span style="margin-left:auto;font-size:12px;opacity:.7">v9.12m</span>
   </nav>
 
   <main>
     <!-- HJEM -->
     <section id="home" class="card">
       <h2 class="title">Hjem</h2>
-      <p>Sett fører, retning og utstyr. Start runde når du er klar.</p>
+      <p>Fyll inn fører, velg retning og utstyr. Start runde når du er klar.</p>
 
       <label>Fører:<br>
         <input id="a_driver" placeholder="Navn" style="width:100%">
@@ -74,18 +73,20 @@
 
       <br>
       <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
-      <div id="installPrompt" class="install-hint">📲 Installer Brøyterute på Hjem-skjerm</div>
+      <div class="install-hint" id="installPrompt">📲 Installer Brøyterute på Hjem-skjerm</div>
     </section>
 
-    <!-- UNDER ARBEID -->
+    <!-- UNDER ARBEID (KUN det du ønsket i “gul boks”) -->
     <section id="work" class="card" style="display:none">
       <h2 class="title">Under arbeid</h2>
 
-      <div class="progress-all" title="Grønn: deg • Lilla: andre sjåfører">
+      <!-- Progresjon: grønn = deg, lilla = andre -->
+      <div class="progress-all" title="Grønn: deg • Lilla: andre">
         <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
         <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
       </div>
 
+      <!-- Nå/Neste -->
       <div class="now-stack">
         <div class="now now-wide">
           <div class="now-head"><span class="now-icon">🚜</span><span class="lbl">Nå</span></div>
@@ -97,6 +98,7 @@
         </div>
       </div>
 
+      <!-- Handlinger -->
       <div class="actions-grid">
         <button id="act_start" class="btn btn-lg" type="button">▶️ Start</button>
         <button id="act_skip"  class="btn btn-lg" type="button">⏭️ Hopp over</button>
@@ -105,38 +107,59 @@
         <button id="act_acc"   class="btn btn-lg btn-ghost" type="button">⚠️ Uhell</button>
       </div>
 
-      <!-- Wake Lock-knapp/status -->
-      <div class="card" style="margin-top:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
-        <div class="small muted" id="wl_status">Skjermlås: ukjent</div>
-        <button id="wl_toggle" class="btn">🔒 Hold skjermen våken</button>
-      </div>
+      <p id="b_status" class="status muted" style="margin-top:8px">Ikke påbegynt</p>
 
-      <p id="b_status" class="status muted">Ikke påbegynt</p>
-
-      <div id="work-controls" class="card" style="margin-top:14px">
-        <div class="pills" style="margin-bottom:10px">
-          <span class="pill">Runde: <strong id="b_round">–</strong></span>
-          <span class="pill">Oppdrag: <strong id="b_job">–</strong></span>
-          <span class="pill">Retning: <strong id="b_dir">–</strong></span>
-          <span class="pill">Sesong: <strong id="b_season">–</strong></span>
-          <span class="pill">Synk: <strong id="b_sync">—</strong></span>
-        </div>
-        <div class="row" style="gap:12px;flex-wrap:wrap">
-          <button id="b_nav_top"    class="btn btn-primary btn-lg" type="button">🧭 NAVIGER</button>
-          <button id="b_sync_btn"   class="btn btn-lg" type="button">↻ Synk</button>
-          <button id="b_save_btn"   class="btn btn-lg" type="button">💾 Lagre</button>
-          <button id="b_finish_btn" class="btn btn-lg" type="button">🏁 Avslutt runde</button>
-        </div>
+      <!-- Naviger + våken-skjerm-knapp -->
+      <div class="row stack-sm" style="gap:10px;margin-top:12px">
+        <button id="b_nav_top" class="btn btn-primary btn-lg" type="button">🧭 NAVIGER</button>
+        <button id="wl_toggle" class="btn" type="button">🔒 Hold skjermen våken</button>
+        <span id="wl_status" class="small muted" style="align-self:center">Skjermlås: ukjent</span>
       </div>
     </section>
 
-    <!-- STATUS -->
+    <!-- SERVICE (klikkbar) -->
+    <section id="service" class="card" style="display:none">
+      <h2 class="title">Service</h2>
+      <p>Huk av og lagre etter runden:</p>
+      <label><input type="checkbox" class="svc"> Skjær smurt</label><br>
+      <label><input type="checkbox" class="svc"> Fres smurt</label><br>
+      <label><input type="checkbox" class="svc"> Forstilling smurt</label><br>
+      <label><input type="checkbox" class="svc"> Oljenivå sjekket foran</label><br>
+      <label><input type="checkbox" class="svc"> Oljenivå sjekket bak</label><br>
+      <label><input type="checkbox" class="svc"> Etterfylt olje</label><br>
+      <label><input type="checkbox" class="svc"> Fylt diesel</label><br>
+      <label><input type="checkbox" class="svc"> Annet</label><br><br>
+      <textarea id="svc_note" rows="4" style="width:100%" placeholder="Notater…"></textarea><br>
+      <button id="svc_save" class="btn btn-lg">💾 Lagre service</button>
+    </section>
+
+    <!-- STATUS (fungerende) -->
     <section id="status" class="card" style="display:none">
       <h2 class="title">Status</h2>
-      <p>Se status i din gjeldende versjon. (Ingen endring i denne filen for statuslogikk.)</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px">
+        <button id="st_reload" class="btn">⟳ Oppdater</button>
+        <select id="st_filter" class="btn" style="padding:8px 10px">
+          <option value="alle">Vis: Alle</option>
+          <option value="ikke">Ikke påbegynt</option>
+          <option value="pågår">Pågår</option>
+          <option value="ferdig">Ferdig</option>
+          <option value="hoppet">Hoppet over</option>
+          <option value="umulig">Ikke mulig</option>
+          <option value="uhell">Uhell</option>
+        </select>
+        <span id="st_summary" class="small muted">—</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl" id="st_table">
+          <thead>
+            <tr><th>#</th><th>Adresse</th><th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th></tr>
+          </thead>
+          <tbody id="st_tbody"></tbody>
+        </table>
+      </div>
     </section>
 
-    <!-- ADMIN (uendret) -->
+    <!-- ADMIN (rediger + flytt opp/ned + lagre) -->
     <section id="admin" class="card" style="display:none">
       <h2 class="title">Admin – Adresse-liste</h2>
 
@@ -166,16 +189,14 @@
   </main>
 
   <script>
-    /* Ruter */
+    /* ===== Ruter ===== */
     function showPage(id){
       document.querySelectorAll('main section').forEach(s=>s.style.display='none');
       const el=document.getElementById(id); if(el) el.style.display='block';
       document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
       const b=document.getElementById('nav-'+id); if(b) b.classList.add('active');
       location.hash='#'+id;
-
-      if(id==='work' && window.WakeLock){ window.WakeLock.autoEnable(); } // auto slå på i Under arbeid
-      if(id!=='work' && window.WakeLock){ window.WakeLock.release(); }   // slå av ellers
+      if(id==='status') loadStatus();
     }
     window.addEventListener('hashchange',()=>{
       const id=(location.hash||'#home').replace('#','');
@@ -185,6 +206,7 @@
       const id=(location.hash||'#home').replace('#','');
       showPage(document.getElementById(id)?id:'home');
 
+      // Last preferanser til Hjem
       try{
         const p=JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}');
         if(p.driver) document.getElementById('a_driver').value=p.driver;
@@ -198,55 +220,196 @@
       }catch{}
     });
 
-    /* Enkel “Under arbeid”-state (samme som din nåværende logikk) */
-    const S={dir:'Normal',addresses:[],idx:0,driver:'driver',autoNav:false,cloud:null};
-    function nextIndex(i,d){return d==='Motsatt'?i-1:i+1;}
-    function mapsUrlFor(a){const q=a?.name||'';return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+', Norge');}
+    /* ===== App-state ===== */
+    const S={
+      dir:'Normal', addresses:[], idx:0, driver:'driver', autoNav:false,
+      cloud:null
+    };
+    const STATE_LABEL={
+      not_started:'Ikke påbegynt', in_progress:'Pågår', done:'Ferdig',
+      skipped:'Hoppet over', blocked:'Ikke mulig', accident:'Uhell'
+    };
+    const fmtTime=(t)=>!t?'—':new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
+
+    /* ===== JSONBin helpers (via del-A.js) ===== */
+    async function refreshCloud(){ S.cloud=await JSONBIN.getLatest(); if(!S.cloud.status) S.cloud.status={}; }
+    async function saveCloud(){ S.cloud.updated=Date.now(); S.cloud.by=S.driver||'driver'; await JSONBIN.putRecord(S.cloud); }
+    function setStatusFor(name,patch){ if(!S.cloud.status) S.cloud.status={}; const cur=S.cloud.status[name]||{}; S.cloud.status[name]={...cur,...patch}; }
+
+    /* ===== UI ===== */
+    function nextIndex(i,d){ return d==='Motsatt' ? i-1 : i+1; }
+    function mapsUrlFor(a){ const q=a?.name||''; return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+', Norge'); }
+
+    function updateProgressBars(){
+      const total=S.addresses.length||1;
+      let me=0, other=0;
+      if(S.cloud?.status){
+        for(const k in S.cloud.status){
+          const st=S.cloud.status[k]; if(st.state==='done'){
+            if(st.driver===S.driver) me++; else other++;
+          }
+        }
+      }
+      document.getElementById('b_prog_me').style.width   = Math.min(100,Math.round(100*me/total))+'%';
+      document.getElementById('b_prog_other').style.width= Math.min(100,Math.round(100*other/total))+'%';
+    }
+
     function uiSetWork(){
       const now=S.addresses[S.idx]||null;
       const next=S.addresses[nextIndex(S.idx,S.dir)]||null;
-      document.getElementById('b_now').textContent=now?(now.name||'–'):'–';
-      document.getElementById('b_next').textContent=next?(next.name||'–'):'–';
+      document.getElementById('b_now').textContent = now?(now.name||'–'):'–';
+      document.getElementById('b_next').textContent= next?(next.name||'–'):'–';
+      const st = (S.cloud?.status && now?.name && S.cloud.status[now.name]?.state) || 'not_started';
+      document.getElementById('b_status').textContent = STATE_LABEL[st] || '—';
+      updateProgressBars();
     }
 
-    document.getElementById('a_start').addEventListener('click',async()=>{
-      const prefs={
-        driver:document.getElementById('a_driver').value.trim()||'driver',
-        dir:document.getElementById('a_dir').value,
-        eq:{
-          plow:document.getElementById('a_eq_plow').checked,
-          fres:document.getElementById('a_eq_fres').checked,
-          sand:document.getElementById('a_eq_sand').checked
-        },
-        autoNav:document.getElementById('a_autoNav').checked
-      };
-      localStorage.setItem('BROYT_PREFS',JSON.stringify(prefs));
-      S.dir=prefs.dir; S.driver=prefs.driver; S.autoNav=prefs.autoNav;
+    /* ===== Hjem → Start runde ===== */
+    document.getElementById('a_start').addEventListener('click', async ()=>{
+      try{
+        const prefs={
+          driver:document.getElementById('a_driver').value.trim()||'driver',
+          dir:document.getElementById('a_dir').value,
+          eq:{
+            plow:document.getElementById('a_eq_plow').checked,
+            fres:document.getElementById('a_eq_fres').checked,
+            sand:document.getElementById('a_eq_sand').checked
+          },
+          autoNav:document.getElementById('a_autoNav').checked
+        };
+        localStorage.setItem('BROYT_PREFS',JSON.stringify(prefs));
+        S.driver=prefs.driver; S.dir=prefs.dir; S.autoNav=prefs.autoNav;
 
-      await JSONBIN.checkConfigOrWarn();
-      const cloud=await JSONBIN.getLatest();
-      S.cloud=cloud;
-      const arr=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))
-        ? cloud.snapshot.addresses
-        : (Array.isArray(cloud?.addresses)?cloud.addresses:[]);
-      S.addresses=(arr||[]).filter(a=>a.active!==false);
-
-      S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
-      uiSetWork();
-      showPage('work');
+        await JSONBIN.checkConfigOrWarn();
+        await refreshCloud();
+        const arr=(S.cloud?.snapshot?.addresses && Array.isArray(S.cloud.snapshot.addresses))
+          ? S.cloud.snapshot.addresses
+          : (Array.isArray(S.cloud?.addresses)?S.cloud.addresses:[]);
+        S.addresses=(arr||[]).filter(a=>a.active!==false);
+        S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
+        uiSetWork();
+        showPage('work');
+      }catch(e){ alert('Start-feil: '+e.message); }
     });
+
+    /* ===== Handling-knapper ===== */
+    document.getElementById('act_start').addEventListener('click', async ()=>{
+      try{
+        await refreshCloud(); const cur=S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name,{state:'in_progress',startedAt:Date.now(),driver:S.driver});
+        await saveCloud(); uiSetWork();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+    document.getElementById('act_skip').addEventListener('click', async ()=>{
+      try{
+        await refreshCloud(); const cur=S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name,{state:'skipped',finishedAt:Date.now(),driver:S.driver});
+        await saveCloud(); uiSetWork(); goNextMaybeNav();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+    document.getElementById('act_block').addEventListener('click', async ()=>{
+      try{
+        const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||'';
+        await refreshCloud(); const cur=S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name,{state:'blocked',finishedAt:Date.now(),driver:S.driver,note:reason});
+        await saveCloud(); uiSetWork(); goNextMaybeNav();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+    document.getElementById('act_acc').addEventListener('click', async ()=>{
+      try{
+        const note=prompt('Beskriv uhell (valgfritt)','')||'';
+        await refreshCloud(); const cur=S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name,{state:'accident',finishedAt:Date.now(),driver:S.driver,note});
+        await saveCloud(); uiSetWork(); goNextMaybeNav();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+    document.getElementById('act_done').addEventListener('click', async ()=>{
+      try{
+        await refreshCloud(); const cur=S.addresses[S.idx]; if(!cur) return;
+        setStatusFor(cur.name,{state:'done',finishedAt:Date.now(),driver:S.driver});
+        await saveCloud(); uiSetWork(); goNextMaybeNav();
+      }catch(e){ alert('Feil: '+e.message); }
+    });
+
+    function goNextMaybeNav(){
+      const ni=nextIndex(S.idx,S.dir);
+      if(ni>=0 && ni<S.addresses.length){
+        S.idx=ni; uiSetWork();
+        if(S.autoNav){ const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFor(target),'_blank'); }
+      }else{
+        // Ferdig runde → til Service
+        showPage('service');
+      }
+    }
 
     document.getElementById('b_nav_top').addEventListener('click',()=>{
       const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFor(target),'_blank');
     });
-    document.getElementById('act_done').addEventListener('click',()=>{
-      const ni=nextIndex(S.idx,S.dir);
-      if(ni>=0 && ni<S.addresses.length){
-        S.idx=ni; uiSetWork();
-        const p=JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}');
-        if(p.autoNav){ const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFor(target),'_blank'); }
-      }
+
+    /* ===== Wake Lock (hold skjerm våken) ===== */
+    let wlSentinel=null;
+    function wlSupported(){ return 'wakeLock' in navigator && typeof navigator.wakeLock.request==='function'; }
+    async function wlAcquire(){
+      if(!wlSupported()) { setWl('Ikke støttet'); return; }
+      try{
+        wlSentinel = await navigator.wakeLock.request('screen');
+        setWl('Aktiv – skjermen holder seg på'); updateWlBtn(true);
+        wlSentinel.addEventListener('release',()=>{ setWl('Av – skjermen kan slukke'); updateWlBtn(false); });
+      }catch(e){ setWl('Feil: '+(e.name||e.message)); updateWlBtn(false); }
+    }
+    async function wlRelease(){ try{ if(wlSentinel){ await wlSentinel.release(); wlSentinel=null; setWl('Av – skjermen kan slukke'); updateWlBtn(false);} }catch{} }
+    function setWl(t){ const el=document.getElementById('wl_status'); if(el) el.textContent='Skjermlås: '+t; }
+    function updateWlBtn(active){ const b=document.getElementById('wl_toggle'); if(!b) return; b.textContent = active?'🔓 Slå av skjerm-lås':'🔒 Hold skjermen våken'; }
+    document.getElementById('wl_toggle').addEventListener('click',()=>{ wlSentinel?wlRelease():wlAcquire(); });
+    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && wlSentinel){ wlAcquire(); } });
+
+    /* ===== STATUS ===== */
+    function makeRow(i,name,s){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${i+1}</td><td>${name}</td><td>${STATE_LABEL[s?.state||'not_started']}</td><td>${fmtTime(s?.startedAt)}</td><td>${fmtTime(s?.finishedAt)}</td><td>${s?.driver||'—'}</td>`;
+      return tr;
+    }
+    async function loadStatus(){
+      try{
+        const cloud=await JSONBIN.getLatest();
+        const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
+        const addrs=(raw||[]).filter(a=>a.active!==false);
+        const status=cloud?.status||{};
+        const filter=document.getElementById('st_filter').value;
+        const tbody=document.getElementById('st_tbody'); tbody.innerHTML='';
+
+        let cnt={tot:addrs.length,not:0,prog:0,done:0,skip:0,blk:0,acc:0};
+        addrs.forEach((a,i)=>{
+          const s=status[a.name]||{state:'not_started'};
+          if(s.state==='not_started')cnt.not++; else if(s.state==='in_progress')cnt.prog++; else if(s.state==='done')cnt.done++;
+          else if(s.state==='skipped')cnt.skip++; else if(s.state==='blocked')cnt.blk++; else if(s.state==='accident')cnt.acc++;
+          let ok=true;
+          if(filter==='ikke'  && s.state!=='not_started') ok=false;
+          if(filter==='pågår' && s.state!=='in_progress') ok=false;
+          if(filter==='ferdig'&& s.state!=='done') ok=false;
+          if(filter==='hoppet'&& s.state!=='skipped') ok=false;
+          if(filter==='umulig'&& s.state!=='blocked') ok=false;
+          if(filter==='uhell' && s.state!=='accident') ok=false;
+          if(ok) tbody.appendChild(makeRow(i,a.name,s));
+        });
+        document.getElementById('st_summary').textContent =
+          `${cnt.tot} adresser • Ikke påbegynt ${cnt.not} • Pågår ${cnt.prog} • Ferdig ${cnt.done} • Hoppet ${cnt.skip} • Ikke mulig ${cnt.blk} • Uhell ${cnt.acc}`;
+      }catch(e){ alert('Status-feil: '+e.message); }
+    }
+    document.getElementById('st_reload').addEventListener('click', loadStatus);
+    document.getElementById('st_filter').addEventListener('change', loadStatus);
+
+    /* ===== PWA hint ===== */
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt',(e)=>{
+      e.preventDefault(); deferredPrompt=e;
+      const btn=document.getElementById('installPrompt');
+      if(btn){ btn.style.display='block'; btn.onclick=async()=>{ btn.style.display='none'; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; }; }
     });
+    if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
+      const hint=document.getElementById('installPrompt');
+      if(hint){ hint.innerHTML="📲 Trykk <strong>Del</strong> → <strong>Legg til på Hjem-skjerm</strong>"; hint.style.display='block'; }
+    }
   </script>
 </body>
 </html>
