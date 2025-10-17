@@ -16,34 +16,53 @@
   <link rel="stylesheet" href="./del-B.css">
   <script defer src="./del-A.js"></script>
   <script defer src="./del-E.js"></script>
-
-  <style>
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0a0f1c;color:#e6edf3}
-    nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;border-bottom:1px solid #2b3445;background:#0a0f1c;position:sticky;top:0;z-index:5}
-    nav button{border-radius:10px;padding:8px 14px;font-size:16px;border:1px solid #3b465a;background:#182233;color:#f0f4f8}
-    nav button.active{background:#1e3a8a;border-color:#60a5fa}
-    main{max-width:980px;margin:auto;padding:12px}
-    .card{background:#0b1220;border:1px solid #2b3445;border-radius:14px;padding:16px;margin:12px 0}
-    @media(prefers-color-scheme:light){
-      body{background:#fafafa;color:#111}
-      nav{background:#fff;border-bottom-color:#e5e7eb}
-      nav button{background:#e9eef6;color:#111;border-color:#cfd8e3}
-      nav button.active{background:#007aff;border-color:#007aff;color:#fff}
-      .card{background:#fff;border-color:#e5e7eb}
-    }
-  </style>
 </head>
 <body>
-  <nav>
-    <button id="nav-home"  onclick="showPage('home')">Hjem</button>
-    <button id="nav-work"  onclick="showPage('work')">Under arbeid</button>
-    <button id="nav-service" onclick="showPage('service')">Service</button>
-    <button id="nav-status" onclick="showPage('status')">Status</button>
-    <button id="nav-admin"  onclick="showPage('admin')">Admin</button>
-    <span style="margin-left:auto;font-size:12px;opacity:.7">v10.1a</span>
-  </nav>
 
-  <main>
+  <!-- Appbar -->
+  <header class="appbar">
+    <button id="btnMenu" class="icon-btn" aria-label="Meny" title="Meny">☰</button>
+    <div class="appbar-title">Brøyterute</div>
+    <div class="appbar-ver">v10.1c</div>
+  </header>
+
+  <!-- Drawer (hamburger) -->
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="drawer-title">Meny</div>
+      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">✕</button>
+    </div>
+
+    <nav class="drawer-nav">
+      <button data-go="home"    class="drawer-link">🏠 Hjem</button>
+      <button data-go="work"    class="drawer-link">🛠️ Under arbeid</button>
+      <button data-go="service" class="drawer-link">🔧 Service</button>
+      <button data-go="status"  class="drawer-link">📊 Status</button>
+      <button data-go="admin"   class="drawer-link">⚙️ Admin</button>
+    </nav>
+
+    <div class="drawer-sep"></div>
+
+    <div class="drawer-quick">
+      <div class="drawer-subtitle">Hurtig</div>
+      <button id="qk_grus"   class="drawer-link">🚚 Hent grus</button>
+      <button id="qk_diesel" class="drawer-link">⛽ Fyll diesel</button>
+      <button id="qk_base"   class="drawer-link">🏠 Kjør til base</button>
+    </div>
+
+    <div class="drawer-sep"></div>
+
+    <div class="drawer-quick">
+      <div class="drawer-subtitle">Skjerm</div>
+      <button id="qk_wl" class="drawer-link">🔒 Hold skjermen våken</button>
+      <div id="qk_wl_status" class="drawer-note">Status: ukjent</div>
+    </div>
+
+    <div class="drawer-safe-bottom"></div>
+  </aside>
+  <div id="scrim" class="scrim" aria-hidden="true"></div>
+
+  <main class="content">
     <!-- HJEM -->
     <section id="home" class="card">
       <h2 class="title">Hjem</h2>
@@ -76,7 +95,7 @@
       <div class="install-hint" id="installPrompt">📲 Installer Brøyterute på Hjem-skjerm</div>
     </section>
 
-    <!-- UNDER ARBEID -->
+    <!-- UNDER ARBEID (uten brøytestikker-elementer) -->
     <section id="work" class="card" style="display:none">
       <h2 class="title">Under arbeid</h2>
 
@@ -109,18 +128,6 @@
       </div>
 
       <p id="b_status" class="status muted" style="margin-top:8px">Ikke påbegynt</p>
-
-      <div class="row stack-sm" style="gap:10px;margin-top:12px">
-        <button id="b_nav_top" class="btn btn-primary btn-lg" type="button">🧭 NAVIGER</button>
-        <button id="wl_toggle" class="btn" type="button">🔒 Hold skjermen våken</button>
-        <span id="wl_status" class="small muted" style="align-self:center">Skjermlås: ukjent</span>
-      </div>
-
-      <div class="dock">
-        <button id="dock_grus"   class="btn dock-btn" type="button">🚚 Hent grus</button>
-        <button id="dock_diesel" class="btn dock-btn" type="button">⛽ Fyll diesel</button>
-        <button id="dock_base"   class="btn dock-btn" type="button">🏠 Kjør til base</button>
-      </div>
     </section>
 
     <!-- SERVICE -->
@@ -140,7 +147,7 @@
       <span id="svc_msg" class="small muted" style="margin-left:8px"></span>
     </section>
 
-    <!-- STATUS + RAPPORT -->
+    <!-- STATUS (viser stikker + lås) -->
     <section id="status" class="card" style="display:none">
       <h2 class="title">Status</h2>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px">
@@ -158,6 +165,10 @@
           <option value="umulig">Ikke mulig</option>
           <option value="uhell">Uhell</option>
         </select>
+
+        <span class="pill" id="st_season_badge">Sesong: –</span>
+        <button id="st_lock_toggle" class="btn btn-ghost">🔓 Lås stikker (sesong)</button>
+
         <button id="st_reset_all" class="btn btn-warn">🧼 Nullstill denne runden</button>
         <button id="st_reset_mine" class="btn btn-ghost">🧼 Nullstill kun mine</button>
         <span id="st_summary" class="small muted">—</span>
@@ -166,7 +177,7 @@
       <div class="table-wrap">
         <table class="tbl" id="st_table">
           <thead>
-          <tr><th>#</th><th>Adresse</th><th>Oppgave</th><th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th><th>Uhell</th></tr>
+          <tr><th>#</th><th>Adresse</th><th>Oppgave</th><th id="th_stakes">Stikker (sesong)</th><th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th><th>Uhell</th></tr>
           </thead>
           <tbody id="st_tbody"></tbody>
         </table>
@@ -182,7 +193,7 @@
       </div>
     </section>
 
-    <!-- ADMIN -->
+    <!-- ADMIN (renderes i del-E.js – inkluderer feltet "Stikker (sesong)" per adresse og "Sesong-etikett" i Innstillinger) -->
     <section id="admin" class="card" style="display:none">
       <h2 class="title">Admin</h2>
 
@@ -198,11 +209,12 @@
       </div>
 
       <div class="card">
-        <h3 style="margin-top:0">Innstillinger – destinasjoner (koordinater)</h3>
+        <h3 style="margin-top:0">Innstillinger – destinasjoner & sesong</h3>
         <div class="inline-edit">
           <label>Grusdepot (lat,lon): <input id="st_grus" type="text" placeholder="60.2527264,11.1687230"></label>
           <label>Diesel (lat,lon): <input id="st_diesel" type="text" placeholder="60.2523185,11.1899926"></label>
           <label>Base (lat,lon): <input id="st_base" type="text" placeholder="60.2664414,11.2208819"></label>
+          <label>Sesong-etikett: <input id="st_season" type="text" class="short" placeholder="2025–26"></label>
         </div>
         <div class="row" style="gap:8px;margin-top:8px">
           <button id="st_save_settings" class="btn btn-primary">💾 Lagre innstillinger</button>
@@ -217,7 +229,7 @@
       </div>
 
       <div class="small muted" style="margin-bottom:8px">
-        Rediger <em>navn</em>, <em>gruppe</em>, avkrysning for <em>Snø</em> og <em>Grus</em>, <em>koordinater</em> (lat/lon), <em>Aktiv</em>. Flytt opp/ned.
+        Rediger <em>navn</em>, <em>gruppe</em>, <em>Snø</em>/<em>Grus</em>, <em>koordinater</em>, <em>Stikker (sesong)</em>, <em>Aktiv</em>. Flytt opp/ned.
       </div>
 
       <ul id="adm_list" class="sort-list" aria-label="Adresse-rekkefølge og redigering"></ul>
@@ -225,12 +237,22 @@
   </main>
 
   <script>
+    /* ===== Drawer ===== */
+    const drawer = document.getElementById('drawer');
+    const scrim  = document.getElementById('scrim');
+    const openDrawer = ()=>{ drawer.classList.add('open'); scrim.classList.add('show'); drawer.setAttribute('aria-hidden','false'); };
+    const closeDrawer= ()=>{ drawer.classList.remove('open'); scrim.classList.remove('show'); drawer.setAttribute('aria-hidden','true'); };
+    document.getElementById('btnMenu').addEventListener('click', openDrawer);
+    document.getElementById('btnCloseDrawer').addEventListener('click', closeDrawer);
+    scrim.addEventListener('click', closeDrawer);
+    drawer.querySelectorAll('.drawer-link[data-go]').forEach(b=>{
+      b.addEventListener('click', ()=>{ showPage(b.getAttribute('data-go')); closeDrawer(); });
+    });
+
     /* ===== Ruter ===== */
     function showPage(id){
       document.querySelectorAll('main section').forEach(s=>s.style.display='none');
       const el=document.getElementById(id); if(el) el.style.display='block';
-      document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-      const b=document.getElementById('nav-'+id); if(b) b.classList.add('active');
       location.hash='#'+id;
       if(id==='status'){ document.getElementById('rp_date').textContent=new Date().toLocaleDateString('no-NO'); loadStatus(); }
       if(id==='admin'){ loadSettingsToAdmin(); }
@@ -256,22 +278,16 @@
     });
 
     /* ===== App-state ===== */
-    const S={
-      dir:'Normal', addresses:[], idx:0, driver:'driver', autoNav:false,
-      mode:'snow', // 'snow' eller 'grit' (avledes fra utstyr)
-      cloud:null
-    };
+    const S={ dir:'Normal', addresses:[], idx:0, driver:'driver', autoNav:false, mode:'snow', cloud:null };
     const STATE_LABEL={ not_started:'Ikke påbegynt', in_progress:'Pågår', done:'Ferdig', skipped:'Hoppet over', blocked:'Ikke mulig', accident:'Uhell' };
     const fmtTime=(t)=>!t?'—':new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
     const fmtDate=()=>new Date().toLocaleDateString('no-NO');
 
-    /* ===== JSONBin helpers (via del-A.js) ===== */
+    /* ===== JSONBin helpers (del-A.js) ===== */
     async function refreshCloud(){ 
       S.cloud=await JSONBIN.getLatest(); 
-      if(!S.cloud.statusSnow && S.cloud.status){ S.cloud.statusSnow=S.cloud.status; delete S.cloud.status; } // migrer gammel status
-      if(!S.cloud.statusSnow) S.cloud.statusSnow={};
-      if(!S.cloud.statusGrit) S.cloud.statusGrit={};
-      if(!S.cloud.settings) S.cloud.settings={};
+      if(!S.cloud.statusSnow && S.cloud.status){ S.cloud.statusSnow=S.cloud.status; delete S.cloud.status; }
+      S.cloud.statusSnow ||= {}; S.cloud.statusGrit ||= {}; S.cloud.settings ||= {};
     }
     async function saveCloud(){ S.cloud.updated=Date.now(); S.cloud.by=S.driver||'driver'; await JSONBIN.putRecord(S.cloud); }
 
@@ -291,35 +307,27 @@
         await JSONBIN.checkConfigOrWarn();
         await refreshCloud();
         const arr=(S.cloud?.snapshot?.addresses && Array.isArray(S.cloud.snapshot.addresses))?S.cloud.snapshot.addresses:(Array.isArray(S.cloud?.addresses)?S.cloud.addresses:[]);
-        // ny struktur: a.flags = {snow:boolean,grit:boolean}; migrér hvis mangler
         const mapped=(arr||[]).map(a=>{
-          const snow = a.flags ? !!a.flags.snow : (a.task? true : true);
-          const grit = a.flags ? !!a.flags.grit : (a.task==='Snø og grus' || a.task==='Grus');
+          const snow=a.flags?!!a.flags.snow:(a.task?true:true);
+          const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus');
           return {...a, flags:{snow,grit}};
         }).filter(a=>a.active!==false);
 
-        // filtrer etter modus
         S.addresses = mapped.filter(a=> S.mode==='snow' ? a.flags.snow : a.flags.grit);
-
-        // sett start-indeks etter retning
         S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
-        uiSetWork();
-        showPage('work');
+        uiSetWork(); showPage('work');
       }catch(e){ alert('Start-feil: '+e.message); }
     });
 
     /* ===== UI helpers ===== */
     function nextIndex(i,d){ return d==='Motsatt'?i-1:i+1; }
     function mapsUrlFromAddr(addr){
-      // hvis koordinater
       if(addr && typeof addr.lat==='number' && typeof addr.lon==='number'){
         return `https://www.google.com/maps/dir/?api=1&destination=${addr.lat},${addr.lon}`;
       }
-      // hvis koordinater som strenger
       if(addr && addr.coords && /,/.test(addr.coords)){
         return `https://www.google.com/maps/dir/?api=1&destination=${addr.coords}`;
       }
-      // fallback navn
       const q=addr?.name||''; return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+', Norge');
     }
     function mapsUrlFromCoordsText(text){
@@ -328,9 +336,7 @@
       return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(t);
     }
     function statusStore(){ return S.mode==='snow' ? S.cloud.statusSnow : S.cloud.statusGrit; }
-    function setStatusFor(name,patch){
-      const bag = statusStore(); const cur=bag[name]||{}; bag[name]={...cur,...patch, driver:S.driver};
-    }
+    function setStatusFor(name,patch){ const bag=statusStore(); const cur=bag[name]||{}; bag[name]={...cur,...patch, driver:S.driver}; }
     function updateProgressBars(){
       const total=S.addresses.length||1; let me=0, other=0;
       const bag=statusStore();
@@ -367,8 +373,8 @@
       S.mode = (S.mode==='snow')?'grit':'snow';
       const arr=(S.cloud?.snapshot?.addresses && Array.isArray(S.cloud.snapshot.addresses))?S.cloud.snapshot.addresses:(Array.isArray(S.cloud?.addresses)?S.cloud.addresses:[]);
       const mapped=(arr||[]).map(a=>{
-        const snow = a.flags ? !!a.flags.snow : (a.task? true : true);
-        const grit = a.flags ? !!a.flags.grit : (a.task==='Snø og grus' || a.task==='Grus');
+        const snow=a.flags?!!a.flags.snow:(a.task?true:true);
+        const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus');
         return {...a, flags:{snow,grit}};
       }).filter(a=>a.active!==false);
       S.addresses = mapped.filter(a=> S.mode==='snow' ? a.flags.snow : a.flags.grit);
@@ -392,9 +398,8 @@
         }
       }
     }
-
     document.getElementById('act_start').addEventListener('click', ()=> stepState({state:'in_progress',startedAt:Date.now()}, false));
-    document.getElementById('act_skip').addEventListener('click', ()=> stepState({state:'skipped',finishedAt:Date.now()}));
+    document.getElementById('act_skip').addEventListener('click',  ()=> stepState({state:'skipped',finishedAt:Date.now()}));
     document.getElementById('act_block').addEventListener('click', async ()=>{
       const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||'';
       stepState({state:'blocked',finishedAt:Date.now(),note:reason});
@@ -404,13 +409,13 @@
       try{
         const note=prompt('Beskriv uhell (valgfritt)','')||'';
         const file=await pickImage(); let photo=null;
-        if(file) photo = await compressImage(file, 900, 0.6); // dataURL
+        if(file) photo = await compressImage(file, 900, 0.6);
         await stepState({state:'accident',finishedAt:Date.now(),note,photo});
       }catch(e){ alert('Feil uhell: '+e.message); }
     });
-    document.getElementById('act_done').addEventListener('click', ()=> stepState({state:'done',finishedAt:Date.now()}));
+    document.getElementById('act_done').addEventListener('click',  ()=> stepState({state:'done',finishedAt:Date.now()}));
 
-    /* ===== Navigasjon + hurtigknapper (med dine KOORDINATER) ===== */
+    /* ===== Hurtigknapper i menyen – faste koordinater + innstillinger ===== */
     function defaultSettingCoords(){
       return {
         grusDepot: "60.2527264,11.1687230",
@@ -418,20 +423,17 @@
         base:      "60.2664414,11.2208819"
       };
     }
-    document.getElementById('b_nav_top').addEventListener('click',()=>{
-      const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFromAddr(target),'_blank');
-    });
-    document.getElementById('dock_grus').addEventListener('click', async ()=>{
+    document.getElementById('qk_grus').addEventListener('click', async ()=>{
       await refreshCloud(); const st=S.cloud.settings||{}; const q=st.grusDepot || defaultSettingCoords().grusDepot;
-      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('grus');
+      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('grus'); closeDrawer();
     });
-    document.getElementById('dock_diesel').addEventListener('click', async ()=>{
+    document.getElementById('qk_diesel').addEventListener('click', async ()=>{
       await refreshCloud(); const st=S.cloud.settings||{}; const q=st.diesel || defaultSettingCoords().diesel;
-      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('diesel');
+      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('diesel'); closeDrawer();
     });
-    document.getElementById('dock_base').addEventListener('click', async ()=>{
+    document.getElementById('qk_base').addEventListener('click', async ()=>{
       await refreshCloud(); const st=S.cloud.settings||{}; const q=st.base || defaultSettingCoords().base;
-      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('base');
+      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('base'); closeDrawer();
     });
     async function logServiceVisit(type){
       await refreshCloud();
@@ -440,21 +442,23 @@
       await saveCloud();
     }
 
-    /* ===== Wake Lock ===== */
+    /* ===== Wake Lock i meny ===== */
     let wlSentinel=null;
+    const wlBtn    = document.getElementById('qk_wl');
+    const wlStatus = document.getElementById('qk_wl_status');
     function wlSupported(){ return 'wakeLock' in navigator && typeof navigator.wakeLock.request==='function'; }
+    function setWlTxt(t){ wlStatus.textContent='Status: '+t; }
+    function updWlBtn(active){ wlBtn.textContent = active ? '🔓 Slå av skjerm-lås' : '🔒 Hold skjermen våken'; }
     async function wlAcquire(){
-      if(!wlSupported()) { setWl('Ikke støttet'); return; }
+      if(!wlSupported()){ setWlTxt('ikke støttet'); return; }
       try{
         wlSentinel = await navigator.wakeLock.request('screen');
-        setWl('Aktiv – skjermen holder seg på'); updateWlBtn(true);
-        wlSentinel.addEventListener('release',()=>{ setWl('Av – skjermen kan slukke'); updateWlBtn(false); });
-      }catch(e){ setWl('Feil: '+(e.name||e.message)); updateWlBtn(false); }
+        setWlTxt('aktiv'); updWlBtn(true);
+        wlSentinel.addEventListener('release',()=>{ setWlTxt('av'); updWlBtn(false); });
+      }catch(e){ setWlTxt('feil: '+(e.name||e.message)); updWlBtn(false); }
     }
-    async function wlRelease(){ try{ if(wlSentinel){ await wlSentinel.release(); wlSentinel=null; setWl('Av – skjermen kan slukke'); updateWlBtn(false);} }catch{} }
-    function setWl(t){ const el=document.getElementById('wl_status'); if(el) el.textContent='Skjermlås: '+t; }
-    function updateWlBtn(active){ const b=document.getElementById('wl_toggle'); if(!b) return; b.textContent = active?'🔓 Slå av skjerm-lås':'🔒 Hold skjermen våken'; }
-    document.getElementById('wl_toggle').addEventListener('click',()=>{ wlSentinel?wlRelease():wlAcquire(); });
+    async function wlRelease(){ try{ if(wlSentinel){ await wlSentinel.release(); wlSentinel=null; setWlTxt('av'); updWlBtn(false);} }catch{} }
+    wlBtn.addEventListener('click',()=>{ wlSentinel?wlRelease():wlAcquire(); });
     document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && wlSentinel){ wlAcquire(); } });
 
     /* ===== Service lagring ===== */
@@ -474,11 +478,20 @@
       }catch(e){ alert('Service-feil: '+e.message); }
     });
 
-    /* ===== Status & Rapport ===== */
-    function makeRow(i,a,s){
+    /* ===== Status & Rapport (med stikker-kolonne + lås) ===== */
+    function makeRow(i,a,s,seasonLbl){
       const img = s?.photo ? '🖼️' : '';
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${i+1}</td><td>${a.name||''}</td><td>${(S.mode==='snow'?'Snø':'Grus')}</td><td>${STATE_LABEL[s?.state||'not_started']}</td><td>${fmtTime(s?.startedAt)}</td><td>${fmtTime(s?.finishedAt)}</td><td>${s?.driver||'—'}</td><td>${img}</td>`;
+      const stakes = (typeof a.stakes==='number' ? a.stakes : '');
+      tr.innerHTML=`<td>${i+1}</td>
+        <td>${a.name||''}</td>
+        <td>${(S.mode==='snow'?'Snø':'Grus')}</td>
+        <td>${stakes!=='' ? `${stakes} <span class="muted">(${seasonLbl||'sesong'})</span>` : ''}</td>
+        <td>${STATE_LABEL[s?.state||'not_started']}</td>
+        <td>${fmtTime(s?.startedAt)}</td>
+        <td>${fmtTime(s?.finishedAt)}</td>
+        <td>${s?.driver||'—'}</td>
+        <td>${img}</td>`;
       return tr;
     }
     function summarize(addrs,bag){
@@ -492,9 +505,8 @@
     }
     async function loadStatus(){
       try{
-        const modeSel=document.getElementById('st_mode').value; // 'snow'|'grit'
+        const modeSel=document.getElementById('st_mode').value;
         const cloud=await JSONBIN.getLatest();
-        // migrering
         if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
         const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
         const addrs=(raw||[]).map(a=>{ const snow=a.flags?!!a.flags.snow:(a.task?true:true); const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus'); return {...a,flags:{snow,grit}}; })
@@ -505,6 +517,14 @@
         const filter=document.getElementById('st_filter').value;
         const tbody=document.getElementById('st_tbody'); tbody.innerHTML='';
 
+        // Sesong & lås
+        const seasonLbl = (cloud.settings && cloud.settings.seasonLabel) || 'sesong';
+        const locked = !!(cloud.settings && cloud.settings.stakesLocked);
+        document.getElementById('st_season_badge').textContent = 'Sesong: ' + seasonLbl;
+        const lockBtn = document.getElementById('st_lock_toggle');
+        lockBtn.textContent = locked ? '🔒 Stikker låst' : '🔓 Lås stikker (sesong)';
+        lockBtn.dataset.locked = String(locked);
+
         addrs.forEach((a,i)=>{
           const s=bag[a.name]||{state:'not_started'};
           let ok=true;
@@ -514,7 +534,7 @@
           if(filter==='hoppet'&& s.state!=='skipped') ok=false;
           if(filter==='umulig'&& s.state!=='blocked') ok=false;
           if(filter==='uhell' && s.state!=='accident') ok=false;
-          if(ok) tbody.appendChild(makeRow(i,a,s));
+          if(ok) tbody.appendChild(makeRow(i,a,s,seasonLbl));
         });
 
         const c=summarize(addrs,bag);
@@ -527,7 +547,18 @@
     document.getElementById('st_filter').addEventListener('change', loadStatus);
     document.getElementById('st_mode').addEventListener('change', loadStatus);
 
-    // Nullstilling per modus
+    // Toggle lås for stikker (sesong)
+    document.getElementById('st_lock_toggle').addEventListener('click', async ()=>{
+      try{
+        await refreshCloud();
+        const current = !!(S.cloud.settings && S.cloud.settings.stakesLocked);
+        S.cloud.settings ||= {};
+        S.cloud.settings.stakesLocked = !current;
+        await saveCloud();
+        loadStatus();
+      }catch(e){ alert('Kunne ikke oppdatere lås: '+e.message); }
+    });
+
     async function resetRoundAll(){
       await refreshCloud();
       const bag=statusStore();
@@ -547,7 +578,6 @@
       if(confirm('Nullstille kun dine punkter i denne runden?')) await resetRoundMine();
     });
 
-    // Rapport
     document.getElementById('rp_print').addEventListener('click', ()=>{ window.print(); });
     document.getElementById('rp_csv').addEventListener('click', async ()=>{
       try{
@@ -560,10 +590,22 @@
           .filter(a=> modeSel==='snow'? a.flags.snow : a.flags.grit);
 
         const bag = (modeSel==='snow') ? (cloud.statusSnow||{}) : (cloud.statusGrit||{});
-        const rows=[['#','Adresse','Oppgave','Status','Start','Ferdig','Utført av','Notat']];
+        const seasonLbl = (cloud.settings && cloud.settings.seasonLabel) || 'sesong';
+
+        const rows=[['#','Adresse','Oppgave','Stikker ('+seasonLbl+')','Status','Start','Ferdig','Utført av','Notat']];
         addrs.forEach((a,i)=>{
           const s=bag[a.name]||{};
-          rows.push([String(i+1), a.name||'', (modeSel==='snow'?'Snø':'Grus'), STATE_LABEL[s.state||'not_started'], fmtTime(s.startedAt), fmtTime(s.finishedAt), s.driver||'', (s.note||'').replace(/\s+/g,' ').trim()]);
+          rows.push([
+            String(i+1),
+            a.name||'',
+            (modeSel==='snow'?'Snø':'Grus'),
+            typeof a.stakes==='number' ? String(a.stakes) : '',
+            STATE_LABEL[s.state||'not_started'],
+            fmtTime(s.startedAt),
+            fmtTime(s.finishedAt),
+            s.driver||'',
+            (s.note||'').replace(/\s+/g,' ').trim()
+          ]);
         });
         const csv=`Brøyterapport,${fmtDate()},${(modeSel==='snow'?'Snø':'Grus')}\n`+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
         const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob);
@@ -572,20 +614,44 @@
       }catch(e){ alert('CSV-feil: '+e.message); }
     });
 
-    /* ===== Admin – last/lagre innstillinger ===== */
+    /* ===== Admin nøkkel/innstillinger ===== */
+    document.getElementById('adm_key_save').addEventListener('click', ()=>{
+      const ok = JSONBIN.setKey(document.getElementById('adm_key').value||'');
+      document.getElementById('adm_key_status').textContent = ok?'Lagret nøkkel.':'Ugyldig nøkkel.';
+    });
+    document.getElementById('adm_key_clear').addEventListener('click', ()=>{
+      JSONBIN.clearKey(); document.getElementById('adm_key_status').textContent='Nøkkel fjernet.';
+    });
+
     async function loadSettingsToAdmin(){
       try{
         await refreshCloud();
-        const st={...defaultSettingCoords(), ...(S.cloud.settings||{})};
-        document.getElementById('st_grus').value  = st.grusDepot||'';
-        document.getElementById('st_diesel').value= st.diesel||'';
-        document.getElementById('st_base').value  = st.base||'';
+        const st={grusDepot:"60.2527264,11.1687230", diesel:"60.2523185,11.1899926", base:"60.2664414,11.2208819", seasonLabel:"2025–26", ...(S.cloud.settings||{})};
+        document.getElementById('st_grus').value   = st.grusDepot||'';
+        document.getElementById('st_diesel').value = st.diesel||'';
+        document.getElementById('st_base').value   = st.base||'';
+        document.getElementById('st_season').value = st.seasonLabel||'';
       }catch{}
     }
+    document.getElementById('st_save_settings').addEventListener('click', async ()=>{
+      try{
+        await refreshCloud();
+        S.cloud.settings = {
+          ...(S.cloud.settings||{}),
+          grusDepot:(document.getElementById('st_grus').value||'').trim(),
+          diesel:(document.getElementById('st_diesel').value||'').trim(),
+          base:(document.getElementById('st_base').value||'').trim(),
+          seasonLabel:(document.getElementById('st_season').value||'').trim()
+        };
+        await saveCloud();
+        document.getElementById('st_settings_msg').textContent='Lagret.';
+        setTimeout(()=>document.getElementById('st_settings_msg').textContent='',1000);
+      }catch(e){ alert('Feil ved lagring av innstillinger: '+e.message); }
+    });
 
-    /* ===== Bildeverktøy (uhell) ===== */
+    /* ===== Bildekomprimering til uhell ===== */
     function pickImage(){
-      return new Promise((resolve,reject)=>{
+      return new Promise((resolve)=>{
         const inp=document.createElement('input');
         inp.type='file'; inp.accept='image/*'; inp.capture='environment';
         inp.onchange=()=> resolve(inp.files&&inp.files[0]?inp.files[0]:null);
