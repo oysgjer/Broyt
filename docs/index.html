@@ -1,4 +1,3 @@
-<!-- docs/index.html -->
 <!DOCTYPE html>
 <html lang="no">
 <head>
@@ -14,8 +13,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <link rel="stylesheet" href="./del-B.css">
-  <script defer src="./del-A.js"></script>
-  <script defer src="./del-E.js"></script>
 </head>
 <body>
 
@@ -23,16 +20,15 @@
   <header class="appbar">
     <button id="btnMenu" class="icon-btn" aria-label="Meny" title="Meny">☰</button>
     <div class="appbar-title">Brøyterute</div>
-    <div class="appbar-ver">v10.1c</div>
+    <div class="appbar-ver">v10.1d</div>
   </header>
 
-  <!-- Drawer (hamburger) -->
+  <!-- Drawer -->
   <aside id="drawer" class="drawer" aria-hidden="true">
     <div class="drawer-header">
       <div class="drawer-title">Meny</div>
       <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">✕</button>
     </div>
-
     <nav class="drawer-nav">
       <button data-go="home"    class="drawer-link">🏠 Hjem</button>
       <button data-go="work"    class="drawer-link">🛠️ Under arbeid</button>
@@ -40,24 +36,19 @@
       <button data-go="status"  class="drawer-link">📊 Status</button>
       <button data-go="admin"   class="drawer-link">⚙️ Admin</button>
     </nav>
-
     <div class="drawer-sep"></div>
-
     <div class="drawer-quick">
       <div class="drawer-subtitle">Hurtig</div>
       <button id="qk_grus"   class="drawer-link">🚚 Hent grus</button>
       <button id="qk_diesel" class="drawer-link">⛽ Fyll diesel</button>
       <button id="qk_base"   class="drawer-link">🏠 Kjør til base</button>
     </div>
-
     <div class="drawer-sep"></div>
-
     <div class="drawer-quick">
       <div class="drawer-subtitle">Skjerm</div>
       <button id="qk_wl" class="drawer-link">🔒 Hold skjermen våken</button>
       <div id="qk_wl_status" class="drawer-note">Status: ukjent</div>
     </div>
-
     <div class="drawer-safe-bottom"></div>
   </aside>
   <div id="scrim" class="scrim" aria-hidden="true"></div>
@@ -95,7 +86,7 @@
       <div class="install-hint" id="installPrompt">📲 Installer Brøyterute på Hjem-skjerm</div>
     </section>
 
-    <!-- UNDER ARBEID (uten brøytestikker-elementer) -->
+    <!-- UNDER ARBEID -->
     <section id="work" class="card" style="display:none">
       <h2 class="title">Under arbeid</h2>
 
@@ -147,7 +138,7 @@
       <span id="svc_msg" class="small muted" style="margin-left:8px"></span>
     </section>
 
-    <!-- STATUS (viser stikker + lås) -->
+    <!-- STATUS (med Stikker + lås) -->
     <section id="status" class="card" style="display:none">
       <h2 class="title">Status</h2>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px">
@@ -177,13 +168,16 @@
       <div class="table-wrap">
         <table class="tbl" id="st_table">
           <thead>
-          <tr><th>#</th><th>Adresse</th><th>Oppgave</th><th id="th_stakes">Stikker (sesong)</th><th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th><th>Uhell</th></tr>
+          <tr>
+            <th>#</th><th>Adresse</th><th>Oppgave</th>
+            <th id="th_stakes">Stikker (sesong)</th>
+            <th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th><th>Uhell</th>
+          </tr>
           </thead>
           <tbody id="st_tbody"></tbody>
         </table>
       </div>
-
-      <div class="card" style="margin-top:12px">
+            <div class="card" style="margin-top:12px">
         <h3 style="margin-top:0">Brøyterapport</h3>
         <div class="row" style="gap:8px;flex-wrap:wrap">
           <button id="rp_print" class="btn">🖨️ Skriv ut / PDF</button>
@@ -193,7 +187,7 @@
       </div>
     </section>
 
-    <!-- ADMIN (renderes i del-E.js – inkluderer feltet "Stikker (sesong)" per adresse og "Sesong-etikett" i Innstillinger) -->
+    <!-- ADMIN -->
     <section id="admin" class="card" style="display:none">
       <h2 class="title">Admin</h2>
 
@@ -211,468 +205,21 @@
       <div class="card">
         <h3 style="margin-top:0">Innstillinger – destinasjoner & sesong</h3>
         <div class="inline-edit">
-          <label>Grusdepot (lat,lon): <input id="st_grus" type="text" placeholder="60.2527264,11.1687230"></label>
-          <label>Diesel (lat,lon): <input id="st_diesel" type="text" placeholder="60.2523185,11.1899926"></label>
-          <label>Base (lat,lon): <input id="st_base" type="text" placeholder="60.2664414,11.2208819"></label>
-          <label>Sesong-etikett: <input id="st_season" type="text" class="short" placeholder="2025–26"></label>
-        </div>
-        <div class="row" style="gap:8px;margin-top:8px">
-          <button id="st_save_settings" class="btn btn-primary">💾 Lagre innstillinger</button>
-          <span id="st_settings_msg" class="small muted">—</span>
+          <label>Grusdepot (lat,lon): <input id="adm_grus" placeholder="60.2527264,11.1687230"></label><br>
+          <label>Diesel (lat,lon): <input id="adm_diesel" placeholder="60.2523185,11.1899926"></label><br>
+          <label>Base (lat,lon): <input id="adm_base" placeholder="60.2664414,11.2208819"></label><br>
+          <label>Brøytestikker (sesong): <input id="adm_stakes" placeholder="Antall stikker"></label>
+          <button id="adm_stakes_lock" class="btn btn-ghost">🔒 Lås antall</button>
         </div>
       </div>
-
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin:10px 0 8px">
-        <button id="adm_reload" class="btn">⟳ Hent adresser</button>
-        <button id="adm_save" class="btn btn-primary">💾 Lagre adresser</button>
-        <span id="adm_status" class="small muted">—</span>
-      </div>
-
-      <div class="small muted" style="margin-bottom:8px">
-        Rediger <em>navn</em>, <em>gruppe</em>, <em>Snø</em>/<em>Grus</em>, <em>koordinater</em>, <em>Stikker (sesong)</em>, <em>Aktiv</em>. Flytt opp/ned.
-      </div>
-
-      <ul id="adm_list" class="sort-list" aria-label="Adresse-rekkefølge og redigering"></ul>
     </section>
   </main>
 
-  <script>
-    /* ===== Drawer ===== */
-    const drawer = document.getElementById('drawer');
-    const scrim  = document.getElementById('scrim');
-    const openDrawer = ()=>{ drawer.classList.add('open'); scrim.classList.add('show'); drawer.setAttribute('aria-hidden','false'); };
-    const closeDrawer= ()=>{ drawer.classList.remove('open'); scrim.classList.remove('show'); drawer.setAttribute('aria-hidden','true'); };
-    document.getElementById('btnMenu').addEventListener('click', openDrawer);
-    document.getElementById('btnCloseDrawer').addEventListener('click', closeDrawer);
-    scrim.addEventListener('click', closeDrawer);
-    drawer.querySelectorAll('.drawer-link[data-go]').forEach(b=>{
-      b.addEventListener('click', ()=>{ showPage(b.getAttribute('data-go')); closeDrawer(); });
-    });
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p>v10.1d – Romerike Trefelling</p>
+  </footer>
 
-    /* ===== Ruter ===== */
-    function showPage(id){
-      document.querySelectorAll('main section').forEach(s=>s.style.display='none');
-      const el=document.getElementById(id); if(el) el.style.display='block';
-      location.hash='#'+id;
-      if(id==='status'){ document.getElementById('rp_date').textContent=new Date().toLocaleDateString('no-NO'); loadStatus(); }
-      if(id==='admin'){ loadSettingsToAdmin(); }
-    }
-    window.addEventListener('hashchange',()=>{
-      const id=(location.hash||'#home').replace('#','');
-      showPage(document.getElementById(id)?id:'home');
-    });
-    window.addEventListener('DOMContentLoaded',()=>{
-      const id=(location.hash||'#home').replace('#','');
-      showPage(document.getElementById(id)?id:'home');
-      try{
-        const p=JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}');
-        if(p.driver) document.getElementById('a_driver').value=p.driver;
-        if(p.dir)    document.getElementById('a_dir').value=p.dir;
-        if(p.eq){
-          document.getElementById('a_eq_plow').checked=!!p.eq.plow;
-          document.getElementById('a_eq_fres').checked=!!p.eq.fres;
-          document.getElementById('a_eq_sand').checked=!!p.eq.sand;
-        }
-        if(typeof p.autoNav==='boolean') document.getElementById('a_autoNav').checked=p.autoNav;
-      }catch{}
-    });
-
-    /* ===== App-state ===== */
-    const S={ dir:'Normal', addresses:[], idx:0, driver:'driver', autoNav:false, mode:'snow', cloud:null };
-    const STATE_LABEL={ not_started:'Ikke påbegynt', in_progress:'Pågår', done:'Ferdig', skipped:'Hoppet over', blocked:'Ikke mulig', accident:'Uhell' };
-    const fmtTime=(t)=>!t?'—':new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
-    const fmtDate=()=>new Date().toLocaleDateString('no-NO');
-
-    /* ===== JSONBin helpers (del-A.js) ===== */
-    async function refreshCloud(){ 
-      S.cloud=await JSONBIN.getLatest(); 
-      if(!S.cloud.statusSnow && S.cloud.status){ S.cloud.statusSnow=S.cloud.status; delete S.cloud.status; }
-      S.cloud.statusSnow ||= {}; S.cloud.statusGrit ||= {}; S.cloud.settings ||= {};
-    }
-    async function saveCloud(){ S.cloud.updated=Date.now(); S.cloud.by=S.driver||'driver'; await JSONBIN.putRecord(S.cloud); }
-
-    /* ===== Hjem → Start runde ===== */
-    document.getElementById('a_start').addEventListener('click', async ()=>{
-      try{
-        const prefs={
-          driver:document.getElementById('a_driver').value.trim()||'driver',
-          dir:document.getElementById('a_dir').value,
-          eq:{ plow:document.getElementById('a_eq_plow').checked, fres:document.getElementById('a_eq_fres').checked, sand:document.getElementById('a_eq_sand').checked },
-          autoNav:document.getElementById('a_autoNav').checked
-        };
-        localStorage.setItem('BROYT_PREFS',JSON.stringify(prefs));
-        S.driver=prefs.driver; S.dir=prefs.dir; S.autoNav=prefs.autoNav;
-        S.mode = prefs.eq.sand ? 'grit' : 'snow';
-
-        await JSONBIN.checkConfigOrWarn();
-        await refreshCloud();
-        const arr=(S.cloud?.snapshot?.addresses && Array.isArray(S.cloud.snapshot.addresses))?S.cloud.snapshot.addresses:(Array.isArray(S.cloud?.addresses)?S.cloud.addresses:[]);
-        const mapped=(arr||[]).map(a=>{
-          const snow=a.flags?!!a.flags.snow:(a.task?true:true);
-          const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus');
-          return {...a, flags:{snow,grit}};
-        }).filter(a=>a.active!==false);
-
-        S.addresses = mapped.filter(a=> S.mode==='snow' ? a.flags.snow : a.flags.grit);
-        S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
-        uiSetWork(); showPage('work');
-      }catch(e){ alert('Start-feil: '+e.message); }
-    });
-
-    /* ===== UI helpers ===== */
-    function nextIndex(i,d){ return d==='Motsatt'?i-1:i+1; }
-    function mapsUrlFromAddr(addr){
-      if(addr && typeof addr.lat==='number' && typeof addr.lon==='number'){
-        return `https://www.google.com/maps/dir/?api=1&destination=${addr.lat},${addr.lon}`;
-      }
-      if(addr && addr.coords && /,/.test(addr.coords)){
-        return `https://www.google.com/maps/dir/?api=1&destination=${addr.coords}`;
-      }
-      const q=addr?.name||''; return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+', Norge');
-    }
-    function mapsUrlFromCoordsText(text){
-      const t=(text||'').trim();
-      if(/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(t)){ return `https://www.google.com/maps/dir/?api=1&destination=${t}`; }
-      return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(t);
-    }
-    function statusStore(){ return S.mode==='snow' ? S.cloud.statusSnow : S.cloud.statusGrit; }
-    function setStatusFor(name,patch){ const bag=statusStore(); const cur=bag[name]||{}; bag[name]={...cur,...patch, driver:S.driver}; }
-    function updateProgressBars(){
-      const total=S.addresses.length||1; let me=0, other=0;
-      const bag=statusStore();
-      for(const k in bag){ const st=bag[k]; if(st.state==='done'){ if(st.driver===S.driver) me++; else other++; } }
-      document.getElementById('b_prog_me').style.width   = Math.min(100,Math.round(100*me/total))+'%';
-      document.getElementById('b_prog_other').style.width= Math.min(100,Math.round(100*other/total))+'%';
-    }
-    function allDone(){
-      if(!S.addresses.length) return false;
-      const bag=statusStore(); return S.addresses.every(a => (bag[a.name]?.state==='done'));
-    }
-    function maybeShowAllDoneDialog(){
-      if(!allDone()) return;
-      const modeTxt = S.mode==='snow' ? 'Snø' : 'Grus';
-      const go=confirm(`Alt er utført for ${modeTxt}-runden 🎉\n\nOK = Gå til Service\nAvbryt = Flere valg`);
-      if(go){ showPage('service'); return; }
-      const choice=prompt('Velg: skriv 1 for "Bytt til andre runde", 2 for "Nullstill denne runden", annen tast for å ignorere','1');
-      if(choice==='1'){ toggleModeAndReload(); }
-      else if(choice==='2'){ if(confirm('Sikker? Nullstiller status i denne runden.')) resetRoundAll(); }
-    }
-    function uiSetWork(){
-      const now=S.addresses[S.idx]||null;
-      const next=S.addresses[nextIndex(S.idx,S.dir)]||null;
-      document.getElementById('b_now').textContent = now?(now.name||'–'):'–';
-      document.getElementById('b_next').textContent= next?(next.name||'–'):'–';
-      document.getElementById('b_dir').textContent = S.dir;
-      document.getElementById('b_task').textContent= (S.mode==='snow')?'Snø':'Grus';
-      const bag=statusStore();
-      const st = (now?.name && bag[now.name]?.state) || 'not_started';
-      document.getElementById('b_status').textContent = STATE_LABEL[st] || '—';
-      updateProgressBars();
-    }
-    function toggleModeAndReload(){
-      S.mode = (S.mode==='snow')?'grit':'snow';
-      const arr=(S.cloud?.snapshot?.addresses && Array.isArray(S.cloud.snapshot.addresses))?S.cloud.snapshot.addresses:(Array.isArray(S.cloud?.addresses)?S.cloud.addresses:[]);
-      const mapped=(arr||[]).map(a=>{
-        const snow=a.flags?!!a.flags.snow:(a.task?true:true);
-        const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus');
-        return {...a, flags:{snow,grit}};
-      }).filter(a=>a.active!==false);
-      S.addresses = mapped.filter(a=> S.mode==='snow' ? a.flags.snow : a.flags.grit);
-      S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
-      uiSetWork(); showPage('work');
-    }
-
-    /* ===== Handling-knapper ===== */
-    async function stepState(patch,nextAfter=true){
-      await refreshCloud(); const cur=S.addresses[S.idx]; if(!cur) return;
-      setStatusFor(cur.name,{...patch});
-      await saveCloud(); uiSetWork();
-      if(allDone()){ maybeShowAllDoneDialog(); return; }
-      if(nextAfter){
-        const ni=nextIndex(S.idx,S.dir);
-        if(ni>=0 && ni<S.addresses.length){
-          S.idx=ni; uiSetWork();
-          if(S.autoNav){ const t=S.addresses[S.idx]; if(t) window.open(mapsUrlFromAddr(t),'_blank'); }
-        }else{
-          showPage('service');
-        }
-      }
-    }
-    document.getElementById('act_start').addEventListener('click', ()=> stepState({state:'in_progress',startedAt:Date.now()}, false));
-    document.getElementById('act_skip').addEventListener('click',  ()=> stepState({state:'skipped',finishedAt:Date.now()}));
-    document.getElementById('act_block').addEventListener('click', async ()=>{
-      const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||'';
-      stepState({state:'blocked',finishedAt:Date.now(),note:reason});
-    });
-    // Uhell: tekst + bilde
-    document.getElementById('act_acc').addEventListener('click', async ()=>{
-      try{
-        const note=prompt('Beskriv uhell (valgfritt)','')||'';
-        const file=await pickImage(); let photo=null;
-        if(file) photo = await compressImage(file, 900, 0.6);
-        await stepState({state:'accident',finishedAt:Date.now(),note,photo});
-      }catch(e){ alert('Feil uhell: '+e.message); }
-    });
-    document.getElementById('act_done').addEventListener('click',  ()=> stepState({state:'done',finishedAt:Date.now()}));
-
-    /* ===== Hurtigknapper i menyen – faste koordinater + innstillinger ===== */
-    function defaultSettingCoords(){
-      return {
-        grusDepot: "60.2527264,11.1687230",
-        diesel:    "60.2523185,11.1899926",
-        base:      "60.2664414,11.2208819"
-      };
-    }
-    document.getElementById('qk_grus').addEventListener('click', async ()=>{
-      await refreshCloud(); const st=S.cloud.settings||{}; const q=st.grusDepot || defaultSettingCoords().grusDepot;
-      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('grus'); closeDrawer();
-    });
-    document.getElementById('qk_diesel').addEventListener('click', async ()=>{
-      await refreshCloud(); const st=S.cloud.settings||{}; const q=st.diesel || defaultSettingCoords().diesel;
-      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('diesel'); closeDrawer();
-    });
-    document.getElementById('qk_base').addEventListener('click', async ()=>{
-      await refreshCloud(); const st=S.cloud.settings||{}; const q=st.base || defaultSettingCoords().base;
-      window.open(mapsUrlFromCoordsText(q),'_blank'); logServiceVisit('base'); closeDrawer();
-    });
-    async function logServiceVisit(type){
-      await refreshCloud();
-      if(!Array.isArray(S.cloud.serviceLogs)) S.cloud.serviceLogs=[];
-      S.cloud.serviceLogs.push({ts:Date.now(),driver:S.driver,type,kind:'visit'});
-      await saveCloud();
-    }
-
-    /* ===== Wake Lock i meny ===== */
-    let wlSentinel=null;
-    const wlBtn    = document.getElementById('qk_wl');
-    const wlStatus = document.getElementById('qk_wl_status');
-    function wlSupported(){ return 'wakeLock' in navigator && typeof navigator.wakeLock.request==='function'; }
-    function setWlTxt(t){ wlStatus.textContent='Status: '+t; }
-    function updWlBtn(active){ wlBtn.textContent = active ? '🔓 Slå av skjerm-lås' : '🔒 Hold skjermen våken'; }
-    async function wlAcquire(){
-      if(!wlSupported()){ setWlTxt('ikke støttet'); return; }
-      try{
-        wlSentinel = await navigator.wakeLock.request('screen');
-        setWlTxt('aktiv'); updWlBtn(true);
-        wlSentinel.addEventListener('release',()=>{ setWlTxt('av'); updWlBtn(false); });
-      }catch(e){ setWlTxt('feil: '+(e.name||e.message)); updWlBtn(false); }
-    }
-    async function wlRelease(){ try{ if(wlSentinel){ await wlSentinel.release(); wlSentinel=null; setWlTxt('av'); updWlBtn(false);} }catch{} }
-    wlBtn.addEventListener('click',()=>{ wlSentinel?wlRelease():wlAcquire(); });
-    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && wlSentinel){ wlAcquire(); } });
-
-    /* ===== Service lagring ===== */
-    document.getElementById('svc_save').addEventListener('click', async ()=>{
-      try{
-        await refreshCloud();
-        const checks={};
-        document.querySelectorAll('#service .svc').forEach(ch=>{
-          checks[ch.getAttribute('data-key')] = ch.checked;
-        });
-        const note=document.getElementById('svc_note').value||'';
-        if(!Array.isArray(S.cloud.serviceLogs)) S.cloud.serviceLogs=[];
-        S.cloud.serviceLogs.push({ts:Date.now(),driver:S.driver,checks,note,kind:'service',roundMode:S.mode});
-        await saveCloud();
-        document.getElementById('svc_msg').textContent='Service lagret ✅';
-        setTimeout(()=>{ document.getElementById('svc_msg').textContent=''; showPage('home'); }, 900);
-      }catch(e){ alert('Service-feil: '+e.message); }
-    });
-
-    /* ===== Status & Rapport (med stikker-kolonne + lås) ===== */
-    function makeRow(i,a,s,seasonLbl){
-      const img = s?.photo ? '🖼️' : '';
-      const tr=document.createElement('tr');
-      const stakes = (typeof a.stakes==='number' ? a.stakes : '');
-      tr.innerHTML=`<td>${i+1}</td>
-        <td>${a.name||''}</td>
-        <td>${(S.mode==='snow'?'Snø':'Grus')}</td>
-        <td>${stakes!=='' ? `${stakes} <span class="muted">(${seasonLbl||'sesong'})</span>` : ''}</td>
-        <td>${STATE_LABEL[s?.state||'not_started']}</td>
-        <td>${fmtTime(s?.startedAt)}</td>
-        <td>${fmtTime(s?.finishedAt)}</td>
-        <td>${s?.driver||'—'}</td>
-        <td>${img}</td>`;
-      return tr;
-    }
-    function summarize(addrs,bag){
-      let cnt={tot:addrs.length,not:0,prog:0,done:0,skip:0,blk:0,acc:0};
-      addrs.forEach(a=>{
-        const st=(bag[a.name]||{state:'not_started'}).state;
-        if(st==='not_started')cnt.not++; else if(st==='in_progress')cnt.prog++; else if(st==='done')cnt.done++;
-        else if(st==='skipped')cnt.skip++; else if(st==='blocked')cnt.blk++; else if(st==='accident')cnt.acc++;
-      });
-      return cnt;
-    }
-    async function loadStatus(){
-      try{
-        const modeSel=document.getElementById('st_mode').value;
-        const cloud=await JSONBIN.getLatest();
-        if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
-        const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
-        const addrs=(raw||[]).map(a=>{ const snow=a.flags?!!a.flags.snow:(a.task?true:true); const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus'); return {...a,flags:{snow,grit}}; })
-          .filter(a=>a.active!==false)
-          .filter(a=> modeSel==='snow'? a.flags.snow : a.flags.grit);
-
-        const bag = (modeSel==='snow') ? (cloud.statusSnow||{}) : (cloud.statusGrit||{});
-        const filter=document.getElementById('st_filter').value;
-        const tbody=document.getElementById('st_tbody'); tbody.innerHTML='';
-
-        // Sesong & lås
-        const seasonLbl = (cloud.settings && cloud.settings.seasonLabel) || 'sesong';
-        const locked = !!(cloud.settings && cloud.settings.stakesLocked);
-        document.getElementById('st_season_badge').textContent = 'Sesong: ' + seasonLbl;
-        const lockBtn = document.getElementById('st_lock_toggle');
-        lockBtn.textContent = locked ? '🔒 Stikker låst' : '🔓 Lås stikker (sesong)';
-        lockBtn.dataset.locked = String(locked);
-
-        addrs.forEach((a,i)=>{
-          const s=bag[a.name]||{state:'not_started'};
-          let ok=true;
-          if(filter==='ikke'  && s.state!=='not_started') ok=false;
-          if(filter==='pågår' && s.state!=='in_progress') ok=false;
-          if(filter==='ferdig'&& s.state!=='done') ok=false;
-          if(filter==='hoppet'&& s.state!=='skipped') ok=false;
-          if(filter==='umulig'&& s.state!=='blocked') ok=false;
-          if(filter==='uhell' && s.state!=='accident') ok=false;
-          if(ok) tbody.appendChild(makeRow(i,a,s,seasonLbl));
-        });
-
-        const c=summarize(addrs,bag);
-        const label = (modeSel==='snow')?'Snø':'Grus';
-        document.getElementById('st_summary').textContent =
-          `${label}-runde: ${c.tot} adresser • Ikke påbegynt ${c.not} • Pågår ${c.prog} • Ferdig ${c.done} • Hoppet ${c.skip} • Ikke mulig ${c.blk} • Uhell ${c.acc}`;
-      }catch(e){ alert('Status-feil: '+e.message); }
-    }
-    document.getElementById('st_reload').addEventListener('click', loadStatus);
-    document.getElementById('st_filter').addEventListener('change', loadStatus);
-    document.getElementById('st_mode').addEventListener('change', loadStatus);
-
-    // Toggle lås for stikker (sesong)
-    document.getElementById('st_lock_toggle').addEventListener('click', async ()=>{
-      try{
-        await refreshCloud();
-        const current = !!(S.cloud.settings && S.cloud.settings.stakesLocked);
-        S.cloud.settings ||= {};
-        S.cloud.settings.stakesLocked = !current;
-        await saveCloud();
-        loadStatus();
-      }catch(e){ alert('Kunne ikke oppdatere lås: '+e.message); }
-    });
-
-    async function resetRoundAll(){
-      await refreshCloud();
-      const bag=statusStore();
-      S.addresses.forEach(a=>{ bag[a.name]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null}; });
-      await saveCloud(); loadStatus(); uiSetWork();
-    }
-    async function resetRoundMine(){
-      await refreshCloud();
-      const bag=statusStore();
-      for(const k in bag){ if(bag[k]?.driver===S.driver){ bag[k]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null}; } }
-      await saveCloud(); loadStatus(); uiSetWork();
-    }
-    document.getElementById('st_reset_all').addEventListener('click', async ()=>{
-      if(confirm('Nullstille denne runden for alle?')) await resetRoundAll();
-    });
-    document.getElementById('st_reset_mine').addEventListener('click', async ()=>{
-      if(confirm('Nullstille kun dine punkter i denne runden?')) await resetRoundMine();
-    });
-
-    document.getElementById('rp_print').addEventListener('click', ()=>{ window.print(); });
-    document.getElementById('rp_csv').addEventListener('click', async ()=>{
-      try{
-        const modeSel=document.getElementById('st_mode').value;
-        const cloud=await JSONBIN.getLatest();
-        if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
-        const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
-        const addrs=(raw||[]).map(a=>{ const snow=a.flags?!!a.flags.snow:(a.task?true:true); const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus'); return {...a,flags:{snow,grit}}; })
-          .filter(a=>a.active!==false)
-          .filter(a=> modeSel==='snow'? a.flags.snow : a.flags.grit);
-
-        const bag = (modeSel==='snow') ? (cloud.statusSnow||{}) : (cloud.statusGrit||{});
-        const seasonLbl = (cloud.settings && cloud.settings.seasonLabel) || 'sesong';
-
-        const rows=[['#','Adresse','Oppgave','Stikker ('+seasonLbl+')','Status','Start','Ferdig','Utført av','Notat']];
-        addrs.forEach((a,i)=>{
-          const s=bag[a.name]||{};
-          rows.push([
-            String(i+1),
-            a.name||'',
-            (modeSel==='snow'?'Snø':'Grus'),
-            typeof a.stakes==='number' ? String(a.stakes) : '',
-            STATE_LABEL[s.state||'not_started'],
-            fmtTime(s.startedAt),
-            fmtTime(s.finishedAt),
-            s.driver||'',
-            (s.note||'').replace(/\s+/g,' ').trim()
-          ]);
-        });
-        const csv=`Brøyterapport,${fmtDate()},${(modeSel==='snow'?'Snø':'Grus')}\n`+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
-        const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob);
-        const a=document.createElement('a'); a.href=url; a.download=`Broeyterapport_${fmtDate()}_${(modeSel==='snow'?'Sno':'Grus')}.csv`; document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(url);
-      }catch(e){ alert('CSV-feil: '+e.message); }
-    });
-
-    /* ===== Admin nøkkel/innstillinger ===== */
-    document.getElementById('adm_key_save').addEventListener('click', ()=>{
-      const ok = JSONBIN.setKey(document.getElementById('adm_key').value||'');
-      document.getElementById('adm_key_status').textContent = ok?'Lagret nøkkel.':'Ugyldig nøkkel.';
-    });
-    document.getElementById('adm_key_clear').addEventListener('click', ()=>{
-      JSONBIN.clearKey(); document.getElementById('adm_key_status').textContent='Nøkkel fjernet.';
-    });
-
-    async function loadSettingsToAdmin(){
-      try{
-        await refreshCloud();
-        const st={grusDepot:"60.2527264,11.1687230", diesel:"60.2523185,11.1899926", base:"60.2664414,11.2208819", seasonLabel:"2025–26", ...(S.cloud.settings||{})};
-        document.getElementById('st_grus').value   = st.grusDepot||'';
-        document.getElementById('st_diesel').value = st.diesel||'';
-        document.getElementById('st_base').value   = st.base||'';
-        document.getElementById('st_season').value = st.seasonLabel||'';
-      }catch{}
-    }
-    document.getElementById('st_save_settings').addEventListener('click', async ()=>{
-      try{
-        await refreshCloud();
-        S.cloud.settings = {
-          ...(S.cloud.settings||{}),
-          grusDepot:(document.getElementById('st_grus').value||'').trim(),
-          diesel:(document.getElementById('st_diesel').value||'').trim(),
-          base:(document.getElementById('st_base').value||'').trim(),
-          seasonLabel:(document.getElementById('st_season').value||'').trim()
-        };
-        await saveCloud();
-        document.getElementById('st_settings_msg').textContent='Lagret.';
-        setTimeout(()=>document.getElementById('st_settings_msg').textContent='',1000);
-      }catch(e){ alert('Feil ved lagring av innstillinger: '+e.message); }
-    });
-
-    /* ===== Bildekomprimering til uhell ===== */
-    function pickImage(){
-      return new Promise((resolve)=>{
-        const inp=document.createElement('input');
-        inp.type='file'; inp.accept='image/*'; inp.capture='environment';
-        inp.onchange=()=> resolve(inp.files&&inp.files[0]?inp.files[0]:null);
-        inp.click();
-        setTimeout(()=>resolve(null), 15000);
-      });
-    }
-    function compressImage(file, maxW=1000, quality=0.7){
-      return new Promise((resolve,reject)=>{
-        const fr=new FileReader();
-        fr.onload=()=>{ const img=new Image(); img.onload=()=>{
-          const scale=maxW/Math.max(img.width, img.height);
-          const w = img.width>=img.height ? maxW : Math.round(img.width*scale);
-          const h = img.width>=img.height ? Math.round(img.height*scale) : maxW;
-          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-          const ctx=cv.getContext('2d'); ctx.drawImage(img,0,0,w,h);
-          resolve(cv.toDataURL('image/jpeg', quality));
-        }; img.src=fr.result; };
-        fr.onerror=reject; fr.readAsDataURL(file);
-      });
-    }
-  </script>
+  <script src="./del-D.js"></script>
 </body>
 </html>
