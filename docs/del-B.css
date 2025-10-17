@@ -1,9 +1,11 @@
-/* docs/del-B.css – v10.1c (samme stil, ingen stikker-elementer i Work) */
+/* docs/del-B.css – v10.1c-fix */
 
 :root{
   --bg:#0a0f1c; --card:#0b1220; --line:#2b3445; --text:#e6edf3;
   --btn:#182233; --btn-line:#3b465a; --primary:#1d4ed8; --primary-line:#2563eb;
   --ok:#166534; --ok-line:#22c55e; --warn:#7c2d12; --muted:#94a3b8;
+  --chip:#1e293b;            /* ← chip/pill dark */
+  --chip-text:#e6edf3;
   --bar-me:#22c55e; --bar-other:#a855f7;
 }
 
@@ -49,8 +51,12 @@ h2.title{margin-top:0;font-size:1.3rem;font-weight:700}
 .btn-warn{background:var(--warn);border-color:#ef4444;color:#fff}
 .btn-affirm{background:var(--ok);border-color:var(--ok-line);color:#fff}
 .btn-ghost{background:var(--bg);border-color:#334155;color:#f1f5f9}
+.btn:disabled{opacity:.6;filter:grayscale(.15)}
+
 .row{display:flex;gap:8px;align-items:center}
-.pill{background:#1e293b;border-radius:8px;padding:6px 10px;font-size:13px;color:var(--text)}
+
+.pill{background:var(--chip);color:var(--chip-text);border-radius:8px;padding:6px 10px;font-size:13px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
 
 .progress-all{position:relative;height:14px;background:#1e293b;border-radius:8px;overflow:hidden;margin:8px 0 12px}
 .bar{position:absolute;top:0;bottom:0}
@@ -65,7 +71,6 @@ h2.title{margin-top:0;font-size:1.3rem;font-weight:700}
 .now .lbl,.next .lbl{font-size:13px;color:#94a3b8;text-transform:uppercase;letter-spacing:.03em}
 .now-val{font-size:26px;font-weight:800;letter-spacing:.2px;word-break:break-word}
 .next-val{font-size:18px;font-weight:600;opacity:.95;word-break:break-word}
-.pills{display:flex;flex-wrap:wrap;gap:6px}
 
 .actions-grid{display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:10px;margin-top:10px}
 @media(min-width:700px){.actions-grid{grid-template-columns:repeat(3,minmax(140px,1fr))}}
@@ -88,6 +93,7 @@ h2.title{margin-top:0;font-size:1.3rem;font-weight:700}
 .inline-edit .short{width:120px}
 .inline-edit label{white-space:nowrap}
 
+/* ——— PRINT ——— */
 @media print{
   .appbar,.drawer,.scrim,#admin,#home,#service { display:none !important; }
   #status { display:block !important; border:none; }
@@ -95,11 +101,18 @@ h2.title{margin-top:0;font-size:1.3rem;font-weight:700}
   .card { border:none; }
 }
 
-@media(prefers-color-scheme:light){
-  :root{ --bg:#fafafa; --card:#ffffff; --line:#e5e7eb; --text:#111; --btn:#e9eef6; --btn-line:#cfd8e3; }
+/* ——— LIGHT MODE FIX (iOS) ——— */
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#fafafa; --card:#ffffff; --line:#e5e7eb; --text:#111;
+    --btn:#e9eef6; --btn-line:#cfd8e3;
+    --chip:#eef2f7;          /* ← lyse chips */
+    --chip-text:#111;
+  }
   .tbl th{background:#e2e8f0;color:#111}
   .tbl td{border-color:#e2e8f0}
   .now-wide{background:#f8fafc;border-color:#cbd5e1}
   .item-row .meta{color:#4b5563;opacity:1}
   .inline-edit input[type="text"]{background:#ffffff;color:#111;border-color:#d1d5db}
+  .btn-ghost{background:#fff;color:#111;border-color:#cbd5e1}
 }
