@@ -1,48 +1,131 @@
-/* Under arbeid – høy kontrast, mobilvennlig */
-:root { --b:#334155; --m:#9fb0c0; }
+/* ==== Brøyterute – del-B.css (v9.12i) ==== */
 
-.work-wrap{padding:16px}
-.title{margin:0; font-size:24px}
+/* --- grunnleggende layout --- */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #0a0f1c;
+  color: #e6edf3;
+  line-height: 1.4;
+}
 
-.pills{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
-.pill{font-size:14px; padding:6px 12px; border-radius:999px; background:#0f172a; color:#e5e7eb; border:1px solid #334155}
+.card {
+  background: #0b1220;
+  border: 1px solid #2b3445;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 12px 0;
+}
 
-.btn{font-size:18px; padding:12px 16px; border-radius:12px; background:#121a28; color:#f9fafb; border:1px solid #3b465a}
-.btn-ghost{background:transparent; border:1px dashed #3b465a; color:#e5e7eb}
-.btn-lg{font-size:20px; padding:16px 18px; border-radius:14px}
-.btn-wide{width:48%}
-.btn-primary{background:#1e3a8a; border-color:#60a5fa}
-.btn-affirm{background:#065f46; border-color:#10b981}
-.btn-warn{background:#7c2d12; border-color:#f59e0b}
+h2.title {
+  margin-top: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
 
-.progress-all{height:14px; border-radius:10px; background:#0b1220; margin:14px 0; position:relative; overflow:hidden; box-shadow:inset 0 0 0 1px #1f2937}
-.bar{position:absolute; left:0; top:0; bottom:0}
-.bar-me{background:#10b981}
-.bar-other{background:#7c3aed; opacity:.7}
+.muted { opacity: 0.7; }
+.small { font-size: 0.85rem; }
 
-.hint{margin:6px 0 12px; color:var(--m)}
-.card-big{border:1px solid #334155; border-radius:16px; padding:16px; background:#0b1220}
-.card-head{display:flex; justify-content:space-between; align-items:center}
-.addr{margin:0 0 6px; font-size:22px}
+/* --- knappestiler --- */
+.btn {
+  display: inline-block;
+  border: 1px solid #3b465a;
+  background: #182233;
+  color: #f0f4f8;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.btn:hover { background:#1e293b; }
+.btn:active { transform:scale(.97); }
 
-.now-next{display:flex; gap:12px; margin:10px 0 14px}
-.now-next .lbl{font-size:13px; color:#94a3b8}
-.now-next .val{font-size:18px}
-.now,.next{flex:1; border:1px dashed #334155; border-radius:12px; padding:10px 12px; background:#0a1422}
+.btn-lg   { font-size:18px; padding:10px 18px; }
+.btn-wide { width:48%; font-size:17px; }
 
-.stikker-line{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px}
-.times{margin-top:10px; font-size:14px}
-.hide-on-idle{display:none}
+.btn-primary { background:#1d4ed8; border-color:#2563eb; color:#fff; }
+.btn-warn    { background:#7c2d12; border-color:#ef4444; color:#fff; }
+.btn-affirm  { background:#166534; border-color:#22c55e; color:#fff; }
+.btn-ghost   { background:#0a0f1c; border-color:#334155; color:#f1f5f9; }
 
-.actions-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px}
-.actions-grid .btn-lg:nth-child(5){grid-column:1 / span 2}
+/* --- progresjon barer --- */
+.progress-all {
+  position: relative;
+  height: 10px;
+  background: #1e293b;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0 12px;
+}
+.bar { position:absolute; top:0; bottom:0; }
+.bar-me { left:0; background:#22c55e; }
+.bar-other { right:0; background:#a855f7; }
 
-.status{margin-top:10px; min-height:20px; color:#cbd5e1}
-.work-foot{display:flex; justify-content:space-between; gap:12px; margin-top:16px}
+/* --- nå/neste seksjon --- */
+.now-stack { display:flex; flex-direction:column; gap:12px; margin:10px 0 16px; }
+.now-wide  { width:100%; border:1px dashed #334155; border-radius:14px; padding:12px; background:#0a1422; }
+
+.now-head, .next-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.now-icon { font-size:22px; line-height:1; }
+.next-icon{ font-size:18px; line-height:1; opacity:.9; }
+.now .lbl, .next .lbl { font-size:13px; color:#94a3b8; text-transform:uppercase; letter-spacing:.03em; }
+
+.now-val  { font-size:24px; font-weight:800; letter-spacing:.2px; }
+.next-val { font-size:17px; font-weight:600; opacity:.95; }
 
 @media (max-width:420px){
-  .btn{font-size:17px; padding:12px 14px}
-  .btn-lg{font-size:19px; padding:14px 16px}
-  .addr{font-size:21px}
-  .now-next .val{font-size:17px}
+  .now-val{ font-size:26px; }
+  .next-val{ font-size:18px; }
+}
+
+/* --- handlinger --- */
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.work-foot {
+  display:flex;
+  justify-content:space-between;
+  margin-top:14px;
+}
+
+/* --- pills / kontrollpanel --- */
+.pills {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.pill {
+  background:#1e293b;
+  border-radius:8px;
+  padding:3px 8px;
+  font-size:13px;
+}
+
+/* --- tabell på status --- */
+.table-wrap { overflow-x:auto; }
+.tbl { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+.tbl th, .tbl td { border-bottom:1px solid #334155; padding:6px 8px; text-align:left; }
+.tbl th { background:#0f172a; color:#e2e8f0; font-weight:600; }
+
+/* --- lysmodus --- */
+@media (prefers-color-scheme: light) {
+  body { background:#fafafa; color:#111; }
+  .card { background:#fff; border-color:#e5e7eb; }
+  .btn { background:#e9eef6; color:#111; border-color:#cbd5e1; }
+  .btn:hover { background:#dbeafe; }
+  .btn-primary { background:#2563eb; color:#fff; border-color:#2563eb; }
+  .btn-warn { background:#dc2626; }
+  .btn-affirm { background:#16a34a; }
+  .progress-all { background:#e5e7eb; }
+  .bar-me { background:#16a34a; }
+  .bar-other { background:#9333ea; }
+  .now-wide { background:#f8fafc; border-color:#cbd5e1; }
+  .tbl th { background:#e2e8f0; color:#111; }
+  .tbl td { border-color:#e2e8f0; }
 }
