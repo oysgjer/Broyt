@@ -1,10 +1,10 @@
 // docs/del-A.js
-/* del-A.js — konfig + JSONBin helpers + nøkkelbanner (v9.12j) */
+/* del-A.js — konfig + JSONBin helpers + nøkkelbanner (v9.12m) */
 (function () {
   const APP_CFG = {
     API_BASE: "https://api.jsonbin.io/v3/",
-    BIN_ID:   "68e7b4d2ae596e708f0bde7d",   // <-- sett din BIN-ID her (24 hex)
-    APP_VER:  "9.12j"
+    BIN_ID:   "68e7b4d2ae596e708f0bde7d",   // <-- din BIN-ID (24 hex)
+    APP_VER:  "9.12m"
   };
   window.APP_CFG = APP_CFG;
 
@@ -16,6 +16,7 @@
   function setKey(v){ if(!v||v.trim().length<10) return false; localStorage.setItem(LS_KEY,v.trim()); return true; }
   function clearKey(){ localStorage.removeItem(LS_KEY); }
 
+  /* Nøkkel-banner */
   function ensureBanner(){
     if(document.getElementById("key-banner")) return;
     const css = `
@@ -67,8 +68,6 @@
   async function getLatest(){ const r=await apiFetch(`b/${APP_CFG.BIN_ID}/latest`); const j=await r.json(); return j&&j.record?j.record:j; }
   async function putRecord(rec){ const r=await apiFetch(`b/${APP_CFG.BIN_ID}`,{method:"PUT",body:JSON.stringify(rec)}); return await r.json(); }
 
-  window.APP_CFG = APP_CFG;
   window.JSONBIN = { getKey,setKey,clearKey, apiFetch, getLatest, putRecord, checkConfigOrWarn };
-
   window.addEventListener("DOMContentLoaded", ()=>{ checkConfigOrWarn(); });
 })();
