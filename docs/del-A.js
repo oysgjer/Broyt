@@ -1,10 +1,10 @@
 // docs/del-A.js
-/* del-A.js — konfig + JSONBin helpers + nøkkelbanner (v10.0a) */
+/* del-A.js — konfig + JSONBin helpers + nøkkelbanner (v10.1a) */
 (function () {
   const APP_CFG = {
     API_BASE: "https://api.jsonbin.io/v3/",
     BIN_ID:   "68e7b4d2ae596e708f0bde7d",   // <-- din BIN-ID (24 hex)
-    APP_VER:  "10.0a"
+    APP_VER:  "10.1a"
   };
   window.APP_CFG = APP_CFG;
 
