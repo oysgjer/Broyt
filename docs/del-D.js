@@ -1,5 +1,7 @@
-/* del-D.js – v10.1e  (autoseed adresser hvis tomt)
-   - Alt fra v10.1d + SEED av adresser første gang (fra listen din)
+/* del-D.js – v10.1f
+   - Alt som i v10.1e
+   - + Admin: innebygd "Sky-oppsett (JSONBin/Proxy)"-kort (GET/PUT-URLer)
+   - Fortsatt auto-seed av adresser hvis tomt
 */
 
 const $ = (s,root=document)=>root.querySelector(s);
@@ -45,8 +47,7 @@ const STATE_LABEL={not_started:'Ikke påbegynt',in_progress:'Pågår',done:'Ferd
 
 /* =============== Wake Lock =============== */
 (function(){
-  let wl=null;
-  const btn=$('#qk_wl'), st=$('#qk_wl_status'); if(!btn) return;
+  let wl=null; const btn=$('#qk_wl'), st=$('#qk_wl_status'); if(!btn) return;
   const supported=()=>('wakeLock' in navigator && typeof navigator.wakeLock.request==='function');
   const setS=t=>st&&(st.textContent='Status: '+t);
   const setB=a=>btn.textContent=a?'🔓 Slå av skjerm-lås':'🔒 Hold skjermen våken';
@@ -65,8 +66,17 @@ const JSONBIN={
   get _getUrl(){return localStorage.getItem('BROYT_BIN_URL')||localStorage.getItem('JSONBIN_BIN_URL')||'';},
   get _putUrl(){return localStorage.getItem('BROYT_BIN_PUT')||localStorage.getItem('JSONBIN_BIN_PUT_URL')||'';},
   get _key(){return localStorage.getItem('BROYT_XKEY')||localStorage.getItem('JSONBIN_MASTER')||'';},
+  setUrlPair(getUrl,putUrl){
+    const g=(getUrl||'').trim(), p=(putUrl||'').trim();
+    if(g) localStorage.setItem('BROYT_BIN_URL', g);
+    if(p) localStorage.setItem('BROYT_BIN_PUT', p);
+    // legacy alias
+    if(g) localStorage.setItem('JSONBIN_BIN_URL', g);
+    if(p) localStorage.setItem('JSONBIN_BIN_PUT_URL', p);
+  },
   setKey(k){const v=(k||'').trim(); if(!v){localStorage.removeItem('BROYT_XKEY');return false;} localStorage.setItem('BROYT_XKEY',v); localStorage.setItem('JSONBIN_MASTER',v); return true;},
   clearKey(){localStorage.removeItem('BROYT_XKEY');localStorage.removeItem('JSONBIN_MASTER');},
+  hasAll(){ return !!(this._getUrl && this._putUrl && this._key); },
   async getLatest(){
     const url=this._getUrl; if(!url){ console.warn('Ingen GET-URL; lokal fallback'); return this._localFallback(); }
     const res=await fetch(url,{headers:this._headers(false)}).catch(()=>null);
@@ -84,16 +94,14 @@ const JSONBIN={
   _localFallback(){
     const local=JSON.parse(localStorage.getItem('BROYT_LOCAL_DATA')||'null');
     if(local) return local;
-    return {
-      version:'10.1e', updated:Date.now(), by:'local',
-      settings:{grusDepot:"60.2527264,11.1687230", diesel:"60.2523185,11.1899926", base:"60.2664414,11.2208819",
-        seasonLabel:"2025–26", stakesCount:"", stakesLocked:false},
-      snapshot:{addresses:[]}, statusSnow:{}, statusGrit:{}, serviceLogs:[]
-    };
+    return {version:'10.1f',updated:Date.now(),by:'local',
+      settings:{grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",
+        seasonLabel:"2025–26",stakesCount:"",stakesLocked:false},
+      snapshot:{addresses:[]}, statusSnow:{}, statusGrit:{}, serviceLogs:[]};
   },
   async checkConfigOrWarn(){
-    if(!this._getUrl||!this._putUrl||!this._key){
-      alert('OBS: Sky-oppsett ikke komplett.\n\nLim inn X-Master-Key i Admin og sørg for lagrede JSONBin-URL’er.\nAppen virker lokalt så lenge.');
+    if(!this.hasAll()){
+      alert('OBS: Sky-oppsett ikke komplett.\n\nLim inn X-Master-Key i Admin og fyll inn GET-/PUT-URL i "Sky-oppsett".\nAppen virker lokalt så lenge.');
     }
   }
 };
@@ -105,84 +113,46 @@ function nextIndex(i,d){return d==='Motsatt'?i-1:i+1;}
 
 /* =============== ADRESSE-SEED =============== */
 function seedAddressesList(){
-  // basert på listen du ga – alle som Snø=true, Grus=false (kan endres senere i Admin-editor)
-  const L = [
-    {name:"Hjeramoen 12-24", group:"Hjeramoen"},
-    {name:"Hjerastubben 8, 10, 12 ,14, 16"},
-    {name:"Hjeramoen 32-34-40-42", group:"Hjeramoen"},
-    {name:"Hjeramoen vei til 32-34-40-42", group:"Hjeramoen"},
-    {name:"Hjeramoen 47-49-51-53", group:"Hjeramoen"},
-    {name:"Hjeramoen 48-50-52-54", group:"Hjeramoen"},
-    {name:"Hjerakroken 2-4"},
-    {name:"Vognvegen 17"},
-    {name:"Tunlandvegen"},
-    {name:"Bjørnsrud Skog 38"},
-    {name:"Trondheimsvegen 26-36"},
-    {name:"Sessvollvegen 9", group:"Sessvollvegen"},
-    {name:"Sessvollvegen 11", group:"Sessvollvegen"},
-    {name:"Mette Hasler"},
-    {name:"Henning Morken Hasler"},
-    {name:"Hasler Drivhus"},
-    {name:"Grendehuset"},
-    {name:"Søjordet", group:"Søjordet"},
-    {name:"Folkeparken", group:"Folkeparken"},
-    {name:"Folkeparken Bakke", group:"Folkeparken"},
-    {name:"Læringsverkstedet Parkering", group:"Folkeparken"},
-    {name:"Læringsverkstedet Ute området", group:"Folkeparken"},
-    {name:"Hagamoen"},
-    {name:"(Sjøviken) Hagamoen 12"},
-    {name:"Moen Nedre vei"},
-    {name:"Fred/ Moen Nedre 17"},
-    {name:"Odd/ Moen Nedre 15"},
-    {name:"Trondheimsvegen 86"},
-    {name:"Fjellet (400m vei Råholt)"},
-    {name:"Bilextra (hele bygget)"},
-    {name:"Lundgårdstoppen"},
-    {name:"Normann Hjellesveg"}
-  ];
-  return L.map(x=>({
-    name:x.name, group:x.group||"", active:true,
-    flags:{snow:true,grit:false}
-  }));
+  const L=[{name:"Hjeramoen 12-24",group:"Hjeramoen"},{name:"Hjerastubben 8, 10, 12 ,14, 16"},
+    {name:"Hjeramoen 32-34-40-42",group:"Hjeramoen"},{name:"Hjeramoen vei til 32-34-40-42",group:"Hjeramoen"},
+    {name:"Hjeramoen 47-49-51-53",group:"Hjeramoen"},{name:"Hjeramoen 48-50-52-54",group:"Hjeramoen"},
+    {name:"Hjerakroken 2-4"},{name:"Vognvegen 17"},{name:"Tunlandvegen"},{name:"Bjørnsrud Skog 38"},
+    {name:"Trondheimsvegen 26-36"},{name:"Sessvollvegen 9",group:"Sessvollvegen"},{name:"Sessvollvegen 11",group:"Sessvollvegen"},
+    {name:"Mette Hasler"},{name:"Henning Morken Hasler"},{name:"Hasler Drivhus"},{name:"Grendehuset"},
+    {name:"Søjordet",group:"Søjordet"},{name:"Folkeparken",group:"Folkeparken"},{name:"Folkeparken Bakke",group:"Folkeparken"},
+    {name:"Læringsverkstedet Parkering",group:"Folkeparken"},{name:"Læringsverkstedet Ute området",group:"Folkeparken"},
+    {name:"Hagamoen"},{name:"(Sjøviken) Hagamoen 12"},{name:"Moen Nedre vei"},{name:"Fred/ Moen Nedre 17"},
+    {name:"Odd/ Moen Nedre 15"},{name:"Trondheimsvegen 86"},{name:"Fjellet (400m vei Råholt)"},
+    {name:"Bilextra (hele bygget)"},{name:"Lundgårdstoppen"},{name:"Normann Hjellesveg"}];
+  return L.map(x=>({name:x.name,group:x.group||"",active:true,flags:{snow:true,grit:false}}));
 }
-
 async function ensureAddressesSeeded(){
-  // Hent eksisterende data
   S.cloud = await JSONBIN.getLatest();
   S.cloud.snapshot ||= {};
   const arr = Array.isArray(S.cloud.snapshot.addresses)?S.cloud.snapshot.addresses:[];
-
-  if(arr.length>0){ return; } // alt ok
-
-  // Hvis helt tomt – seed én gang
-  const seeded = localStorage.getItem('BROYT_SEEDED_ADDR')==='yes';
-  if(!seeded){
-    const list = seedAddressesList();
-    S.cloud.snapshot.addresses = list;
-    S.cloud.statusSnow ||= {}; S.cloud.statusGrit ||= {};
-    localStorage.setItem('BROYT_SEEDED_ADDR','yes');
-    // lagre både lokalt og til sky om mulig
-    localStorage.setItem('BROYT_LOCAL_DATA', JSON.stringify(S.cloud));
-    await JSONBIN.putRecord(S.cloud);
-    console.log(`Seedet ${list.length} adresser.`);
-  }
+  if(arr.length>0) return;
+  if(localStorage.getItem('BROYT_SEEDED_ADDR')==='yes') return;
+  const list=seedAddressesList();
+  S.cloud.snapshot.addresses=list;
+  S.cloud.statusSnow ||= {}; S.cloud.statusGrit ||= {};
+  localStorage.setItem('BROYT_SEEDED_ADDR','yes');
+  localStorage.setItem('BROYT_LOCAL_DATA', JSON.stringify(S.cloud));
+  await JSONBIN.putRecord(S.cloud);
 }
 
 /* =============== Hjem → Start runde =============== */
 $('#a_start').addEventListener('click', async ()=>{
   try{
-    const prefs={
-      driver:($('#a_driver').value||'').trim()||'driver',
+    const prefs={driver:($('#a_driver').value||'').trim()||'driver',
       dir:$('#a_dir').value,
       eq:{plow:$('#a_eq_plow').checked,fres:$('#a_eq_fres').checked,sand:$('#a_eq_sand').checked},
-      autoNav:$('#a_autoNav').checked
-    };
+      autoNav:$('#a_autoNav').checked};
     localStorage.setItem('BROYT_PREFS',JSON.stringify(prefs));
     S.driver=prefs.driver; S.dir=prefs.dir; S.autoNav=prefs.autoNav;
     S.mode = prefs.eq.sand ? 'grit' : 'snow';
 
     await JSONBIN.checkConfigOrWarn();
-    await ensureAddressesSeeded(); // ← viktig
+    await ensureAddressesSeeded();
     await refreshCloud();
 
     const arr=(S.cloud?.snapshot?.addresses && Array.isArray(S.cloud.snapshot.addresses))?S.cloud.snapshot.addresses:(Array.isArray(S.cloud?.addresses)?S.cloud.addresses:[]);
@@ -191,7 +161,6 @@ $('#a_start').addEventListener('click', async ()=>{
       const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus');
       return {...a, flags:{snow,grit}};
     }).filter(a=>a.active!==false);
-
     S.addresses = mapped.filter(a=> S.mode==='snow' ? a.flags.snow : a.flags.grit);
     S.idx = (S.dir==='Motsatt') ? (S.addresses.length-1) : 0;
 
@@ -200,7 +169,7 @@ $('#a_start').addEventListener('click', async ()=>{
   }catch(e){ alert('Start-feil: '+(e.message||e)); }
 });
 
-/* =============== Cloud sync helpers =============== */
+/* =============== Cloud helpers =============== */
 async function refreshCloud(){
   S.cloud = await JSONBIN.getLatest();
   if(!S.cloud.statusSnow && S.cloud.status){ S.cloud.statusSnow=S.cloud.status; delete S.cloud.status; }
@@ -230,11 +199,9 @@ function uiSetWork(){
   $('#b_next').textContent=next?(next.name||'—'):'—';
   $('#b_dir').textContent=S.dir;
   $('#b_task').textContent=(S.mode==='snow')?'Snø':'Grus';
-
   const bag=statusStore();
   const st=(now?.name && bag[now.name]?.state) || 'not_started';
   $('#b_status').textContent=STATE_LABEL[st]||'—';
-
   updateProgressBars();
 }
 function updateProgressBars(){
@@ -244,10 +211,7 @@ function updateProgressBars(){
   $('#b_prog_me').style.width=Math.min(100,Math.round(100*me/total))+'%';
   $('#b_prog_other').style.width=Math.min(100,Math.round(100*other/total))+'%';
 }
-function allDone(){
-  if(!S.addresses.length) return false;
-  const bag=statusStore(); return S.addresses.every(a=>(bag[a.name]?.state==='done'));
-}
+function allDone(){ if(!S.addresses.length) return false; const bag=statusStore(); return S.addresses.every(a=>(bag[a.name]?.state==='done')); }
 function maybeShowAllDoneDialog(){
   if(!allDone())return;
   const modeTxt=(S.mode==='snow')?'Snø':'Grus';
@@ -433,16 +397,60 @@ $('#rp_csv')?.addEventListener('click',async()=>{
   }catch(e){ alert('CSV-feil: '+e.message); }
 });
 
-/* =============== Admin: nøkkel + innstillinger =============== */
+/* =============== Admin: nøkkel + innstillinger + SKY-OPPSETT UI =============== */
 $('#adm_key_save')?.addEventListener('click',()=>{ const ok=JSONBIN.setKey($('#adm_key').value||''); $('#adm_key_status').textContent=ok?'Lagret nøkkel.':'Ugyldig nøkkel.'; });
 $('#adm_key_clear')?.addEventListener('click',()=>{ JSONBIN.clearKey(); $('#adm_key_status').textContent='Nøkkel fjernet.'; });
+
+function ensureCloudSetupCard(){
+  const adminSec = $('#admin');
+  if(!adminSec || $('#cloudSetupCard')) return;
+
+  const card = document.createElement('div');
+  card.className='card';
+  card.id='cloudSetupCard';
+  card.innerHTML = `
+    <h3 style="margin-top:0">Sky-oppsett (JSONBin/Proxy)</h3>
+    <div class="inline-edit" style="gap:8px">
+      <label>GET-URL:<br><input id="adm_geturl" placeholder="https://jsonbin-proxy.…" style="min-width:260px"></label>
+      <label>PUT-URL:<br><input id="adm_puturl" placeholder="https://jsonbin-proxy.…" style="min-width:260px"></label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button id="adm_urls_save" class="btn btn-primary">Lagre URL-er</button>
+      <button id="adm_urls_clear" class="btn btn-ghost">Fjern URL-er</button>
+      <span id="adm_urls_status" class="small muted">—</span>
+    </div>
+  `;
+  adminSec.appendChild(card);
+
+  // Prefill
+  $('#adm_geturl').value = JSONBIN._getUrl || '';
+  $('#adm_puturl').value = JSONBIN._putUrl || '';
+
+  $('#adm_urls_save').addEventListener('click', ()=>{
+    const g=$('#adm_geturl').value.trim(), p=$('#adm_puturl').value.trim();
+    JSONBIN.setUrlPair(g,p);
+    $('#adm_urls_status').textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Mangler noe…';
+  });
+  $('#adm_urls_clear').addEventListener('click', ()=>{
+    localStorage.removeItem('BROYT_BIN_URL');
+    localStorage.removeItem('BROYT_BIN_PUT');
+    localStorage.removeItem('JSONBIN_BIN_URL');
+    localStorage.removeItem('JSONBIN_BIN_PUT_URL');
+    $('#adm_geturl').value=''; $('#adm_puturl').value='';
+    $('#adm_urls_status').textContent='URL-er fjernet';
+  });
+}
 async function loadSettingsToAdmin(){
   try{
+    ensureCloudSetupCard();
     await refreshCloud();
-    const st={grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",seasonLabel:"2025–26",stakesCount:"",...(S.cloud.settings||{})};
+    const st={grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",
+      seasonLabel:"2025–26",stakesCount:"",...(S.cloud.settings||{})};
     $('#adm_grus').value=st.grusDepot||''; $('#adm_diesel').value=st.diesel||''; $('#adm_base').value=st.base||'';
     $('#adm_stakes').value=(st.stakesCount!==undefined?String(st.stakesCount):'');
     $('#adm_stakes_lock').textContent=st.stakesLocked?'🔒 Stikker låst':'🔓 Lås antall';
+    // oppdater sky-statuslinjen
+    const el=$('#adm_urls_status'); if(el) el.textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Sky-oppsett mangler';
   }catch(e){ console.warn('loadSettingsToAdmin',e); }
 }
 $('#adm_stakes_lock')?.addEventListener('click', async ()=>{
