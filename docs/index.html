@@ -1,265 +1,235 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Brøyterute – Romerike Trefelling</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Brøyterute – Romerike Trefelling</title>
 
-  <!-- PWA / iOS ikon + farger -->
-  <meta name="theme-color" content="#0a0f1c" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="apple-touch-icon" href="./icons/tractor-192.png" />
-  <link rel="manifest" href="./manifest.json?v=1" />
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0a0f1c">
+<link rel="apple-touch-icon" href="./icons/icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-  <!-- Stiler og skript -->
-  <link rel="stylesheet" href="./del-B.css" />
-  <script defer src="./del-A.js"></script>
-  <script defer src="./del-B.js"></script>
-  <script defer src="./del-C.js"></script>
-  <script defer src="./sw.js"></script>
+<!-- CSS -->
+<link rel="stylesheet" href="./del-B.css">
 
-  <style>
-    /* enkel ramme for navigasjon (kan fjernes om du har egen) */
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0a0f1c;color:#e6edf3}
-    nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;border-bottom:1px solid #2b3445;background:#0a0f1c;position:sticky;top:0;z-index:5}
-    nav button{border-radius:10px;padding:8px 14px;font-size:16px;border:1px solid #3b465a;background:#121a28;color:#f0f4f8}
-    nav button.active{background:#1e3a8a;border-color:#60a5fa}
-    main{max-width:860px;margin:auto;padding:12px}
-    .card{background:#0b1220;border:1px solid #2b3445;border-radius:14px;padding:16px;margin:12px 0}
-    @media (prefers-color-scheme: light){
-      body{background:#fafafa;color:#111}
-      .card{background:#fff;border-color:#e5e7eb}
-      nav{background:#fff;border-bottom-color:#e5e7eb}
-      nav button{background:#e9eef6;color:#111;border-color:#cfd8e3}
-      nav button.active{background:#007aff;border-color:#007aff;color:#fff}
-    }
-  </style>
+<!-- JS-deler -->
+<script defer src="./del-A.js"></script>
+<script defer src="./del-B.js"></script>
+<script defer src="./del-C.js"></script>
+<script defer src="./del-D.js"></script>
+<script defer src="./del-E.js"></script>
+<script defer src="./del-F.js"></script>
+<script defer src="./del-G.js"></script>
+<script defer src="./del-H.js"></script>
+<script defer src="./sw.js"></script>
 
-  <script>
-    // enkel ruter
-    function showPage(id){
-      document.querySelectorAll('main section').forEach(s=>s.style.display='none');
-      document.getElementById(id).style.display='block';
-      document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-      const b = document.getElementById('nav-'+id); if (b) b.classList.add('active');
-      location.hash = '#'+id;
-    }
-    window.addEventListener('hashchange', ()=>{
-      const id = (location.hash||'#home').replace('#','');
-      if (document.getElementById(id)) showPage(id);
-    });
-    window.addEventListener('DOMContentLoaded', ()=>{
-      const id = (location.hash||'#home').replace('#','');
-      showPage(document.getElementById(id)?id:'home');
-    });
-  </script>
+<style>
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #0a0f1c;
+  color: #e6edf3;
+}
+
+nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px;
+  border-bottom: 1px solid #2b3445;
+  background: #0a0f1c;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+nav button {
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 16px;
+  border: 1px solid #3b465a;
+  background: #182233;
+  color: #f0f4f8;
+}
+nav button.active { background: #1e3a8a; border-color: #60a5fa; }
+main { max-width: 860px; margin: auto; padding: 12px; }
+.card { background: #0b1220; border: 1px solid #2b3445; border-radius: 14px; padding: 16px; margin: 12px 0; }
+
+@media (prefers-color-scheme: light) {
+  body { background: #fafafa; color: #111; }
+  nav { background: #fff; border-bottom-color: #e5e7eb; }
+  nav button { background: #e9eef6; color: #111; border-color: #cfd8e3; }
+  nav button.active { background: #007aff; border-color: #007aff; color: #fff; }
+  .card { background: #fff; border-color: #e5e7eb; }
+}
+
+.install-hint {
+  display: none;
+  background: #1d4ed8;
+  color: #fff;
+  text-align: center;
+  padding: 10px;
+  border-radius: 10px;
+  margin-top: 12px;
+  font-size: 15px;
+}
+</style>
 </head>
-<body>
 
+<body>
 <nav>
-  <button id="nav-home"    onclick="showPage('home')">Hjem</button>
-  <button id="nav-work"    onclick="showPage('work')">Under arbeid</button>
+  <button id="nav-home" onclick="showPage('home')">Hjem</button>
+  <button id="nav-work" onclick="showPage('work')">Under arbeid</button>
   <button id="nav-service" onclick="showPage('service')">Service</button>
-  <button id="nav-status"  onclick="showPage('status')">Status</button>
-  <button id="nav-admin"   onclick="showPage('admin')">Admin</button>
+  <button id="nav-status" onclick="showPage('status')">Status</button>
+  <button id="nav-admin" onclick="showPage('admin')">Admin</button>
   <span style="margin-left:auto;font-size:12px;opacity:.7">v9.12i</span>
 </nav>
 
 <main>
 
-  <!-- HJEM -->
-  <section id="home" class="card">
-    <h2 class="title">Hjem</h2>
+<!-- HJEM -->
+<section id="home" class="card">
+  <h2 class="title">Hjem</h2>
+  <p>Velkommen til Brøyterute. Sett fører, retning og utstyr for dagens runde.</p>
 
-    <label>Fører-navn<br>
-      <input id="a_driver" placeholder="Navn" style="width:100%">
-    </label><br><br>
+  <label>Fører:<br>
+    <input id="a_driver" placeholder="Navn" style="width:100%">
+  </label><br><br>
 
-    <label>Retning rute<br>
-      <select id="a_dir" style="width:100%">
-        <option value="Normal">Normal</option>
-        <option value="Motsatt">Motsatt</option>
-      </select>
-    </label><br><br>
+  <label>Retning rute:<br>
+    <select id="a_dir" style="width:100%">
+      <option value="Normal">Normal</option>
+      <option value="Motsatt">Motsatt</option>
+    </select>
+  </label><br><br>
 
-    <fieldset class="card" style="margin:0">
-      <legend>Utstyr</legend>
-      <label><input type="checkbox" id="a_eq_plow"> Brøyteskjær</label><br>
-      <label><input type="checkbox" id="a_eq_fres"> Fres</label><br>
-      <label><input type="checkbox" id="a_eq_sand"> Strø/sand</label>
-    </fieldset><br>
+  <fieldset class="card" style="margin:0">
+    <legend>Utstyr</legend>
+    <label><input type="checkbox" id="a_eq_plow"> Brøyteskjær</label><br>
+    <label><input type="checkbox" id="a_eq_fres"> Fres</label><br>
+    <label><input type="checkbox" id="a_eq_sand"> Strø/sand</label>
+  </fieldset><br>
 
-    <fieldset class="card" style="margin:0">
-      <legend>Oppdrag</legend>
-      <label><input type="radio" name="a_job" value="SNØ" checked> Snø</label><br>
-      <label><input type="radio" name="a_job" value="GRUS"> Grus</label>
-    </fieldset><br>
+  <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
 
-    <label>Tema<br>
-      <select id="a_theme" style="width:100%">
-        <option value="auto" selected>Auto (følg telefon)</option>
-        <option value="dark">Mørk</option>
-        <option value="light">Lys</option>
-      </select>
-    </label><br><br>
+  <div id="installPrompt" class="install-hint">📲 Installer Brøyterute på Hjem-skjerm</div>
+</section>
 
-    <label><input type="checkbox" id="a_auto_nav"> Auto-naviger til neste</label><br><br>
+<!-- UNDER ARBEID -->
+<section id="work" class="card" style="display:none">
+  <h2 class="title">Under arbeid</h2>
 
-    <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
-    <p id="a_hint" class="muted small" style="margin-top:8px">—</p>
-  </section>
+  <div class="progress-all">
+    <div id="b_prog_me" class="bar bar-me"></div>
+    <div id="b_prog_other" class="bar bar-other"></div>
+  </div>
 
-  <!-- UNDER ARBEID -->
-  <section id="work" class="work-wrap card" style="display:none">
-    <h2 class="title">Under arbeid</h2>
-
-    <!-- Progresjon -->
-    <div class="progress-all" aria-label="Fremdrift">
-      <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
-      <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
+  <div class="now-stack">
+    <div class="now now-wide">
+      <div class="now-head"><span class="now-icon">🚜</span><span class="lbl">Nå</span></div>
+      <div id="b_now" class="val now-val">–</div>
     </div>
-
-    <p id="b_hint" class="hint muted">—</p>
-
-    <!-- Nå / Neste (NY layout: full bredde, større/fet "Nå", pil + label for "Neste") -->
-    <div class="now-next now-stack">
-      <div class="now now-wide">
-        <div class="now-head">
-          <span class="now-icon" aria-hidden="true">🚜</span>
-          <span class="lbl">Nå</span>
-        </div>
-        <div id="b_now" class="val now-val">–</div>
-      </div>
-
-      <div class="next now-wide">
-        <div class="next-head">
-          <span class="next-icon" aria-hidden="true">➡️</span>
-          <span class="lbl">Neste</span>
-        </div>
-        <div id="b_next" class="val next-val">–</div>
-      </div>
+    <div class="next now-wide">
+      <div class="next-head"><span class="next-icon">➡️</span><span class="lbl">Neste</span></div>
+      <div id="b_next" class="val next-val">–</div>
     </div>
+  </div>
 
-    <!-- Aktiv adresse-kort -->
-    <div class="card-big">
-      <div class="card-head">
-        <div class="muted small"><span id="b_index">0</span>/<span id="b_total">0</span></div>
-        <button id="b_nav" class="btn btn-ghost btn-nav" type="button">🧭 Naviger</button>
-      </div>
+  <div class="actions-grid">
+    <button id="act_start" class="btn btn-lg">▶️ Start</button>
+    <button id="act_skip" class="btn btn-lg">⏭️ Hopp over</button>
+    <button id="act_block" class="btn btn-lg btn-warn">🚫 Ikke mulig</button>
+    <button id="act_done" class="btn btn-lg btn-affirm">✅ Ferdig</button>
+    <button id="act_acc" class="btn btn-lg btn-ghost">⚠️ Uhell</button>
+  </div>
 
-      <h3 id="b_name" class="addr">—</h3>
-      <p id="b_group" class="muted"> </p>
-      <p id="b_equipment" class="muted"> </p>
-
-      <div class="stikker-line">
-        <span class="badge">Brøytestikker (sesong)</span>
-        <span class="badge badge-info" id="b_stikker_count">—</span>
-        <label class="row">
-          <input id="b_stikker_chk" type="checkbox" />
-          <span id="b_stikker_lbl">Stikker satt (sesong)</span>
-        </label>
-      </div>
-
-      <div class="times">
-        <span id="b_started">Start: –</span>
-        <span id="b_finished" class="hide-on-idle"> • Ferdig: –</span>
-      </div>
-
-      <!-- Handlinger -->
-      <div class="actions-grid">
-        <button id="act_start" class="btn btn-lg" type="button">▶️ Start</button>
-        <button id="act_skip"  class="btn btn-lg" type="button">⏭️ Hopp over</button>
-        <button id="act_block" class="btn btn-lg btn-warn" type="button">🚫 Ikke mulig</button>
-        <button id="act_done"  class="btn btn-lg btn-affirm" type="button">✅ Ferdig</button>
-        <button id="act_acc"   class="btn btn-lg btn-ghost" type="button">⚠️ Uhell</button>
-      </div>
-
-      <p id="b_status" class="status muted">Ikke påbegynt</p>
-
-      <!-- Kontrollpanel (flyttet NED) -->
-      <div id="work-controls" class="card-big" style="margin-top:14px">
-        <div class="pills" style="margin-bottom:10px">
-          <span class="pill">Runde: <strong id="b_round">–</strong></span>
-          <span class="pill">Oppdrag: <strong id="b_job">–</strong></span>
-          <span class="pill">Retning: <strong id="b_dir">–</strong></span>
-          <span class="pill">Sesong: <strong id="b_season">–</strong></span>
-          <span class="pill">Synk: <strong id="b_sync">—</strong></span>
-        </div>
-        <div class="row" style="gap:12px;flex-wrap:wrap">
-          <button id="b_nav_top"    class="btn btn-primary btn-lg" type="button">🧭 NAVIGER</button>
-          <button id="b_sync_btn"   class="btn btn-lg" type="button">↻ Synk</button>
-          <button id="b_save_btn"   class="btn btn-lg" type="button">💾 Lagre</button>
-          <button id="b_finish_btn" class="btn btn-lg" type="button">🏁 Avslutt runde</button>
-        </div>
-      </div>
+  <div id="work-controls" class="card" style="margin-top:14px">
+    <div class="pills" style="margin-bottom:10px">
+      <span class="pill">Runde: <strong id="b_round">–</strong></span>
+      <span class="pill">Oppdrag: <strong id="b_job">–</strong></span>
+      <span class="pill">Retning: <strong id="b_dir">–</strong></span>
+      <span class="pill">Sesong: <strong id="b_season">–</strong></span>
+      <span class="pill">Synk: <strong id="b_sync">—</strong></span>
     </div>
-
-    <!-- Bunnnavigasjon (skjules av del-B.js hvis autoNavNext) -->
-    <div class="work-foot">
-      <button id="prev_btn" class="btn btn-wide" type="button">← Forrige</button>
-      <button id="next_btn" class="btn btn-wide" type="button">Neste →</button>
+    <div class="row" style="gap:12px;flex-wrap:wrap">
+      <button id="b_nav_top" class="btn btn-primary btn-lg">🧭 NAVIGER</button>
+      <button id="b_sync_btn" class="btn btn-lg">↻ Synk</button>
+      <button id="b_save_btn" class="btn btn-lg">💾 Lagre</button>
+      <button id="b_finish_btn" class="btn btn-lg">🏁 Avslutt runde</button>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- SERVICE (kort) -->
-  <section id="service" class="card" style="display:none">
-    <h2 class="title">Service</h2>
-    <p>Huk av etter runden:</p>
-    <label><input type="checkbox"> Skjær smurt</label><br>
-    <label><input type="checkbox"> Fres smurt</label><br>
-    <label><input type="checkbox"> Forstilling smurt</label><br>
-    <label><input type="checkbox"> Oljenivå sjekket foran</label><br>
-    <label><input type="checkbox"> Oljenivå sjekket bak</label><br>
-    <label><input type="checkbox"> Etterfylt olje</label><br>
-    <label><input type="checkbox"> Fylt diesel</label><br>
-    <label><input type="checkbox"> Annet</label><br><br>
-    <textarea rows="4" style="width:100%" placeholder="Notater…"></textarea><br>
-    <button class="btn btn-lg">💾 Lagre service</button>
-  </section>
+<!-- SERVICE -->
+<section id="service" class="card" style="display:none">
+  <h2 class="title">Service</h2>
+  <p>Etter runden – huk av for utført vedlikehold:</p>
+  <label><input type="checkbox"> Skjær smurt</label><br>
+  <label><input type="checkbox"> Fres smurt</label><br>
+  <label><input type="checkbox"> Forstilling smurt</label><br>
+  <label><input type="checkbox"> Oljenivå sjekket foran</label><br>
+  <label><input type="checkbox"> Oljenivå sjekket bak</label><br>
+  <label><input type="checkbox"> Etterfylt olje</label><br>
+  <label><input type="checkbox"> Fylt diesel</label><br>
+  <label><input type="checkbox"> Annet</label><br><br>
+  <textarea rows="4" style="width:100%" placeholder="Notater…"></textarea><br>
+  <button class="btn btn-lg">💾 Lagre service</button>
+</section>
 
-  <!-- STATUS (din eksisterende del-C.js vil fylle inn) -->
-  <section id="status" class="card" style="display:none">
-    <h2 class="title">Status</h2>
-    <div class="filters">
-      <button id="c_sync" class="btn">⟳ Oppdater</button>
-      <label class="inline">Vis:
-        <select id="c_scope">
-          <option value="ALLE">Alle</option>
-          <option value="SNO">Snø</option>
-          <option value="GRUS">Grus</option>
-        </select>
-      </label>
-      <label class="inline grow">Søk:
-        <input id="c_search" type="text" placeholder="Søk navn/gruppe…">
-      </label>
-    </div>
-    <div class="filters">
-      <span class="muted small" id="c_counts">—</span>
-      <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">
-        <button id="c_reset" class="btn">🧹 Nullstill viste</button>
-        <button id="c_reset_round" class="btn">🧹 Nullstill hele runden</button>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table class="tbl" id="c_table" aria-label="Adresse-status">
-        <thead>
-          <tr>
-            <th>#</th><th>Adresse</th><th>Gruppe</th><th>Status</th>
-            <th>Start</th><th>Ferdig</th><th>Utført av</th><th>Stikker</th>
-          </tr>
-        </thead>
-        <tbody id="c_tbody"></tbody>
-      </table>
-    </div>
-  </section>
+<!-- STATUS -->
+<section id="status" class="card" style="display:none">
+  <h2 class="title">Status</h2>
+  <p>Oversikt over alle adresser og status for runden.</p>
+  <button class="btn">⟳ Oppdater</button>
+  <button class="btn">🧹 Nullstill viste</button>
+</section>
 
-  <!-- ADMIN (placeholder) -->
-  <section id="admin" class="card" style="display:none">
-    <h2 class="title">Admin</h2>
-    <p>Konfigurasjon og vedlikehold.</p>
-  </section>
+<!-- ADMIN -->
+<section id="admin" class="card" style="display:none">
+  <h2 class="title">Admin</h2>
+  <p>Administrasjonsverktøy og vedlikehold.</p>
+</section>
 
 </main>
+
+<script>
+function showPage(id){
+  document.querySelectorAll('main section').forEach(s=>s.style.display='none');
+  document.getElementById(id).style.display='block';
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+id).classList.add('active');
+  location.hash = '#'+id;
+}
+
+// Installer-app-knapp
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('installPrompt');
+  btn.style.display = 'block';
+  btn.addEventListener('click', async () => {
+    btn.style.display = 'none';
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+  });
+});
+
+// iOS hint (viser hvis iOS Safari)
+if (/iphone|ipad|ipod/i.test(window.navigator.userAgent)){
+  const hint = document.getElementById('installPrompt');
+  hint.innerHTML = "📲 Trykk <strong>Del</strong> → <strong>Legg til på Hjem-skjerm</strong>";
+  hint.style.display = 'block';
+}
+
+showPage('home');
+</script>
+
 </body>
 </html>
