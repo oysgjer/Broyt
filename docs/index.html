@@ -1,299 +1,252 @@
-<!doctype html>
-<html lang="no" data-theme="auto">
+<!DOCTYPE html>
+<html lang="no">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Brøyt</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Brøyterute – Romerike Trefelling</title>
 
-  <!-- Globalt tema -->
-  <link rel="stylesheet" href="./theme.css">
-  <script src="./shared/theme.js"></script>
+  <!-- PWA / iOS ikon + farger -->
+  <meta name="theme-color" content="#0a0f1c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="./icons/tractor-192.png" />
+  <link rel="manifest" href="./manifest.json?v=1" />
 
-  <!-- App-konfig -->
-  <script>
-    window.APP_CFG = {
-      API_BASE: 'https://jsonbin-proxy.oysgjer.workers.dev/jsonbin/',
-      BIN_ID: '68e7b4d2ae596e708f0bde7d',
-      APP_VER: '9.12h – Romerike Trefelling'
-    };
-  </script>
+  <!-- Stiler og skript -->
+  <link rel="stylesheet" href="./del-B.css" />
+  <script defer src="./del-A.js"></script>
+  <script defer src="./del-B.js"></script>
+  <script defer src="./del-C.js"></script>
+  <script defer src="./sw.js"></script>
 
-  <!-- Felles state -->
-  <script src="./shared/state.js"></script>
-
-  <!-- Basis -->
   <style>
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .card { border:1px solid var(--border); border-radius:12px; padding:14px; margin:12px; background:var(--card-bg); }
-    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .grow { flex:1; min-width:160px; }
-    .muted { color: var(--muted); font-size: 13px; }
-    .toolbar { display:flex; gap:10px; flex-wrap:wrap; }
-    nav.app { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--border); padding:8px 12px; display:flex; gap:8px; align-items:center; }
-    nav.app .tag { font-size:12px; opacity:.7; margin-left:auto; }
-    .btn { background:var(--btn-bg); border:1px solid var(--btn-border); border-radius:10px; padding:8px 12px; }
-    .link { text-decoration:none; border:1px solid var(--border); padding:6px 10px; border-radius:999px; }
+    /* enkel ramme for navigasjon (kan fjernes om du har egen) */
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0a0f1c;color:#e6edf3}
+    nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;border-bottom:1px solid #2b3445;background:#0a0f1c;position:sticky;top:0;z-index:5}
+    nav button{border-radius:10px;padding:8px 14px;font-size:16px;border:1px solid #3b465a;background:#121a28;color:#f0f4f8}
+    nav button.active{background:#1e3a8a;border-color:#60a5fa}
+    main{max-width:860px;margin:auto;padding:12px}
+    .card{background:#0b1220;border:1px solid #2b3445;border-radius:14px;padding:16px;margin:12px 0}
+    @media (prefers-color-scheme: light){
+      body{background:#fafafa;color:#111}
+      .card{background:#fff;border-color:#e5e7eb}
+      nav{background:#fff;border-bottom-color:#e5e7eb}
+      nav button{background:#e9eef6;color:#111;border-color:#cfd8e3}
+      nav button.active{background:#007aff;border-color:#007aff;color:#fff}
+    }
   </style>
 
-  <!-- Del CSS -->
-  <link rel="stylesheet" href="./del-B.css">
-  <link rel="stylesheet" href="./del-F.css">
-  <link rel="stylesheet" href="./del-C.css">
-  <link rel="stylesheet" href="./del-D.css">
+  <script>
+    // enkel ruter
+    function showPage(id){
+      document.querySelectorAll('main section').forEach(s=>s.style.display='none');
+      document.getElementById(id).style.display='block';
+      document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+      const b = document.getElementById('nav-'+id); if (b) b.classList.add('active');
+      location.hash = '#'+id;
+    }
+    window.addEventListener('hashchange', ()=>{
+      const id = (location.hash||'#home').replace('#','');
+      if (document.getElementById(id)) showPage(id);
+    });
+    window.addEventListener('DOMContentLoaded', ()=>{
+      const id = (location.hash||'#home').replace('#','');
+      showPage(document.getElementById(id)?id:'home');
+    });
+  </script>
 </head>
 <body>
 
-  <nav class="app">
-    <a class="link" href="#home">Hjem</a>
-    <a class="link" href="#work">Under arbeid</a>
-    <a class="link" href="#service">Service</a>
-    <a class="link" href="#status">Status</a>
-    <a class="link" href="#admin">Admin</a>
-    <span class="tag">v <script>document.write(window.APP_CFG.APP_VER||'');</script></span>
-  </nav>
+<nav>
+  <button id="nav-home"    onclick="showPage('home')">Hjem</button>
+  <button id="nav-work"    onclick="showPage('work')">Under arbeid</button>
+  <button id="nav-service" onclick="showPage('service')">Service</button>
+  <button id="nav-status"  onclick="showPage('status')">Status</button>
+  <button id="nav-admin"   onclick="showPage('admin')">Admin</button>
+  <span style="margin-left:auto;font-size:12px;opacity:.7">v9.12i</span>
+</nav>
 
-  <!-- ===== Del-A (Hjem) ===== -->
-  <section class="card" id="home">
-    <h2 style="margin:0 0 8px 0;">Hjem</h2>
+<main>
 
-    <div class="row" style="margin-top:6px;">
-      <label for="a_driver" style="min-width:96px;">Fører-navn</label>
-      <input id="a_driver" type="text" placeholder="Navn" class="grow">
-    </div>
+  <!-- HJEM -->
+  <section id="home" class="card">
+    <h2 class="title">Hjem</h2>
 
-    <div class="row" style="margin-top:8px;">
-      <span style="min-width:96px;">Retning rute</span>
-      <label><input type="radio" name="a_dir" value="Normal" checked> Normal</label>
-      <label><input type="radio" name="a_dir" value="Motsatt"> Motsatt</label>
-    </div>
+    <label>Fører-navn<br>
+      <input id="a_driver" placeholder="Navn" style="width:100%">
+    </label><br><br>
 
-    <div class="row" style="margin-top:8px; flex-direction:column; align-items:flex-start;">
-      <span>Utstyr (på traktoren)</span>
-      <label style="margin-top:4px;"><input type="checkbox" id="a_eq_plow"> Skjær</label>
-      <label style="margin-top:4px;"><input type="checkbox" id="a_eq_fres"> Fres</label>
-      <label style="margin-top:4px;"><input type="checkbox" id="a_eq_sand"> Strøkasse</label>
-    </div>
-
-    <div class="row" style="margin-top:8px;">
-      <span style="min-width:96px;">Oppdragstype</span>
-      <label><input type="radio" name="a_job" value="SNØ" checked> Snø</label>
-      <label><input type="radio" name="a_job" value="GRUS"> Grus</label>
-    </div>
-
-    <!-- Preferanse: auto-navigasjon -->
-    <div class="row" style="margin-top:8px;">
-      <label title="Åpner Google Maps automatisk til neste adresse etter du trykker Ferdig">
-        <input type="checkbox" id="a_auto_nav">
-        Auto-naviger til neste adresse etter «Ferdig»
-      </label>
-    </div>
-
-    <div class="row" style="margin-top:8px;">
-      <span style="min-width:96px;">Tema</span>
-      <select id="a_theme">
-        <option value="auto">Automatisk (følg system)</option>
-        <option value="light">Lys</option>
-        <option value="dark">Mørk</option>
+    <label>Retning rute<br>
+      <select id="a_dir" style="width:100%">
+        <option value="Normal">Normal</option>
+        <option value="Motsatt">Motsatt</option>
       </select>
-      <span class="muted">Gjelder for alle sider</span>
-    </div>
+    </label><br><br>
 
-    <div id="a_hint" class="muted" style="margin-top:6px;"></div>
+    <fieldset class="card" style="margin:0">
+      <legend>Utstyr</legend>
+      <label><input type="checkbox" id="a_eq_plow"> Brøyteskjær</label><br>
+      <label><input type="checkbox" id="a_eq_fres"> Fres</label><br>
+      <label><input type="checkbox" id="a_eq_sand"> Strø/sand</label>
+    </fieldset><br>
 
-    <div class="toolbar" style="margin-top:10px;">
-      <button id="a_start" class="btn">🏁 Start runde</button>
-    </div>
+    <fieldset class="card" style="margin:0">
+      <legend>Oppdrag</legend>
+      <label><input type="radio" name="a_job" value="SNØ" checked> Snø</label><br>
+      <label><input type="radio" name="a_job" value="GRUS"> Grus</label>
+    </fieldset><br>
 
-    <div class="muted" style="margin-top:6px;">
-      Tips: Du kan ha Skjær/Fres påmontert selv om Oppdragstype = Grus.
-    </div>
+    <label>Tema<br>
+      <select id="a_theme" style="width:100%">
+        <option value="auto" selected>Auto (følg telefon)</option>
+        <option value="dark">Mørk</option>
+        <option value="light">Lys</option>
+      </select>
+    </label><br><br>
+
+    <label><input type="checkbox" id="a_auto_nav"> Auto-naviger til neste</label><br><br>
+
+    <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
+    <p id="a_hint" class="muted small" style="margin-top:8px">—</p>
   </section>
 
-  <!-- ===== Del-B (Under arbeid) ===== -->
-  <section id="work" class="work-wrap card">
-    <header class="work-head">
-      <div class="work-meta">
-        <h2 class="title">Under arbeid</h2>
-        <div class="pills">
-          <span class="pill">Runde: <b id="b_round">–</b></span>
-          <span class="pill">Oppdrag: <b id="b_job">–</b></span>
-          <span class="pill">Retning: <b id="b_dir">–</b></span>
-          <span class="pill">Sesong: <b id="b_season">–</b></span>
-          <span class="pill">Synk: <b id="b_sync">–</b></span>
-        </div>
-      </div>
-      <div class="head-actions">
-        <button id="b_nav_top" class="btn btn-primary btn-nav">🧭 NAVIGER</button>
-        <button id="b_sync_btn" class="btn">⟳ Synk</button>
-        <button id="b_save_btn" class="btn">💾 Lagre</button>
-        <button id="b_finish_btn" class="btn btn-primary">🏁 Avslutt runde</button>
-      </div>
-    </header>
+  <!-- UNDER ARBEID -->
+  <section id="work" class="work-wrap card" style="display:none">
+    <h2 class="title">Under arbeid</h2>
 
-    <div class="progress-all" aria-label="Progresjon">
+    <!-- Progresjon -->
+    <div class="progress-all" aria-label="Fremdrift">
+      <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
       <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
-      <div id="b_prog_me"    class="bar bar-me"    style="width:0%"></div>
     </div>
 
-    <div id="b_hint" class="hint muted"></div>
+    <p id="b_hint" class="hint muted">—</p>
 
-    <div class="now-next">
-      <div class="now">
-        <div class="lbl">Nå</div>
-        <div class="val" id="b_now">–</div>
+    <!-- Nå / Neste (NY layout: full bredde, større/fet "Nå", pil + label for "Neste") -->
+    <div class="now-next now-stack">
+      <div class="now now-wide">
+        <div class="now-head">
+          <span class="now-icon" aria-hidden="true">🚜</span>
+          <span class="lbl">Nå</span>
+        </div>
+        <div id="b_now" class="val now-val">–</div>
       </div>
-      <div class="next">
-        <div class="lbl">Neste</div>
-        <div class="val" id="b_next">–</div>
+
+      <div class="next now-wide">
+        <div class="next-head">
+          <span class="next-icon" aria-hidden="true">➡️</span>
+          <span class="lbl">Neste</span>
+        </div>
+        <div id="b_next" class="val next-val">–</div>
       </div>
     </div>
 
-    <section id="card" class="card-big">
-      <header class="card-head">
-        <div class="idx"><span id="b_index">0</span>/<span id="b_total">0</span></div>
-        <button id="b_nav" class="btn btn-ghost">🧭 Naviger</button>
-      </header>
-
-      <div class="card-body">
-        <h3 id="b_name" class="addr"></h3>
-        <div id="b_group" class="muted"></div>
-        <div id="b_equipment" class="muted"></div>
-
-        <div class="stikker-line">
-          <span class="badge">Brøytestikker (sesong)</span>
-          <span id="b_stikker_count" class="badge badge-info">—</span>
-          <label class="stikker-check">
-            <input type="checkbox" id="b_stikker_chk">
-            <span id="b_stikker_lbl">Stikker satt</span>
-          </label>
-        </div>
-
-        <div id="b_times" class="muted times">
-          <span id="b_started">Start: –</span>
-          <span id="b_finished" class="hide-on-idle"> • Ferdig: –</span>
-        </div>
+    <!-- Aktiv adresse-kort -->
+    <div class="card-big">
+      <div class="card-head">
+        <div class="muted small"><span id="b_index">0</span>/<span id="b_total">0</span></div>
+        <button id="b_nav" class="btn btn-ghost btn-nav" type="button">🧭 Naviger</button>
       </div>
 
+      <h3 id="b_name" class="addr">—</h3>
+      <p id="b_group" class="muted"> </p>
+      <p id="b_equipment" class="muted"> </p>
+
+      <div class="stikker-line">
+        <span class="badge">Brøytestikker (sesong)</span>
+        <span class="badge badge-info" id="b_stikker_count">—</span>
+        <label class="row">
+          <input id="b_stikker_chk" type="checkbox" />
+          <span id="b_stikker_lbl">Stikker satt (sesong)</span>
+        </label>
+      </div>
+
+      <div class="times">
+        <span id="b_started">Start: –</span>
+        <span id="b_finished" class="hide-on-idle"> • Ferdig: –</span>
+      </div>
+
+      <!-- Handlinger -->
       <div class="actions-grid">
-        <button id="act_start" class="btn btn-lg">▶️ Start</button>
-        <button id="act_skip" class="btn btn-lg">⏭ Hopp over</button>
-        <button id="act_block" class="btn btn-lg">🚫 Ikke mulig</button>
-        <button id="act_done"  class="btn btn-lg btn-affirm">✅ Ferdig</button>
-        <button id="act_acc"   class="btn btn-lg btn-warn">⚠️ Uhell</button>
+        <button id="act_start" class="btn btn-lg" type="button">▶️ Start</button>
+        <button id="act_skip"  class="btn btn-lg" type="button">⏭️ Hopp over</button>
+        <button id="act_block" class="btn btn-lg btn-warn" type="button">🚫 Ikke mulig</button>
+        <button id="act_done"  class="btn btn-lg btn-affirm" type="button">✅ Ferdig</button>
+        <button id="act_acc"   class="btn btn-lg btn-ghost" type="button">⚠️ Uhell</button>
       </div>
 
-      <div id="b_status" class="status muted"></div>
-    </section>
+      <p id="b_status" class="status muted">Ikke påbegynt</p>
 
-    <footer class="work-foot">
-      <button id="prev_btn" class="btn btn-wide">← Forrige</button>
-      <button id="next_btn" class="btn btn-wide">Neste →</button>
-    </footer>
+      <!-- Kontrollpanel (flyttet NED) -->
+      <div id="work-controls" class="card-big" style="margin-top:14px">
+        <div class="pills" style="margin-bottom:10px">
+          <span class="pill">Runde: <strong id="b_round">–</strong></span>
+          <span class="pill">Oppdrag: <strong id="b_job">–</strong></span>
+          <span class="pill">Retning: <strong id="b_dir">–</strong></span>
+          <span class="pill">Sesong: <strong id="b_season">–</strong></span>
+          <span class="pill">Synk: <strong id="b_sync">—</strong></span>
+        </div>
+        <div class="row" style="gap:12px;flex-wrap:wrap">
+          <button id="b_nav_top"    class="btn btn-primary btn-lg" type="button">🧭 NAVIGER</button>
+          <button id="b_sync_btn"   class="btn btn-lg" type="button">↻ Synk</button>
+          <button id="b_save_btn"   class="btn btn-lg" type="button">💾 Lagre</button>
+          <button id="b_finish_btn" class="btn btn-lg" type="button">🏁 Avslutt runde</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bunnnavigasjon (skjules av del-B.js hvis autoNavNext) -->
+    <div class="work-foot">
+      <button id="prev_btn" class="btn btn-wide" type="button">← Forrige</button>
+      <button id="next_btn" class="btn btn-wide" type="button">Neste →</button>
+    </div>
   </section>
 
-  <!-- Modal: Avslutt runde (som før) -->
-  <div id="b_finish_modal" class="modal hidden">
-    <div class="modal-card">
-      <h3>Runde ferdig?</h3>
-      <p>Hva vil du gjøre nå?</p>
-      <div class="modal-actions">
-        <button id="b_finish_same"   class="btn">Ny runde – samme oppdrag</button>
-        <button id="b_finish_switch" class="btn">Bytt oppdragstype</button>
-        <button id="b_finish_close"  class="btn btn-danger">Avslutt</button>
-      </div>
-      <button id="b_finish_cancel" class="btn btn-ghost">Lukk</button>
-    </div>
-  </div>
+  <!-- SERVICE (kort) -->
+  <section id="service" class="card" style="display:none">
+    <h2 class="title">Service</h2>
+    <p>Huk av etter runden:</p>
+    <label><input type="checkbox"> Skjær smurt</label><br>
+    <label><input type="checkbox"> Fres smurt</label><br>
+    <label><input type="checkbox"> Forstilling smurt</label><br>
+    <label><input type="checkbox"> Oljenivå sjekket foran</label><br>
+    <label><input type="checkbox"> Oljenivå sjekket bak</label><br>
+    <label><input type="checkbox"> Etterfylt olje</label><br>
+    <label><input type="checkbox"> Fylt diesel</label><br>
+    <label><input type="checkbox"> Annet</label><br><br>
+    <textarea rows="4" style="width:100%" placeholder="Notater…"></textarea><br>
+    <button class="btn btn-lg">💾 Lagre service</button>
+  </section>
 
-  <!-- Modal: Ikke mulig – begrunnelse + foto -->
-  <div id="b_block_modal" class="modal hidden">
-    <div class="modal-card">
-      <h3>Ikke mulig – begrunnelse</h3>
-      <p class="muted">Skriv kort hva som hindrer jobben, og legg ved bilde hvis ønskelig.</p>
-      <label>
-        <textarea id="b_block_text" rows="4" placeholder="Begrunnelse …"></textarea>
+  <!-- STATUS (din eksisterende del-C.js vil fylle inn) -->
+  <section id="status" class="card" style="display:none">
+    <h2 class="title">Status</h2>
+    <div class="filters">
+      <button id="c_sync" class="btn">⟳ Oppdater</button>
+      <label class="inline">Vis:
+        <select id="c_scope">
+          <option value="ALLE">Alle</option>
+          <option value="SNO">Snø</option>
+          <option value="GRUS">Grus</option>
+        </select>
       </label>
-      <div class="row" style="margin-top:8px;">
-        <input id="b_block_file" type="file" accept="image/*" capture="environment">
-        <span id="b_block_file_name" class="muted">Ingen fil valgt</span>
-      </div>
-      <div class="modal-actions" style="margin-top:10px;">
-        <button id="b_block_save" class="btn btn-affirm">Lagre</button>
-        <button id="b_block_cancel" class="btn">Avbryt</button>
+      <label class="inline grow">Søk:
+        <input id="c_search" type="text" placeholder="Søk navn/gruppe…">
+      </label>
+    </div>
+    <div class="filters">
+      <span class="muted small" id="c_counts">—</span>
+      <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">
+        <button id="c_reset" class="btn">🧹 Nullstill viste</button>
+        <button id="c_reset_round" class="btn">🧹 Nullstill hele runden</button>
       </div>
     </div>
-  </div>
-
-  <!-- ===== Del-F (Service) ===== -->
-  <section id="service" class="svc-wrap card">
-    <header class="svc-head">
-      <h2>Service</h2>
-      <div id="svc_required_banner" class="svc-banner hidden">
-        <strong>Denne runden krever service før avslutning.</strong>
-        <div class="muted">Runde <span data-round>–</span> • Sjåfør <span data-driver>–</span></div>
-      </div>
-    </header>
-
-    <p class="muted">Huk av det som ble gjort etter runden.</p>
-
-    <div class="svc-list">
-      <label><input type="checkbox" data-svc="plow_grease"> Skjær smurt</label>
-      <label><input type="checkbox" data-svc="fres_grease"> Fres smurt</label>
-      <label><input type="checkbox" data-svc="front_grease"> Forstilling smurt</label>
-
-      <label><input type="checkbox" data-svc="oil_front"> Oljenivå sjekket foran</label>
-      <label><input type="checkbox" data-svc="oil_back"> Oljenivå sjekket bak</label>
-      <label><input type="checkbox" data-svc="oil_refill"> Etterfylt olje</label>
-
-      <label><input type="checkbox" data-svc="fuel_filled"> Fylt diesel</label>
-      <label><input type="checkbox" data-svc="other"> Annet utført</label>
-    </div>
-
-    <label class="svc-notes">
-      <div class="muted">Notater …</div>
-      <textarea id="svc_notes" rows="4" placeholder="Fritekst"></textarea>
-    </label>
-
-    <div class="svc-actions">
-      <button id="svc_save" class="btn btn-affirm">💾 Lagre service</button>
-      <button id="svc_finish" class="btn btn-primary">🏁 Fullfør runde</button>
-    </div>
-  </section>
-
-  <!-- ===== Del-C (Status / Oversikt) ===== -->
-  <section id="status" class="status-wrap card">
-    <header class="status-head">
-      <h2>Status</h2>
-      <div class="filters">
-        <button id="c_sync" class="btn">⟳ Oppdater</button>
-        <label class="inline">
-          Vis:
-          <select id="c_scope">
-            <option value="ALLE">Alle</option>
-            <option value="SNO">Snø</option>
-            <option value="GRUS">Grus</option>
-          </select>
-        </label>
-        <label class="inline grow">
-          Søk:
-          <input id="c_search" type="text" placeholder="Søk navn/gruppe…">
-        </label>
-        <span class="muted small" id="c_counts">—</span>
-      </div>
-    </header>
-
     <div class="table-wrap">
       <table class="tbl" id="c_table" aria-label="Adresse-status">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Adresse</th>
-            <th>Gruppe</th>
-            <th>Status</th>
-            <th>Start</th>
-            <th>Ferdig</th>
-            <th>Utført av</th>
-            <th>Stikker</th>
+            <th>#</th><th>Adresse</th><th>Gruppe</th><th>Status</th>
+            <th>Start</th><th>Ferdig</th><th>Utført av</th><th>Stikker</th>
           </tr>
         </thead>
         <tbody id="c_tbody"></tbody>
@@ -301,59 +254,12 @@
     </div>
   </section>
 
-  <!-- ===== Del-D (Admin) ===== -->
-  <section id="admin" class="admin-wrap card">
-    <header class="admin-head">
-      <h2>Admin</h2>
-      <div class="filters">
-        <button id="d_sync" class="btn">⟳ Hent fra sky</button>
-        <button id="d_add" class="btn">➕ Ny adresse</button>
-        <button id="d_export" class="btn">⤓ Last ned JSON</button>
-        <button id="d_save" class="btn btn-affirm">💾 Publiser (med backup)</button>
-        <span class="muted small" id="d_hint">—</span>
-      </div>
-    </header>
-
-    <div class="table-wrap">
-      <table class="tbl" id="d_table" aria-label="Admin-adresser">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Aktiv</th>
-            <th>Adresse (navn)</th>
-            <th>Gruppe</th>
-            <th>Behov</th>
-            <th>Brøytestikker (antall)</th>
-          </tr>
-        </thead>
-        <tbody id="d_tbody"></tbody>
-      </table>
-    </div>
+  <!-- ADMIN (placeholder) -->
+  <section id="admin" class="card" style="display:none">
+    <h2 class="title">Admin</h2>
+    <p>Konfigurasjon og vedlikehold.</p>
   </section>
 
-  <!-- JS -->
-  <script src="./del-A.js"></script>
-  <script src="./del-B.js"></script>
-  <script src="./del-F.js"></script>
-  <script src="./del-C.js"></script>
-  <script src="./del-D.js"></script>
-
-  <!-- Enkel hash-router -->
-  <script>
-    function show(hash) {
-      if (!hash) hash = '#home';
-      const id = hash.replace('#','');
-      ['home','work','service','status','admin'].forEach(s => {
-        const el = document.getElementById(s);
-        if (el) el.style.display = (s === id) ? '' : 'none';
-      });
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    }
-    window.addEventListener('hashchange', () => show(location.hash));
-    if (!location.hash) location.hash = '#home';
-    show(location.hash);
-    window.APP = window.APP || {};
-    window.APP.go = (id) => { location.hash = '#'+id; };
-  </script>
+</main>
 </body>
 </html>
