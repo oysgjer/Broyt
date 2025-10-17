@@ -1,21 +1,18 @@
-/* del-D.js – v10.2 (hotfix for Hjem-knapper)
-   - Robust init: alt bindes etter DOMContentLoaded
-   - Synlig feilbanner i appen ved runtime-feil
-   - Sikker binding av alle knapper (Hjem/Under arbeid/Admin/Status)
-   - Uendret funksjonalitet ellers
+/* del-D.js – v10.2b
+   - Naviger/Naviger til neste fungerer (#act_nav og #act_nav_next)
+   - Adresser seedes også ved Admin/Status, ikke kun Start runde
+   - Fremdriftsbar (grønn/lilla) oppdateres mer pålitelig
 */
 
-/* ========= små helpers ========= */
 const $ = (s,root=document)=>root.querySelector(s);
 const $$=(s,root=document)=>Array.from(root.querySelectorAll(s));
 const fmtTime=t=>!t?'—':new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
 const fmtDate=()=>new Date().toLocaleDateString('no-NO');
 const STATE_LABEL={not_started:'Ikke påbegynt',in_progress:'Pågår',done:'Ferdig',skipped:'Hoppet over',blocked:'Ikke mulig',accident:'Uhell'};
 
-/* ========= global app-state ========= */
 const S={dir:'Normal',addresses:[],idx:0,driver:'driver',autoNav:false,mode:'snow',cloud:null};
 
-/* ========= feilbanner ========= */
+/* ---- feilbanner (hvis noe stopper) ---- */
 function showErr(msg){
   let box = $('#errbox');
   if(!box){
@@ -28,10 +25,10 @@ function showErr(msg){
     document.body.appendChild(box);
   }
   box.textContent='Feil: '+msg;
-  setTimeout(()=>{ if(box) box.remove(); }, 5000);
+  setTimeout(()=>{ try{box.remove();}catch{} }, 5000);
 }
 
-/* ========= JSONBin helper ========= */
+/* ---- JSONBin helper ---- */
 const JSONBIN={
   get _getUrl(){return localStorage.getItem('BROYT_BIN_URL')||localStorage.getItem('JSONBIN_BIN_URL')||'';},
   get _putUrl(){return localStorage.getItem('BROYT_BIN_PUT')||localStorage.getItem('JSONBIN_BIN_PUT_URL')||'';},
@@ -60,14 +57,14 @@ const JSONBIN={
   _localFallback(){
     const local=JSON.parse(localStorage.getItem('BROYT_LOCAL_DATA')||'null');
     if(local) return local;
-    return {version:'10.2',updated:Date.now(),by:'local',
+    return {version:'10.2b',updated:Date.now(),by:'local',
       settings:{grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",
         seasonLabel:"2025–26",stakesCount:"",stakesLocked:false},
       snapshot:{addresses:[]},statusSnow:{},statusGrit:{},serviceLogs:[]};
   }
 };
 
-/* ========= seed adresser hvis tomt ========= */
+/* ---- seeding av adresser ---- */
 function seedAddressesList(){
   const L=[{name:"Hjeramoen 12-24",group:"Hjeramoen"},{name:"Hjerastubben 8, 10, 12 ,14, 16"},
     {name:"Hjeramoen 32-34-40-42",group:"Hjeramoen"},{name:"Hjeramoen vei til 32-34-40-42",group:"Hjeramoen"},
@@ -80,6 +77,7 @@ function seedAddressesList(){
     {name:"Hagamoen"},{name:"(Sjøviken) Hagamoen 12"},{name:"Moen Nedre vei"},{name:"Fred/ Moen Nedre 17"},
     {name:"Odd/ Moen Nedre 15"},{name:"Trondheimsvegen 86"},{name:"Fjellet (400m vei Råholt)"},
     {name:"Bilextra (hele bygget)"},{name:"Lundgårdstoppen"},{name:"Normann Hjellesveg"}];
+  // Default: Snø = true, Grus = false (kan endres i adresse-register når det kommer)
   return L.map(x=>({name:x.name,group:x.group||"",active:true,flags:{snow:true,grit:false}}));
 }
 async function ensureAddressesSeeded(){
@@ -96,7 +94,7 @@ async function ensureAddressesSeeded(){
   await JSONBIN.putRecord(S.cloud);
 }
 
-/* ========= cloud sync ========= */
+/* ---- cloud helpers ---- */
 function statusStore(){return S.mode==='snow'?S.cloud.statusSnow:S.cloud.statusGrit;}
 function nextIndex(i,d){return d==='Motsatt'?i-1:i+1;}
 async function refreshCloud(){
@@ -111,7 +109,7 @@ async function saveCloud(){
   await JSONBIN.putRecord(S.cloud);
 }
 
-/* ========= UI bits ========= */
+/* ---- maps helpers ---- */
 function mapsUrlFromAddr(addr){
   if(addr && typeof addr.lat==='number' && typeof addr.lon==='number'){
     return `https://www.google.com/maps/dir/?api=1&destination=${addr.lat},${addr.lon}`;
@@ -121,11 +119,8 @@ function mapsUrlFromAddr(addr){
   }
   const q=addr?.name||''; return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+', Norge');
 }
-function mapsUrlFromCoordsText(text){
-  const t=(text||'').trim();
-  if(/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(t)){ return `https://www.google.com/maps/dir/?api=1&destination=${t}`; }
-  return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(t);
-}
+
+/* ---- work UI ---- */
 function uiSetWork(){
   const now=S.addresses[S.idx]||null;
   const next=S.addresses[nextIndex(S.idx,S.dir)]||null;
@@ -133,9 +128,11 @@ function uiSetWork(){
   $('#b_next').textContent=next?(next.name||'—'):'—';
   $('#b_dir').textContent=S.dir;
   $('#b_task').textContent=(S.mode==='snow')?'Snø':'Grus';
+
   const bag=statusStore();
   const st=(now?.name && bag[now.name]?.state) || 'not_started';
   $('#b_status').textContent=STATE_LABEL[st]||'—';
+
   updateProgressBars();
 }
 function updateProgressBars(){
@@ -183,10 +180,149 @@ async function stepState(patch,nextAfter=true){
   }
 }
 
-/* ========= init etter DOMContentLoaded ========= */
+/* ---- STATUS/ADMIN ---- */
+function summarize(addrs,bag){
+  let c={tot:addrs.length,not:0,prog:0,done:0,skip:0,blk:0,acc:0};
+  addrs.forEach(a=>{const st=(bag[a.name]||{state:'not_started'}).state;
+    if(st==='not_started')c.not++; else if(st==='in_progress')c.prog++;
+    else if(st==='done')c.done++; else if(st==='skipped')c.skip++;
+    else if(st==='blocked')c.blk++; else if(st==='accident')c.acc++;
+  }); return c;
+}
+function makeRow(i,a,s,seasonLbl,stakesStr){
+  const img=s?.photo?'🖼️':'';
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td>${i+1}</td><td>${a.name||''}</td><td>${(S.mode==='snow'?'Snø':'Grus')}</td>
+    <td>${stakesStr?`${stakesStr} <span class="muted">(${seasonLbl||'sesong'})</span>`:''}</td>
+    <td>${STATE_LABEL[s?.state||'not_started']}</td>
+    <td>${fmtTime(s?.startedAt)}</td>
+    <td>${fmtTime(s?.finishedAt)}</td>
+    <td>${s?.driver||'—'}</td><td>${img}</td>`;
+  return tr;
+}
+async function loadStatus(){
+  try{
+    await ensureAddressesSeeded(); // <— viktig: fyll hvis tomt
+    const modeSel=$('#st_mode')?.value || 'snow';
+    const cloud=await JSONBIN.getLatest();
+    if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
+
+    const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
+    const addrs=(raw||[]).map(a=>{
+      const snow=a.flags?!!a.flags.snow:(a.task?true:true);
+      const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus');
+      return {...a,flags:{snow,grit}};
+    }).filter(a=>a.active!==false)
+      .filter(a=> modeSel==='snow'?a.flags.snow:a.flags.grit);
+
+    const bag=(modeSel==='snow')?(cloud.statusSnow||{}):(cloud.statusGrit||{});
+    const filter=$('#st_filter')?.value || 'alle';
+    const tbody=$('#st_tbody'); if(tbody) tbody.innerHTML='';
+
+    const seasonLbl=(cloud.settings&&cloud.settings.seasonLabel)||'sesong';
+    const stakesLocked=!!(cloud.settings&&cloud.settings.stakesLocked);
+    const stakesCount=(cloud.settings && (cloud.settings.stakesCount??''))||'';
+
+    const badge=$('#st_season_badge'); if(badge) badge.textContent='Sesong: '+seasonLbl;
+    const lockBtn=$('#st_lock_toggle');
+    if(lockBtn){ lockBtn.textContent=stakesLocked?'🔒 Stikker låst':'🔓 Lås stikker (sesong)'; lockBtn.dataset.locked=String(stakesLocked); }
+
+    const stakesStr=(stakesCount!==''?String(stakesCount):'');
+
+    if(tbody){
+      addrs.forEach((a,i)=>{
+        const s=bag[a.name]||{state:'not_started'};
+        let ok=true;
+        if(filter==='ikke'  && s.state!=='not_started') ok=false;
+        if(filter==='pågår' && s.state!=='in_progress') ok=false;
+        if(filter==='ferdig'&& s.state!=='done') ok=false;
+        if(filter==='hoppet'&& s.state!=='skipped') ok=false;
+        if(filter==='umulig'&& s.state!=='blocked') ok=false;
+        if(filter==='uhell' && s.state!=='accident') ok=false;
+        if(ok) tbody.appendChild(makeRow(i,a,s,seasonLbl,stakesStr));
+      });
+    }
+
+    const c=summarize(addrs,bag);
+    const label=(modeSel==='snow')?'Snø':'Grus';
+    const sum=$('#st_summary'); if(sum) sum.textContent=`${label}-runde: ${c.tot} adresser • Ikke påbegynt ${c.not} • Pågår ${c.prog} • Ferdig ${c.done} • Hoppet ${c.skip} • Ikke mulig ${c.blk} • Uhell ${c.acc}`;
+  }catch(e){ showErr(e.message||e); }
+}
+
+async function resetRoundAll(){ await refreshCloud(); const bag=statusStore();
+  S.addresses.forEach(a=>{bag[a.name]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};});
+  await saveCloud(); loadStatus(); uiSetWork(); }
+async function resetRoundMine(){ await refreshCloud(); const bag=statusStore();
+  for(const k in bag){ if(bag[k]?.driver===S.driver){bag[k]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}}
+  await saveCloud(); loadStatus(); uiSetWork(); }
+
+async function exportCsv(){
+  try{
+    const modeSel=$('#st_mode')?.value || 'snow';
+    const cloud=await JSONBIN.getLatest(); if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
+    const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
+    const addrs=(raw||[]).map(a=>{const snow=a.flags?!!a.flags.snow:(a.task?true:true); const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus'); return {...a,flags:{snow,grit}};})
+      .filter(a=>a.active!==false).filter(a=> modeSel==='snow'?a.flags.snow:a.flags.grit);
+    const bag=(modeSel==='snow')?(cloud.statusSnow||{}):(cloud.statusGrit||{});
+    const seasonLbl=(cloud.settings&&cloud.settings.seasonLabel)||'sesong';
+    const stakesCount=(cloud.settings&&(cloud.settings.stakesCount??''))||'';
+    const rows=[['#','Adresse','Oppgave',`Stikker (${seasonLbl})`,'Status','Start','Ferdig','Utført av','Notat']];
+    addrs.forEach((a,i)=>{
+      const s=bag[a.name]||{};
+      rows.push([String(i+1),a.name||'',(modeSel==='snow'?'Snø':'Grus'), stakesCount!==''?String(stakesCount):'', STATE_LABEL[s.state||'not_started'], fmtTime(s.startedAt),fmtTime(s.finishedAt),s.driver||'', (s.note||'').replace(/\s+/g,' ').trim()]);
+    });
+    const csv=`Brøyterapport,${fmtDate()},${(modeSel==='snow'?'Snø':'Grus')}\n`+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=`Broeyterapport_${fmtDate()}_${(modeSel==='snow'?'Sno':'Grus')}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }catch(e){ showErr(e.message||e); }
+}
+
+/* ---- Admin helpers ---- */
+function ensureCloudSetupCard(){
+  const adminSec = $('#admin'); if(!adminSec || $('#cloudSetupCard')) return;
+  const card=document.createElement('div'); card.className='card'; card.id='cloudSetupCard';
+  card.innerHTML=`
+    <h3 style="margin-top:0">Sky-oppsett (JSONBin/Proxy)</h3>
+    <div class="inline-edit" style="gap:8px">
+      <label>GET-URL:<br><input id="adm_geturl" placeholder="https://jsonbin-proxy.…" style="min-width:260px"></label>
+      <label>PUT-URL:<br><input id="adm_puturl" placeholder="https://jsonbin-proxy.…" style="min-width:260px"></label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button id="adm_urls_save" class="btn btn-primary">Lagre URL-er</button>
+      <button id="adm_urls_clear" class="btn btn-ghost">Fjern URL-er</button>
+      <span id="adm_urls_status" class="small muted">—</span>
+    </div>`;
+  adminSec.appendChild(card);
+  $('#adm_geturl').value = JSONBIN._getUrl || '';
+  $('#adm_puturl').value = JSONBIN._putUrl || '';
+  $('#adm_urls_save').addEventListener('click', ()=>{
+    const g=$('#adm_geturl').value.trim(), p=$('#adm_puturl').value.trim();
+    JSONBIN.setUrlPair(g,p);
+    const el=$('#adm_urls_status'); if(el) el.textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Mangler noe…';
+  });
+  $('#adm_urls_clear').addEventListener('click', ()=>{
+    ['BROYT_BIN_URL','BROYT_BIN_PUT','JSONBIN_BIN_URL','JSONBIN_BIN_PUT_URL'].forEach(k=>localStorage.removeItem(k));
+    $('#adm_geturl').value=''; $('#adm_puturl').value=''; const el=$('#adm_urls_status'); if(el) el.textContent='URL-er fjernet';
+  });
+}
+async function loadSettingsToAdmin(){
+  try{
+    await ensureAddressesSeeded(); // <— viktig
+    ensureCloudSetupCard();
+    await refreshCloud();
+    const st={grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",
+      seasonLabel:"2025–26",stakesCount:"",...(S.cloud.settings||{})};
+    $('#adm_grus').value=st.grusDepot||''; $('#adm_diesel').value=st.diesel||''; $('#adm_base').value=st.base||'';
+    $('#adm_stakes').value=(st.stakesCount!==undefined?String(st.stakesCount):'');
+    $('#adm_stakes_lock').textContent=st.stakesLocked?'🔒 Stikker låst':'🔓 Lås antall';
+    const el=$('#adm_urls_status'); if(el) el.textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Sky-oppsett mangler';
+  }catch(e){ showErr(e.message||e); }
+}
+
+/* ---- init etter DOMContentLoaded ---- */
 window.addEventListener('DOMContentLoaded', ()=>{
   try{
-    /* Drawer & routing */
+    // Drawer & routing
     const drawer=$('#drawer'), scrim=$('#scrim');
     const open=()=>{drawer?.classList.add('open'); scrim?.classList.add('show'); drawer?.setAttribute('aria-hidden','false');};
     const close=()=>{drawer?.classList.remove('open'); scrim?.classList.remove('show'); drawer?.setAttribute('aria-hidden','true');};
@@ -202,13 +338,12 @@ window.addEventListener('DOMContentLoaded', ()=>{
       if(id==='status'){ $('#rp_date').textContent=fmtDate(); loadStatus(); }
       if(id==='admin'){ loadSettingsToAdmin(); }
     };
-
     window.addEventListener('hashchange',()=>{
       const id=(location.hash||'#home').replace('#','');
       showPage($('#'+id)?id:'home');
     });
 
-    // Gjenopprett prefs og vis HOME først
+    // Gjenopprett prefs
     try{
       const p=JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}');
       if(p.driver)$('#a_driver').value=p.driver;
@@ -220,23 +355,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
       }
       if(typeof p.autoNav==='boolean')$('#a_autoNav').checked=p.autoNav;
     }catch{}
-    showPage('home');
 
-    /* Wake lock i meny */
-    (function(){
-      let wl=null; const btn=$('#qk_wl'), st=$('#qk_wl_status'); if(!btn) return;
-      const supported=()=>('wakeLock' in navigator && typeof navigator.wakeLock.request==='function');
-      const setS=t=>st&&(st.textContent='Status: '+t);
-      const setB=a=>btn.textContent=a?'🔓 Slå av skjerm-lås':'🔒 Hold skjermen våken';
-      async function acquire(){ if(!supported()){setS('ikke støttet');return;}
-        try{ wl=await navigator.wakeLock.request('screen'); setS('aktiv'); setB(true);
-          wl.addEventListener('release',()=>{setS('av'); setB(false);});
-        }catch(e){ setS('feil: '+(e.name||e.message)); setB(false);}
-      }
-      async function release(){ try{ if(wl){await wl.release(); wl=null; setS('av'); setB(false);} }catch{} }
-      btn.addEventListener('click',()=> wl?release():acquire());
-      document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && wl){ acquire(); } });
-    })();
+    showPage('home');
 
     /* HJEM: Start runde */
     $('#a_start')?.addEventListener('click', async ()=>{
@@ -269,7 +389,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
       }catch(e){ showErr(e.message||e); }
     });
 
-    /* UNDER ARBEID – knapper */
+    /* UNDER ARBEID – handlinger */
     $('#act_start')?.addEventListener('click',()=>stepState({state:'in_progress',startedAt:Date.now()},false));
     $('#act_skip') ?.addEventListener('click',()=>stepState({state:'skipped',finishedAt:Date.now()}));
     $('#act_block')?.addEventListener('click',()=>{ const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||''; stepState({state:'blocked',finishedAt:Date.now(),note:reason}); });
@@ -283,7 +403,19 @@ window.addEventListener('DOMContentLoaded', ()=>{
     });
     $('#act_done') ?.addEventListener('click',()=>stepState({state:'done',finishedAt:Date.now()}));
 
-    /* STATUS – hendelser */
+    // NYTT: Navigasjon-knapper (valgfritt i html)
+    $('#act_nav')?.addEventListener('click', ()=>{
+      const cur=S.addresses[S.idx];
+      if(!cur) return;
+      window.open(mapsUrlFromAddr(cur),'_blank');
+    });
+    $('#act_nav_next')?.addEventListener('click', ()=>{
+      const next=S.addresses[nextIndex(S.idx,S.dir)];
+      if(!next) return;
+      window.open(mapsUrlFromAddr(next),'_blank');
+    });
+
+    /* STATUS */
     $('#st_reload')?.addEventListener('click',loadStatus);
     $('#st_filter')?.addEventListener('change',loadStatus);
     $('#st_mode')  ?.addEventListener('change',loadStatus);
@@ -300,147 +432,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
     /* ADMIN – nøkler/innstillinger/sky */
     $('#adm_key_save') ?.addEventListener('click',()=>{ const ok=JSONBIN.setKey($('#adm_key').value||''); const s=$('#adm_key_status'); if(s) s.textContent=ok?'Lagret nøkkel.':'Ugyldig nøkkel.'; });
     $('#adm_key_clear')?.addEventListener('click',()=>{ JSONBIN.clearKey(); const s=$('#adm_key_status'); if(s) s.textContent='Nøkkel fjernet.'; });
-    // vis admin hvis hash peker dit
-    if(location.hash==='#admin') loadSettingsToAdmin();
 
-  }catch(e){
-    showErr(e.message||e);
-  }
+  }catch(e){ showErr(e.message||e); }
 });
 
-/* ========= Status/Rapport ========= */
-function makeRow(i,a,s,seasonLbl,stakesStr){
-  const img=s?.photo?'🖼️':'';
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td>${i+1}</td><td>${a.name||''}</td><td>${(S.mode==='snow'?'Snø':'Grus')}</td>
-    <td>${stakesStr?`${stakesStr} <span class="muted">(${seasonLbl||'sesong'})</span>`:''}</td>
-    <td>${STATE_LABEL[s?.state||'not_started']}</td>
-    <td>${fmtTime(s?.startedAt)}</td>
-    <td>${fmtTime(s?.finishedAt)}</td>
-    <td>${s?.driver||'—'}</td><td>${img}</td>`;
-  return tr;
-}
-function summarize(addrs,bag){
-  let c={tot:addrs.length,not:0,prog:0,done:0,skip:0,blk:0,acc:0};
-  addrs.forEach(a=>{const st=(bag[a.name]||{state:'not_started'}).state;
-    if(st==='not_started')c.not++; else if(st==='in_progress')c.prog++;
-    else if(st==='done')c.done++; else if(st==='skipped')c.skip++;
-    else if(st==='blocked')c.blk++; else if(st==='accident')c.acc++;
-  }); return c;
-}
-async function loadStatus(){
-  try{
-    const modeSel=$('#st_mode').value;
-    const cloud=await JSONBIN.getLatest();
-    if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
-
-    const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
-    const addrs=(raw||[]).map(a=>{
-      const snow=a.flags?!!a.flags.snow:(a.task?true:true);
-      const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus');
-      return {...a,flags:{snow,grit}};
-    }).filter(a=>a.active!==false)
-      .filter(a=> modeSel==='snow'?a.flags.snow:a.flags.grit);
-
-    const bag=(modeSel==='snow')?(cloud.statusSnow||{}):(cloud.statusGrit||{});
-    const filter=$('#st_filter').value;
-    const tbody=$('#st_tbody'); tbody.innerHTML='';
-
-    const seasonLbl=(cloud.settings&&cloud.settings.seasonLabel)||'sesong';
-    const stakesLocked=!!(cloud.settings&&cloud.settings.stakesLocked);
-    const stakesCount=(cloud.settings && (cloud.settings.stakesCount??''))||'';
-
-    $('#st_season_badge').textContent='Sesong: '+seasonLbl;
-    const lockBtn=$('#st_lock_toggle');
-    if(lockBtn){ lockBtn.textContent=stakesLocked?'🔒 Stikker låst':'🔓 Lås stikker (sesong)'; lockBtn.dataset.locked=String(stakesLocked); }
-
-    const stakesStr=(stakesCount!==''?String(stakesCount):'');
-
-    addrs.forEach((a,i)=>{
-      const s=bag[a.name]||{state:'not_started'};
-      let ok=true;
-      if(filter==='ikke'  && s.state!=='not_started') ok=false;
-      if(filter==='pågår' && s.state!=='in_progress') ok=false;
-      if(filter==='ferdig'&& s.state!=='done') ok=false;
-      if(filter==='hoppet'&& s.state!=='skipped') ok=false;
-      if(filter==='umulig'&& s.state!=='blocked') ok=false;
-      if(filter==='uhell' && s.state!=='accident') ok=false;
-      if(ok) tbody.appendChild(makeRow(i,a,s,seasonLbl,stakesStr));
-    });
-
-    const c=summarize(addrs,bag);
-    const label=(modeSel==='snow')?'Snø':'Grus';
-    $('#st_summary').textContent=`${label}-runde: ${c.tot} adresser • Ikke påbegynt ${c.not} • Pågår ${c.prog} • Ferdig ${c.done} • Hoppet ${c.skip} • Ikke mulig ${c.blk} • Uhell ${c.acc}`;
-  }catch(e){ showErr(e.message||e); }
-}
-async function resetRoundAll(){ await refreshCloud(); const bag=statusStore();
-  S.addresses.forEach(a=>{bag[a.name]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};});
-  await saveCloud(); loadStatus(); uiSetWork(); }
-async function resetRoundMine(){ await refreshCloud(); const bag=statusStore();
-  for(const k in bag){ if(bag[k]?.driver===S.driver){bag[k]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}}
-  await saveCloud(); loadStatus(); uiSetWork(); }
-async function exportCsv(){
-  try{
-    const modeSel=$('#st_mode').value;
-    const cloud=await JSONBIN.getLatest(); if(!cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
-    const raw=(cloud?.snapshot?.addresses && Array.isArray(cloud.snapshot.addresses))?cloud.snapshot.addresses:(Array.isArray(cloud?.addresses)?cloud.addresses:[]);
-    const addrs=(raw||[]).map(a=>{const snow=a.flags?!!a.flags.snow:(a.task?true:true); const grit=a.flags?!!a.flags.grit:(a.task==='Snø og grus'||a.task==='Grus'); return {...a,flags:{snow,grit}};})
-      .filter(a=>a.active!==false).filter(a=> modeSel==='snow'?a.flags.snow:a.flags.grit);
-    const bag=(modeSel==='snow')?(cloud.statusSnow||{}):(cloud.statusGrit||{});
-    const seasonLbl=(cloud.settings&&cloud.settings.seasonLabel)||'sesong';
-    const stakesCount=(cloud.settings&&(cloud.settings.stakesCount??''))||'';
-    const rows=[['#','Adresse','Oppgave',`Stikker (${seasonLbl})`,'Status','Start','Ferdig','Utført av','Notat']];
-    addrs.forEach((a,i)=>{
-      const s=bag[a.name]||{};
-      rows.push([String(i+1),a.name||'',(modeSel==='snow'?'Snø':'Grus'), stakesCount!==''?String(stakesCount):'', STATE_LABEL[s.state||'not_started'], fmtTime(s.startedAt),fmtTime(s.finishedAt),s.driver||'', (s.note||'').replace(/\s+/g,' ').trim()]);
-    });
-    const csv=`Brøyterapport,${fmtDate()},${(modeSel==='snow'?'Snø':'Grus')}\n`+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download=`Broeyterapport_${fmtDate()}_${(modeSel==='snow'?'Sno':'Grus')}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  }catch(e){ showErr(e.message||e); }
-}
-
-/* ========= Admin ========= */
-function ensureCloudSetupCard(){
-  const adminSec = $('#admin'); if(!adminSec || $('#cloudSetupCard')) return;
-  const card=document.createElement('div'); card.className='card'; card.id='cloudSetupCard';
-  card.innerHTML=`
-    <h3 style="margin-top:0">Sky-oppsett (JSONBin/Proxy)</h3>
-    <div class="inline-edit" style="gap:8px">
-      <label>GET-URL:<br><input id="adm_geturl" placeholder="https://jsonbin-proxy.…" style="min-width:260px"></label>
-      <label>PUT-URL:<br><input id="adm_puturl" placeholder="https://jsonbin-proxy.…" style="min-width:260px"></label>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-      <button id="adm_urls_save" class="btn btn-primary">Lagre URL-er</button>
-      <button id="adm_urls_clear" class="btn btn-ghost">Fjern URL-er</button>
-      <span id="adm_urls_status" class="small muted">—</span>
-    </div>`;
-  adminSec.appendChild(card);
-  $('#adm_geturl').value = JSONBIN._getUrl || '';
-  $('#adm_puturl').value = JSONBIN._putUrl || '';
-  $('#adm_urls_save').addEventListener('click', ()=>{
-    const g=$('#adm_geturl').value.trim(), p=$('#adm_puturl').value.trim();
-    JSONBIN.setUrlPair(g,p);
-    const el=$('#adm_urls_status'); if(el) el.textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Mangler noe…';
-  });
-  $('#adm_urls_clear').addEventListener('click', ()=>{
-    ['BROYT_BIN_URL','BROYT_BIN_PUT','JSONBIN_BIN_URL','JSONBIN_BIN_PUT_URL'].forEach(k=>localStorage.removeItem(k));
-    $('#adm_geturl').value=''; $('#adm_puturl').value=''; const el=$('#adm_urls_status'); if(el) el.textContent='URL-er fjernet';
-  });
-}
-async function loadSettingsToAdmin(){
-  try{
-    ensureCloudSetupCard();
-    await refreshCloud();
-    const st={grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",
-      seasonLabel:"2025–26",stakesCount:"",...(S.cloud.settings||{})};
-    $('#adm_grus').value=st.grusDepot||''; $('#adm_diesel').value=st.diesel||''; $('#adm_base').value=st.base||'';
-    $('#adm_stakes').value=(st.stakesCount!==undefined?String(st.stakesCount):'');
-    $('#adm_stakes_lock').textContent=st.stakesLocked?'🔒 Stikker låst':'🔓 Lås antall';
-    const el=$('#adm_urls_status'); if(el) el.textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Sky-oppsett mangler';
-  }catch(e){ showErr(e.message||e); }
-}
-
-/* ========= uhell-bilde ========= */
+/* ---- uhell-bilde ---- */
 function pickImage(){ return new Promise(resolve=>{ const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.capture='environment'; i.onchange=()=>resolve(i.files&&i.files[0]?i.files[0]:null); i.click(); setTimeout(()=>resolve(null),15000); }); }
 function compressImage(file,maxW=1000,q=0.7){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>{ const img=new Image(); img.onload=()=>{ const scale=maxW/Math.max(img.width,img.height); const w=img.width>=img.height?maxW:Math.round(img.width*scale); const h=img.width>=img.height?Math.round(img.height*scale):maxW; const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const ctx=cv.getContext('2d'); ctx.drawImage(img,0,0,w,h); res(cv.toDataURL('image/jpeg',q)); }; img.src=fr.result; }; fr.onerror=rej; fr.readAsDataURL(file); }); }
