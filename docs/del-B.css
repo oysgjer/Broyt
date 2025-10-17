@@ -146,4 +146,14 @@ h2.title {
   .tbl th { background:#e2e8f0; color:#111; }
   .tbl td { border-color:#e2e8f0; }
   .inline-edit input[type="text"]{ background:#fff; border-color:#d1d5db; color:#111; }
+
+/* -- key-banner (nøkkel/konfig-varsel) -- */
+#key-banner{position:sticky;top:0;z-index:9999;background:#7c2d12;color:#fff;
+  padding:10px 12px;border-bottom:2px solid #ef4444;display:none}
+#key-banner .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#key-banner button{background:#ef4444;border:none;color:#fff;padding:8px 12px;
+  border-radius:8px;font-size:15px;cursor:pointer}
+#key-banner .sec{opacity:.9;font-size:13px}
+@media (prefers-color-scheme:light){
+  #key-banner{background:#dc2626;border-color:#b91c1c}
 }
