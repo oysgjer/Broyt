@@ -146,7 +146,7 @@ h2.title {
   .tbl th { background:#e2e8f0; color:#111; }
   .tbl td { border-color:#e2e8f0; }
   .inline-edit input[type="text"]{ background:#fff; border-color:#d1d5db; color:#111; }
-
+}
 /* -- key-banner (nøkkel/konfig-varsel) -- */
 #key-banner{position:sticky;top:0;z-index:9999;background:#7c2d12;color:#fff;
   padding:10px 12px;border-bottom:2px solid #ef4444;display:none}
