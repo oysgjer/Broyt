@@ -1,12 +1,10 @@
-/* del-D.js – v10.4
-   Nytt:
-   - Koordinater per adresse (Admin: "Koordinater (lat,lon)")
-   - Navigering bruker coords hvis tilgjengelig
-   - Status-tabell viser kart-ikon/lenke per rad
+/* del-D.js – v10.4.1
+   Fix: implementert JSONBIN.hasAll() + ekstra sikringer i Admin,
+   slik at Adresse-register rendres selv om noe i sky-oppsettet mangler.
 */
 
-const $ = (s,root=document)=>root.querySelector(s);
-const $$=(s,root=document)=>Array.from(root.querySelectorAll(s));
+const $  = (s,root=document)=>root.querySelector(s);
+const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
 const fmtTime = t=>!t ? '—' : new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
 const fmtDate = ()=> new Date().toLocaleDateString('no-NO');
 const STATE_LABEL={not_started:'Ikke påbegynt',in_progress:'Pågår',done:'Ferdig',skipped:'Hoppet over',blocked:'Ikke mulig',accident:'Uhell'};
@@ -18,9 +16,22 @@ const JSONBIN={
   get _getUrl(){return localStorage.getItem('BROYT_BIN_URL')||localStorage.getItem('JSONBIN_BIN_URL')||'';},
   get _putUrl(){return localStorage.getItem('BROYT_BIN_PUT')||localStorage.getItem('JSONBIN_BIN_PUT_URL')||'';},
   get _key(){return localStorage.getItem('BROYT_XKEY')||localStorage.getItem('JSONBIN_MASTER')||'';},
-  setUrlPair(g,p){ if(g){localStorage.setItem('BROYT_BIN_URL',g);localStorage.setItem('JSONBIN_BIN_URL',g);} if(p){localStorage.setItem('BROYT_BIN_PUT',p);localStorage.setItem('JSONBIN_BIN_PUT_URL',p);} },
-  setKey(k){const v=(k||'').trim(); if(!v){localStorage.removeItem('BROYT_XKEY');return false;} localStorage.setItem('BROYT_XKEY',v); localStorage.setItem('JSONBIN_MASTER',v); return true;},
+
+  hasAll(){ // nøkkel kan være tom om proxien ikke krever den
+    return !!(this._getUrl && this._putUrl);
+  },
+
+  setUrlPair(g,p){
+    if(g){localStorage.setItem('BROYT_BIN_URL',g);localStorage.setItem('JSONBIN_BIN_URL',g);}
+    if(p){localStorage.setItem('BROYT_BIN_PUT',p);localStorage.setItem('JSONBIN_BIN_PUT_URL',p);}
+  },
+  setKey(k){
+    const v=(k||'').trim();
+    if(!v){localStorage.removeItem('BROYT_XKEY');localStorage.removeItem('JSONBIN_MASTER');return false;}
+    localStorage.setItem('BROYT_XKEY',v); localStorage.setItem('JSONBIN_MASTER',v); return true;
+  },
   clearKey(){localStorage.removeItem('BROYT_XKEY');localStorage.removeItem('JSONBIN_MASTER');},
+
   async getLatest(){
     const url=this._getUrl; if(!url){ return this._localFallback(); }
     const res=await fetch(url,{headers:this._headers()}).catch(()=>null);
@@ -28,12 +39,16 @@ const JSONBIN={
     const j=await res.json(); return j.record||j;
   },
   async putRecord(obj){
-    const url=this._putUrl,key=this._key;
-    if(!url||!key){ localStorage.setItem('BROYT_LOCAL_DATA',JSON.stringify(obj||{})); return {ok:false,local:true};}
+    const url=this._putUrl;
+    if(!url){ localStorage.setItem('BROYT_LOCAL_DATA',JSON.stringify(obj||{})); return {ok:false,local:true};}
     const res=await fetch(url,{method:'PUT',headers:this._headers(),body:JSON.stringify(obj||{})}).catch(()=>null);
     return (!!res&&res.ok)?{ok:true}:{ok:false};
   },
-  _headers(){const h={'Content-Type':'application/json'}; const k=this._key; if(k) h['X-Master-Key']=k; return h;},
+  _headers(){
+    const h={'Content-Type':'application/json'};
+    const k=this._key; if(k) h['X-Master-Key']=k;
+    return h;
+  },
   _localFallback(){
     const local=JSON.parse(localStorage.getItem('BROYT_LOCAL_DATA')||'null');
     if(local) return local;
@@ -87,16 +102,13 @@ function nextIndex(i,d){return d==='Motsatt'?i-1:i+1;}
 /* ------------ maps helper ------------- */
 function mapsUrlFromAddr(addr){
   if(!addr) return 'https://www.google.com/maps';
-  // "lat,lon" i addr.coords
   if(addr.coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(addr.coords)){
     const q=addr.coords.replace(/\s+/g,'');
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
   }
-  // eksplisitt lat/lon felter?
   if(typeof addr.lat==='number' && typeof addr.lon==='number'){
     return `https://www.google.com/maps/dir/?api=1&destination=${addr.lat},${addr.lon}`;
   }
-  // fallback: navn
   return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((addr.name||'')+', Norge');
 }
 
@@ -203,26 +215,30 @@ async function loadStatus(){
   }catch(e){ alert('Kunne ikke hente status: '+(e.message||e)); }
 }
 
-/* ------------ ADMIN: sky & innstillinger & adresser ------------- */
+/* ------------ ADMIN ------------- */
 function ensureCloudSetupCard(){
-  $('#adm_geturl').value = JSONBIN._getUrl || '';
-  $('#adm_puturl').value = JSONBIN._putUrl || '';
-  const el=$('#adm_urls_status'); if(el) el.textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Mangler noe…';
+  const g=$('#adm_geturl'), p=$('#adm_puturl'), st=$('#adm_urls_status');
+  if(g) g.value = JSONBIN._getUrl || '';
+  if(p) p.value = JSONBIN._putUrl || '';
+  if(st) st.textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Mangler noe…';
+
   $('#adm_urls_save')?.addEventListener('click', ()=>{
-    const g=$('#adm_geturl').value.trim(), p=$('#adm_puturl').value.trim();
-    JSONBIN.setUrlPair(g,p);
-    const el=$('#adm_urls_status'); if(el) el.textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Mangler noe…';
+    const gg=$('#adm_geturl')?.value.trim()||'', pp=$('#adm_puturl')?.value.trim()||'';
+    JSONBIN.setUrlPair(gg,pp);
+    if($('#adm_urls_status')) $('#adm_urls_status').textContent = JSONBIN.hasAll() ? 'Sky-oppsett: OK' : 'Mangler noe…';
   });
   $('#adm_urls_clear')?.addEventListener('click', ()=>{
     ['BROYT_BIN_URL','BROYT_BIN_PUT','JSONBIN_BIN_URL','JSONBIN_BIN_PUT_URL'].forEach(k=>localStorage.removeItem(k));
-    $('#adm_geturl').value=''; $('#adm_puturl').value=''; const el=$('#adm_urls_status'); if(el) el.textContent='URL-er fjernet';
+    if($('#adm_geturl')) $('#adm_geturl').value='';
+    if($('#adm_puturl')) $('#adm_puturl').value='';
+    if($('#adm_urls_status')) $('#adm_urls_status').textContent='URL-er fjernet';
   });
 }
 function renderAdminAddresses(){
   const tb=$('#adm_addr_tbody'); if(!tb) return;
   tb.innerHTML='';
   const locked=!!(S.cloud.settings&&S.cloud.settings.stakesLocked);
-  S.cloud.snapshot.addresses.forEach((a,idx)=>{
+  (S.cloud.snapshot.addresses||[]).forEach((a,idx)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><input type="checkbox" class="adm-active"></td>
@@ -267,10 +283,10 @@ async function loadAdmin(){
   ensureCloudSetupCard();
 
   const st={...(S.cloud.settings||{})};
-  $('#adm_grus').value=st.grusDepot||'';
-  $('#adm_diesel').value=st.diesel||'';
-  $('#adm_base').value=st.base||'';
-  $('#adm_stakes_lock').textContent=st.stakesLocked?'🔒 Låst':'🔓 Lås stikker';
+  if($('#adm_grus'))   $('#adm_grus').value=st.grusDepot||'';
+  if($('#adm_diesel')) $('#adm_diesel').value=st.diesel||'';
+  if($('#adm_base'))   $('#adm_base').value=st.base||'';
+  if($('#adm_stakes_lock')) $('#adm_stakes_lock').textContent=st.stakesLocked?'🔒 Låst':'🔓 Lås stikker';
 
   if(!Array.isArray(S.cloud.snapshot.addresses)) S.cloud.snapshot.addresses=[];
   renderAdminAddresses();
@@ -294,12 +310,11 @@ async function saveAdminAddresses(){
     S.cloud.snapshot.addresses = list;
     await saveCloud();
     if(msg) msg.textContent='Lagret.';
-  }catch(e){ if(msg) msg.textContent='Feil: '+(e.message||e); }
+  }catch(e){ if(msg) msg.textContent='Feil: '+(e.message||e)); }
 }
 
-/* ------------ init ------------- */
+/* ------------ init / routing / actions ------------- */
 window.addEventListener('DOMContentLoaded', ()=>{
-  // routing/drawer
   const drawer=$('#drawer'), scrim=$('#scrim');
   const open=()=>{drawer?.classList.add('open'); scrim?.classList.add('show'); drawer?.setAttribute('aria-hidden','false');};
   const close=()=>{drawer?.classList.remove('open'); scrim?.classList.remove('show'); drawer?.setAttribute('aria-hidden','true');};
@@ -320,7 +335,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
     showPage($('#'+id)?id:'home');
   });
 
-  // prefs
   try{
     const p=JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}');
     if(p.driver)$('#a_driver').value=p.driver;
@@ -331,7 +345,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   showPage('home');
 
-  // start runde
   $('#a_start')?.addEventListener('click', async ()=>{
     try{
       const prefs={
@@ -356,7 +369,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
     }catch(e){ alert('Startfeil: '+(e.message||e)); }
   });
 
-  // work actions
   $('#act_start')?.addEventListener('click',()=>stepState({state:'in_progress',startedAt:Date.now()},false));
   $('#act_skip') ?.addEventListener('click',()=>stepState({state:'skipped',finishedAt:Date.now()}));
   $('#act_block')?.addEventListener('click',()=>{ const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||''; stepState({state:'blocked',finishedAt:Date.now(),note:reason}); });
@@ -369,15 +381,12 @@ window.addEventListener('DOMContentLoaded', ()=>{
     }catch(e){ alert('Feil ved uhell: '+(e.message||e)); }
   });
   $('#act_done') ?.addEventListener('click',()=>stepState({state:'done',finishedAt:Date.now()}));
-
-  // Én naviger → alltid neste (bruk coords)
   $('#act_nav_next')?.addEventListener('click', ()=>{
     const next=S.addresses[nextIndex(S.idx,S.dir)];
     if(!next) return;
     window.open(mapsUrlFromAddr(next),'_blank');
   });
 
-  // status-knapper
   $('#st_reload')?.addEventListener('click',loadStatus);
   $('#st_filter')?.addEventListener('change',loadStatus);
   $('#st_mode')  ?.addEventListener('change',loadStatus);
@@ -388,17 +397,14 @@ window.addEventListener('DOMContentLoaded', ()=>{
   $('#st_reset_all') ?.addEventListener('click', async ()=>{ if(confirm('Nullstille denne runden for alle?')){ await refreshCloud(); const bag=statusStore(); (S.cloud.snapshot.addresses||[]).forEach(a=>{bag[a.name]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}); await saveCloud(); loadStatus(); }});
   $('#st_reset_mine')?.addEventListener('click', async ()=>{ if(confirm('Nullstille kun dine punkter?')){ await refreshCloud(); const bag=statusStore(); for(const k in bag){ if(bag[k]?.driver===S.driver){bag[k]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}} await saveCloud(); loadStatus(); }});
 
-  // admin: nøkkel
-  $('#adm_key_save') ?.addEventListener('click',()=>{ const ok=JSONBIN.setKey($('#adm_key').value||''); const s=$('#adm_key_status'); if(s) s.textContent=ok?'Lagret nøkkel.':'Ugyldig nøkkel.'; });
+  $('#adm_key_save') ?.addEventListener('click',()=>{ const ok=JSONBIN.setKey($('#adm_key')?.value||''); const s=$('#adm_key_status'); if(s) s.textContent=ok?'Lagret nøkkel.':'Ugyldig nøkkel.'; });
   $('#adm_key_clear')?.addEventListener('click',()=>{ JSONBIN.clearKey(); const s=$('#adm_key_status'); if(s) s.textContent='Nøkkel fjernet.'; });
 
-  // admin: lås stikker
   $('#adm_stakes_lock')?.addEventListener('click', async ()=>{
-    try{ await refreshCloud(); S.cloud.settings ||= {}; S.cloud.settings.stakesLocked=!S.cloud.settings.stakesLocked; await saveCloud(); $('#adm_stakes_lock').textContent=S.cloud.settings.stakesLocked?'🔒 Låst':'🔓 Lås stikker'; renderAdminAddresses(); }
+    try{ await refreshCloud(); S.cloud.settings ||= {}; S.cloud.settings.stakesLocked=!S.cloud.settings.stakesLocked; await saveCloud(); if($('#adm_stakes_lock')) $('#adm_stakes_lock').textContent=S.cloud.settings.stakesLocked?'🔒 Låst':'🔓 Lås stikker'; renderAdminAddresses(); }
     catch(e){ alert('Feil: '+(e.message||e)); }
   });
 
-  // admin: adresser
   $('#adm_addr_fetch')?.addEventListener('click',loadAdmin);
   $('#adm_addr_save') ?.addEventListener('click',saveAdminAddresses);
 });
