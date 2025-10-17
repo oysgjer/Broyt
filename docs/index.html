@@ -1,292 +1,306 @@
+<!-- docs/index.html -->
 <!DOCTYPE html>
 <html lang="no">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Brøyterute – Romerike Trefelling</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Brøyterute – Romerike Trefelling</title>
 
-<!-- PWA -->
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0a0f1c">
-<link rel="apple-touch-icon" href="./icons/icon-512.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0a0f1c">
+  <link rel="apple-touch-icon" href="./icons/icon-512.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-<!-- CSS -->
-<link rel="stylesheet" href="./del-B.css">
+  <link rel="stylesheet" href="./del-B.css">
+  <script defer src="./del-A.js"></script>
+  <script defer src="./del-E.js"></script>
 
-<!-- JS-deler -->
-<script defer src="./del-A.js"></script>  <!-- JSONBIN helpers + nøkkel-sjekk -->
-<script defer src="./del-E.js"></script>  <!-- Admin (redigering + flytt opp/ned + lagre) -->
-
-<style>
-/* ramme rundt appen (navigasjon/top) */
-body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#0a0f1c; color:#e6edf3; }
-nav { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px; border-bottom:1px solid #2b3445; background:#0a0f1c; position:sticky; top:0; z-index:5; }
-nav button { border-radius:10px; padding:8px 14px; font-size:16px; border:1px solid #3b465a; background:#182233; color:#f0f4f8; }
-nav button.active { background:#1e3a8a; border-color:#60a5fa; }
-main { max-width: 900px; margin: auto; padding: 12px; }
-.card { background:#0b1220; border:1px solid #2b3445; border-radius:14px; padding:16px; margin:12px 0; }
-
-@media (prefers-color-scheme: light){
-  body{ background:#fafafa; color:#111; }
-  nav{ background:#fff; border-bottom-color:#e5e7eb; }
-  nav button{ background:#e9eef6; color:#111; border-color:#cfd8e3; }
-  nav button.active{ background:#007aff; border-color:#007aff; color:#fff; }
-  .card{ background:#fff; border-color:#e5e7eb; }
-}
-
-.install-hint{ display:none; background:#1d4ed8; color:#fff; text-align:center; padding:10px; border-radius:10px; margin-top:12px; font-size:15px; }
-</style>
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0a0f1c;color:#e6edf3}
+    nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;border-bottom:1px solid #2b3445;background:#0a0f1c;position:sticky;top:0;z-index:5}
+    nav button{border-radius:10px;padding:8px 14px;font-size:16px;border:1px solid #3b465a;background:#182233;color:#f0f4f8}
+    nav button.active{background:#1e3a8a;border-color:#60a5fa}
+    main{max-width:900px;margin:auto;padding:12px}
+    .card{background:#0b1220;border:1px solid #2b3445;border-radius:14px;padding:16px;margin:12px 0}
+    @media(prefers-color-scheme:light){
+      body{background:#fafafa;color:#111}
+      nav{background:#fff;border-bottom-color:#e5e7eb}
+      nav button{background:#e9eef6;color:#111;border-color:#cfd8e3}
+      nav button.active{background:#007aff;border-color:#007aff;color:#fff}
+      .card{background:#fff;border-color:#e5e7eb}
+    }
+    .install-hint{display:none;background:#1d4ed8;color:#fff;text-align:center;padding:10px;border-radius:10px;margin-top:12px;font-size:15px}
+  </style>
 </head>
-
 <body>
-<nav>
-  <button id="nav-home"  onclick="showPage('home')">Hjem</button>
-  <button id="nav-work"  onclick="showPage('work')">Under arbeid</button>
-  <button id="nav-service" onclick="showPage('service')">Service</button>
-  <button id="nav-status" onclick="showPage('status')">Status</button>
-  <button id="nav-admin"  onclick="showPage('admin')">Admin</button>
-  <span style="margin-left:auto;font-size:12px;opacity:.7">v9.12i</span>
-</nav>
+  <nav>
+    <button id="nav-home"  onclick="showPage('home')">Hjem</button>
+    <button id="nav-work"  onclick="showPage('work')">Under arbeid</button>
+    <button id="nav-service" onclick="showPage('service')">Service</button>
+    <button id="nav-status" onclick="showPage('status')">Status</button>
+    <button id="nav-admin"  onclick="showPage('admin')">Admin</button>
+    <span style="margin-left:auto;font-size:12px;opacity:.7">v9.12i</span>
+  </nav>
 
-<main>
-  <!-- HJEM -->
-  <section id="home" class="card">
-    <h2 class="title">Hjem</h2>
-    <p>Sett fører, retning og utstyr. Start runde når du er klar.</p>
+  <main>
+    <!-- HJEM -->
+    <section id="home" class="card">
+      <h2 class="title">Hjem</h2>
+      <p>Sett fører, retning og utstyr. Start runde når du er klar.</p>
 
-    <label>Fører:<br>
-      <input id="a_driver" placeholder="Navn" style="width:100%">
-    </label><br><br>
+      <label>Fører:<br>
+        <input id="a_driver" placeholder="Navn" style="width:100%">
+      </label><br><br>
 
-    <label>Retning rute:<br>
-      <select id="a_dir" style="width:100%">
-        <option value="Normal">Normal</option>
-        <option value="Motsatt">Motsatt</option>
-      </select>
-    </label><br><br>
+      <label>Retning rute:<br>
+        <select id="a_dir" style="width:100%">
+          <option value="Normal">Normal</option>
+          <option value="Motsatt">Motsatt</option>
+        </select>
+      </label><br><br>
 
-    <fieldset class="card" style="margin:0">
-      <legend>Utstyr</legend>
-      <label><input type="checkbox" id="a_eq_plow"> Brøyteskjær</label><br>
-      <label><input type="checkbox" id="a_eq_fres"> Fres</label><br>
-      <label><input type="checkbox" id="a_eq_sand"> Strø/sand</label>
-    </fieldset><br>
+      <fieldset class="card" style="margin:0">
+        <legend>Utstyr</legend>
+        <label><input type="checkbox" id="a_eq_plow"> Brøyteskjær</label><br>
+        <label><input type="checkbox" id="a_eq_fres"> Fres</label><br>
+        <label><input type="checkbox" id="a_eq_sand"> Strø/sand</label>
+      </fieldset>
 
-    <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
-    <div id="installPrompt" class="install-hint">📲 Installer Brøyterute på Hjem-skjerm</div>
-  </section>
+      <label style="display:block;margin:10px 0 2px">
+        <input type="checkbox" id="a_autoNav"> Auto-naviger til neste etter «Ferdig»
+      </label>
 
-  <!-- UNDER ARBEID -->
-  <section id="work" class="card" style="display:none">
-    <h2 class="title">Under arbeid</h2>
+      <br>
+      <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
+      <div id="installPrompt" class="install-hint">📲 Installer Brøyterute på Hjem-skjerm</div>
+    </section>
 
-    <div class="progress-all">
-      <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
-      <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
-    </div>
+    <!-- UNDER ARBEID -->
+    <section id="work" class="card" style="display:none">
+      <h2 class="title">Under arbeid</h2>
 
-    <!-- Nå/Neste – bredt kort for Nå -->
-    <div class="now-stack">
-      <div class="now now-wide">
-        <div class="now-head"><span class="now-icon">🚜</span><span class="lbl">Nå</span></div>
-        <div id="b_now" class="val now-val">–</div>
+      <div class="progress-all">
+        <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
+        <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
       </div>
-      <div class="next now-wide">
-        <div class="next-head"><span class="next-icon">➡️</span><span class="lbl">Neste</span></div>
-        <div id="b_next" class="val next-val">–</div>
+
+      <div class="now-stack">
+        <div class="now now-wide">
+          <div class="now-head"><span class="now-icon">🚜</span><span class="lbl">Nå</span></div>
+          <div id="b_now" class="val now-val">–</div>
+        </div>
+        <div class="next now-wide">
+          <div class="next-head"><span class="next-icon">➡️</span><span class="lbl">Neste</span></div>
+          <div id="b_next" class="val next-val">–</div>
+        </div>
       </div>
-    </div>
 
-    <!-- Handlinger -->
-    <div class="actions-grid">
-      <button id="act_start" class="btn btn-lg" type="button">▶️ Start</button>
-      <button id="act_skip"  class="btn btn-lg" type="button">⏭️ Hopp over</button>
-      <button id="act_block" class="btn btn-lg btn-warn" type="button">🚫 Ikke mulig</button>
-      <button id="act_done"  class="btn btn-lg btn-affirm" type="button">✅ Ferdig</button>
-      <button id="act_acc"   class="btn btn-lg btn-ghost" type="button">⚠️ Uhell</button>
-    </div>
-
-    <p id="b_status" class="status muted">Ikke påbegynt</p>
-
-    <!-- Kontrollpanel nederst -->
-    <div id="work-controls" class="card" style="margin-top:14px">
-      <div class="pills" style="margin-bottom:10px">
-        <span class="pill">Runde: <strong id="b_round">–</strong></span>
-        <span class="pill">Oppdrag: <strong id="b_job">–</strong></span>
-        <span class="pill">Retning: <strong id="b_dir">–</strong></span>
-        <span class="pill">Sesong: <strong id="b_season">–</strong></span>
-        <span class="pill">Synk: <strong id="b_sync">—</strong></span>
+      <div class="actions-grid">
+        <button id="act_start" class="btn btn-lg" type="button">▶️ Start</button>
+        <button id="act_skip"  class="btn btn-lg" type="button">⏭️ Hopp over</button>
+        <button id="act_block" class="btn btn-lg btn-warn" type="button">🚫 Ikke mulig</button>
+        <button id="act_done"  class="btn btn-lg btn-affirm" type="button">✅ Ferdig</button>
+        <button id="act_acc"   class="btn btn-lg btn-ghost" type="button">⚠️ Uhell</button>
       </div>
-      <div class="row" style="gap:12px;flex-wrap:wrap">
-        <button id="b_nav_top"    class="btn btn-primary btn-lg" type="button">🧭 NAVIGER</button>
-        <button id="b_sync_btn"   class="btn btn-lg" type="button">↻ Synk</button>
-        <button id="b_save_btn"   class="btn btn-lg" type="button">💾 Lagre</button>
-        <button id="b_finish_btn" class="btn btn-lg" type="button">🏁 Avslutt runde</button>
+
+      <p id="b_status" class="status muted">Ikke påbegynt</p>
+
+      <div id="work-controls" class="card" style="margin-top:14px">
+        <div class="pills" style="margin-bottom:10px">
+          <span class="pill">Runde: <strong id="b_round">–</strong></span>
+          <span class="pill">Oppdrag: <strong id="b_job">–</strong></span>
+          <span class="pill">Retning: <strong id="b_dir">–</strong></span>
+          <span class="pill">Sesong: <strong id="b_season">–</strong></span>
+          <span class="pill">Synk: <strong id="b_sync">—</strong></span>
+        </div>
+        <div class="row" style="gap:12px;flex-wrap:wrap">
+          <button id="b_nav_top"    class="btn btn-primary btn-lg" type="button">🧭 NAVIGER</button>
+          <button id="b_sync_btn"   class="btn btn-lg" type="button">↻ Synk</button>
+          <button id="b_save_btn"   class="btn btn-lg" type="button">💾 Lagre</button>
+          <button id="b_finish_btn" class="btn btn-lg" type="button">🏁 Avslutt runde</button>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- SERVICE -->
-  <section id="service" class="card" style="display:none">
-    <h2 class="title">Service</h2>
-    <p>Etter runden – huk av for utført vedlikehold:</p>
-    <label><input type="checkbox"> Skjær smurt</label><br>
-    <label><input type="checkbox"> Fres smurt</label><br>
-    <label><input type="checkbox"> Forstilling smurt</label><br>
-    <label><input type="checkbox"> Oljenivå sjekket foran</label><br>
-    <label><input type="checkbox"> Oljenivå sjekket bak</label><br>
-    <label><input type="checkbox"> Etterfylt olje</label><br>
-    <label><input type="checkbox"> Fylt diesel</label><br>
-    <label><input type="checkbox"> Annet</label><br><br>
-    <textarea rows="4" style="width:100%" placeholder="Notater…"></textarea><br>
-    <button class="btn btn-lg">💾 Lagre service</button>
-  </section>
+    <!-- SERVICE -->
+    <section id="service" class="card" style="display:none">
+      <h2 class="title">Service</h2>
+      <p>Etter runden – huk av for utført vedlikehold:</p>
+      <label><input type="checkbox"> Skjær smurt</label><br>
+      <label><input type="checkbox"> Fres smurt</label><br>
+      <label><input type="checkbox"> Forstilling smurt</label><br>
+      <label><input type="checkbox"> Oljenivå sjekket foran</label><br>
+      <label><input type="checkbox"> Oljenivå sjekket bak</label><br>
+      <label><input type="checkbox"> Etterfylt olje</label><br>
+      <label><input type="checkbox"> Fylt diesel</label><br>
+      <label><input type="checkbox"> Annet</label><br><br>
+      <textarea rows="4" style="width:100%" placeholder="Notater…"></textarea><br>
+      <button class="btn btn-lg">💾 Lagre service</button>
+    </section>
 
-  <!-- STATUS (placeholder – behold din nåværende del-C hvis du har) -->
-  <section id="status" class="card" style="display:none">
-    <h2 class="title">Status</h2>
-    <p>Se eksisterende statusvisning (din `del-C.js`) – denne indexen har kun skall.</p>
-  </section>
+    <!-- STATUS (placeholder) -->
+    <section id="status" class="card" style="display:none">
+      <h2 class="title">Status</h2>
+      <p>Status-visningen din kan kobles inn her.</p>
+    </section>
 
-  <!-- ADMIN – Liste med redigering + flytt opp/ned -->
-  <section id="admin" class="card" style="display:none">
-    <h2 class="title">Admin – Adresse-liste</h2>
+    <!-- ADMIN -->
+    <section id="admin" class="card" style="display:none">
+      <h2 class="title">Admin – Adresse-liste</h2>
 
-    <div class="card" style="margin-top:0">
-      <h3 style="margin:0 0 8px 0">JSONBin-nøkkel</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="adm_key" type="password" placeholder="Lim inn X-Master-Key her"
-               style="flex:1;min-width:240px;padding:8px;border-radius:8px;border:1px solid #334155;background:#0a1422;color:#e6edf3">
-        <button id="adm_key_save" class="btn btn-primary">Lagre nøkkel</button>
-        <button id="adm_key_clear" class="btn btn-ghost">Fjern</button>
+      <div class="card" style="margin-top:0">
+        <h3 style="margin:0 0 8px 0">JSONBin-nøkkel</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="adm_key" type="password" placeholder="Lim inn X-Master-Key her"
+                 style="flex:1;min-width:240px;padding:8px;border-radius:8px;border:1px solid #334155;background:#0a1422;color:#e6edf3">
+          <button id="adm_key_save" class="btn btn-primary">Lagre nøkkel</button>
+          <button id="adm_key_clear" class="btn btn-ghost">Fjern</button>
+        </div>
+        <div id="adm_key_status" class="small muted" style="margin-top:6px">—</div>
       </div>
-      <div id="adm_key_status" class="small muted" style="margin-top:6px">—</div>
-    </div>
 
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin:10px 0 8px">
-      <button id="adm_reload" class="btn">⟳ Hent fra sky</button>
-      <button id="adm_save" class="btn btn-primary">💾 Lagre</button>
-      <span id="adm_status" class="small muted">—</span>
-    </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin:10px 0 8px">
+        <button id="adm_reload" class="btn">⟳ Hent fra sky</button>
+        <button id="adm_save" class="btn btn-primary">💾 Lagre</button>
+        <span id="adm_status" class="small muted">—</span>
+      </div>
 
-    <div class="small muted" style="margin-bottom:8px">
-      Bruk ⬆️/⬇️ for rekkefølge. Rediger <em>navn/gruppe/oppdrag</em> (Snø / Snø og grus). Kryss av <em>Aktiv</em>.
-    </div>
+      <div class="small muted" style="margin-bottom:8px">
+        Bruk ⬆️/⬇️ for rekkefølge. Rediger <em>navn/gruppe/oppdrag</em> (Snø / Snø og grus). Kryss av <em>Aktiv</em>.
+      </div>
 
-    <ul id="adm_list" class="sort-list" aria-label="Adresse-rekkefølge og redigering"></ul>
-  </section>
-</main>
+      <ul id="adm_list" class="sort-list" aria-label="Adresse-rekkefølge og redigering"></ul>
+    </section>
+  </main>
 
-<script>
-/* enkel ruter */
-function showPage(id){
-  document.querySelectorAll('main section').forEach(s=>s.style.display='none');
-  const el = document.getElementById(id);
-  if (el) el.style.display='block';
-  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-  const b = document.getElementById('nav-'+id); if (b) b.classList.add('active');
-  location.hash = '#'+id;
-}
-window.addEventListener('hashchange', ()=>{
-  const id = (location.hash||'#home').replace('#','');
-  showPage(document.getElementById(id)?id:'home');
-});
-window.addEventListener('DOMContentLoaded', ()=>{
-  const id = (location.hash||'#home').replace('#','');
-  showPage(document.getElementById(id)?id:'home');
-});
+  <script>
+    function showPage(id){
+      document.querySelectorAll('main section').forEach(s=>s.style.display='none');
+      const el=document.getElementById(id); if(el) el.style.display='block';
+      document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+      const b=document.getElementById('nav-'+id); if(b) b.classList.add('active');
+      location.hash='#'+id;
+    }
+    window.addEventListener('hashchange',()=>{
+      const id=(location.hash||'#home').replace('#','');
+      showPage(document.getElementById(id)?id:'home');
+    });
+    window.addEventListener('DOMContentLoaded',()=>{
+      const id=(location.hash||'#home').replace('#','');
+      showPage(document.getElementById(id)?id:'home');
 
-/* ====== Enkel state for Under arbeid ====== */
-const S = {
-  dir: 'Normal',
-  addresses: [],
-  idx: 0
-};
+      try{
+        const p=JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}');
+        if(p.driver) document.getElementById('a_driver').value=p.driver;
+        if(p.dir)    document.getElementById('a_dir').value=p.dir;
+        if(p.eq){
+          document.getElementById('a_eq_plow').checked=!!p.eq.plow;
+          document.getElementById('a_eq_fres').checked=!!p.eq.fres;
+          document.getElementById('a_eq_sand').checked=!!p.eq.sand;
+        }
+        if(typeof p.autoNav==='boolean') document.getElementById('a_autoNav').checked=p.autoNav;
+      }catch{}
+    });
 
-function uiSetWork() {
-  const now = S.addresses[S.idx] || null;
-  const nextIdx = (S.dir === 'Motsatt') ? S.idx - 1 : S.idx + 1;
-  const next = S.addresses[nextIdx] || null;
+    const S={dir:'Normal',addresses:[],idx:0};
 
-  document.getElementById('b_now').textContent  = now ? (now.name || '–')  : '–';
-  document.getElementById('b_next').textContent = next ? (next.name || '–') : '–';
-  document.getElementById('b_dir').textContent  = S.dir;
-  document.getElementById('b_round').textContent = new Date().toLocaleDateString('no-NO');
-  document.getElementById('b_job').textContent   = 'Rute';
-  document.getElementById('b_season').textContent = (new Date().getMonth()>=7)
-    ? `${new Date().getFullYear()}-${(new Date().getFullYear()+1).toString().slice(-2)}`
-    : `${new Date().getFullYear()-1}-${new Date().getFullYear().toString().slice(-2)}`;
-  document.getElementById('b_sync').textContent = '—';
-}
+    function uiSetWork(){
+      const now=S.addresses[S.idx]||null;
+      const nextIdx=(S.dir==='Motsatt')?S.idx-1:S.idx+1;
+      const next=S.addresses[nextIdx]||null;
 
-/* Hent adresser fra JSONBin (snapshot eller addresses) */
-async function loadAddresses() {
-  const cloud = await JSONBIN.getLatest();
-  const arr = (cloud && cloud.snapshot && Array.isArray(cloud.snapshot.addresses))
-    ? cloud.snapshot.addresses
-    : (Array.isArray(cloud?.addresses) ? cloud.addresses : []);
-  // bare aktive
-  S.addresses = arr.filter(a => a.active !== false);
-}
+      document.getElementById('b_now').textContent=now?(now.name||'–'):'–';
+      document.getElementById('b_next').textContent=next?(next.name||'–'):'–';
+      document.getElementById('b_dir').textContent=S.dir;
+      document.getElementById('b_round').textContent=new Date().toLocaleDateString('no-NO');
+      document.getElementById('b_job').textContent='Rute';
+      document.getElementById('b_season').textContent=(new Date().getMonth()>=7)
+        ? `${new Date().getFullYear()}-${(new Date().getFullYear()+1).toString().slice(-2)}`
+        : `${new Date().getFullYear()-1}-${new Date().getFullYear().toString().slice(-2)}`;
+      document.getElementById('b_sync').textContent='—';
+    }
 
-/* Start runde fra Hjem */
-document.getElementById('a_start').addEventListener('click', async () => {
-  try{
-    // lagre prefs lokalt (enkelt)
-    const prefs = {
-      driver: document.getElementById('a_driver').value.trim() || 'driver',
-      dir: document.getElementById('a_dir').value,
-      eq: {
-        plow: document.getElementById('a_eq_plow').checked,
-        fres: document.getElementById('a_eq_fres').checked,
-        sand: document.getElementById('a_eq_sand').checked
+    async function loadAddresses(){
+      const cloud=await JSONBIN.getLatest();
+      const arr=(cloud&&cloud.snapshot&&Array.isArray(cloud.snapshot.addresses))
+        ? cloud.snapshot.addresses
+        : (Array.isArray(cloud?.addresses)?cloud.addresses:[]);
+      S.addresses=arr.filter(a=>a.active!==false);
+    }
+
+    function nextIndex(idx,dir,max){ return dir==='Motsatt'?idx-1:idx+1; }
+    function mapsUrlFor(addr){
+      const q=addr?.name?addr.name:'';
+      return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+', Norge');
+    }
+    function getPrefs(){ try{return JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}')}catch{return{}} }
+    function goToNextAndMaybeNavigate(){
+      const prefs=getPrefs();
+      const next=nextIndex(S.idx,S.dir,S.addresses.length);
+      if(next<0||next>=S.addresses.length){ uiSetWork(); return; }
+      S.idx=next; uiSetWork();
+      if(prefs.autoNav){
+        const target=S.addresses[S.idx];
+        if(target) window.open(mapsUrlFor(target),'_blank');
       }
-    };
-    localStorage.setItem('BROYT_PREFS', JSON.stringify(prefs));
+    }
 
-    S.dir = prefs.dir;
+    document.getElementById('a_start').addEventListener('click',async()=>{
+      try{
+        const prefs={
+          driver:document.getElementById('a_driver').value.trim()||'driver',
+          dir:document.getElementById('a_dir').value,
+          eq:{
+            plow:document.getElementById('a_eq_plow').checked,
+            fres:document.getElementById('a_eq_fres').checked,
+            sand:document.getElementById('a_eq_sand').checked
+          },
+          autoNav:document.getElementById('a_autoNav').checked
+        };
+        localStorage.setItem('BROYT_PREFS',JSON.stringify(prefs));
+        S.dir=prefs.dir;
 
-    // krever nøkkel: dette trigges i del-A.js sin banner om nøkkel mangler
-    await JSONBIN.checkConfigOrWarn();
-    await loadAddresses();
+        await JSONBIN.checkConfigOrWarn();
+        await loadAddresses();
 
-    S.idx = (S.dir === 'Motsatt') ? (S.addresses.length - 1) : 0;
-    uiSetWork();
-    showPage('work');
-  }catch(e){
-    alert('Kunne ikke starte runde: ' + e.message);
-  }
-});
+        S.idx=(S.dir==='Motsatt')?(S.addresses.length-1):0;
+        uiSetWork();
+        showPage('work');
+      }catch(e){ alert('Kunne ikke starte runde: '+e.message); }
+    });
 
-/* PWA install-knapp + iOS hint */
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt',(e)=>{
-  e.preventDefault(); deferredPrompt=e;
-  const btn=document.getElementById('installPrompt');
-  if(btn){ btn.style.display='block'; btn.onclick=async()=>{ btn.style.display='none'; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; }; }
-});
-if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
-  const hint=document.getElementById('installPrompt');
-  if(hint){ hint.innerHTML="📲 Trykk <strong>Del</strong> → <strong>Legg til på Hjem-skjerm</strong>"; hint.style.display='block'; }
-}
+    document.getElementById('act_done').addEventListener('click',()=>{ goToNextAndMaybeNavigate(); });
+    document.getElementById('b_nav_top').addEventListener('click',()=>{
+      const target=S.addresses[S.idx]; if(target) window.open(mapsUrlFor(target),'_blank');
+    });
 
-/* Admin – nøkkel-felt */
-(function(){
-  const inp = document.getElementById('adm_key');
-  const save = document.getElementById('adm_key_save');
-  const clr  = document.getElementById('adm_key_clear');
-  const out  = document.getElementById('adm_key_status');
-  function getKey(){ try{ return localStorage.getItem('JSONBIN_KEY') || ''; }catch{ return ''; } }
-  function setKey(v){ if(!v || v.trim().length < 10){ out.textContent='Ugyldig nøkkel.'; return; }
-                      localStorage.setItem('JSONBIN_KEY', v.trim());
-                      out.textContent='Nøkkel lagret.'; window.dispatchEvent(new CustomEvent('broyt:key:updated')); }
-  function clearKey(){ localStorage.removeItem('JSONBIN_KEY'); out.textContent='Nøkkel fjernet.'; }
-  if (inp) inp.value = getKey();
-  if (save) save.onclick = ()=> setKey(inp.value);
-  if (clr)  clr.onclick  = ()=> { clearKey(); inp.value=''; };
-})();
-</script>
+    /* PWA installer-hint */
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt',(e)=>{
+      e.preventDefault(); deferredPrompt=e;
+      const btn=document.getElementById('installPrompt');
+      if(btn){ btn.style.display='block'; btn.onclick=async()=>{ btn.style.display='none'; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; }; }
+    });
+    if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
+      const hint=document.getElementById('installPrompt');
+      if(hint){ hint.innerHTML="📲 Trykk <strong>Del</strong> → <strong>Legg til på Hjem-skjerm</strong>"; hint.style.display='block'; }
+    }
+
+    /* Admin – nøkkel-felt */
+    (function(){
+      const inp=document.getElementById('adm_key');
+      const save=document.getElementById('adm_key_save');
+      const clr=document.getElementById('adm_key_clear');
+      const out=document.getElementById('adm_key_status');
+      function getKey(){try{return localStorage.getItem('JSONBIN_KEY')||''}catch{return''}}
+      function setKey(v){if(!v||v.trim().length<10){out.textContent='Ugyldig nøkkel.';return}
+        localStorage.setItem('JSONBIN_KEY',v.trim());out.textContent='Nøkkel lagret.';window.dispatchEvent(new CustomEvent('broyt:key:updated'))}
+      function clearKey(){localStorage.removeItem('JSONBIN_KEY');out.textContent='Nøkkel fjernet.'}
+      if(inp) inp.value=getKey();
+      if(save) save.onclick=()=>setKey(inp.value);
+      if(clr)  clr.onclick =()=>{clearKey();inp.value='';};
+    })();
+  </script>
 </body>
 </html>
