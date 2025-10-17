@@ -1,5 +1,5 @@
 // docs/del-E.js
-// Admin: Rediger navn/gruppe/oppdrag + flytt opp/ned + lagre til sky (v9.12m)
+// Admin: rediger navn/gruppe/oppdrag (Snø/Grus) + flytt opp/ned + lagre + innstillinger (v10.0a)
 (function () {
   const $ = (s) => document.querySelector(s);
   const BIN = window.APP_CFG?.BIN_ID;
@@ -9,11 +9,16 @@
     reload: $('#adm_reload'),
     save:   $('#adm_save'),
     status: $('#adm_status'),
+    stGrus: $('#st_grus'),
+    stDies: $('#st_diesel'),
+    stBase: $('#st_base'),
+    stSave: $('#st_save_settings'),
+    stMsg:  $('#st_settings_msg'),
   };
 
   const S = { cloud:null, addresses:[] };
 
-  function equipForTask(task){ return task==='Snø og grus' ? ['fres','stro'] : ['fres']; }
+  function equipForTask(task){ return task==='Grus' ? ['stro'] : ['fres']; } // “Grus” ⇒ stro, “Snø” ⇒ fres (kan justeres)
 
   async function getLatest(){
     const ok = window.JSONBIN?.checkConfigOrWarn?.(); if(!ok) throw new Error('Mangler konfig/nøkkel');
@@ -21,15 +26,16 @@
     const j = await r.json(); return j && j.record ? j.record : j;
   }
 
-  async function putAddresses(next){
+  async function putAddressesAndSettings(nextAddresses){
     const base = S.cloud || await getLatest();
     const payload = {
-      version: window.APP_CFG?.APP_VER || '9.x',
+      version: window.APP_CFG?.APP_VER || '10.x',
       updated: Date.now(),
       by: (JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}')?.driver || 'admin'),
       season: base.season || '',
-      addresses: next,
+      addresses: nextAddresses,
       status: base.status || {},
+      settings: base.settings || {},
       serviceLogs: Array.isArray(base?.serviceLogs)?base.serviceLogs:[],
       backups: Array.isArray(base?.backups)?base.backups:[]
     };
@@ -41,7 +47,7 @@
     S.addresses.forEach((a, idx)=>{
       const li=document.createElement('li');
       li.className='sort-item'; li.setAttribute('data-idx',String(idx));
-      const taskVal = (a.task==='Snø og grus')?'Snø og grus':'Snø';
+      const taskVal = (a.task==='Grus')?'Grus':'Snø';
       li.innerHTML = `
         <div class="item-row">
           <div class="main">
@@ -52,11 +58,11 @@
               <label>Oppdrag:
                 <select class="sel-task">
                   <option ${taskVal==='Snø'?'selected':''}>Snø</option>
-                  <option ${taskVal==='Snø og grus'?'selected':''}>Snø og grus</option>
+                  <option ${taskVal==='Grus'?'selected':''}>Grus</option>
                 </select>
               </label>
             </div>
-            <div class="meta small">Utstyr lagres automatisk fra Oppdrag.</div>
+            <div class="meta small">Utstyr foreslås fra Oppdrag.</div>
           </div>
           <label class="active-toggle small">
             <input class="chk-active" type="checkbox" ${a.active!==false?'checked':''}/> Aktiv
@@ -95,9 +101,16 @@
       els.status.textContent='Henter…'; els.save.disabled=true;
       S.cloud=await getLatest();
       const raw = Array.isArray(S.cloud?.addresses)?S.cloud.addresses:(S.cloud?.snapshot?.addresses||[]);
-      S.addresses = raw.map(x=>({...x}));
+      // map til Snø/Grus kun
+      S.addresses = raw.map(x=>({...x, task: (x.task==='Grus'?'Grus':'Snø') }));
       renderList();
       els.status.textContent=`Hentet ${S.addresses.length} adresser. Rediger, flytt og lagre.`;
+
+      // last settings
+      const st=S.cloud.settings||{};
+      if(els.stGrus)  els.stGrus.value  = st.grusDepot||'';
+      if(els.stDies)  els.stDies.value  = st.diesel||'';
+      if(els.stBase)  els.stBase.value  = st.base||'';
     }catch(e){ console.error(e); els.status.textContent='Feil: '+e.message; alert('Kunne ikke hente fra sky.'); }
     finally{ els.save.disabled=false; }
   }
@@ -105,9 +118,16 @@
   async function saveAll(){
     try{
       els.status.textContent='Lagrer…'; els.save.disabled=true;
-      const next=S.addresses.map(a=>{const t=(a.task==='Snø og grus')?'Snø og grus':'Snø'; return {...a,task:t,equipment:equipForTask(t)};});
-      await putAddresses(next);
+      const next=S.addresses.map(a=>{const t=(a.task==='Grus')?'Grus':'Snø'; return {...a,task:t,equipment:equipForTask(t)};});
+      // oppdater også innstillinger
+      S.cloud.settings=S.cloud.settings||{};
+      S.cloud.settings.grusDepot = els.stGrus?.value.trim()||'';
+      S.cloud.settings.diesel    = els.stDies?.value.trim()||'';
+      S.cloud.settings.base      = els.stBase?.value.trim()||'';
+      await putAddressesAndSettings(next);
       els.status.textContent='OK – lagret.';
+      els.stMsg && (els.stMsg.textContent='Lagret.');
+      setTimeout(()=>{ if(els.stMsg) els.stMsg.textContent=''; }, 1200);
     }catch(e){ console.error(e); els.status.textContent='Feil: '+e.message; alert('Kunne ikke lagre.'); }
     finally{ els.save.disabled=false; }
   }
