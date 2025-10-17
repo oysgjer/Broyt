@@ -1,5 +1,5 @@
 /* docs/del-B.css */
-/* ==== Brøyterute – del-B.css (v10.0a) ==== */
+/* ==== Brøyterute – del-B.css (v10.1a) ==== */
 
 html,body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0a0f1c;color:#e6edf3;line-height:1.4}
 .card{background:#0b1220;border:1px solid #2b3445;border-radius:14px;padding:16px;margin:12px 0}
@@ -51,14 +51,15 @@ h2.title{margin-top:0;font-size:1.3rem;font-weight:700}
 .sort-list{list-style:none;margin:0;padding:0}
 .sort-item{background:#0b1220;border:1px solid #2b3445;border-radius:12px;padding:10px;margin-bottom:8px}
 .item-row{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
-.item-row .main{flex:1;min-width:220px}
+.item-row .main{flex:1;min-width:240px}
 .item-row .name{font-weight:700;font-size:16px;margin-bottom:4px}
 .item-row .meta{margin-top:2px;font-size:13px;opacity:.8}
 .active-toggle{white-space:nowrap;margin-left:auto}
 .moves{display:flex;gap:6px}
 .inline-edit{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .inline-edit input[type="text"]{background:#0a1422;border:1px solid #334155;border-radius:8px;padding:6px 8px;color:#e6edf3}
-.inline-edit select{background:#0a1422;border:1px solid #334155;border-radius:8px;padding:6px 8px;color:#e6edf3}
+.inline-edit .short{width:120px}
+.inline-edit label{white-space:nowrap}
 
 /* Dock (fast bunnlinje) */
 .dock{position:sticky;bottom:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:transparent;margin-top:14px}
@@ -80,5 +81,5 @@ h2.title{margin-top:0;font-size:1.3rem;font-weight:700}
   .sort-item{background:#ffffff;border-color:#e5e7eb}
   .item-row .name{color:#111}
   .item-row .meta{color:#4b5563;opacity:1}
-  .inline-edit input[type="text"],.inline-edit select{background:#ffffff;color:#111;border-color:#d1d5db}
+  .inline-edit input[type="text"]{background:#ffffff;color:#111;border-color:#d1d5db}
 }
