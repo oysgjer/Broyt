@@ -1,283 +1,156 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Brøyterute – Romerike Trefelling</title>
-
-  <!-- PWA (ok om disse mangler lokalt) -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#0a0f1c">
   <link rel="apple-touch-icon" href="./icons/icon-512.png">
-
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="./del-B.css">
 </head>
 <body>
-  <!-- Appbar -->
-  <header class="appbar">
-    <button id="btnMenu" class="icon-btn" aria-label="Meny" title="Meny">☰</button>
-    <div class="appbar-title">Brøyterute</div>
-    <div class="appbar-ver">v10.4.7</div>
-  </header>
 
-  <!-- Drawer -->
-  <aside id="drawer" class="drawer" aria-hidden="true">
-    <div class="drawer-header">
-      <div class="drawer-title">Meny</div>
-      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">✕</button>
+<header class="appbar">
+  <button id="btnMenu" class="icon-btn">☰</button>
+  <div class="appbar-title">Brøyterute</div>
+  <div class="appbar-ver">v10.4.7</div>
+</header>
+
+<aside id="drawer" class="drawer">
+  <div class="drawer-header">
+    <div class="drawer-title">Meny</div>
+    <button id="btnCloseDrawer" class="icon-btn">✕</button>
+  </div>
+  <nav class="drawer-nav">
+    <button data-go="home" class="drawer-link">🏠 Hjem</button>
+    <button data-go="work" class="drawer-link">🛠️ Under arbeid</button>
+    <button data-go="service" class="drawer-link">🔧 Service</button>
+    <button data-go="status" class="drawer-link">📊 Status</button>
+    <button data-go="admin" class="drawer-link">⚙️ Admin</button>
+  </nav>
+  <div class="drawer-sep"></div>
+  <div class="drawer-quick">
+    <div class="drawer-subtitle">Hurtig</div>
+    <button id="qk_grus" class="drawer-link">🚚 Hent grus</button>
+    <button id="qk_diesel" class="drawer-link">⛽ Fyll diesel</button>
+    <button id="qk_base" class="drawer-link">🏠 Kjør til base</button>
+  </div>
+  <div class="drawer-sep"></div>
+  <div class="drawer-quick">
+    <div class="drawer-subtitle">Skjerm</div>
+    <button id="qk_wl" class="drawer-link">🔒 Hold skjermen våken</button>
+    <div id="qk_wl_status" class="drawer-note">Status: ukjent</div>
+  </div>
+</aside>
+<div id="scrim" class="scrim"></div>
+
+<main class="content">
+
+  <section id="home" class="card">
+    <h2>Hjem</h2>
+    <p>Fyll inn fører, velg retning og utstyr. Start runde når du er klar.</p>
+
+    <label>Fører:<br>
+      <input id="a_driver" placeholder="Navn" style="width:100%">
+    </label><br><br>
+
+    <label>Retning rute:<br>
+      <select id="a_dir" style="width:100%">
+        <option value="Normal">Normal</option>
+        <option value="Motsatt">Motsatt</option>
+      </select>
+    </label><br><br>
+
+    <fieldset class="card">
+      <legend>Utstyr</legend>
+      <label><input type="checkbox" id="a_eq_plow"> Brøyteskjær</label><br>
+      <label><input type="checkbox" id="a_eq_fres"> Fres</label><br>
+      <label><input type="checkbox" id="a_eq_sand"> Strø/sand (strøkasse)</label>
+    </fieldset>
+
+    <label style="display:block;margin-top:10px">
+      <input type="checkbox" id="a_autoNav"> Auto-naviger etter «Ferdig»
+    </label>
+
+    <br>
+    <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
+  </section>
+
+  <section id="work" class="card" style="display:none">
+    <h2>Under arbeid</h2>
+    <div class="progress-all">
+      <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
+      <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
+    </div>
+    <div class="now-stack">
+      <div class="now now-wide">
+        <div class="now-head"><span>🚜 Nå</span></div>
+        <div id="b_now" class="val">–</div>
+        <div class="pills">
+          <span class="pill">Oppgave: <strong id="b_task">–</strong></span>
+          <span class="pill">Retning: <strong id="b_dir">–</strong></span>
+        </div>
+      </div>
+      <div class="next now-wide">
+        <div class="next-head"><span>➡️ Neste</span></div>
+        <div id="b_next" class="val">–</div>
+      </div>
     </div>
 
-    <nav class="drawer-nav">
-      <button data-go="home"    class="drawer-link">🏠 Hjem</button>
-      <button data-go="work"    class="drawer-link">🛠️ Under arbeid</button>
-      <button data-go="service" class="drawer-link">🔧 Service</button>
-      <button data-go="status"  class="drawer-link">📊 Status</button>
-      <button data-go="admin"   class="drawer-link">⚙️ Admin</button>
-    </nav>
+    <div class="actions-grid">
+      <button id="act_start" class="btn btn-lg">▶️ Start</button>
+      <button id="act_skip" class="btn btn-lg">⏭️ Hopp over</button>
+      <button id="act_block" class="btn btn-lg btn-warn">🚫 Ikke mulig</button>
+      <button id="act_done" class="btn btn-lg btn-affirm">✅ Ferdig</button>
+      <button id="act_acc" class="btn btn-lg btn-ghost">⚠️ Uhell</button>
+      <button id="act_nav_next" class="btn btn-lg btn-ghost">🧭 Naviger</button>
+    </div>
+  </section>
 
-    <div class="drawer-sep"></div>
-    <div class="drawer-quick">
-      <div class="drawer-subtitle">Hurtig</div>
-      <button id="qk_grus"   class="drawer-link">🚚 Hent grus</button>
-      <button id="qk_diesel" class="drawer-link">⛽ Fyll diesel</button>
-      <button id="qk_base"   class="drawer-link">🏠 Kjør til base</button>
+  <section id="admin" class="card" style="display:none">
+    <h2>Admin</h2>
+
+    <div class="card">
+      <h3>Sky-oppsett</h3>
+      <label>GET-URL: <input id="adm_geturl" style="width:100%"></label><br>
+      <label>PUT-URL: <input id="adm_puturl" style="width:100%"></label><br>
+      <button id="adm_urls_save" class="btn">Lagre URL-er</button>
+      <button id="adm_urls_clear" class="btn btn-ghost">Fjern</button>
+      <div id="adm_urls_status" class="small muted"></div>
     </div>
 
-    <div class="drawer-sep"></div>
-    <div class="drawer-quick">
-      <div class="drawer-subtitle">Skjerm</div>
-      <button id="qk_wl" class="drawer-link">🔒 Hold skjermen våken</button>
-      <div id="qk_wl_status" class="drawer-note">Status: ukjent</div>
+    <div class="card">
+      <h3>Innstillinger – destinasjoner & sesong</h3>
+      <label>Grusdepot (lat,lon): <input id="adm_grus"></label><br>
+      <label>Diesel (lat,lon): <input id="adm_diesel"></label><br>
+      <label>Base (lat,lon): <input id="adm_base"></label><br>
+      <label>Brøytestikker (sesong): <input id="adm_stakes"></label>
+      <button id="adm_stakes_lock" class="btn btn-ghost">🔒 Lås stikker</button>
     </div>
 
-    <div class="drawer-safe-bottom"></div>
-  </aside>
-  <div id="scrim" class="scrim" aria-hidden="true"></div>
+    <div class="card">
+      <h3>Adresse-register</h3>
+      <button id="adm_addr_fetch" class="btn">🔄 Hent fra sky</button>
+      <button id="adm_addr_save" class="btn btn-primary">💾 Lagre</button>
+      <table class="tbl">
+        <thead>
+          <tr><th>Aktiv</th><th>Adresse</th><th>Snø</th><th>Grus</th><th>Stikker</th><th>Koordinater</th></tr>
+        </thead>
+        <tbody id="adm_addr_tbody"></tbody>
+      </table>
+      <span id="adm_addr_msg" class="small muted"></span>
+    </div>
+  </section>
 
-  <main class="content">
+</main>
 
-    <!-- HJEM -->
-    <section id="home" class="card">
-      <h2 class="title">Hjem</h2>
-      <p>Fyll inn fører, velg retning og utstyr. Start runde når du er klar.</p>
+<footer class="footer">
+  <p>v10.4.7 – Romerike Trefelling</p>
+</footer>
 
-      <label>Fører:<br>
-        <input id="a_driver" placeholder="Navn" style="width:100%">
-      </label><br><br>
-
-      <label>Retning rute:<br>
-        <select id="a_dir" style="width:100%">
-          <option value="Normal">Normal</option>
-          <option value="Motsatt">Motsatt</option>
-        </select>
-      </label><br><br>
-
-      <fieldset class="card" style="margin:0">
-        <legend>Utstyr</legend>
-        <label><input type="checkbox" id="a_eq_plow"> Brøyteskjær</label><br>
-        <label><input type="checkbox" id="a_eq_fres"> Fres</label><br>
-        <label><input type="checkbox" id="a_eq_sand"> Strø/sand (strøkasse)</label>
-      </fieldset>
-
-      <label style="display:block;margin:10px 0 2px">
-        <input type="checkbox" id="a_autoNav"> Auto-naviger til neste etter «Ferdig»
-      </label>
-
-      <br>
-      <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
-      <div class="install-hint" id="installPrompt">📲 Installer Brøyterute på Hjem-skjerm</div>
-    </section>
-
-    <!-- UNDER ARBEID -->
-    <section id="work" class="card" style="display:none">
-      <h2 class="title">Under arbeid</h2>
-
-      <div class="progress-all" title="Grønn: deg • Lilla: andre">
-        <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
-        <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
-      </div>
-
-      <div class="now-stack">
-        <div class="now now-wide">
-          <div class="now-head"><span class="now-icon">🚜</span><span class="lbl">Nå</span></div>
-          <div id="b_now" class="val now-val">–</div>
-          <div class="pills" style="margin-top:6px">
-            <span class="pill">Oppgave: <strong id="b_task">–</strong></span>
-            <span class="pill">Retning: <strong id="b_dir">–</strong></span>
-          </div>
-        </div>
-        <div class="next now-wide">
-          <div class="next-head"><span class="next-icon">➡️</span><span class="lbl">Neste</span></div>
-          <div id="b_next" class="val next-val">–</div>
-        </div>
-      </div>
-
-      <div class="actions-grid">
-        <button id="act_start" class="btn btn-lg" type="button">▶️ Start</button>
-        <button id="act_skip"  class="btn btn-lg" type="button">⏭️ Hopp over</button>
-        <button id="act_block" class="btn btn-lg btn-warn" type="button">🚫 Ikke mulig</button>
-        <button id="act_done"  class="btn btn-lg btn-affirm" type="button">✅ Ferdig</button>
-        <button id="act_acc"   class="btn btn-lg btn-ghost" type="button">⚠️ Uhell</button>
-      </div>
-
-      <p id="b_status" class="status muted" style="margin-top:8px">Ikke påbegynt</p>
-    </section>
-
-    <!-- SERVICE -->
-    <section id="service" class="card" style="display:none">
-      <h2 class="title">Service</h2>
-      <p>Huk av og lagre etter runden:</p>
-      <label><input type="checkbox" class="svc" data-key="skjaerSmurt"> Skjær smurt</label><br>
-      <label><input type="checkbox" class="svc" data-key="fresSmurt"> Fres smurt</label><br>
-      <label><input type="checkbox" class="svc" data-key="forstillingSmurt"> Forstilling smurt</label><br>
-      <label><input type="checkbox" class="svc" data-key="oljeForan"> Oljenivå sjekket foran</label><br>
-      <label><input type="checkbox" class="svc" data-key="oljeBak"> Oljenivå sjekket bak</label><br>
-      <label><input type="checkbox" class="svc" data-key="etterfyltOlje"> Etterfylt olje</label><br>
-      <label><input type="checkbox" class="svc" data-key="fyltDiesel"> Fylt diesel</label><br>
-      <label><input type="checkbox" class="svc" data-key="annet"> Annet</label><br><br>
-      <textarea id="svc_note" rows="4" style="width:100%" placeholder="Notater…"></textarea><br>
-      <button id="svc_save" class="btn btn-lg">💾 Lagre service</button>
-      <span id="svc_msg" class="small muted" style="margin-left:8px"></span>
-    </section>
-
-    <!-- STATUS -->
-    <section id="status" class="card" style="display:none">
-      <h2 class="title">Status</h2>
-
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px">
-        <button id="st_reload" class="btn">⟳ Oppdater</button>
-        <select id="st_mode" class="btn" style="padding:8px 10px">
-          <option value="snow">Vis runde: Snø</option>
-          <option value="grit">Vis runde: Grus</option>
-        </select>
-        <select id="st_filter" class="btn" style="padding:8px 10px">
-          <option value="alle">Filter: Alle</option>
-          <option value="ikke">Ikke påbegynt</option>
-          <option value="pågår">Pågår</option>
-          <option value="ferdig">Ferdig</option>
-          <option value="hoppet">Hoppet over</option>
-          <option value="umulig">Ikke mulig</option>
-          <option value="uhell">Uhell</option>
-        </select>
-
-        <span class="pill" id="st_season_badge">Sesong: –</span>
-        <button id="st_lock_toggle" class="btn btn-ghost">🔓 Lås stikker (sesong)</button>
-
-        <button id="st_reset_all" class="btn btn-warn">🧼 Nullstill denne runden</button>
-        <button id="st_reset_mine" class="btn btn-ghost">🧼 Nullstill kun mine</button>
-        <span id="st_summary" class="small muted">—</span>
-      </div>
-
-      <div class="table-wrap">
-        <table class="tbl" id="st_table">
-          <thead>
-            <tr>
-              <th>#</th><th>Adresse</th><th>Oppgave</th>
-              <th id="th_stakes">Stikker (sesong)</th>
-              <th>Kart</th>
-              <th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th><th>Uhell</th>
-            </tr>
-          </thead>
-          <tbody id="st_tbody"></tbody>
-        </table>
-      </div>
-
-      <div class="card" style="margin-top:12px">
-        <h3 style="margin-top:0">Brøyterapport</h3>
-        <div class="row" style="gap:8px;flex-wrap:wrap">
-          <button id="rp_print" class="btn">🖨️ Skriv ut / PDF</button>
-          <button id="rp_csv" class="btn">📄 Last ned CSV</button>
-          <span class="small muted">Tittel: <strong>Brøyterapport</strong> – <span id="rp_date"></span></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ADMIN -->
-    <section id="admin" class="card" style="display:none">
-      <h2 class="title">Admin</h2>
-
-      <!-- Nøkkel -->
-      <div class="card" style="margin-top:0">
-        <h3 style="margin:0 0 8px 0">JSONBin-nøkkel</h3>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input id="adm_key" type="password" placeholder="Lim inn X-Master-Key her"
-                 style="flex:1;min-width:240px;padding:8px;border-radius:8px;border:1px solid #334155;background:#0a1422;color:#e6edf3">
-          <button id="adm_key_save" class="btn btn-primary">Lagre nøkkel</button>
-          <button id="adm_key_clear" class="btn btn-ghost">Fjern</button>
-        </div>
-        <div id="adm_key_status" class="small muted" style="margin-top:6px">—</div>
-      </div>
-
-      <!-- Sky-oppsett -->
-      <div class="card">
-        <h3 style="margin-top:0">Sky-oppsett (JSONBin/Proxy)</h3>
-        <div class="row" style="gap:8px;flex-wrap:wrap">
-          <div style="flex:1;min-width:260px">
-            <label>GET-URL:<br>
-              <input id="adm_geturl" placeholder="https://jsonbin-proxy…/v3/b/{id}/latest" style="width:100%">
-            </label>
-          </div>
-          <div style="flex:1;min-width:260px">
-            <label>PUT-URL:<br>
-              <input id="adm_puturl" placeholder="https://jsonbin-proxy…/v3/b/{id}" style="width:100%">
-            </label>
-          </div>
-        </div>
-        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-          <button id="adm_urls_save" class="btn">Lagre URL-er</button>
-          <button id="adm_urls_clear" class="btn btn-ghost">Fjern URL-er</button>
-          <span id="adm_urls_status" class="small muted">—</span>
-        </div>
-      </div>
-
-      <!-- Innstillinger -->
-      <div class="card">
-        <h3 style="margin-top:0">Innstillinger – destinasjoner & sesong</h3>
-        <div class="inline-edit">
-          <label>Grusdepot (lat,lon): <input id="adm_grus"   placeholder="60.2527264,11.1687230"></label><br>
-          <label>Diesel (lat,lon):     <input id="adm_diesel" placeholder="60.2523185,11.1899926"></label><br>
-          <label>Base (lat,lon):       <input id="adm_base"   placeholder="60.2664414,11.2208819"></label><br>
-          <label>Stikker låst (sesong): <button id="adm_stakes_lock" class="btn btn-ghost">🔓 Lås stikker</button></label>
-        </div>
-      </div>
-
-      <!-- Adresse-register -->
-      <div class="card">
-        <h3 style="margin:0 0 8px 0">Adresse-register</h3>
-        <div class="row" style="gap:8px;flex-wrap:wrap">
-          <button id="adm_addr_fetch" class="btn">⥀ Hent fra sky</button>
-          <button id="adm_addr_save"  class="btn btn-primary">💾 Lagre</button>
-          <button id="adm_addr_clear_local" class="btn btn-ghost">🧹 Tøm lokal data</button>
-          <span id="adm_addr_msg" class="small muted">—</span>
-        </div>
-
-        <div class="table-wrap" style="margin-top:8px">
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th>Aktiv</th>
-                <th>Adresse</th>
-                <th>Gruppe</th>
-                <th>Snø</th>
-                <th>Grus</th>
-                <th>Stikker</th>
-                <th>Koordinater</th>
-                <th>Flytt</th>
-              </tr>
-            </thead>
-            <tbody id="adm_addr_tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <p>v10.4.7 – Romerike Trefelling</p>
-  </footer>
-
-  <script src="./del-D.js"></script>
+<script src="./del-D.js"></script>
 </body>
 </html>
