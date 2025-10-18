@@ -1,8 +1,8 @@
-/* del-D.js – v10.4.4
-   - Fiks: Grit-runde viser varsel hvis ingen adresser har grus (i stedet for “tom runde”)
-   - Mobil/PWA: Hurtigknapper (grus/diesel/base) åpner Maps med fallback (window.open || location.href)
-   - Hold skjermen våken (Wake Lock) + status + auto-reacquire på visibilitychange
-   - Admin: Koordinater (grus/diesel/base) lagres automatisk ved endring
+/* del-D.js – v10.4.5
+   - Preferer NYESTE av lokal/sky ved henting (hindrer at lokale endringer "forsvinner")
+   - saveCloud() returnerer status (remote OK / kun lokalt)
+   - Admin: tydelig melding om "Lagret lokalt" hvis PUT/Key mangler
+   - Uendret funksjonalitet ellers
 */
 
 const $  = (s,root=document)=>root.querySelector(s);
@@ -32,31 +32,67 @@ const JSONBIN={
   },
   clearKey(){localStorage.removeItem('BROYT_XKEY');localStorage.removeItem('JSONBIN_MASTER');},
 
+  // HENT: foretrekk nyeste av sky og lokal
   async getLatest(){
-    const url=this._getUrl; if(!url){ return this._localFallback(); }
-    const res=await fetch(url,{headers:this._headers()}).catch(()=>null);
-    if(!res||!res.ok){ return this._localFallback(); }
-    const j=await res.json(); return j.record||j;
+    const localRaw = localStorage.getItem('BROYT_LOCAL_DATA');
+    const localObj = localRaw ? safeJson(localRaw) : null;
+    let remoteObj = null;
+
+    const url=this._getUrl;
+    if(url){
+      try{
+        const res=await fetch(url,{headers:this._headers()});
+        if(res.ok){
+          const j=await res.json();
+          remoteObj = j.record||j;
+        }
+      }catch(_){}
+    }
+
+    // Ingen av delene? returner standard
+    if(!remoteObj && !localObj){
+      return this._default();
+    }
+
+    // Kun én av dem?
+    if(remoteObj && !localObj) return remoteObj;
+    if(localObj && !remoteObj) return localObj;
+
+    // Begge finnes: velg nyest
+    const lu = Number(localObj.updated||0);
+    const ru = Number(remoteObj.updated||0);
+    return (lu>=ru) ? localObj : remoteObj;
   },
+
+  // LAGRE: skriv alltid lokalt, forsøk deretter sky
   async putRecord(obj){
+    // Alltid skrive lokalt
+    localStorage.setItem('BROYT_LOCAL_DATA',JSON.stringify(obj||{}));
+
     const url=this._putUrl;
-    if(!url){ localStorage.setItem('BROYT_LOCAL_DATA',JSON.stringify(obj||{})); return {ok:false,local:true};}
-    const res=await fetch(url,{method:'PUT',headers:this._headers(),body:JSON.stringify(obj||{})}).catch(()=>null);
-    return (!!res&&res.ok)?{ok:true}:{ok:false};
+    if(!url){ return {ok:false,local:true};}
+    try{
+      const res=await fetch(url,{method:'PUT',headers:this._headers(),body:JSON.stringify(obj||{})});
+      return (res&&res.ok)?{ok:true}:{ok:false};
+    }catch(_){
+      return {ok:false};
+    }
   },
+
   _headers(){
     const h={'Content-Type':'application/json'};
     const k=this._key; if(k) h['X-Master-Key']=k;
     return h;
   },
-  _localFallback(){
-    const local=JSON.parse(localStorage.getItem('BROYT_LOCAL_DATA')||'null');
-    if(local) return local;
+
+  _default(){
     return {version:'10.4',updated:Date.now(),by:'local',
       settings:{grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",seasonLabel:"2025–26",stakesLocked:false},
       snapshot:{addresses:[]},statusSnow:{},statusGrit:{},serviceLogs:[]};
   }
 };
+
+function safeJson(s){ try{return JSON.parse(s);}catch(_){return null;} }
 
 /* ------------ seed --------------- */
 function seedAddressesList(){
@@ -80,7 +116,6 @@ async function ensureAddressesSeeded(){
     const list=seedAddressesList();
     S.cloud.snapshot={...(S.cloud.snapshot||{}),addresses:list};
     S.cloud.statusSnow ||= {}; S.cloud.statusGrit ||= {};
-    localStorage.setItem('BROYT_LOCAL_DATA',JSON.stringify(S.cloud));
     await JSONBIN.putRecord(S.cloud);
     arr=list;
   }
@@ -94,8 +129,8 @@ async function refreshCloud(){
 }
 async function saveCloud(){
   S.cloud.updated=Date.now(); S.cloud.by=S.driver||'driver';
-  localStorage.setItem('BROYT_LOCAL_DATA',JSON.stringify(S.cloud));
-  await JSONBIN.putRecord(S.cloud);
+  const res = await JSONBIN.putRecord(S.cloud);
+  return !!(res && res.ok);
 }
 function statusStore(){return S.mode==='snow'?S.cloud.statusSnow:S.cloud.statusGrit;}
 function nextIndex(i,d){return d==='Motsatt'?i-1:i+1;}
@@ -122,9 +157,7 @@ function mapsUrlFromSetting(str){
   return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s);
 }
 function openMapUrl(url){
-  // iOS PWA kan blokkere window.open; bruk fallback
-  const w = window.open(url, '_blank');
-  if(!w){ location.href = url; }
+  const w = window.open(url, '_blank'); if(!w){ location.href = url; }
 }
 
 /* ------------ WORK UI ------------- */
@@ -307,23 +340,6 @@ async function loadAdmin(){
     S.cloud.snapshot.addresses = seedAddressesList();
   }
   renderAdminAddresses();
-
-  // Lagre settings automatisk ved endring/blur
-  const bindAutoSave = (id, key) => {
-    const el = $(id);
-    if(!el) return;
-    const save = async ()=>{
-      await refreshCloud();
-      S.cloud.settings ||= {};
-      S.cloud.settings[key] = el.value.trim();
-      await saveCloud();
-    };
-    el.addEventListener('change', save);
-    el.addEventListener('blur', save);
-  };
-  bindAutoSave('#adm_grus','grusDepot');
-  bindAutoSave('#adm_diesel','diesel');
-  bindAutoSave('#adm_base','base');
 }
 async function saveAdminAddresses(){
   const msg=$('#adm_addr_msg');
@@ -342,8 +358,8 @@ async function saveAdminAddresses(){
       list.push({active,name,group,flags:{snow,grit},stakes,coords});
     });
     S.cloud.snapshot.addresses = list;
-    await saveCloud();
-    if(msg) msg.textContent='Lagret.';
+    const ok = await saveCloud();
+    if(msg) msg.textContent = ok ? 'Lagret.' : 'Lagret lokalt (sjekk PUT-URL/X-Master-Key i Sky-oppsett).';
   }catch(e){
     if(msg) msg.textContent='Feil: '+(e.message||e);
   }
@@ -366,7 +382,7 @@ function updateWakeUi(){
   if(btn)  btn.textContent = wlEnabled ? '🔓 Skjerm låst (trykk for å slå av)' : '🔒 Hold skjermen våken';
 }
 async function toggleWakeLock(){
-  if(wlEnabled && wakeLock){ try{ wakeLock.release(); }catch{} finally{ wakeLock=null; wlEnabled=false; updateWakeUi(); } }
+  if(wlEnabled && wakeLock){ try{ await wakeLock.release(); }catch{} finally{ wakeLock=null; wlEnabled=false; updateWakeUi(); } }
   else { await requestWakeLock(); }
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && wlEnabled){ requestWakeLock(); }});
@@ -437,13 +453,12 @@ window.addEventListener('DOMContentLoaded', ()=>{
       await refreshCloud();
 
       const fullArr=(S.cloud?.snapshot?.addresses)||arr||[];
-      // Filtrer for valgt modus
       S.addresses = fullArr.filter(a=>a.active!==false)
                            .filter(a=> S.mode==='snow' ? (a.flags?.snow!==false) : !!a.flags?.grit);
 
       if(S.mode==='grit' && (!S.addresses || S.addresses.length===0)){
-        alert('Ingen adresser er markert for grus i Adresse-registeret. Gå til Admin → sett “Grus” på de som skal ha strøing.');
-        return; // Ikke gå til tom runde
+        alert('Ingen adresser er markert for grus i Adresse-registeret. Gå til Admin → sett “Grus” på de som skal ha strøing og trykk Lagre.');
+        return;
       }
 
       S.idx = (S.dir==='Motsatt') ? (S.addresses.length-1) : 0;
@@ -467,7 +482,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   });
   $('#act_done') ?.addEventListener('click',()=>stepState({state:'done',finishedAt:Date.now()}));
 
-  // Naviger → alltid neste adresse
+  // Naviger → neste adresse
   $('#act_nav_next')?.addEventListener('click', ()=>{
     const next=S.addresses[nextIndex(S.idx,S.dir)];
     if(!next) return;
@@ -479,11 +494,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
   $('#st_filter')?.addEventListener('change',loadStatus);
   $('#st_mode')  ?.addEventListener('change',loadStatus);
   $('#st_lock_toggle')?.addEventListener('click', async ()=>{
-    try{ await refreshCloud(); S.cloud.settings ||= {}; S.cloud.settings.stakesLocked=!S.cloud.settings.stakesLocked; await saveCloud(); loadStatus(); loadAdmin(); }
+    try{ await refreshCloud(); S.cloud.settings ||= {}; S.cloud.settings.stakesLocked=!S.cloud.settings.stakesLocked; const ok=await saveCloud(); if(!ok) alert('Låsing lagret lokalt (sjekk PUT/Key).'); loadStatus(); loadAdmin(); }
     catch(e){ alert('Feil: '+(e.message||e)); }
   });
-  $('#st_reset_all') ?.addEventListener('click', async ()=>{ if(confirm('Nullstille denne runden for alle?')){ await refreshCloud(); const bag=statusStore(); (S.cloud.snapshot.addresses||[]).forEach(a=>{bag[a.name]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}); await saveCloud(); loadStatus(); }});
-  $('#st_reset_mine')?.addEventListener('click', async ()=>{ if(confirm('Nullstille kun dine punkter?')){ await refreshCloud(); const bag=statusStore(); for(const k in bag){ if(bag[k]?.driver===S.driver){bag[k]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}} await saveCloud(); loadStatus(); }});
+  $('#st_reset_all') ?.addEventListener('click', async ()=>{ if(confirm('Nullstille denne runden for alle?')){ await refreshCloud(); const bag=statusStore(); (S.cloud.snapshot.addresses||[]).forEach(a=>{bag[a.name]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}); const ok=await saveCloud(); if(!ok) alert('Nullstilling lagret lokalt (sjekk PUT/Key).'); loadStatus(); }});
+  $('#st_reset_mine')?.addEventListener('click', async ()=>{ if(confirm('Nullstille kun dine punkter?')){ await refreshCloud(); const bag=statusStore(); for(const k in bag){ if(bag[k]?.driver===S.driver){bag[k]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}} const ok=await saveCloud(); if(!ok) alert('Nullstilling lagret lokalt (sjekk PUT/Key).'); loadStatus(); }});
 });
 
 /* ---- uhell-bilde ---- */
