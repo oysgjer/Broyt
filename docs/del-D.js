@@ -1,7 +1,8 @@
-/* del-D.js – v10.4.3
-   - Mobil-fiks: robust lokal seed hvis tom liste
-   - Hurtigknapper i menyen (grus/diesel/base) åpner Maps
-   - Admin: “Tøm lokal data”-knapp for PWA-cache/lagring-trøbbel
+/* del-D.js – v10.4.4
+   - Fiks: Grit-runde viser varsel hvis ingen adresser har grus (i stedet for “tom runde”)
+   - Mobil/PWA: Hurtigknapper (grus/diesel/base) åpner Maps med fallback (window.open || location.href)
+   - Hold skjermen våken (Wake Lock) + status + auto-reacquire på visibilitychange
+   - Admin: Koordinater (grus/diesel/base) lagres automatisk ved endring
 */
 
 const $  = (s,root=document)=>root.querySelector(s);
@@ -76,7 +77,6 @@ async function ensureAddressesSeeded(){
   S.cloud = await JSONBIN.getLatest();
   let arr = Array.isArray(S.cloud?.snapshot?.addresses)?S.cloud.snapshot.addresses:[];
   if(!arr || arr.length===0){
-    // Seed uansett (mobil kan ha tom lokal cache)
     const list=seedAddressesList();
     S.cloud.snapshot={...(S.cloud.snapshot||{}),addresses:list};
     S.cloud.statusSnow ||= {}; S.cloud.statusGrit ||= {};
@@ -121,6 +121,11 @@ function mapsUrlFromSetting(str){
   }
   return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s);
 }
+function openMapUrl(url){
+  // iOS PWA kan blokkere window.open; bruk fallback
+  const w = window.open(url, '_blank');
+  if(!w){ location.href = url; }
+}
 
 /* ------------ WORK UI ------------- */
 function updateProgressBars(){
@@ -163,7 +168,7 @@ async function stepState(patch,nextAfter=true){
     const ni=nextIndex(S.idx,S.dir);
     if(ni>=0 && ni<S.addresses.length){
       S.idx=ni; uiSetWork();
-      if(S.autoNav){ const t=S.addresses[S.idx]; if(t) window.open(mapsUrlFromAddr(t),'_blank'); }
+      if(S.autoNav){ const t=S.addresses[S.idx]; if(t) openMapUrl(mapsUrlFromAddr(t)); }
     }else{ showPage('service'); }
   }
 }
@@ -302,6 +307,23 @@ async function loadAdmin(){
     S.cloud.snapshot.addresses = seedAddressesList();
   }
   renderAdminAddresses();
+
+  // Lagre settings automatisk ved endring/blur
+  const bindAutoSave = (id, key) => {
+    const el = $(id);
+    if(!el) return;
+    const save = async ()=>{
+      await refreshCloud();
+      S.cloud.settings ||= {};
+      S.cloud.settings[key] = el.value.trim();
+      await saveCloud();
+    };
+    el.addEventListener('change', save);
+    el.addEventListener('blur', save);
+  };
+  bindAutoSave('#adm_grus','grusDepot');
+  bindAutoSave('#adm_diesel','diesel');
+  bindAutoSave('#adm_base','base');
 }
 async function saveAdminAddresses(){
   const msg=$('#adm_addr_msg');
@@ -327,6 +349,28 @@ async function saveAdminAddresses(){
   }
 }
 
+/* ------------ Wake Lock (hold skjerm våken) ------------- */
+let wakeLock=null, wlEnabled=false;
+async function requestWakeLock(){
+  if(!('wakeLock' in navigator)) { wlEnabled=false; updateWakeUi(); return; }
+  try{
+    wakeLock = await navigator.wakeLock.request('screen');
+    wlEnabled=true; updateWakeUi();
+    wakeLock.addEventListener('release',()=>{ wlEnabled=false; updateWakeUi(); });
+  }catch(e){ wlEnabled=false; updateWakeUi(); }
+}
+function updateWakeUi(){
+  const note=$('#qk_wl_status');
+  const btn=$('#qk_wl');
+  if(note) note.textContent='Status: '+(wlEnabled?'aktiv':'av');
+  if(btn)  btn.textContent = wlEnabled ? '🔓 Skjerm låst (trykk for å slå av)' : '🔒 Hold skjermen våken';
+}
+async function toggleWakeLock(){
+  if(wlEnabled && wakeLock){ try{ wakeLock.release(); }catch{} finally{ wakeLock=null; wlEnabled=false; updateWakeUi(); } }
+  else { await requestWakeLock(); }
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && wlEnabled){ requestWakeLock(); }});
+
 /* ------------ init / routing / actions ------------- */
 window.addEventListener('DOMContentLoaded', ()=>{
   const drawer=$('#drawer'), scrim=$('#scrim');
@@ -349,13 +393,15 @@ window.addEventListener('DOMContentLoaded', ()=>{
     showPage($('#'+id)?id:'home');
   });
 
-  // Hurtig-knapper (grus/diesel/base)
-  const toMaps = (str)=>window.open(mapsUrlFromSetting(str),'_blank');
-  $('#qk_grus')  ?.addEventListener('click', async ()=>{ await refreshCloud(); toMaps(S.cloud?.settings?.grusDepot||''); });
-  $('#qk_diesel')?.addEventListener('click', async ()=>{ await refreshCloud(); toMaps(S.cloud?.settings?.diesel||''); });
-  $('#qk_base')  ?.addEventListener('click', async ()=>{ await refreshCloud(); toMaps(S.cloud?.settings?.base||''); });
+  // Hurtig-knapper (grus/diesel/base) + WakeLock
+  const toMaps = (str)=>openMapUrl(mapsUrlFromSetting(str));
+  $('#qk_grus')  ?.addEventListener('click', async ()=>{ await refreshCloud(); if(!S.cloud?.settings?.grusDepot) return alert('Legg inn koordinater for Grus i Admin.'); toMaps(S.cloud.settings.grusDepot); });
+  $('#qk_diesel')?.addEventListener('click', async ()=>{ await refreshCloud(); if(!S.cloud?.settings?.diesel)   return alert('Legg inn koordinater for Diesel i Admin.');   toMaps(S.cloud.settings.diesel); });
+  $('#qk_base')  ?.addEventListener('click', async ()=>{ await refreshCloud(); if(!S.cloud?.settings?.base)     return alert('Legg inn koordinater for Base i Admin.');     toMaps(S.cloud.settings.base); });
+  $('#qk_wl')    ?.addEventListener('click', toggleWakeLock);
+  updateWakeUi();
 
-  // Admin: tøm lokal data
+  // Admin: tøm lokal data (hvis knapp finnes)
   $('#adm_addr_reset_local')?.addEventListener('click', ()=>{
     if(confirm('Tømmer lokal data på denne enheten og laster siden på nytt. Fortsette?')){
       ['BROYT_LOCAL_DATA','BROYT_SEEDED_ADDR'].forEach(k=>localStorage.removeItem(k));
@@ -390,15 +436,14 @@ window.addEventListener('DOMContentLoaded', ()=>{
       const arr=await ensureAddressesSeeded();
       await refreshCloud();
 
-      // Filtrer for valgt modus
       const fullArr=(S.cloud?.snapshot?.addresses)||arr||[];
+      // Filtrer for valgt modus
       S.addresses = fullArr.filter(a=>a.active!==false)
                            .filter(a=> S.mode==='snow' ? (a.flags?.snow!==false) : !!a.flags?.grit);
-      // Hvis fortsatt tomt: bruk seed (mobil fallback)
-      if(!S.addresses.length){
-        S.cloud.snapshot.addresses = seedAddressesList();
-        await saveCloud();
-        S.addresses = S.cloud.snapshot.addresses.filter(a=> S.mode==='snow' ? (a.flags?.snow!==false) : !!a.flags?.grit);
+
+      if(S.mode==='grit' && (!S.addresses || S.addresses.length===0)){
+        alert('Ingen adresser er markert for grus i Adresse-registeret. Gå til Admin → sett “Grus” på de som skal ha strøing.');
+        return; // Ikke gå til tom runde
       }
 
       S.idx = (S.dir==='Motsatt') ? (S.addresses.length-1) : 0;
@@ -426,7 +471,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   $('#act_nav_next')?.addEventListener('click', ()=>{
     const next=S.addresses[nextIndex(S.idx,S.dir)];
     if(!next) return;
-    window.open(mapsUrlFromAddr(next),'_blank');
+    openMapUrl(mapsUrlFromAddr(next));
   });
 
   // Status
