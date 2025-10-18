@@ -408,7 +408,47 @@ async function saveAdminAddresses(){
     if(msg) msg.textContent='Feil: '+(e.message||e);
   }
 }
+/* ---------- Wake Lock (reparerer for iOS Safari) ---------- */
+async function toggleWakeLock() {
+  const status = document.querySelector('#qk_wl_status');
+  try {
+    // Slå AV hvis aktiv
+    if (S.wake && S.wake.active) {
+      await S.wake.release();
+      S.wake = null;
+      if (status) status.textContent = 'Status: av';
+      return;
+    }
 
+    // Prøv native API (Android/Chrome m.fl.)
+    if ('wakeLock' in navigator && navigator.wakeLock.request) {
+      S.wake = await navigator.wakeLock.request('screen');
+      S.wake.addEventListener('release', () => status && (status.textContent = 'Status: av'));
+      if (status) status.textContent = 'Status: på (native)';
+      return;
+    }
+
+    // Fallback for iOS / PWA: loop en usynlig kort video
+    let v = document.querySelector('#wlHiddenVideo');
+    if (!v) {
+      v = document.createElement('video');
+      v.id = 'wlHiddenVideo';
+      v.loop = true;
+      v.muted = true;
+      v.playsInline = true;
+      v.style.display = 'none';
+      v.src =
+        'data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbWF2YzEAAABsbW9vdgAAAGxtdmhkAAAAANrJLTrayS06AAAC8AAAFW1sb2NhAAAAAAABAAAAAAEAAAEAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABh0cmFrAAAAXHRraGQAAAAD2sk1OdrJNTkAAAFIAAAUbWRpYQAAACBtZGhkAAAAANrJLTrayS06AAAC8AAAACFoZGxyAAAAAAAAAABzb3VuAAAAAAAAAAAAAAAAU291bmRIYW5kbGVyAAAAAAAwAAAAAAABAQAAAAEAAABPAAAAAAAfAAAAAAALc291bmRfbmFtZQAA';
+      document.body.appendChild(v);
+    }
+
+    await v.play(); // må kalles etter et ekte trykk
+    if (status) status.textContent = 'Status: på (iOS-fallback)';
+  } catch (err) {
+    console.error(err);
+    if (status) status.textContent = 'Status: feil (' + (err.message || 'ukjent') + ')';
+  }
+}
 /* ----------------- Init / routing / actions ----------------- */
 window.addEventListener('DOMContentLoaded', ()=>{
   ensureSyncBadge();
