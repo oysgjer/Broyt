@@ -462,6 +462,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
   scrim && scrim.addEventListener('click', close);
   $$('#drawer .drawer-link[data-go]').forEach(b=>b.addEventListener('click',()=>{showPage(b.getAttribute('data-go')); close();}));
 
+  // Wake Lock – init tekst + klikk
+  const wlNote = $('#qk_wl_status');
+  if (wlNote) wlNote.textContent = 'Status: av';
+  $('#qk_wl')?.addEventListener('click', toggleWakeLock);
+
   // Routing
   window.showPage=function(id){
     $$('main section').forEach(s=>s.style.display='none');
