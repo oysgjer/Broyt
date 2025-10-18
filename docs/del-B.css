@@ -78,3 +78,44 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 .install-hint{margin-top:10px;color:var(--muted);font-size:13px}
 .inline-edit input{background:#091326;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px}
 legend{padding:0 6px}
+/* --- iOS safe-area (notch / hjem-linje) ------------------- */
+:root{
+  --sat: env(safe-area-inset-top, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
+/* Appbar skal aldri ligge bak klokka/notch */
+.appbar{
+  position: sticky; /* eller fixed hvis du vil ha den alltid synlig */
+  top: 0;
+  z-index: 1000;
+  padding-top: calc(10px + var(--sat));
+  padding-left: calc(16px + var(--sal));
+  padding-right: calc(16px + var(--sar));
+  /* beholder dine eksisterende bakgrunn/border-stiler */
+}
+
+/* Innhold og footer må også ta hensyn til venstre/høyre/bunn */
+.content{
+  padding-left: calc(12px + var(--sal));
+  padding-right: calc(12px + var(--sar));
+}
+
+.footer{
+  position: sticky; /* kan være static hvis du ikke vil ha den flytende */
+  bottom: 0;
+  z-index: 900;
+  padding-left: calc(12px + var(--sal));
+  padding-right: calc(12px + var(--sar));
+  padding-bottom: calc(10px + var(--sab));
+}
+
+/* Sidedrawer/hamburger-meny må ha topp/bunn-klaring */
+.drawer{
+  padding-top: calc(12px + var(--sat));
+  padding-bottom: calc(12px + var(--sab));
+  padding-left: calc(12px + var(--sal));
+  padding-right: calc(12px + var(--sar));
+}
