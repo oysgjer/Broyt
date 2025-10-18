@@ -1,5 +1,3 @@
-<!-- del-D.js v10.4.11 -->
-<script>
 /* =========================================================
    Brøyterute – app-logikk
    v10.4.11
@@ -656,4 +654,3 @@ async function exportCsv(){
     const a=document.createElement('a'); a.href=url; a.download=`Broeyterapport_${fmtDate()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }catch(e){ alert('CSV-feil: '+(e.message||e)); }
 }
-</script>
