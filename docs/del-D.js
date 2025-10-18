@@ -1,8 +1,7 @@
-/* del-D.js – v10.4.5
-   - Preferer NYESTE av lokal/sky ved henting (hindrer at lokale endringer "forsvinner")
-   - saveCloud() returnerer status (remote OK / kun lokalt)
-   - Admin: tydelig melding om "Lagret lokalt" hvis PUT/Key mangler
-   - Uendret funksjonalitet ellers
+/* del-D.js – v10.4.6
+   - FIX: Admin-knapper (Hent / Lagre) var ikke koblet til event listeners på mobil → nå koblet.
+   - Etter lagring: re-renderer tabellen og viser klar melding (sky vs. lokalt).
+   - Øvrige forbedringer fra 10.4.5 beholdt.
 */
 
 const $  = (s,root=document)=>root.querySelector(s);
@@ -49,16 +48,10 @@ const JSONBIN={
       }catch(_){}
     }
 
-    // Ingen av delene? returner standard
-    if(!remoteObj && !localObj){
-      return this._default();
-    }
-
-    // Kun én av dem?
+    if(!remoteObj && !localObj) return this._default();
     if(remoteObj && !localObj) return remoteObj;
     if(localObj && !remoteObj) return localObj;
 
-    // Begge finnes: velg nyest
     const lu = Number(localObj.updated||0);
     const ru = Number(remoteObj.updated||0);
     return (lu>=ru) ? localObj : remoteObj;
@@ -66,7 +59,6 @@ const JSONBIN={
 
   // LAGRE: skriv alltid lokalt, forsøk deretter sky
   async putRecord(obj){
-    // Alltid skrive lokalt
     localStorage.setItem('BROYT_LOCAL_DATA',JSON.stringify(obj||{}));
 
     const url=this._putUrl;
@@ -340,6 +332,24 @@ async function loadAdmin(){
     S.cloud.snapshot.addresses = seedAddressesList();
   }
   renderAdminAddresses();
+
+  // Autosave destinasjoner
+  const bindAutoSave = (id, key) => {
+    const el = $(id);
+    if(!el) return;
+    const save = async ()=>{
+      await refreshCloud();
+      S.cloud.settings ||= {};
+      S.cloud.settings[key] = el.value.trim();
+      const ok = await saveCloud();
+      const m = $('#adm_addr_msg'); if(m) m.textContent = ok?'Lagret.':'Lagret lokalt (sjekk PUT-URL/X-Master-Key).';
+    };
+    el.addEventListener('change', save);
+    el.addEventListener('blur', save);
+  };
+  bindAutoSave('#adm_grus','grusDepot');
+  bindAutoSave('#adm_diesel','diesel');
+  bindAutoSave('#adm_base','base');
 }
 async function saveAdminAddresses(){
   const msg=$('#adm_addr_msg');
@@ -359,7 +369,8 @@ async function saveAdminAddresses(){
     });
     S.cloud.snapshot.addresses = list;
     const ok = await saveCloud();
-    if(msg) msg.textContent = ok ? 'Lagret.' : 'Lagret lokalt (sjekk PUT-URL/X-Master-Key i Sky-oppsett).';
+    renderAdminAddresses();
+    if(msg) msg.textContent = ok ? 'Lagret.' : 'Lagret lokalt (sjekk PUT-URL/X-Master-Key).';
   }catch(e){
     if(msg) msg.textContent='Feil: '+(e.message||e);
   }
@@ -424,6 +435,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
       location.reload();
     }
   });
+
+  // ⚠️ Viktig: Koble Admin-knappene (Hent / Lagre)
+  $('#adm_addr_fetch')?.addEventListener('click', loadAdmin);
+  $('#adm_addr_save') ?.addEventListener('click', saveAdminAddresses);
 
   // Les preferanser
   try{
@@ -498,7 +513,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     catch(e){ alert('Feil: '+(e.message||e)); }
   });
   $('#st_reset_all') ?.addEventListener('click', async ()=>{ if(confirm('Nullstille denne runden for alle?')){ await refreshCloud(); const bag=statusStore(); (S.cloud.snapshot.addresses||[]).forEach(a=>{bag[a.name]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}); const ok=await saveCloud(); if(!ok) alert('Nullstilling lagret lokalt (sjekk PUT/Key).'); loadStatus(); }});
-  $('#st_reset_mine')?.addEventListener('click', async ()=>{ if(confirm('Nullstille kun dine punkter?')){ await refreshCloud(); const bag=statusStore(); for(const k in bag){ if(bag[k]?.driver===S.driver){bag[k]={state:'not_started',startedAt:null,finishedAt:null,driver:null,note:null,photo:null};}} const ok=await saveCloud(); if(!ok) alert('Nullstilling lagret lokalt (sjekk PUT/Key).'); loadStatus(); }});
+  $('#st_reset_mine')?.addEventListener('click', async ()=>{ if(confirm('Nullstille kun dine punkter?')){ await refreshCloud(); const bag=statusStore(); for(const k in bag){ if(bag[k]?.driver===S.driver){bag[k]={state:'not_started',startedAt:null,driver:null,finishedAt:null,note:null,photo:null};}} const ok=await saveCloud(); if(!ok) alert('Nullstilling lagret lokalt (sjekk PUT/Key).'); loadStatus(); }});
 });
 
 /* ---- uhell-bilde ---- */
