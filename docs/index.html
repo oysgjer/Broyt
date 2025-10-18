@@ -3,24 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Brøyterute – Romerike Trefelling</title>
 
-  <!-- PWA -->
+  <!-- PWA (ok om disse mangler lokalt) -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#0a0f1c">
   <link rel="apple-touch-icon" href="./icons/icon-512.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <link rel="stylesheet" href="./del-B.css">
 </head>
 <body>
-
   <!-- Appbar -->
   <header class="appbar">
     <button id="btnMenu" class="icon-btn" aria-label="Meny" title="Meny">☰</button>
     <div class="appbar-title">Brøyterute</div>
-    <div class="appbar-ver">v10.4.6</div>
+    <div class="appbar-ver">v10.4.7</div>
   </header>
 
   <!-- Drawer -->
@@ -29,6 +28,7 @@
       <div class="drawer-title">Meny</div>
       <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">✕</button>
     </div>
+
     <nav class="drawer-nav">
       <button data-go="home"    class="drawer-link">🏠 Hjem</button>
       <button data-go="work"    class="drawer-link">🛠️ Under arbeid</button>
@@ -51,6 +51,7 @@
       <button id="qk_wl" class="drawer-link">🔒 Hold skjermen våken</button>
       <div id="qk_wl_status" class="drawer-note">Status: ukjent</div>
     </div>
+
     <div class="drawer-safe-bottom"></div>
   </aside>
   <div id="scrim" class="scrim" aria-hidden="true"></div>
@@ -86,7 +87,7 @@
 
       <br>
       <button id="a_start" class="btn btn-lg">🏁 Start runde</button>
-      <div class="install-hint" id="installPrompt">📲 Installer på Hjem-skjerm</div>
+      <div class="install-hint" id="installPrompt">📲 Installer Brøyterute på Hjem-skjerm</div>
     </section>
 
     <!-- UNDER ARBEID -->
@@ -114,15 +115,11 @@
       </div>
 
       <div class="actions-grid">
-        <button id="act_start" class="btn btn-lg"            type="button">▶️ Start</button>
-        <button id="act_skip"  class="btn btn-lg"            type="button">⏭️ Hopp over</button>
-        <button id="act_block" class="btn btn-lg btn-warn"   type="button">🚫 Ikke mulig</button>
+        <button id="act_start" class="btn btn-lg" type="button">▶️ Start</button>
+        <button id="act_skip"  class="btn btn-lg" type="button">⏭️ Hopp over</button>
+        <button id="act_block" class="btn btn-lg btn-warn" type="button">🚫 Ikke mulig</button>
         <button id="act_done"  class="btn btn-lg btn-affirm" type="button">✅ Ferdig</button>
-        <button id="act_acc"   class="btn btn-lg btn-ghost"  type="button">⚠️ Uhell</button>
-      </div>
-
-      <div class="actions-grid" style="margin-top:10px">
-        <button id="act_nav_next" class="btn btn-lg" type="button">🧭 Naviger</button>
+        <button id="act_acc"   class="btn btn-lg btn-ghost" type="button">⚠️ Uhell</button>
       </div>
 
       <p id="b_status" class="status muted" style="margin-top:8px">Ikke påbegynt</p>
@@ -148,6 +145,7 @@
     <!-- STATUS -->
     <section id="status" class="card" style="display:none">
       <h2 class="title">Status</h2>
+
       <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px">
         <button id="st_reload" class="btn">⟳ Oppdater</button>
         <select id="st_mode" class="btn" style="padding:8px 10px">
@@ -175,12 +173,12 @@
       <div class="table-wrap">
         <table class="tbl" id="st_table">
           <thead>
-          <tr>
-            <th>#</th><th>Adresse</th><th>Oppdrag</th>
-            <th>Stikker (sesong)</th>
-            <th>📍</th>
-            <th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th><th>Uhell</th>
-          </tr>
+            <tr>
+              <th>#</th><th>Adresse</th><th>Oppgave</th>
+              <th id="th_stakes">Stikker (sesong)</th>
+              <th>Kart</th>
+              <th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th><th>Uhell</th>
+            </tr>
           </thead>
           <tbody id="st_tbody"></tbody>
         </table>
@@ -200,6 +198,7 @@
     <section id="admin" class="card" style="display:none">
       <h2 class="title">Admin</h2>
 
+      <!-- Nøkkel -->
       <div class="card" style="margin-top:0">
         <h3 style="margin:0 0 8px 0">JSONBin-nøkkel</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -211,27 +210,50 @@
         <div id="adm_key_status" class="small muted" style="margin-top:6px">—</div>
       </div>
 
+      <!-- Sky-oppsett -->
       <div class="card">
-        <h3 style="margin-top:0">Innstillinger – destinasjoner & sesong</h3>
-        <div class="inline-edit">
-          <label>Grusdepot (lat,lon): <input id="adm_grus" placeholder="60.2527264,11.1687230"></label><br>
-          <label>Diesel (lat,lon): <input id="adm_diesel" placeholder="60.2523185,11.1899926"></label><br>
-          <label>Base (lat,lon): <input id="adm_base" placeholder="60.2664414,11.2208819"></label><br>
-          <label>Stikker låst (sesong):</label>
-          <button id="adm_stakes_lock" class="btn btn-ghost">🔓 Lås stikker</button>
+        <h3 style="margin-top:0">Sky-oppsett (JSONBin/Proxy)</h3>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:260px">
+            <label>GET-URL:<br>
+              <input id="adm_geturl" placeholder="https://jsonbin-proxy…/v3/b/{id}/latest" style="width:100%">
+            </label>
+          </div>
+          <div style="flex:1;min-width:260px">
+            <label>PUT-URL:<br>
+              <input id="adm_puturl" placeholder="https://jsonbin-proxy…/v3/b/{id}" style="width:100%">
+            </label>
+          </div>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button id="adm_urls_save" class="btn">Lagre URL-er</button>
+          <button id="adm_urls_clear" class="btn btn-ghost">Fjern URL-er</button>
+          <span id="adm_urls_status" class="small muted">—</span>
         </div>
       </div>
 
+      <!-- Innstillinger -->
+      <div class="card">
+        <h3 style="margin-top:0">Innstillinger – destinasjoner & sesong</h3>
+        <div class="inline-edit">
+          <label>Grusdepot (lat,lon): <input id="adm_grus"   placeholder="60.2527264,11.1687230"></label><br>
+          <label>Diesel (lat,lon):     <input id="adm_diesel" placeholder="60.2523185,11.1899926"></label><br>
+          <label>Base (lat,lon):       <input id="adm_base"   placeholder="60.2664414,11.2208819"></label><br>
+          <label>Stikker låst (sesong): <button id="adm_stakes_lock" class="btn btn-ghost">🔓 Lås stikker</button></label>
+        </div>
+      </div>
+
+      <!-- Adresse-register -->
       <div class="card">
         <h3 style="margin:0 0 8px 0">Adresse-register</h3>
-        <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
-          <button id="adm_addr_fetch" class="btn">⟳ Hent fra sky</button>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button id="adm_addr_fetch" class="btn">⥀ Hent fra sky</button>
           <button id="adm_addr_save"  class="btn btn-primary">💾 Lagre</button>
-          <button id="adm_addr_reset_local" class="btn btn-warn">🧹 Tøm lokal data</button>
-          <span class="small muted" id="adm_addr_msg">—</span>
+          <button id="adm_addr_clear_local" class="btn btn-ghost">🧹 Tøm lokal data</button>
+          <span id="adm_addr_msg" class="small muted">—</span>
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" style="margin-top:8px">
           <table class="tbl">
             <thead>
               <tr>
@@ -241,7 +263,7 @@
                 <th>Snø</th>
                 <th>Grus</th>
                 <th>Stikker</th>
-                <th>Koordinater (lat,lon)</th>
+                <th>Koordinater</th>
                 <th>Flytt</th>
               </tr>
             </thead>
@@ -249,29 +271,13 @@
           </table>
         </div>
       </div>
-
-      <div class="card">
-        <h3 style="margin-top:0">Sky-oppsett (JSONBin/Proxy)</h3>
-        <div class="inline-edit" style="gap:8px">
-          <label>GET-URL:<br><input id="adm_geturl" placeholder="https://jsonbin-proxy.…" style="min-width:260px"></label>
-          <label>PUT-URL:<br><input id="adm_puturl" placeholder="https://jsonbin-proxy.…" style="min-width:260px"></label>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <button id="adm_urls_save" class="btn btn-primary">Lagre URL-er</button>
-          <button id="adm_urls_clear" class="btn btn-ghost">Fjern URL-er</button>
-          <span id="adm_urls_status" class="small muted">—</span>
-        </div>
-      </div>
     </section>
-
   </main>
 
-  <!-- FOOTER -->
   <footer class="footer">
-    <p>v10.4.6 – Romerike Trefelling</p>
+    <p>v10.4.7 – Romerike Trefelling</p>
   </footer>
 
-  <!-- NB: cache-bust med ?v=1046 -->
-  <script src="./del-D.js?v=1046"></script>
+  <script src="./del-D.js"></script>
 </body>
 </html>
