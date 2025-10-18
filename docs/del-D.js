@@ -523,12 +523,21 @@ window.addEventListener('DOMContentLoaded', ()=>{
       showPage('work');
     }catch(e){ alert('Startfeil: '+(e.message||e)); }
   });
-
+// Naviger-knapp: åpner Google Maps på neste (eller nåværende hvis ingen neste)
+function navigateToNext(){
+  const next = S.addresses[nextIndex(S.idx, S.dir)] || S.addresses[S.idx];
+  if(!next){ alert('Ingen adresser i listen.'); return; }
+  const url = mapsUrlFromAddr(next);
+  // mindre sjanse for popup-blokkering enn window.open i PWA/iOS
+  window.location.assign(url);
+}
   // Work-knapper
   $('#act_start') && $('#act_start').addEventListener('click',()=>stepState({state:'in_progress',startedAt:Date.now()},false));
   $('#act_skip')  && $('#act_skip').addEventListener('click',()=>stepState({state:'skipped',finishedAt:Date.now()}));
   $('#act_block') && $('#act_block').addEventListener('click',()=>{ const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||''; stepState({state:'blocked',finishedAt:Date.now(),note:reason}); });
   $('#act_acc')   && $('#act_acc').addEventListener('click', async ()=>{
+  $('#act_nav')      && $('#act_nav').addEventListener('click', navigateToNext);
+  $('#act_nav_next') && $('#act_nav_next').addEventListener('click', navigateToNext);
     try{
       const note=prompt('Beskriv uhell (valgfritt)','')||'';
       const file=await pickImage(); let photo=null;
