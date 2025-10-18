@@ -1,9 +1,11 @@
+<!-- del-D.js v10.4.11 -->
+<script>
 /* =========================================================
    Brøyterute – app-logikk
-   v10.4.10
-   - Fikser "Invalid left-hand side in assignment" (erstatter ||= med if-guards)
-   - Synk-indikator + “sist synkret”
-   - Stabil admin/arbeidsflyt, CSV-rapport, uhell-bilde
+   v10.4.11
+   - Fikser "Naviger", "Hent grus", "Fyll diesel", "Kjør til base"
+   - Robust maps-åpning + iOS/PWA hensyn (window.location.assign)
+   - Beholder wake-lock, status, admin, CSV, uhell-bilde
    ========================================================= */
 
 const $  = (s,root=document)=>root.querySelector(s);
@@ -13,7 +15,7 @@ const fmtTime = t => !t ? '—' : nowHHMM(t);
 const fmtDate = () => new Date().toLocaleDateString('no-NO');
 const STATE_LABEL={not_started:'Ikke påbegynt',in_progress:'Pågår',done:'Ferdig',skipped:'Hoppet over',blocked:'Ikke mulig',accident:'Uhell'};
 
-const S={dir:'Normal',addresses:[],idx:0,driver:'driver',autoNav:false,mode:'snow',cloud:null,lastSync:0};
+const S={dir:'Normal',addresses:[],idx:0,driver:'driver',autoNav:false,mode:'snow',cloud:null,lastSync:0,wake:null};
 
 /* ------------------- Synk-indikator -------------------- */
 function ensureSyncBadge(){
@@ -111,7 +113,7 @@ const JSONBIN={
   _localFallback(){
     const local=JSON.parse(localStorage.getItem('BROYT_LOCAL_DATA')||'null');
     if(local) return local;
-    return {version:'10.4.10',updated:Date.now(),by:'local',
+    return {version:'10.4.11',updated:Date.now(),by:'local',
       settings:{grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",seasonLabel:"2025–26",stakesLocked:false},
       snapshot:{addresses:[]},statusSnow:{},statusGrit:{},serviceLogs:[]};
   }
@@ -169,6 +171,18 @@ function mapsUrlFromAddr(addr){
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
   }
   return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((addr.name||'')+', Norge');
+}
+function mapsUrlFromCoordString(coordStr){
+  if(coordStr && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(coordStr)){
+    const q=coordStr.replace(/\s+/g,'');
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
+  }
+  return '';
+}
+function openMaps(url){
+  if(!url){ alert('Mangler gyldig adresse/koordinater.'); return; }
+  // assign er mer stabilt i PWA/iOS enn window.open()
+  window.location.assign(url);
 }
 
 /* ----------------- WORK UI ----------------- */
@@ -232,7 +246,7 @@ async function stepState(patch,nextAfter=true){
       S.idx=ni; uiSetWork();
       if(S.autoNav){
         const t=S.addresses[S.idx];
-        if(t) window.open(mapsUrlFromAddr(t),'_blank');
+        if(t) openMaps(mapsUrlFromAddr(t));
       }
     }else{
       showPage('service');
@@ -408,47 +422,58 @@ async function saveAdminAddresses(){
     if(msg) msg.textContent='Feil: '+(e.message||e);
   }
 }
-/* ---------- Wake Lock (reparerer for iOS Safari) ---------- */
+
+/* ---------- Wake Lock (skjerm på) ---------- */
 async function toggleWakeLock() {
   const status = document.querySelector('#qk_wl_status');
   try {
-    // Slå AV hvis aktiv
     if (S.wake && S.wake.active) {
       await S.wake.release();
       S.wake = null;
       if (status) status.textContent = 'Status: av';
       return;
     }
-
-    // Prøv native API (Android/Chrome m.fl.)
     if ('wakeLock' in navigator && navigator.wakeLock.request) {
       S.wake = await navigator.wakeLock.request('screen');
       S.wake.addEventListener('release', () => status && (status.textContent = 'Status: av'));
       if (status) status.textContent = 'Status: på (native)';
       return;
     }
-
-    // Fallback for iOS / PWA: loop en usynlig kort video
     let v = document.querySelector('#wlHiddenVideo');
     if (!v) {
       v = document.createElement('video');
       v.id = 'wlHiddenVideo';
-      v.loop = true;
-      v.muted = true;
-      v.playsInline = true;
-      v.style.display = 'none';
-      v.src =
-        'data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbWF2YzEAAABsbW9vdgAAAGxtdmhkAAAAANrJLTrayS06AAAC8AAAFW1sb2NhAAAAAAABAAAAAAEAAAEAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABh0cmFrAAAAXHRraGQAAAAD2sk1OdrJNTkAAAFIAAAUbWRpYQAAACBtZGhkAAAAANrJLTrayS06AAAC8AAAACFoZGxyAAAAAAAAAABzb3VuAAAAAAAAAAAAAAAAU291bmRIYW5kbGVyAAAAAAAwAAAAAAABAQAAAAEAAABPAAAAAAAfAAAAAAALc291bmRfbmFtZQAA';
+      v.loop = true; v.muted = true; v.playsInline = true; v.style.display = 'none';
+      v.src = 'data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbWF2YzEAAABsbW9vdgAAAGxtdmhkAAAAANrJLTrayS06AAAC8AAAFW1sb2NhAAAAAAABAAAAAAEAAAEAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABh0cmFrAAAAXHRraGQAAAAD2sk1OdrJNTkAAAFIAAAUbWRpYQAAACBtZGhkAAAAANrJLTrayS06AAAC8AAAACFoZGxyAAAAAAAAAABzb3VuAAAAAAAAAAAAAAAAU291bmRIYW5kbGVyAAAAAAAwAAAAAAABAQAAAAEAAABPAAAAAAAfAAAAAAALc291bmRfbmFtZQAA';
       document.body.appendChild(v);
     }
-
-    await v.play(); // må kalles etter et ekte trykk
+    await v.play();
     if (status) status.textContent = 'Status: på (iOS-fallback)';
   } catch (err) {
     console.error(err);
     if (status) status.textContent = 'Status: feil (' + (err.message || 'ukjent') + ')';
   }
 }
+
+/* ---------- Navigasjon: neste/quick ---------- */
+function navigateToNext(){
+  const next = S.addresses[nextIndex(S.idx, S.dir)] || S.addresses[S.idx];
+  if(!next){ alert('Ingen adresser i listen.'); return; }
+  openMaps(mapsUrlFromAddr(next));
+}
+async function quickNav(settingKey){
+  try{
+    await refreshCloud();
+    const st = (S.cloud && S.cloud.settings) ? S.cloud.settings : {};
+    const val = st[settingKey] || '';
+    const url = mapsUrlFromCoordString(val);
+    if(url) openMaps(url);
+    else alert('Mangler gyldige koordinater for: ' + settingKey);
+  }catch(e){
+    alert('Kunne ikke åpne navigasjon: '+(e.message||e));
+  }
+}
+
 /* ----------------- Init / routing / actions ----------------- */
 window.addEventListener('DOMContentLoaded', ()=>{
   ensureSyncBadge();
@@ -462,10 +487,15 @@ window.addEventListener('DOMContentLoaded', ()=>{
   scrim && scrim.addEventListener('click', close);
   $$('#drawer .drawer-link[data-go]').forEach(b=>b.addEventListener('click',()=>{showPage(b.getAttribute('data-go')); close();}));
 
-  // Wake Lock – init tekst + klikk
+  // Wake Lock – init
   const wlNote = $('#qk_wl_status');
   if (wlNote) wlNote.textContent = 'Status: av';
-  $('#qk_wl')?.addEventListener('click', toggleWakeLock);
+  $('#qk_wl') && $('#qk_wl').addEventListener('click', toggleWakeLock);
+
+  // Quick-nav knapper i meny
+  $('#qk_grus')   && $('#qk_grus').addEventListener('click', ()=>quickNav('grusDepot'));
+  $('#qk_diesel') && $('#qk_diesel').addEventListener('click', ()=>quickNav('diesel'));
+  $('#qk_base')   && $('#qk_base').addEventListener('click', ()=>quickNav('base'));
 
   // Routing
   window.showPage=function(id){
@@ -491,7 +521,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
     }
     if(typeof p.autoNav==='boolean' && $('#a_autoNav')) $('#a_autoNav').checked=p.autoNav;
   }catch{}
-
   showPage('home');
 
   // Start runde
@@ -523,21 +552,12 @@ window.addEventListener('DOMContentLoaded', ()=>{
       showPage('work');
     }catch(e){ alert('Startfeil: '+(e.message||e)); }
   });
-// Naviger-knapp: åpner Google Maps på neste (eller nåværende hvis ingen neste)
-function navigateToNext(){
-  const next = S.addresses[nextIndex(S.idx, S.dir)] || S.addresses[S.idx];
-  if(!next){ alert('Ingen adresser i listen.'); return; }
-  const url = mapsUrlFromAddr(next);
-  // mindre sjanse for popup-blokkering enn window.open i PWA/iOS
-  window.location.assign(url);
-}
+
   // Work-knapper
   $('#act_start') && $('#act_start').addEventListener('click',()=>stepState({state:'in_progress',startedAt:Date.now()},false));
   $('#act_skip')  && $('#act_skip').addEventListener('click',()=>stepState({state:'skipped',finishedAt:Date.now()}));
   $('#act_block') && $('#act_block').addEventListener('click',()=>{ const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||''; stepState({state:'blocked',finishedAt:Date.now(),note:reason}); });
   $('#act_acc')   && $('#act_acc').addEventListener('click', async ()=>{
-  $('#act_nav')      && $('#act_nav').addEventListener('click', navigateToNext);
-  $('#act_nav_next') && $('#act_nav_next').addEventListener('click', navigateToNext);
     try{
       const note=prompt('Beskriv uhell (valgfritt)','')||'';
       const file=await pickImage(); let photo=null;
@@ -546,6 +566,10 @@ function navigateToNext(){
     }catch(e){ alert('Feil ved uhell: '+(e.message||e)); }
   });
   $('#act_done')  && $('#act_done').addEventListener('click',()=>stepState({state:'done',finishedAt:Date.now()}));
+
+  // Naviger-knapp(er)
+  $('#act_nav')       && $('#act_nav').addEventListener('click', navigateToNext);
+  $('#act_nav_next')  && $('#act_nav_next').addEventListener('click', navigateToNext);
 
   // Status-handlinger
   $('#st_reload') && $('#st_reload').addEventListener('click',loadStatus);
@@ -632,3 +656,4 @@ async function exportCsv(){
     const a=document.createElement('a'); a.href=url; a.download=`Broeyterapport_${fmtDate()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }catch(e){ alert('CSV-feil: '+(e.message||e)); }
 }
+</script>
