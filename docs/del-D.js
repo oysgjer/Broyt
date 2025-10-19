@@ -1,9 +1,9 @@
 /* =========================================================
    Brøyterute – app-logikk
-   v10.4.13
-   - Quick actions: grus/diesel/base + wake lock
+   v10.4.14
+   - Quick actions: grus/diesel/base robust "wiring" (uavhengig av lasterekkefølge)
    - Under arbeid: én "Naviger" som går til NESTE adresse
-   - Fikser filtrering (snø vs grus) og små robusthetsdetaljer
+   - Fikser filtrering (snø vs grus) + wake lock + små robusthetsdetaljer
    ========================================================= */
 
 const $  = (s,root=document)=>root.querySelector(s);
@@ -111,7 +111,7 @@ const JSONBIN={
   _localFallback(){
     const local=JSON.parse(localStorage.getItem('BROYT_LOCAL_DATA')||'null');
     if(local) return local;
-    return {version:'10.4.13',updated:Date.now(),by:'local',
+    return {version:'10.4.14',updated:Date.now(),by:'local',
       settings:{grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",seasonLabel:"2025–26",stakesLocked:false},
       snapshot:{addresses:[]},statusSnow:{},statusGrit:{},serviceLogs:[]};
   }
@@ -450,9 +450,40 @@ async function toggleWakeLock() {
   }
 }
 
+/* ---------- Quick Actions wiring (robust) ---------- */
+function wireQuickButtons(){
+  const bind = (id, handler) => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.wired) {
+      el.addEventListener('click', handler);
+      el.dataset.wired = '1';
+    }
+  };
+  async function openDest(which){
+    try{
+      await refreshCloud();
+      const st=S.cloud && S.cloud.settings ? S.cloud.settings : {};
+      let latlon='';
+      if(which==='grus')   latlon = st.grusDepot||'';
+      if(which==='diesel') latlon = st.diesel||'';
+      if(which==='base')   latlon = st.base||'';
+      if(!latlon){
+        alert('Koordinater mangler for '+which+'. Sjekk Admin → Innstillinger og lagre.');
+      }
+      const url = latlon ? mapsUrlFromLatLon(latlon) : 'https://www.google.com/maps';
+      window.open(url,'_blank');
+    }catch(e){ alert('Kunne ikke åpne destinasjon: '+(e.message||e)); }
+  }
+  bind('qk_grus',   ()=>openDest('grus'));
+  bind('qk_diesel', ()=>openDest('diesel'));
+  bind('qk_base',   ()=>openDest('base'));
+  bind('qk_wl',     toggleWakeLock);
+}
+
 /* ----------------- Init / routing / actions ----------------- */
 window.addEventListener('DOMContentLoaded', ()=>{
   ensureSyncBadge();
+  wireQuickButtons(); // sørg for at knappene er koblet ved last
 
   // Drawer
   const drawer=$('#drawer'), scrim=$('#scrim');
@@ -463,32 +494,15 @@ window.addEventListener('DOMContentLoaded', ()=>{
   scrim && scrim.addEventListener('click', close);
   $$('#drawer .drawer-link[data-go]').forEach(b=>b.addEventListener('click',()=>{showPage(b.getAttribute('data-go')); close();}));
 
-  // Wake Lock – init + klikk
-  const wlNote = $('#qk_wl_status'); if (wlNote) wlNote.textContent = 'Status: av';
-  $('#qk_wl') && $('#qk_wl').addEventListener('click', toggleWakeLock);
-
-  // Quick actions: grus/diesel/base
-  async function openDest(which){
-    try{
-      await refreshCloud();
-      const st=S.cloud && S.cloud.settings ? S.cloud.settings : {};
-      let latlon='';
-      if(which==='grus')   latlon = st.grusDepot||'';
-      if(which==='diesel') latlon = st.diesel||'';
-      if(which==='base')   latlon = st.base||'';
-      const url = latlon ? mapsUrlFromLatLon(latlon) : 'https://www.google.com/maps';
-      window.open(url,'_blank');
-    }catch(e){ alert('Kunne ikke åpne destinasjon: '+(e.message||e)); }
-  }
-  $('#qk_grus')   && $('#qk_grus').addEventListener('click', ()=>openDest('grus'));
-  $('#qk_diesel') && $('#qk_diesel').addEventListener('click',()=>openDest('diesel'));
-  $('#qk_base')   && $('#qk_base').addEventListener('click',  ()=>openDest('base'));
-
   // Routing
   window.showPage=function(id){
     $$('main section').forEach(s=>s.style.display='none');
     const el=$('#'+id); if(el) el.style.display='block';
     location.hash='#'+id;
+
+    // re-wire knapper hvis seksjonen ble byttet / DOM endret
+    wireQuickButtons();
+
     if(id==='status'){ const d=$('#rp_date'); if(d) d.textContent=fmtDate(); loadStatus(); }
     if(id==='admin'){ loadAdmin(); }
   };
@@ -567,9 +581,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
       : 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((target.name||'')+', Norge');
     window.open(url,'_blank');
   }
-  // Støtt både #act_nav og (gammel) #act_nav_next
   $('#act_nav')      && $('#act_nav').addEventListener('click', navigateToNext);
-  $('#act_nav_next') && $('#act_nav_next').addEventListener('click', navigateToNext);
+  $('#act_nav_next') && $('#act_nav_next').addEventListener('click', navigateToNext); // støtte for gammel id
 
   // Status-handlinger
   $('#st_reload') && $('#st_reload').addEventListener('click',loadStatus);
