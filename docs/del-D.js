@@ -1,9 +1,9 @@
 /* =========================================================
    Brøyterute – app-logikk
-   v10.4.12
-   - FIX: Normaliserer flags.snow / flags.grit til bools (unngår "false"-strenger)
-   - Robust filtrering for SNØ vs. GRUS
-   - Oppgave-label følger valgt runde
+   v10.4.13
+   - Quick actions: grus/diesel/base + wake lock
+   - Under arbeid: én "Naviger" som går til NESTE adresse
+   - Fikser filtrering (snø vs grus) og små robusthetsdetaljer
    ========================================================= */
 
 const $  = (s,root=document)=>root.querySelector(s);
@@ -13,32 +13,7 @@ const fmtTime = t => !t ? '—' : nowHHMM(t);
 const fmtDate = () => new Date().toLocaleDateString('no-NO');
 const STATE_LABEL={not_started:'Ikke påbegynt',in_progress:'Pågår',done:'Ferdig',skipped:'Hoppet over',blocked:'Ikke mulig',accident:'Uhell'};
 
-const S={dir:'Normal',addresses:[],idx:0,driver:'driver',autoNav:false,mode:'snow',cloud:null,lastSync:0};
-
-/* ---------------- Hjelpere ---------------- */
-const asBool = (v, def=false) => {
-  if (typeof v === 'boolean') return v;
-  if (typeof v === 'number')  return v !== 0;
-  if (typeof v === 'string') {
-    const s=v.trim().toLowerCase();
-    if (s==='true' || s==='1' || s==='ja' || s==='on') return true;
-    if (s==='false'|| s==='0' || s==='nei' || s==='off' || s==='') return false;
-  }
-  return def;
-};
-const normalizeAddr = (a) => {
-  const out = {...a};
-  const f = {...(out.flags||{})};
-  // default: snow=true (brøyting), grit=false (grus) om ikke angitt
-  f.snow = asBool(f.snow, true);
-  f.grit = asBool(f.grit, false);
-  out.flags = f;
-  // stakes som tall/tekst, behold
-  if (typeof out.active !== 'boolean') out.active = asBool(out.active, true);
-  if (typeof out.name !== 'string') out.name = String(out.name||'');
-  out.coords = typeof out.coords === 'string' ? out.coords.trim() : '';
-  return out;
-};
+const S={dir:'Normal',addresses:[],idx:0,driver:'driver',autoNav:false,mode:'snow',cloud:null,lastSync:0,wake:null};
 
 /* ------------------- Synk-indikator -------------------- */
 function ensureSyncBadge(){
@@ -60,7 +35,7 @@ function ensureSyncBadge(){
   host && host.appendChild(small);
   return span;
 }
-function setSync(status){
+function setSync(status){ // 'ok' | 'local' | 'error' | 'unknown'
   const el=ensureSyncBadge();
   const time=$('#sync_time');
   const dots = {ok:'●',local:'●',error:'●',unknown:'●'};
@@ -69,9 +44,11 @@ function setSync(status){
   if(status==='ok') text='OK';
   else if(status==='local') text='lokal';
   else if(status==='error') text='feil';
-  el.textContent=`${dots[status]||'●'} Synk: ${text}`;
-  el.style.color=colors[status]||'#94a3b8';
-  if(S.lastSync){ time.textContent=`• ${nowHHMM(S.lastSync)}`; } else { time.textContent=''; }
+  else text='ukjent';
+  el.textContent=`${dots[status]} Synk: ${text}`;
+  el.style.color=colors[status];
+  if(S.lastSync){ time.textContent=`• ${nowHHMM(S.lastSync)}`; }
+  else { time.textContent=''; }
 }
 
 /* ------------------- JSONBin helper -------------------- */
@@ -134,7 +111,7 @@ const JSONBIN={
   _localFallback(){
     const local=JSON.parse(localStorage.getItem('BROYT_LOCAL_DATA')||'null');
     if(local) return local;
-    return {version:'10.4.12',updated:Date.now(),by:'local',
+    return {version:'10.4.13',updated:Date.now(),by:'local',
       settings:{grusDepot:"60.2527264,11.1687230",diesel:"60.2523185,11.1899926",base:"60.2664414,11.2208819",seasonLabel:"2025–26",stakesLocked:false},
       snapshot:{addresses:[]},statusSnow:{},statusGrit:{},serviceLogs:[]};
   }
@@ -151,22 +128,15 @@ function seedAddressesList(){
     "Moen Nedre vei","Fred/ Moen Nedre 17","Odd/ Moen Nedre 15","Trondheimsvegen 86","Fjellet (400m vei Råholt)",
     "Bilextra (hele bygget)","Lundgårdstoppen","Normann Hjellesveg"
   ];
-  return base.map(n=>normalizeAddr({name:n,group:"",active:true,flags:{snow:true,grit:false},stakes:'',coords:''}));
+  return base.map(n=>({name:n,group:"",active:true,flags:{snow:true,grit:false},stakes:'',coords:''}));
 }
 
 /* ----------------- cloud helpers ----------------- */
 async function ensureAddressesSeeded(){
   S.cloud = await JSONBIN.getLatest();
-  const arr = Array.isArray(S.cloud?.snapshot?.addresses)?S.cloud.snapshot.addresses:[];
-  if(arr.length>0){
-    // normaliser eksisterende data (gamle strenger -> bools)
-    S.cloud.snapshot.addresses = arr.map(normalizeAddr);
-    if(!S.cloud.statusSnow) S.cloud.statusSnow={};
-    if(!S.cloud.statusGrit) S.cloud.statusGrit={};
-    localStorage.setItem('BROYT_LOCAL_DATA',JSON.stringify(S.cloud));
-    await JSONBIN.putRecord(S.cloud);
-    return;
-  }
+  const arr = Array.isArray(S.cloud && S.cloud.snapshot && S.cloud.snapshot.addresses)
+    ? S.cloud.snapshot.addresses : [];
+  if(arr.length>0) return;
   const list=seedAddressesList();
   if(!S.cloud) S.cloud={};
   if(!S.cloud.snapshot) S.cloud.snapshot={};
@@ -182,13 +152,6 @@ async function refreshCloud(){
   if(!S.cloud.statusSnow) S.cloud.statusSnow={};
   if(!S.cloud.statusGrit) S.cloud.statusGrit={};
   if(!S.cloud.settings)   S.cloud.settings={seasonLabel:"2025–26",stakesLocked:false};
-  // normaliser hver gang vi henter
-  if(Array.isArray(S.cloud?.snapshot?.addresses)){
-    S.cloud.snapshot.addresses = S.cloud.snapshot.addresses.map(normalizeAddr);
-  } else {
-    S.cloud.snapshot = S.cloud.snapshot || {};
-    S.cloud.snapshot.addresses = [];
-  }
 }
 async function saveCloud(){
   S.cloud.updated=Date.now(); S.cloud.by=S.driver||'driver';
@@ -198,7 +161,7 @@ async function saveCloud(){
 function statusStore(){return S.mode==='snow'?S.cloud.statusSnow:S.cloud.statusGrit;}
 const nextIndex=(i,d)=> d==='Motsatt' ? i-1 : i+1;
 
-/* ----------------- Maps ----------------- */
+/* ----------------- Maps helpers ----------------- */
 function mapsUrlFromAddr(addr){
   if(!addr) return 'https://www.google.com/maps';
   if(addr.coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(addr.coords)){
@@ -206,6 +169,11 @@ function mapsUrlFromAddr(addr){
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
   }
   return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((addr.name||'')+', Norge');
+}
+function mapsUrlFromLatLon(latlon){
+  if(!latlon) return 'https://www.google.com/maps';
+  const q=String(latlon).replace(/\s+/g,'');
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
 }
 
 /* ----------------- WORK UI ----------------- */
@@ -313,7 +281,7 @@ async function loadStatus(){
     const cloud=await JSONBIN.getLatest();
     if(cloud && !cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
 
-    const addrs=Array.isArray(cloud && cloud.snapshot && cloud.snapshot.addresses) ? cloud.snapshot.addresses.map(normalizeAddr) : [];
+    const addrs=Array.isArray(cloud && cloud.snapshot && cloud.snapshot.addresses) ? cloud.snapshot.addresses : [];
     const bag=(modeSel==='snow')?(cloud.statusSnow||{}):(cloud.statusGrit||{});
     const filter=$('#st_filter') ? $('#st_filter').value : 'alle';
     const tbody=$('#st_tbody'); if(tbody) tbody.innerHTML='';
@@ -370,7 +338,6 @@ function renderAdminAddresses(){
   tb.innerHTML='';
   const locked=!!(S.cloud.settings&&S.cloud.settings.stakesLocked);
   (S.cloud.snapshot.addresses||[]).forEach((a,idx)=>{
-    const row = normalizeAddr(a);
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><input type="checkbox" class="adm-active"></td>
@@ -387,13 +354,13 @@ function renderAdminAddresses(){
         </div>
       </td>`;
     tb.appendChild(tr);
-    tr.querySelector('.adm-active').checked = row.active!==false;
-    tr.querySelector('.adm-name').value   = row.name||'';
-    tr.querySelector('.adm-group').value  = row.group||'';
-    tr.querySelector('.adm-snow').checked = !!row.flags.snow;
-    tr.querySelector('.adm-grit').checked = !!row.flags.grit;
-    tr.querySelector('.adm-stakes').value = (row.stakes!==undefined&&row.stakes!=='')?row.stakes:'';
-    tr.querySelector('.adm-coords').value = row.coords||'';
+    tr.querySelector('.adm-active').checked = a.active!==false;
+    tr.querySelector('.adm-name').value   = a.name||'';
+    tr.querySelector('.adm-group').value  = a.group||'';
+    tr.querySelector('.adm-snow').checked = !!((a.flags&&('snow' in a.flags)) ? a.flags.snow : true);
+    tr.querySelector('.adm-grit').checked = !!(a.flags && a.flags.grit);
+    tr.querySelector('.adm-stakes').value = (a.stakes!==undefined&&a.stakes!=='')?a.stakes:'';
+    tr.querySelector('.adm-coords').value = a.coords||'';
 
     tr.querySelector('.adm-up').addEventListener('click',()=>{
       if(idx<=0) return;
@@ -421,8 +388,6 @@ async function loadAdmin(){
   if($('#adm_stakes_lock')) $('#adm_stakes_lock').textContent=st.stakesLocked?'🔒 Låst':'🔓 Lås stikker';
 
   if(!Array.isArray(S.cloud.snapshot.addresses)) S.cloud.snapshot.addresses=[];
-  // sørg for at cloud-liste er normalisert nå
-  S.cloud.snapshot.addresses = S.cloud.snapshot.addresses.map(normalizeAddr);
   renderAdminAddresses();
 }
 async function saveAdminAddresses(){
@@ -439,13 +404,49 @@ async function saveAdminAddresses(){
       const grit   = tr.querySelector('.adm-grit').checked;
       const stakes = tr.querySelector('.adm-stakes').value.trim();
       const coords = tr.querySelector('.adm-coords').value.trim();
-      list.push(normalizeAddr({active,name,group,flags:{snow,grit},stakes,coords}));
+      list.push({active,name,group,flags:{snow,grit},stakes,coords});
     });
     S.cloud.snapshot.addresses = list;
     await saveCloud();
     if(msg) msg.textContent='✅ Lagret';
   }catch(e){
     if(msg) msg.textContent='Feil: '+(e.message||e);
+  }
+}
+
+/* ---------- Wake Lock (Android/iOS PWA fallback) ---------- */
+async function toggleWakeLock() {
+  const status = document.querySelector('#qk_wl_status');
+  try {
+    if (S.wake && S.wake.active) {
+      await S.wake.release();
+      S.wake = null;
+      if (status) status.textContent = 'Status: av';
+      return;
+    }
+    if ('wakeLock' in navigator && navigator.wakeLock.request) {
+      S.wake = await navigator.wakeLock.request('screen');
+      S.wake.addEventListener('release', () => status && (status.textContent = 'Status: av'));
+      if (status) status.textContent = 'Status: på (native)';
+      return;
+    }
+    let v = document.querySelector('#wlHiddenVideo');
+    if (!v) {
+      v = document.createElement('video');
+      v.id = 'wlHiddenVideo';
+      v.loop = true;
+      v.muted = true;
+      v.playsInline = true;
+      v.style.display = 'none';
+      v.src =
+        'data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbWF2YzEAAABsbW9vdgAAAGxtdmhkAAAAANrJLTrayS06AAAC8AAAFW1sb2NhAAAAAAABAAAAAAEAAAEAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABh0cmFrAAAAXHRraGQAAAAD2sk1OdrJNTkAAAFIAAAUbWRpYQAAACBtZGhkAAAAANrJLTrayS06AAAC8AAAACFoZGxyAAAAAAAAAABzb3VuAAAAAAAAAAAAAAAAU291bmRIYW5kbGVyAAAAAAAwAAAAAAABAQAAAAEAAABPAAAAAAAfAAAAAAALc291bmRfbmFtZQAA';
+      document.body.appendChild(v);
+    }
+    await v.play();
+    if (status) status.textContent = 'Status: på (iOS-fallback)';
+  } catch (err) {
+    console.error(err);
+    if (status) status.textContent = 'Status: feil (' + (err.message || 'ukjent') + ')';
   }
 }
 
@@ -461,6 +462,27 @@ window.addEventListener('DOMContentLoaded', ()=>{
   $('#btnCloseDrawer') && $('#btnCloseDrawer').addEventListener('click', close);
   scrim && scrim.addEventListener('click', close);
   $$('#drawer .drawer-link[data-go]').forEach(b=>b.addEventListener('click',()=>{showPage(b.getAttribute('data-go')); close();}));
+
+  // Wake Lock – init + klikk
+  const wlNote = $('#qk_wl_status'); if (wlNote) wlNote.textContent = 'Status: av';
+  $('#qk_wl') && $('#qk_wl').addEventListener('click', toggleWakeLock);
+
+  // Quick actions: grus/diesel/base
+  async function openDest(which){
+    try{
+      await refreshCloud();
+      const st=S.cloud && S.cloud.settings ? S.cloud.settings : {};
+      let latlon='';
+      if(which==='grus')   latlon = st.grusDepot||'';
+      if(which==='diesel') latlon = st.diesel||'';
+      if(which==='base')   latlon = st.base||'';
+      const url = latlon ? mapsUrlFromLatLon(latlon) : 'https://www.google.com/maps';
+      window.open(url,'_blank');
+    }catch(e){ alert('Kunne ikke åpne destinasjon: '+(e.message||e)); }
+  }
+  $('#qk_grus')   && $('#qk_grus').addEventListener('click', ()=>openDest('grus'));
+  $('#qk_diesel') && $('#qk_diesel').addEventListener('click',()=>openDest('diesel'));
+  $('#qk_base')   && $('#qk_base').addEventListener('click',  ()=>openDest('base'));
 
   // Routing
   window.showPage=function(id){
@@ -509,12 +531,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
       await ensureAddressesSeeded();
       await refreshCloud();
 
-      const arr=Array.isArray(S.cloud?.snapshot?.addresses) ? S.cloud.snapshot.addresses.map(normalizeAddr) : [];
-      // KORREKT filtrering (merk: flags er ekte bools nå)
+      const arr=(S.cloud && S.cloud.snapshot && S.cloud.snapshot.addresses) ? S.cloud.snapshot.addresses : [];
       S.addresses = arr
         .filter(a=>a.active!==false)
-        .filter(a=> S.mode==='snow' ? (a.flags.snow===true) : (a.flags.grit===true));
-
+        .filter(a=> S.mode==='snow' ? ((a.flags && a.flags.snow)!==false) : !!(a.flags && a.flags.grit));
       S.idx = (S.dir==='Motsatt') ? (S.addresses.length-1) : 0;
 
       uiSetWork();
@@ -535,6 +555,21 @@ window.addEventListener('DOMContentLoaded', ()=>{
     }catch(e){ alert('Feil ved uhell: '+(e.message||e)); }
   });
   $('#act_done')  && $('#act_done').addEventListener('click',()=>stepState({state:'done',finishedAt:Date.now()}));
+
+  // Under arbeid – én "Naviger" til NESTE
+  function navigateToNext(){
+    const next = S.addresses[nextIndex(S.idx,S.dir)];
+    const target = next || S.addresses[S.idx] || null;
+    if(!target) return;
+    const hasCoord = !!(target.coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(target.coords));
+    const url = hasCoord
+      ? mapsUrlFromLatLon(target.coords)
+      : 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((target.name||'')+', Norge');
+    window.open(url,'_blank');
+  }
+  // Støtt både #act_nav og (gammel) #act_nav_next
+  $('#act_nav')      && $('#act_nav').addEventListener('click', navigateToNext);
+  $('#act_nav_next') && $('#act_nav_next').addEventListener('click', navigateToNext);
 
   // Status-handlinger
   $('#st_reload') && $('#st_reload').addEventListener('click',loadStatus);
@@ -602,16 +637,16 @@ function compressImage(file,maxW=1000,q=0.7){ return new Promise((res,rej)=>{ co
 async function exportCsv(){
   try{
     const cloud=await JSONBIN.getLatest(); if(cloud && !cloud.statusSnow && cloud.status) cloud.statusSnow=cloud.status;
-    const addrs=Array.isArray(cloud && cloud.snapshot && cloud.snapshot.addresses)?cloud.snapshot.addresses.map(normalizeAddr):[];
+    const addrs=Array.isArray(cloud && cloud.snapshot && cloud.snapshot.addresses)?cloud.snapshot.addresses:[];
     const bagSnow=cloud.statusSnow||{}, bagGrit=cloud.statusGrit||{};
     const rows=[['#','Adresse','Oppdrag','Stikker (sesong)','Koordinater','Status','Start','Ferdig','Utført av','Notat']];
     addrs.forEach((a,i)=>{
       const coord=a.coords||'';
-      if(a.flags.snow===true){
+      if(!(a.flags && a.flags.snow===false)){
         const s=bagSnow[a.name]||{};
         rows.push([String(i+1),a.name,'Snø',(a.stakes!==''?a.stakes:''),coord,STATE_LABEL[s.state||'not_started'],fmtTime(s.startedAt),fmtTime(s.finishedAt),s.driver||'',(s.note||'').replace(/\s+/g,' ').trim()]);
       }
-      if(a.flags.grit===true){
+      if(a.flags && a.flags.grit){
         const s=bagGrit[a.name]||{};
         rows.push([String(i+1),a.name,'Grus',(a.stakes!==''?a.stakes:''),coord,STATE_LABEL[s.state||'not_started'],fmtTime(s.startedAt),fmtTime(s.finishedAt),s.driver||'',(s.note||'').replace(/\s+/g,' ').trim()]);
       }
