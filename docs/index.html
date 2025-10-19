@@ -28,7 +28,7 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
     }
 
-    /* Appbar on top, below status/notch */
+    /* Appbar */
     .appbar {
       position: sticky;
       top: 0;
@@ -66,6 +66,9 @@
     h2 { margin: 0 0 8px 0; font-size: 18px; }
     .muted { color: var(--muted); }
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    .stack { display: flex; flex-direction: column; gap: 6px; }
+    .stack label { display: block; }
 
     .card {
       background: var(--card);
@@ -152,19 +155,19 @@
     </div>
     <div class="drawer-menu">
       <!-- vanlige sider -->
-      <button class="drawer-link" data-go="home">Hjem</button>
-      <button class="drawer-link" data-go="work">Under arbeid</button>
-      <button class="drawer-link" data-go="service">Service</button>
-      <button class="drawer-link" data-go="status">Status</button>
-      <button class="drawer-link" data-go="admin">Admin</button>
+      <button class="drawer-link drawer-link-page" data-go="home">Hjem</button>
+      <button class="drawer-link drawer-link-page" data-go="work">Under arbeid</button>
+      <button class="drawer-link drawer-link-page" data-go="service">Service</button>
+      <button class="drawer-link drawer-link-page" data-go="status">Status</button>
+      <button class="drawer-link drawer-link-page" data-go="admin">Admin</button>
 
       <!-- “to linjer ned” før quick actions -->
       <div class="drawer-sep-double"></div>
 
-      <!-- ser like ut som over, men er actions -->
-      <button id="qk_grus" class="drawer-link">Hent grus</button>
+      <!-- actions ser like ut som over, men åpner Google Maps -->
+      <button id="qk_grus"   class="drawer-link">Hent grus</button>
       <button id="qk_diesel" class="drawer-link">Fyll diesel</button>
-      <button id="qk_base" class="drawer-link">Til base</button>
+      <button id="qk_base"   class="drawer-link">Til base</button>
     </div>
   </aside>
 
@@ -187,18 +190,11 @@
     <!-- HJEM -->
     <section id="home" class="card">
       <h2>Hjem</h2>
+
       <div class="row">
         <label class="muted">Hold skjerm våken:</label>
         <button id="qk_wl" class="btn">Veksle</button>
         <span id="qk_wl_status" class="muted">Status: av</span>
-      </div>
-
-      <div style="height:8px"></div>
-
-      <div class="row">
-        <button id="qk_grus" class="btn">Hent grus</button>
-        <button id="qk_diesel" class="btn">Fyll diesel</button>
-        <button id="qk_base" class="btn">Til base</button>
       </div>
 
       <div style="height:10px"></div>
@@ -212,14 +208,18 @@
           <option>Motsatt</option>
         </select>
       </div>
-      <div class="row">
-        Utstyr:
+
+      <div style="height:10px"></div>
+
+      <!-- Utstyr under hverandre -->
+      <div class="stack">
         <label><input type="checkbox" id="a_eq_plow"> Plog</label>
         <label><input type="checkbox" id="a_eq_fres"> Fres</label>
         <label><input type="checkbox" id="a_eq_sand"> Sand/Grus</label>
-        <label style="margin-left:8px"><input type="checkbox" id="a_autoNav"> Auto-naviger</label>
+        <label><input type="checkbox" id="a_autoNav"> Auto-naviger</label>
       </div>
-      <div style="height:8px"></div>
+
+      <div style="height:10px"></div>
       <button id="a_start" class="btn">Start runde</button>
     </section>
 
@@ -358,28 +358,49 @@
     </section>
   </main>
 
-  <!-- Del-D JS (oppdater v= for å tvinge ny versjon ved endring) -->
+  <!-- Del-D JS -->
   <script src="del-d.js?v=10413" defer></script>
 
-  <!-- Liten hjelpe-script i index for wake-prikk (grønn/rød) og safe fallback -->
+  <!-- Liten hjelpe-script i index for wake-prikk (grønn/rød) -->
   <script>
-    // Oppdater grønn/rød prikk når teksten endres av del-d.js
     document.addEventListener('DOMContentLoaded', () => {
+      // Meny åpne/lukke – index må gjøre dette (del-d.js kobler seg på ID-ene)
+      const drawer = document.getElementById('drawer');
+      const scrim = document.getElementById('scrim');
+      const open = () => { drawer.classList.add('open'); scrim.classList.add('show'); drawer.setAttribute('aria-hidden','false'); };
+      const close = () => { drawer.classList.remove('open'); scrim.classList.remove('show'); drawer.setAttribute('aria-hidden','true'); };
+      document.getElementById('btnMenu')?.addEventListener('click', open);
+      document.getElementById('btnCloseDrawer')?.addEventListener('click', close);
+      scrim?.addEventListener('click', close);
+      // Navigasjon på sidelenker i meny
+      document.querySelectorAll('.drawer-link-page').forEach(b => {
+        b.addEventListener('click', () => {
+          const id = b.getAttribute('data-go');
+          if (id) location.hash = '#' + id;
+          close();
+        });
+      });
+
+      // Wake-lås prikk
       const dot = document.getElementById('wl_dot');
       const note = document.getElementById('qk_wl_status');
       const apply = () => {
         if (!dot || !note) return;
         const t = (note.textContent || '').toLowerCase();
-        // "på" = aktiv (grønn). Alt annet = rød.
         if (t.includes('på')) { dot.classList.remove('red'); dot.classList.add('green'); }
         else { dot.classList.remove('green'); dot.classList.add('red'); }
       };
-      // initial
       apply();
-      // observer for endringer
       if (window.MutationObserver && note) {
         new MutationObserver(apply).observe(note, { childList: true, characterData: true, subtree: true });
       }
+
+      // Quick actions i meny skal ikke skifte side, bare åpne Maps – del-d.js lytter på ID-ene
+      // Vi lukker bare menyen når de trykkes, så Maps åpner i ny fane og menyen forsvinner.
+      ['qk_grus','qk_diesel','qk_base'].forEach(id=>{
+        const el = document.getElementById(id);
+        el?.addEventListener('click', () => close());
+      });
     });
   </script>
 </body>
