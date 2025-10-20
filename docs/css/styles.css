@@ -240,3 +240,29 @@ section[hidden]{display:none !important}
   align-items: flex-start !important;
   gap: 4px !important;
 }
+
+/* ===== Service styles ===== */
+.svc-wrap { display: grid; gap: 14px; }
+.svc-card {
+  background: var(--surface);
+  border: 1px solid var(--sep);
+  border-radius: 14px;
+  padding: 12px;
+}
+.svc-card-title { font-weight: 700; margin-bottom: 8px; }
+.svc-quick-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.svc-form .svc-grid { display: grid; grid-template-columns: 1fr 160px; gap: 12px; }
+.svc-actions { display:flex; gap:10px; margin-top: 6px; }
+.svc-toolbar { display:flex; gap:8px; margin-bottom: 8px; }
+
+.svc-table { width:100%; border-collapse: collapse; }
+.svc-table th, .svc-table td { padding:10px; border-bottom:1px solid var(--sep); }
+.svc-table th { text-align: left; color: var(--muted); font-weight: 600; }
+.svc-actions-cell { text-align: right; }
+
+.muted { color: var(--muted); font-size: .95rem; }
+
+/* Smal skjerm */
+@media (max-width: 480px){
+  .svc-form .svc-grid { grid-template-columns: 1fr 120px; }
+}
