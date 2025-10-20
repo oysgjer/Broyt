@@ -1,258 +1,119 @@
-/* =========================================================
-   Brøyterute – styles.css
-   - Lys/mørk/auto tema via prefers-color-scheme
-   - Appbar + safe-area
-   - Drawer (hamburgermeny)
-   - Kort, knapper, inputs
-   - Status-/tabell-utseende
-   - Vertikale utstyrsvalg
-   ========================================================= */
-
-/* ---------- Tema-variabler ---------- */
-:root {
-  --bg: #0f172a;             /* bakgrunn */
-  --text: #e5e7eb;           /* primærtekst */
-  --muted: #9aa1ac;          /* sekundærtekst */
-  --card: #111827;           /* kort */
-  --surface: #0b1222;        /* input-bakgrunn */
-  --border: #22304a;         /* kantlinjer */
-
-  --primary: #2563eb;        /* blå */
-  --primary-contrast: #ffffff;
-
-  --ok: #22c55e;             /* grønn */
-  --warn: #f59e0b;           /* gul/oransje */
-  --err: #ef4444;            /* rød */
-  --wake-on: #00c853;        /* våken = grønn */
-  --wake-off: #d32f2f;       /* av = rød */
-
-  --radius-lg: 14px;
-  --radius-md: 12px;
-  --radius-sm: 10px;
-
-  --shadow-1: 0 6px 24px rgba(0,0,0,.22), 0 2px 8px rgba(0,0,0,.18);
-  --shadow-soft: 0 2px 8px rgba(0,0,0,.18);
+:root{
+  --bg: #0b1320;
+  --card: #121a28;
+  --text: #e7ecf4;
+  --muted: #9fb0c8;
+  --primary: #2a77ff;
+  --border: #223049;
+  --ok: #22c55e;
+  --warn:#f59e0b;
+  --err:#ef4444;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f7fb;
-    --text: #0f172a;
-    --muted: #5b6472;
-    --card: #ffffff;
-    --surface: #f3f4f6;
-    --border: #d5d8dd;
-    --shadow-1: 0 6px 24px rgba(16,24,40,.10), 0 2px 8px rgba(16,24,40,.06);
-    --shadow-soft: 0 1px 4px rgba(16,24,40,.12);
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f6f7fb;
+    --card:#ffffff;
+    --text:#0f172a;
+    --muted:#475569;
+    --border:#e5e7eb;
+    --primary:#2563eb;
   }
 }
 
-/* ---------- Reset / base ---------- */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-  padding-top: calc(56px + env(safe-area-inset-top, 0px)); /* plass til appbar + notch */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
 }
 
-a { color: inherit; text-decoration: none; }
-button, input, select { font: inherit; }
-
-/* ---------- Appbar ---------- */
-.appbar {
-  position: fixed; inset: 0 0 auto 0;
-  height: calc(56px + env(safe-area-inset-top, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
-  display: flex; align-items: center; gap: 12px;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  z-index: 20;
+/* Appbar */
+.appbar{
+  position:sticky; top:0; z-index:1100;
+  background:#0b1320;
+  color:#cfe1ff;
+  display:flex; align-items:center; gap:.75rem;
+  padding: .6rem .8rem env(safe-area-inset-right, .8rem) .8rem;
+  border-bottom:1px solid rgba(255,255,255,.06);
 }
-
-.appbar .inner {
-  display: flex; align-items: center; gap: 12px;
-  width: 100%; max-width: 980px; margin: 0 auto; padding: 0 14px;
+.icon-btn{
+  appearance:none; border:0; background:transparent; color:inherit;
+  font-size:1.35rem; line-height:1; padding:.25rem .35rem; cursor:pointer;
 }
+.appbar-title{font-weight:700}
+.appbar-right{margin-left:auto; display:flex; gap:.6rem; align-items:center}
+.badge{font-size:.9rem; opacity:.95; display:flex; align-items:center; gap:.4rem}
 
-.icon-btn {
-  display: inline-grid; place-items: center;
-  width: 36px; height: 36px;
-  border-radius: 10px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text);
+.dot{width:.65rem;height:.65rem;border-radius:9999px;display:inline-block}
+.dot-unknown{background:#94a3b8}
+.dot-ok{background:var(--ok)}
+.dot-local{background:var(--warn)}
+.dot-error{background:var(--err)}
+.dot-off{background:#ef4444}
+.dot-on{background:#22c55e}
+
+/* Drawer + scrim (z-index fix) */
+#scrim{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.35);
+  opacity:0; pointer-events:none;
+  transition:opacity .18s ease;
+  z-index:1000;
 }
-.icon-btn:hover { background: rgba(127,127,127,.08); }
+#scrim.show{opacity:1; pointer-events:auto}
 
-.appbar-title { font-weight: 700; }
-
-/* Sync + wake dots */
-.badges { display:flex; align-items:center; gap: 10px; margin-left:auto; }
-.dot {
-  display:inline-block; width:10px; height:10px; border-radius:50%;
-  vertical-align: middle; margin-right: 6px;
-  box-shadow: 0 0 0 2px rgba(0,0,0,.08) inset;
+#drawer{
+  position:fixed; inset:0 auto 0 0;
+  width:310px; max-width:88vw;
+  background:var(--card); color:var(--text);
+  border-right:1px solid var(--border);
+  transform:translateX(-100%);
+  transition:transform .22s ease;
+  z-index:1001;
+  display:flex; flex-direction:column;
+  height:100vh; overflow-y:auto;
+  padding-bottom:env(safe-area-inset-bottom, 0px);
 }
-.sync-ok    { color: var(--ok); }
-.sync-local { color: var(--warn); }
-.sync-err   { color: var(--err); }
-.dot.sync    { background: currentColor; }
-
-.wake { display:inline-flex; align-items:center; gap:6px; }
-.wake .dot { width:10px; height:10px; }
-.wake-on  { background: var(--wake-on); }
-.wake-off { background: var(--wake-off); }
-
-/* ---------- Drawer (hamburgermeny) ---------- */
-#scrim {
-  position: fixed; inset: 0; background: rgba(0,0,0,.35);
-  opacity:0; pointer-events:none; transition: opacity .18s ease;
-  z-index: 24;
+#drawer.open{transform:translateX(0)}
+.drawer-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:1rem .9rem; border-bottom:1px solid var(--border);
 }
-#scrim.show { opacity:1; pointer-events:auto; }
-
-#drawer {
-  position: fixed; inset: 0 auto 0 0;
-  width: 310px; max-width: 88vw;
-  background: var(--card);
-  border-right: 1px solid var(--border);
-  transform: translateX(-100%);
-  transition: transform .22s ease;
-  z-index: 25; display: flex; flex-direction: column;
-  padding-top: env(safe-area-inset-top, 0px);
+.drawer-links{display:flex; flex-direction:column; padding:.25rem}
+.drawer-link{
+  display:block; text-decoration:none; color:inherit; cursor:pointer;
+  padding:.7rem .9rem; border-radius:.5rem;
 }
-#drawer.open { transform: translateX(0); }
+.drawer-link:hover{background:rgba(255,255,255,.06)}
+.divider{border:0; border-top:1px solid var(--border); margin:.4rem .6rem}
 
-.drawer-head { display:flex; align-items:center; justify-content: space-between; padding: 14px; }
-.drawer-links { padding: 4px 10px 10px; display:flex; flex-direction:column; gap:6px; }
-.drawer-link {
-  display:flex; align-items:center; gap:10px;
-  padding: 10px 12px; border-radius: 10px; color: var(--text);
+main{padding:1rem; max-width:840px; margin:0 auto}
+h1{margin:.4rem 0 1rem 0; font-size:1.8rem}
+
+/* Form */
+.field{display:flex; flex-direction:column; gap:.45rem; margin:.9rem 0}
+.input{
+  appearance:none; width:100%;
+  border:1px solid var(--border); border-radius:.7rem;
+  background:var(--card); color:var(--text);
+  padding:.8rem .9rem; font-size:1rem;
 }
-.drawer-link:hover { background: rgba(127,127,127,.08); }
+.group{border:1px solid var(--border); border-radius:.8rem; padding:.8rem .9rem; margin:1rem 0}
+.group legend{padding:0 .3rem; color:var(--muted)}
+.check{display:flex; align-items:center; gap:.6rem; margin:.35rem 0}
 
-/* ---------- Sider ---------- */
-main { width:100%; max-width:980px; margin:0 auto; padding: 16px; }
-.page-header h1 { margin: 12px 0 8px; font-size: 26px; }
-.page { display: none; }
-.page.active { display: block; }
+.row{display:flex; align-items:center}
+.gap{gap:.6rem}
+.stack{display:flex; flex-direction:column; gap:.8rem}
 
-/* ---------- Kort ---------- */
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  box-shadow: var(--shadow-soft);
+.btn{
+  appearance:none; border:1px solid var(--border); background:var(--card);
+  padding:.75rem 1rem; border-radius:.8rem; color:var(--text); cursor:pointer;
 }
+.btn.primary{background:var(--primary); border-color:transparent; color:white}
+.btn:active{transform:translateY(1px)}
 
-/* ---------- Felter / inputs ---------- */
-.field { margin: 14px 0; }
-.field > label { display:block; margin-bottom: 6px; font-weight: 600; }
-
-.input, .select, textarea {
-  width: 100%;
-  padding: .75rem .9rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--text);
-  outline: none;
-}
-.input:focus, .select:focus, textarea:focus {
-  border-color: color-mix(in srgb, var(--primary) 60%, var(--border) 40%);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
-}
-
-/* Utstyrsvalg – vertikalt */
-.equip-list {
-  display: flex;
-  flex-direction: column;   /* <- vertikal liste */
-  gap: .6rem;
-}
-.chk { display: inline-flex; align-items:center; gap:.55rem; }
-
-/* ---------- Knapper ---------- */
-.btn {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  padding: .8rem 1rem;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-.btn:disabled { opacity: .6; cursor: not-allowed; }
-
-.btn-primary {
-  border-color: color-mix(in srgb, var(--primary) 60%, var(--border) 40%);
-  background: var(--primary);
-  color: var(--primary-contrast);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 25%, transparent);
-}
-.btn-primary:hover { filter: brightness(.98); }
-
-.btn-ghost { background: transparent; }
-.btn-ghost:hover { background: rgba(127,127,127,.08); }
-
-.actions { margin-top: 8px; display:flex; gap:10px; flex-wrap: wrap; }
-
-/* ---------- Arbeid / progresjon ---------- */
-.progress {
-  position: relative; height: 10px; border-radius: 999px;
-  background: rgba(127,127,127,.18); overflow:hidden;
-  border: 1px solid var(--border);
-}
-.progress .me { height:100%; background: color-mix(in srgb, var(--ok) 80%, transparent); }
-.progress .other { height:100%; background: color-mix(in srgb, var(--primary) 60%, transparent); }
-
-/* ---------- Status-tabel ---------- */
-.table-wrap { overflow:auto; border:1px solid var(--border); border-radius: var(--radius-lg); }
-table { width:100%; border-collapse: collapse; }
-th, td {
-  padding: 10px 12px; border-bottom: 1px solid var(--border);
-  text-align: left; vertical-align: top;
-}
-thead th {
-  position: sticky; top: 0;
-  background: var(--card);
-  z-index: 1;
-}
-tbody tr:hover { background: rgba(127,127,127,.06); }
-
-/* Små statustagger */
-.tag { display:inline-block; padding:.25rem .5rem; border-radius: 999px; font-size: .85rem; }
-.tag-ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
-.tag-warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-.tag-err { background: color-mix(in srgb, var(--err) 18%, transparent); color: var(--err); }
-
-/* ---------- PWA install-hint (om du har det) ---------- */
-.install-hint {
-  display:flex; align-items:center; gap:8px;
-  padding:.8rem; border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--primary) 10%, var(--card) 90%);
-  border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--border) 65%);
-}
-
-/* ---------- Utilities ---------- */
-.row { display:flex; align-items:center; gap:10px; }
-.col { display:flex; flex-direction:column; gap:10px; }
-.hide { display:none !important; }
-
-/* ---------- Småskjermer tweaks ---------- */
-@media (max-width: 640px) {
-  .appbar .inner { padding: 0 10px; }
-  .page-header h1 { font-size: 24px; }
-  .drawer-link { padding: 10px; }
-}
-
-/* ---------- Print (CSV-rapport forhåndsvisning etc.) ---------- */
-@media print {
-  body { background: #fff; color: #000; padding-top: 0; }
-  .appbar, #drawer, #scrim { display:none !important; }
-  .card { box-shadow: none; }
-}
+.muted{color:var(--muted); font-size:.95rem}
