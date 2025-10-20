@@ -151,3 +151,5 @@ window.showPage = showPage;
 window.ensureAddressesSeeded = ensureAddressesSeeded;
 window.refreshCloud = refreshCloud;
 window.statusStore = statusStore;
+}
+  
