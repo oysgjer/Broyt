@@ -1,0 +1,50 @@
+<div class="card">
+  <div class="row wrap gap" style="align-items:baseline;">
+    <h1 style="margin:0;">Status</h1>
+    <span id="rp_date" class="muted"></span>
+    <span id="st_season_badge" class="badge">Sesong: —</span>
+  </div>
+
+  <div class="row wrap gap" style="margin:8px 0;">
+    <label>Vis:
+      <select id="st_filter">
+        <option value="alle">Alle</option>
+        <option value="ikke">Ikke påbegynt</option>
+        <option value="pågår">Pågår</option>
+        <option value="ferdig">Ferdig</option>
+        <option value="hoppet">Hoppet over</option>
+        <option value="umulig">Ikke mulig</option>
+        <option value="uhell">Uhell</option>
+      </select>
+    </label>
+
+    <label>Runde:
+      <select id="st_mode">
+        <option value="snow">Snø</option>
+        <option value="grit">Grus</option>
+      </select>
+    </label>
+
+    <button id="st_reload" class="btn">Oppdater</button>
+    <button id="st_lock_toggle" class="btn">🔓 Lås stikker (sesong)</button>
+    <button id="st_reset_all"  class="btn danger">Nullstill alle</button>
+    <button id="st_reset_mine" class="btn warn">Nullstill mine</button>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th><th>Adresse</th><th>Oppdrag</th><th>Stikker</th><th>Kart</th>
+          <th>Status</th><th>Start</th><th>Ferdig</th><th>Utført av</th><th>Foto</th>
+        </tr>
+      </thead>
+      <tbody id="st_tbody"></tbody>
+    </table>
+  </div>
+
+  <p id="st_summary" class="muted" style="margin-top:8px;">—</p>
+  <div class="row gap">
+    <button class="btn" onclick="exportCsv()">Eksporter CSV</button>
+  </div>
+</div>
