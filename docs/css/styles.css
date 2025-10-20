@@ -48,21 +48,27 @@ body{
 #scrim{
   position:fixed; inset:0; background:rgba(0,0,0,.45);
   opacity:0; pointer-events:none; transition:opacity .18s ease;
-  z-index:999; /* under skuffen, over resten */
+  z-index:1001; /* under skuffen, over resten */
 }
 #scrim.show{opacity:1; pointer-events:auto}
 
-.drawer{
+.drawer, #drawer, aside#drawer{
   position:fixed; top:0; left:0; height:100vh;
   width:80vw; max-width:320px;
   background:var(--surface); color:var(--text);
-  box-shadow: 0 10px 30px rgba(0,0,0,.45);
+  box-shadow:0 10px 30px rgba(0,0,0,.45);
   border-right:1px solid var(--sep);
   transform:translateX(-100%); transition:transform .22s ease;
-  z-index:1001; /* over scrim */
+  z-index:1002; /* over scrim */
   display:flex; flex-direction:column;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+  pointer-events:none;
 }
-.drawer.open{transform:translateX(0)}
+.drawer.open, #drawer.open, aside#drawer.open{
+  transform:translateX(0);
+  pointer-events:auto;
+}
 .drawer-header{
   display:flex; align-items:center; justify-content:space-between;
   gap:8px; padding:12px 14px; border-bottom:1px solid var(--sep);
@@ -119,74 +125,10 @@ section[hidden]{display:none !important}
 @media (max-width:420px){
   main{padding:14px}
 }
-/* ===== Drawer opacity hard-fix ===== */
-#drawer,
-#drawer.drawer,
-aside#drawer {
-  background: var(--surface) !important;
-  opacity: 1 !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
 
-#drawer * {
-  background: transparent;   /* keep items normal */
-}
-
-/* Scrim should be dark, under the drawer */
-#scrim { background: rgba(0,0,0,.55) !important; z-index: 999 !important; }
-#drawer { z-index: 1001 !important; }
-
-/* === iOS Safari fix + korrekt åpen/lukket atferd for meny === */
-#drawer,
-.drawer,
-aside#drawer {
-  position: fixed;
-  left: 0;
-  top: 0;
-  height: 100vh;
-  width: 80vw;
-  max-width: 320px;
-  background-color: var(--surface); /* solid, ingen gjennomskinn */
-  z-index: 1002;
-  transform: translateX(-100%);
-  transition: transform 0.25s ease;
-  will-change: transform;
-  pointer-events: none;          /* blokkér klikk når lukket */
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none; /* iOS: fjern blur/transparens */
-}
-
-#drawer.open,
-.drawer.open,
-aside#drawer.open {
-  transform: translateX(0);
-  pointer-events: auto;          /* klikk kun når åpen */
-}
-
-/* Scrim: usynlig og uklikkbar som standard */
-#scrim {
-  position: fixed;
-  inset: 0;
-  background: transparent;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: 1001;
-  pointer-events: none;          /* IKKE blokker klikk når skjult */
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-/* Scrim synlig når .show settes fra JS */
-#scrim.show {
-  background: rgba(0, 0, 0, 0.6);
-  opacity: 1;
-  pointer-events: auto;          /* blokker klikk når synlig */
-}
-
-/* Sikre at ingenting annet blir halvtransparent på iOS */
-html, body {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  opacity: 1 !important;
+/* ========= iOS fix / stabilitet ========= */
+html, body{
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+  opacity:1 !important;
 }
