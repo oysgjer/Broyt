@@ -1,1 +1,33 @@
-<h1>Service</h1><p>Her kan du registrere servicepunkter og hendelser (placeholder).</p>
+<h1>Service</h1>
+
+<form id="service">
+
+  <section class="service-card">
+    <h3>Smøring</h3>
+    <label><input type="checkbox" id="svc_skjaer"> Skjær smurt</label>
+    <label><input type="checkbox" id="svc_fres"> Fres smurt</label>
+    <label><input type="checkbox" id="svc_forstilling"> Forstilling smurt</label>
+  </section>
+
+  <section class="service-card">
+    <h3>Olje</h3>
+    <label><input type="checkbox" id="svc_olje_foran"> Olje sjekket foran</label>
+    <label><input type="checkbox" id="svc_olje_bak"> Olje sjekket bak</label>
+    <label><input type="checkbox" id="svc_olje_etter"> Olje etterfylt</label>
+  </section>
+
+  <section class="service-card">
+    <h3>Diesel og grus</h3>
+    <label><input type="checkbox" id="svc_diesel"> Diesel fylt</label>
+    <label>Antall kasser grus:
+      <input type="text" id="svc_kasser" placeholder="f.eks. 2 kasser">
+    </label>
+  </section>
+
+  <section class="service-card">
+    <h3>Annet</h3>
+    <textarea id="svc_annet" placeholder="Skriv eventuelle kommentarer..."></textarea>
+  </section>
+
+  <button id="svc_send" type="button" class="primary-btn">📤 Send rapport</button>
+</form>)
