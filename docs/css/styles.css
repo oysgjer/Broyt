@@ -119,3 +119,20 @@ section[hidden]{display:none !important}
 @media (max-width:420px){
   main{padding:14px}
 }
+/* ===== Drawer opacity hard-fix ===== */
+#drawer,
+#drawer.drawer,
+aside#drawer {
+  background: var(--surface) !important;
+  opacity: 1 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+#drawer * {
+  background: transparent;   /* keep items normal */
+}
+
+/* Scrim should be dark, under the drawer */
+#scrim { background: rgba(0,0,0,.55) !important; z-index: 999 !important; }
+#drawer { z-index: 1001 !important; }
