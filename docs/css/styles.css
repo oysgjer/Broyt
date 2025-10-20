@@ -131,3 +131,62 @@ section[hidden]{display:none !important}
   backdrop-filter:none !important;
   opacity:1 !important;
 }
+/* --- Under arbeid – layoutjustering --- */
+.work-card {
+  margin-top: 14px;
+}
+
+.label-muted {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.addr-now {
+  font-weight: 900;
+  font-size: 1.6rem;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.addr-next {
+  font-weight: 600;
+  font-size: 1.05rem;
+  opacity: 0.9;
+}
+
+.btn-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.btn-grid .btn,
+.btn-grid .btn-ghost {
+  font-size: 1.05rem;
+  padding: 14px;
+  justify-content: center;
+}
+
+.work-meta {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* Små skjermer – fyll hele bredden */
+@media (max-width: 480px) {
+  .btn-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .btn-grid .btn,
+  .btn-grid .btn-ghost {
+    font-size: 1.1rem;
+    padding: 16px 0;
+  }
+  .addr-now {
+    font-size: 1.8rem;
+  }
+}
