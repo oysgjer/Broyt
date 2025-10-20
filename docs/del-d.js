@@ -7,7 +7,13 @@ const drawer=$('#drawer'), scrim=$('#scrim');
 const openDrawer = () => { drawer?.classList.add('open'); scrim?.classList.add('show'); drawer?.setAttribute('aria-hidden','false'); };
 const closeDrawer= () => { drawer?.classList.remove('open'); scrim?.classList.remove('show'); drawer?.setAttribute('aria-hidden','true'); };
 
-$('#btnMenu')?.addEventListener('click', openDrawer);
+$('#btnMenu')?.addEventListener('click', () => {
+  if (drawer?.classList.contains('open')) {
+    closeDrawer();
+  } else {
+    openDrawer();
+  }
+});
 $('#btnCloseDrawer')?.addEventListener('click', closeDrawer);
 $('#scrim')?.addEventListener('click', closeDrawer);
 
