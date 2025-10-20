@@ -1,96 +1,140 @@
-<script>
-/* Home.js — robust start-runde that always yields adresser */
+/* docs/js/Home.js
+   Kobler "Start runde" + lagrer valg + sørger for at vi har adresser lokalt
+   Fungerer uten sky (bruker fallback-funksjoner i del-d.js)
+*/
+(function () {
+  const $  = (s, root = document) => root.querySelector(s);
+  const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
+  const HOME = $('#home');
 
-(() => {
-  const $  = (s,root=document)=>root.querySelector(s);
+  if (!HOME) return;
 
-  // small helpers from core (with fallbacks so Start always works)
-  const Core = {
-    ensureAddressesSeeded:  (window.ensureAddressesSeeded  || (async()=>{})),
-    refreshCloud:           (window.refreshCloud           || (async()=>{})),
-    saveCloud:              (window.saveCloud              || (async()=>{})),
-    showPage:               (window.showPage               || ((id)=>{ location.hash='#'+id; })),
-    S:                      (window.S                      || (window.S={dir:'Normal',addresses:[],idx:0,driver:'driver',autoNav:false,mode:'snow',cloud:null}))
-  };
+  // --- Finn felter robust (uavhengig av eksakte id-er) ---
+  const inputDriver = HOME.querySelector('input[type="text"], input[type="search"], input:not([type])');
+  const selOrder    = HOME.querySelector('select');
+  const chkAuto     = HOME.querySelector('input[type="checkbox"][id*="auto" i], input[type="checkbox"][name*="auto" i]') 
+                   || HOME.querySelector('input[type="checkbox"]');
+  const btnStart    = HOME.querySelector('[data-start], #btnStart, button');
 
-  // Build a safe default seed list if cloud is empty and core seeding didn’t run
-  function localSeedIfNeeded() {
-    const c = Core.S.cloud || {};
-    const has = Array.isArray(c?.snapshot?.addresses) && c.snapshot.addresses.length>0;
-    if (has) return;
-    const base=[
-      "Hjeramoen 12-24","Hjerastubben 8, 10, 12 ,14, 16","Hjeramoen 32-34-40-42","Hjeramoen vei til 32-34-40-42",
-      "Hjeramoen 47-49-51-53","Hjeramoen 48-50-52-54","Hjerakroken 2-4","Vognvegen 17","Tunlandvegen",
-      "Bjørnsrud Skog 38","Trondheimsvegen 26-36","Sessvollvegen 9","Sessvollvegen 11","Mette Hasler",
-      "Henning Morken Hasler","Hasler Drivhus","Grendehuset","Søjordet","Folkeparken","Folkeparken Bakke",
-      "Læringsverkstedet Parkering","Læringsverkstedet Ute området","Hagamoen","(Sjøviken) Hagamoen 12",
-      "Moen Nedre vei","Fred/ Moen Nedre 17","Odd/ Moen Nedre 15","Trondheimsvegen 86","Fjellet (400m vei Råholt)",
-      "Bilextra (hele bygget)","Lundgårdstoppen","Normann Hjellesveg"
-    ];
-    Core.S.cloud = Core.S.cloud || {};
-    Core.S.cloud.snapshot = Core.S.cloud.snapshot || {};
-    Core.S.cloud.snapshot.addresses = base.map(n=>({
-      name:n, group:"", active:true,
-      flags:{snow:true,grit:false}, stakes:'', coords:''
-    }));
+  // Utstyrsvalg: prøv å finne på label-tekst (Skjær/Fres/Sand|Grus)
+  const equipChecks = {};
+  $$('label', HOME).forEach(lab => {
+    const t = (lab.textContent || '').toLowerCase();
+    if (t.includes('skjær')) equipChecks.skj = lab.querySelector('input[type="checkbox"]') || lab.previousElementSibling;
+    if (t.includes('fres'))  equipChecks.fres = lab.querySelector('input[type="checkbox"]') || lab.previousElementSibling;
+    if (t.match(/sand|grus/)) equipChecks.sand = lab.querySelector('input[type="checkbox"]') || lab.previousElementSibling;
+  });
+  // fallback om label-match ikke fant noe: ta de tre første checkboxene i #home
+  if (!equipChecks.skj || !equipChecks.fres || !equipChecks.sand) {
+    const cbs = $$('input[type="checkbox"]', HOME);
+    equipChecks.skj  = equipChecks.skj  || cbs[0];
+    equipChecks.fres = equipChecks.fres || cbs[1];
+    equipChecks.sand = equipChecks.sand || cbs[2];
   }
 
-  async function startRound(){
-    try{
-      // read form
-      const driver = ($('#a_driver')?.value || '').trim() || 'driver';
-      const dir    = $('#a_dir')?.value || 'Normal';
-      const eqSand = !!$('#a_eq_sand')?.checked; // Sand/Grus
-      const autoNav= !!$('#a_autoNav')?.checked;
+  // Global app-state
+  window.S = window.S || {};
+  // Last inn tidligere preferanser
+  try {
+    const saved = JSON.parse(localStorage.getItem('BRYT_HOME_PREFS') || '{}');
+    if (saved.driver && inputDriver) inputDriver.value = saved.driver;
+    if (saved.order && selOrder) selOrder.value = saved.order;
+    if (typeof saved.autoNav === 'boolean' && chkAuto) chkAuto.checked = saved.autoNav;
+    if (equipChecks.skj)  equipChecks.skj.checked  = !!saved.skj;
+    if (equipChecks.fres) equipChecks.fres.checked = !!saved.fres;
+    if (equipChecks.sand) equipChecks.sand.checked = !!saved.sand;
+  } catch {}
 
-      // persist prefs
-      localStorage.setItem('BROYT_PREFS', JSON.stringify({driver,dir,eq:{sand:eqSand},autoNav}));
+  function savePrefs() {
+    const prefs = {
+      driver: inputDriver?.value?.trim() || '',
+      order: selOrder?.value || 'Normal',
+      autoNav: !!(chkAuto && chkAuto.checked),
+      skj:  !!(equipChecks.skj  && equipChecks.skj.checked),
+      fres: !!(equipChecks.fres && equipChecks.fres.checked),
+      sand: !!(equipChecks.sand && equipChecks.sand.checked),
+    };
+    localStorage.setItem('BRYT_HOME_PREFS', JSON.stringify(prefs));
+    return prefs;
+  }
 
-      // write runtime state
-      Core.S.driver = driver;
-      Core.S.dir    = dir;
-      Core.S.autoNav= autoNav;
-      Core.S.mode   = eqSand ? 'grit' : 'snow';
-
-      // sync + seed
-      await Core.ensureAddressesSeeded();
-      await Core.refreshCloud();
-      localSeedIfNeeded(); // hard fallback if cloud is still empty
-
-      // pull list and filter robustly
-      const all = Array.isArray(Core.S.cloud?.snapshot?.addresses) ? Core.S.cloud.snapshot.addresses : [];
-
-      let list = all
-        .filter(a => a?.active !== false)
-        .filter(a => {
-          const snow = (a?.flags && 'snow' in a.flags) ? !!a.flags.snow : true; // default snow=true
-          const grit = !!(a?.flags?.grit);
-          return Core.S.mode === 'snow' ? snow : grit;
-        });
-
-      // if filter removed everything, fall back to all active so “Under arbeid” never blanks
-      if (list.length === 0) {
-        list = all.filter(a => a?.active !== false);
+  async function ensureLocalAddresses() {
+    // Hvis sky-fallback er i bruk, kan snapshot være tom. Vi lager en enkel demo-liste.
+    await (window.ensureAddressesSeeded?.() || Promise.resolve());
+    const snap = (window.S.cloud && window.S.cloud.snapshot) || {};
+    if (!Array.isArray(snap.addresses) || snap.addresses.length === 0) {
+      window.S.cloud = {
+        snapshot: {
+          addresses: [
+            { id: 'A1', name: 'Tunlandvegen',      lat: 63.422, lon: 10.401 },
+            { id: 'A2', name: 'Sessvollvegen 9',   lat: 63.425, lon: 10.407 },
+            { id: 'A3', name: 'Stasjonsgata 3',    lat: 63.428, lon: 10.412 },
+          ]
+        }
+      };
+      // init statusbag lokalt om mangler
+      if (!localStorage.getItem('BRYT_STATUS')) {
+        localStorage.setItem('BRYT_STATUS', JSON.stringify({}));
       }
-
-      Core.S.addresses = list;
-      Core.S.idx = (Core.S.dir === 'Motsatt') ? (list.length-1) : 0;
-
-      // go work
-      Core.showPage('work');
-
-      // if Work.js exposed a re-render, call it
-      if (typeof window.uiSetWork === 'function') window.uiSetWork();
-
-    }catch(e){
-      alert('Kunne ikke starte runde: ' + (e.message || e));
-      console.error(e);
     }
   }
 
-  // wire button
-  window.addEventListener('DOMContentLoaded', ()=>{
-    $('#a_start')?.addEventListener('click', startRound);
-  });
+  function initRun(prefs) {
+    // Sentralt state-objekt for runde
+    window.S.driver      = prefs.driver || 'Ukjent';
+    window.S.order       = prefs.order || 'Normal';
+    window.S.autoNav     = !!prefs.autoNav;
+    window.S.gear = {
+      skj:  !!prefs.skj,
+      fres: !!prefs.fres,
+      sand: !!prefs.sand
+    };
+    // Startposisjon i lista
+    window.S.idx = 0;
+    // Marker at runde er i gang
+    window.S.runActive = true;
+  }
+
+  function showPage(id) {
+    // finnes i del-d.js, men vi har en defensiv fallback
+    if (typeof window.showPage === 'function') return window.showPage(id);
+    // fallback
+    const sections = document.querySelectorAll('main section');
+    sections.forEach(s => s.hidden = (s.id !== id));
+    location.hash = '#' + id;
+  }
+
+  async function onStartClick(e) {
+    e.preventDefault();
+    const prefs = savePrefs();
+
+    // Enkle valideringer (valgfritt)
+    if (!prefs.driver) {
+      alert('Skriv inn navn på fører.');
+      inputDriver?.focus();
+      return;
+    }
+    // minst ett utstyr kan være et krav – kommenter ut om ikke ønsket
+    // if (!prefs.skj && !prefs.fres && !prefs.sand) {
+    //   alert('Velg minst ett utstyr (Skjær, Fres eller Sand/Grus).');
+    //   return;
+    // }
+
+    try {
+      await ensureLocalAddresses();
+      initRun(prefs);
+      // Oppdater UI på work-siden hvis funksjonene finnes
+      window.updateProgressBars?.();
+      window.refreshWorkCard?.();
+
+      // Naviger til "work"
+      showPage('work');
+    } catch (err) {
+      console.error(err);
+      alert('Klarte ikke å starte runde. Prøv igjen.');
+    }
+  }
+
+  // Koble events
+  if (btnStart) btnStart.addEventListener('click', onStartClick);
 })();
-</script>
