@@ -1,38 +1,139 @@
 <!doctype html>
 <html lang="no">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
   <title>Brøyterute</title>
-
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icons/favicon.png" sizes="64x64">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-
-  <link rel="stylesheet" href="styles.css?v=1050">
-
-  <script defer src="include-partials.js?v=1050"></script>
-  <script defer src="del-d.js?v=1050"></script>
-  <script defer src="Home.js?v=1050"></script>
-  <script defer src="Work.js?v=1050"></script>
-  <script defer src="Service.js?v=1050"></script>
-  <script defer src="Status.js?v=1050"></script>
-  <script defer src="Admin.js?v=1050"></script>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header id="header" data-include="partials/header.html"></header>
-  <nav id="menu" class="drawer" data-include="partials/menu.html" aria-hidden="true"></nav>
-  <div id="scrim"></div>
+  <!-- Appbar -->
+  <header class="appbar">
+    <button id="btnMenu" class="icon-btn" aria-label="Meny">☰</button>
+    <div class="appbar-title">Brøyterute</div>
 
-  <main class="container">
-    <section id="home" data-include="partials/home.html" style="display:block"></section>
-    <section id="work" data-include="partials/work.html" style="display:none"></section>
-    <section id="service" data-include="partials/service.html" style="display:none"></section>
-    <section id="status" data-include="partials/status.html" style="display:none"></section>
-    <section id="admin" data-include="partials/admin.html" style="display:none"></section>
+    <!-- Synk-indikator og Wake-lås prikk -->
+    <div class="appbar-right">
+      <span id="sync_badge" class="badge"><span class="dot dot-unknown"></span> Synk: ukjent</span>
+      <span id="wl_badge"   class="badge"><span id="wl_dot" class="dot dot-off"></span></span>
+    </div>
+  </header>
+
+  <!-- Drawer -->
+  <nav id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <strong>Brøyterute</strong>
+      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">✕</button>
+    </div>
+
+    <div class="drawer-links">
+      <a class="drawer-link" data-go="home">🏠 Hjem</a>
+      <a class="drawer-link" data-go="work">🧭 Under arbeid</a>
+      <a class="drawer-link" data-go="service">🛠️ Service</a>
+      <a class="drawer-link" data-go="status">📊 Status</a>
+      <a class="drawer-link" data-go="admin">⚙️ Admin</a>
+    </div>
+
+    <hr class="divider">
+
+    <div class="drawer-links">
+      <button id="qk_grus"   class="drawer-link" type="button">🏗️ Hent grus</button>
+      <button id="qk_diesel" class="drawer-link" type="button">⛽ Diesel</button>
+      <button id="qk_base"   class="drawer-link" type="button">🏡 Base</button>
+    </div>
+
+    <hr class="divider">
+
+    <div class="drawer-links">
+      <button id="qk_wl" class="drawer-link" type="button">
+        <span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken
+      </button>
+      <small id="qk_wl_status" class="muted">Status: av</small>
+    </div>
+  </nav>
+  <div id="scrim" aria-hidden="true"></div>
+
+  <!-- Innhold -->
+  <main>
+    <!-- HJEM -->
+    <section id="home">
+      <h1>Hjem</h1>
+
+      <!-- Først: Fører (label over felt) -->
+      <label class="field">
+        <span>Fører:</span>
+        <input id="a_driver" class="input" type="text" placeholder="Navn" inputmode="text" />
+      </label>
+
+      <!-- Utstyr: vertikal -->
+      <fieldset class="group">
+        <legend>Utstyr</legend>
+        <label class="check"><input id="a_eq_plow" type="checkbox" /> Skjær</label>
+        <label class="check"><input id="a_eq_fres" type="checkbox" /> Fres</label>
+        <label class="check"><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
+      </fieldset>
+
+      <!-- Rekkefølge: label over -->
+      <label class="field">
+        <span>Rekkefølge:</span>
+        <select id="a_dir" class="input">
+          <option>Normal</option>
+          <option>Motsatt</option>
+        </select>
+      </label>
+
+      <label class="check">
+        <input id="a_autoNav" type="checkbox" /> Auto-naviger
+      </label>
+
+      <div class="row gap">
+        <button id="a_start" class="btn primary">Start runde</button>
+      </div>
+    </section>
+
+    <!-- UNDER ARBEID -->
+    <section id="work" hidden>
+      <h1>Under arbeid</h1>
+      <p class="muted">Plassholder-skjerm – navigering fungerer.</p>
+    </section>
+
+    <!-- SERVICE -->
+    <section id="service" hidden>
+      <h1>Service</h1>
+      <p class="muted">Plassholder-skjerm – navigering fungerer.</p>
+    </section>
+
+    <!-- STATUS -->
+    <section id="status" hidden>
+      <h1>Status</h1>
+      <p class="muted">Plassholder-skjerm – navigering fungerer.</p>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="admin" hidden>
+      <h1>Admin</h1>
+      <div class="stack">
+        <label class="field">
+          <span>Grusdepot (lat,lon)</span>
+          <input id="adm_grus" class="input" placeholder="60.xxxxxx,11.xxxxxx" />
+        </label>
+        <label class="field">
+          <span>Diesel (lat,lon)</span>
+          <input id="adm_diesel" class="input" placeholder="60.xxxxxx,11.xxxxxx" />
+        </label>
+        <label class="field">
+          <span>Base (lat,lon)</span>
+          <input id="adm_base" class="input" placeholder="60.xxxxxx,11.xxxxxx" />
+        </label>
+        <button id="adm_save" class="btn">Lagre</button>
+      </div>
+      <p class="muted">Plassholder-skjerm – lagrer i localStorage for demo.</p>
+    </section>
   </main>
 
+  <script src="del-d.js"></script>
 </body>
 </html>
