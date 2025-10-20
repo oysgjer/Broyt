@@ -1,27 +1,49 @@
 <section id="work" hidden>
-  <div class="work-container">
+  <div class="container work-wrap">
 
-    <!-- Fremdriftsindikator -->
-    <div id="progress-bar">
-      <div id="prog-me"></div>
-      <div id="prog-other"></div>
+    <!-- Statuslinje / fremdrift -->
+    <div class="work-statusbar">
+      <div class="ws-item">
+        <span class="ws-dot ws-me"></span>
+        <span class="ws-label">Mine</span>
+        <div class="ws-bar">
+          <div id="b_prog_me" class="ws-fill ws-fill-me" style="width:0%"></div>
+        </div>
+        <span id="b_prog_me_count" class="ws-count">0/0</span>
+      </div>
+      <div class="ws-item">
+        <span class="ws-dot ws-other"></span>
+        <span class="ws-label">Andre</span>
+        <div class="ws-bar">
+          <div id="b_prog_other" class="ws-fill ws-fill-other" style="width:0%"></div>
+        </div>
+        <span id="b_prog_other_count" class="ws-count">0/0</span>
+      </div>
+      <div id="b_prog_summary" class="ws-summary">0 av 0 adresser fullført</div>
     </div>
 
     <!-- Adresser -->
-    <div class="address-block">
-      <h2 id="addr-now">📍 —</h2>
-      <p id="addr-next">Neste: —</p>
+    <div class="addr-block">
+      <div class="addr-now" id="addr_now">Aktuell adresse</div>
+      <div class="addr-next">
+        <span class="muted">Neste: </span><span id="addr_next">—</span>
+      </div>
     </div>
 
-    <!-- Knapperad -->
-    <div class="button-grid">
-      <button id="btn-start" class="btn blue">🔵 Start</button>
-      <button id="btn-done" class="btn green">✅ Ferdig</button>
-      <button id="btn-skip" class="btn gray">⚪ Hopp over</button>
-      <button id="btn-next" class="btn orange">⏭️ Neste</button>
-      <button id="btn-nav" class="btn dark">📍 Naviger</button>
-      <button id="btn-block" class="btn red">🚫 Ikke mulig</button>
+    <!-- Knapper – rad 1 -->
+    <div class="btn-row">
+      <button id="act_start"  class="btn btn-green">🟢 Start</button>
+      <button id="act_done"   class="btn btn-emerald">✅ Ferdig</button>
+    </div>
+    <!-- Knapper – rad 2 -->
+    <div class="btn-row">
+      <button id="act_skip"   class="btn btn-slate">↩️ Hopp over</button>
+      <button id="act_next"   class="btn btn-indigo">⏭️ Neste</button>
+      <button id="act_nav"    class="btn btn-blue">🧭 Naviger</button>
+      <button id="act_block"  class="btn btn-red">🚫 Ikke mulig</button>
     </div>
 
+    <!-- Logglinje -->
+    <div id="work_log" class="work-log muted">Klar.</div>
   </div>
 </section>
