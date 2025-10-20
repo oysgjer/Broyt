@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Brøyterute</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/favicon.png" sizes="64x64">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <link rel="stylesheet" href="styles.css?v=1050">
+
+  <script defer src="include-partials.js?v=1050"></script>
+  <script defer src="del-d.js?v=1050"></script>
+  <script defer src="Home.js?v=1050"></script>
+  <script defer src="Work.js?v=1050"></script>
+  <script defer src="Service.js?v=1050"></script>
+  <script defer src="Status.js?v=1050"></script>
+  <script defer src="Admin.js?v=1050"></script>
+</head>
+<body>
+  <header id="header" data-include="partials/header.html"></header>
+  <nav id="menu" class="drawer" data-include="partials/menu.html" aria-hidden="true"></nav>
+  <div id="scrim"></div>
+
+  <main class="container">
+    <section id="home" data-include="partials/home.html" style="display:block"></section>
+    <section id="work" data-include="partials/work.html" style="display:none"></section>
+    <section id="service" data-include="partials/service.html" style="display:none"></section>
+    <section id="status" data-include="partials/status.html" style="display:none"></section>
+    <section id="admin" data-include="partials/admin.html" style="display:none"></section>
+  </main>
+
+</body>
+</html>
