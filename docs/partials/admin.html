@@ -1,0 +1,80 @@
+<div class="card">
+  <h1>Admin</h1>
+
+  <section class="stack">
+    <h2>JSONBin-nøkkel</h2>
+    <div class="row gap wrap">
+      <input id="adm_key" type="password" class="grow" placeholder="X-Master-Key">
+      <button id="adm_key_save" class="btn">Lagre nøkkel</button>
+      <button id="adm_key_clear" class="btn warn">Fjern</button>
+    </div>
+  </section>
+
+  <section class="stack" style="margin-top:16px;">
+    <h2>Innstillinger – destinasjoner & sesong</h2>
+    <div class="grid-3 gap">
+      <div class="field stack">
+        <label for="adm_grus">Grusdepot (lat,lon)</label>
+        <input id="adm_grus" type="text" placeholder="60.xxxxxx,11.xxxxxx">
+      </div>
+      <div class="field stack">
+        <label for="adm_diesel">Diesel (lat,lon)</label>
+        <input id="adm_diesel" type="text" placeholder="60.xxxxxx,11.xxxxxx">
+      </div>
+      <div class="field stack">
+        <label for="adm_base">Base (lat,lon)</label>
+        <input id="adm_base" type="text" placeholder="60.xxxxxx,11.xxxxxx">
+      </div>
+    </div>
+
+    <div class="row gap wrap">
+      <button id="adm_stakes_lock" class="btn">🔓 Lås stikker</button>
+    </div>
+  </section>
+
+  <section class="stack" style="margin-top:16px;">
+    <h2>Sky-oppsett (JSONBin/Proxy)</h2>
+    <div class="grid-2 gap">
+      <div class="field stack">
+        <label for="adm_geturl">GET-URL</label>
+        <input id="adm_geturl" type="url" placeholder="https://…/latest">
+      </div>
+      <div class="field stack">
+        <label for="adm_puturl">PUT-URL</label>
+        <input id="adm_puturl" type="url" placeholder="https://…">
+      </div>
+    </div>
+    <div class="row gap wrap">
+      <button id="adm_urls_save" class="btn">Lagre URL-er</button>
+      <button id="adm_urls_clear" class="btn warn">Fjern</button>
+      <span id="adm_urls_status" class="muted">—</span>
+    </div>
+  </section>
+
+  <section class="stack" style="margin-top:16px;">
+    <h2>Adresse-register</h2>
+    <div class="row gap wrap">
+      <button id="adm_addr_fetch" class="btn">Hent fra sky</button>
+      <button id="adm_addr_save" class="btn primary">Lagre</button>
+      <span id="adm_addr_msg" class="muted"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Aktiv</th>
+            <th>Adresse</th>
+            <th>Gruppe</th>
+            <th>Snø</th>
+            <th>Grus</th>
+            <th>Stikker</th>
+            <th>Koordinater</th>
+            <th>Rekkefølge</th>
+          </tr>
+        </thead>
+        <tbody id="adm_addr_tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
