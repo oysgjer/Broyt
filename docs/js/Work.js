@@ -114,35 +114,39 @@
   }
 
   // ----- UI binding -----
-  function uiUpdate(){
-    const c = cur(), n = next();
-    const bag = statusBag();
-    const st = c && bag[c.name] ? bag[c.name].state : 'not_started';
+function uiUpdate(){
+  const c = cur(), n = next();
+  const bag = statusBag();
+  const st = c && bag[c.name] ? bag[c.name].state : 'not_started';
 
-    const nowEl  = _q('#b_now');
-    const nextEl = _q('#b_next');
-    const taskEl = _q('#b_task');
-    const stateEl= _q('#b_status');
+  const nowEl  = _q('#b_now');
+  const nextEl = _q('#b_next');
+  const taskEl = _q('#b_task');
+  const stateEl= _q('#b_status');
 
-    if(nowEl)  nowEl.textContent  = c ? (c.name || '—') : '—';
-    if(nextEl) nextEl.textContent = n ? (n.name || '—') : '—';
-    if(taskEl) taskEl.textContent = W.mode === 'snow' ? 'Snø' : 'Sand/Grus';
-    if(stateEl)stateEl.textContent= _STATE_LABEL[st] || '—';
+  if(nowEl)  nowEl.textContent  = c ? (c.name || '—') : '—';
+  if(nextEl) nextEl.textContent = n ? (n.name || '—') : '—';
+  if(taskEl) taskEl.textContent = W.mode === 'snow' ? 'Snø' : 'Sand/Grus';
+  if(stateEl)stateEl.textContent= _STATE_LABEL[st] || '—';
 
-    updateProgressBars();
+  // Hent knappene
+  const btnStart = _q('#act_start');
+  const btnDone  = _q('#act_done');
+
+  // Nullstill puls
+  btnStart?.classList.remove('btn-pulse','btn-pulse-blue');
+  btnDone?.classList.remove('btn-pulse','btn-pulse-blue');
+
+  // Gi puls basert på status
+  if (st === 'in_progress') {
+    btnDone?.classList.add('btn-pulse');           // grønn puls
+  } else if (st === 'done') {
+    btnStart?.classList.add('btn-pulse-blue');     // blå puls
   }
 
-  function updateProgressBars(){
-    const bag = statusBag();
-    const total = W.addresses.length || 1;
-    let me=0, other=0;
+  updateProgressBars();
+}
 
-    for (const k in bag){
-      const s = bag[k];
-      if(s && s.state === 'done'){
-        if (s.driver === W.driver) me++; else other++;
-      }
-    }
     const mePct = Math.round(100*me/total);
     const otPct = Math.round(100*other/total);
 
