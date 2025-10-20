@@ -1,19 +1,53 @@
+<section id="work" class="page page-work" style="display:none">
+  <!-- Fremdrift rett under appbar/statusbar -->
+  <div class="progress-wrap">
+    <div class="progress-row">
+      <div class="track">
+        <div id="b_prog_me" class="bar bar-me" style="width:0%"></div>
+      </div>
+      <div class="legend">
+        <span class="dot dot-me"></span>
+        <span>Din fremdrift</span>
+        <span class="count" id="b_prog_me_count">0</span>
+      </div>
+    </div>
 
-<h1>Under arbeid</h1>
-<div class="col" style="gap:10px">
-  <div>🔹 Nå: <strong id="b_now">—</strong></div>
-  <div>➡️ Neste: <strong id="b_next">—</strong></div>
-  <div>Retning: <span id="b_dir">—</span> • Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span></div>
-  <div class="row">
-    <button id="act_start" class="btn">Start</button>
-    <button id="act_done"  class="btn btn-primary">Ferdig</button>
-    <button id="act_skip"  class="btn">Hopp over</button>
-    <button id="act_block" class="btn">Ikke mulig</button>
-    <button id="act_acc"   class="btn">Uhell</button>
-    <button id="act_nav"   class="btn">Naviger</button>
+    <div class="progress-row">
+      <div class="track">
+        <div id="b_prog_other" class="bar bar-other" style="width:0%"></div>
+      </div>
+      <div class="legend">
+        <span class="dot dot-other"></span>
+        <span>Andre førere</span>
+        <span class="count" id="b_prog_other_count">0</span>
+      </div>
+    </div>
+
+    <div class="progress-summary" id="b_prog_summary">0 av 0 adresser fullført</div>
   </div>
-  <div class="row" style="height:10px; width:100%; background:#ffffff10; border-radius:6px; overflow:hidden">
-    <div id="b_prog_me" style="height:100%; width:0; background:var(--accent)"></div>
-    <div id="b_prog_other" style="height:100%; width:0; background:var(--muted)"></div>
+
+  <!-- Selve arbeidsflaten -->
+  <div class="card work-card">
+    <div class="row between">
+      <div>
+        <div class="eyebrow">Oppdrag</div>
+        <h2 id="b_now">—</h2>
+        <div class="subtle">Neste: <span id="b_next">—</span></div>
+      </div>
+      <div class="badge" id="b_task">Snø</div>
+    </div>
+
+    <div class="status-line">
+      Status: <strong id="b_status">Ikke påbegynt</strong> • Retning: <strong id="b_dir">Normal</strong>
+    </div>
+
+    <div class="grid actions">
+      <button id="act_start" class="btn">Start</button>
+      <button id="act_done" class="btn btn-primary">Ferdig</button>
+      <button id="act_skip" class="btn btn-ghost">Hopp over</button>
+      <button id="act_block" class="btn btn-warn">Ikke mulig</button>
+      <button id="act_acc" class="btn btn-danger">Uhell</button>
+      <button id="act_nav" class="btn btn-ghost">Naviger til neste</button>
+    </div>
   </div>
-</div>
+</section>
