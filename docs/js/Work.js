@@ -1,225 +1,206 @@
-// Work.js — "Under arbeid": fremdrift + fullfør-runde-dialog
-// Avhengigheter som leveres av del-d.js:
-// - window.S, window.STATE_LABEL, window.nextIndex
-// - window.ensureAddressesSeeded, window.refreshCloud, window.saveCloud
-// - window.statusStore, window.mapsUrlFromLatLon, window.showPage
-
+/* Work.js – Under arbeid
+   - Leser adresser fra S.cloud.snapshot.addresses eller BRYT_ADDR (localStorage)
+   - Leser/lagrer status i BRYT_STATUS (localStorage)
+   - Oppdaterer fremdrift og speiler til Status.js uten re-load
+*/
 (function(){
-  'use strict';
-
   const $  = (s,root=document)=>root.querySelector(s);
   const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
+  const SEC = $('#work');
+  if (!SEC) return;
 
-  // ---------- UI-hjelpere ----------
-  function setText(id, txt){ const el=$(id); if(el) el.textContent = txt; }
-
-  // Progressbar og summer
-  function updateProgressBars(){
+  /* ---------- Datakilder ---------- */
+  function loadAddresses(){
+    const fromS = (window.S?.cloud?.snapshot?.addresses) || window.S?.addresses;
+    if (Array.isArray(fromS) && fromS.length) return fromS;
     try{
-      const total = (S.addresses && S.addresses.length) ? S.addresses.length : 0;
-      if(!total){
-        // nullstill progresjon
-        const meBar=$('#b_prog_me'), otBar=$('#b_prog_other');
-        if(meBar) meBar.style.width='0%';
-        if(otBar) otBar.style.width='0%';
-        setText('#b_prog_me_count','0/0');
-        setText('#b_prog_other_count','0/0');
-        setText('#b_prog_summary','0 av 0 adresser fullført');
-        return;
-      }
-
-      let me=0, other=0;
-      const bag = statusStore();
-      for(const k in bag){
-        const st = bag[k];
-        if(st && st.state === 'done'){
-          if(st.driver === S.driver) me++;
-          else other++;
-        }
-      }
-      const mePct = Math.round(100*me/total);
-      const otPct = Math.round(100*other/total);
-      const meBar=$('#b_prog_me'), otBar=$('#b_prog_other');
-      if(meBar) meBar.style.width = mePct+'%';
-      if(otBar) otBar.style.width = otPct+'%';
-
-      setText('#b_prog_me_count', `${me}/${total}`);
-      setText('#b_prog_other_count', `${other}/${total}`);
-      setText('#b_prog_summary', `${Math.min(me+other,total)} av ${total} adresser fullført`);
-    }catch(e){
-      // stille feil — ikke knekke UI
-      console.warn('updateProgressBars error', e);
-    }
+      const ls = JSON.parse(localStorage.getItem('BRYT_ADDR')||'[]');
+      if (Array.isArray(ls) && ls.length) return ls;
+    }catch{}
+    return []; // ingen
+  }
+  function loadStatusMap(){
+    try{ return JSON.parse(localStorage.getItem('BRYT_STATUS')||'{}'); }
+    catch { return {}; }
+  }
+  function saveStatusMap(map){
+    localStorage.setItem('BRYT_STATUS', JSON.stringify(map));
   }
 
-  function currentAndNext(){
-    const now  = (S.addresses && S.addresses[S.idx]) || null;
-    const next = (S.addresses && S.addresses[nextIndex(S.idx,S.dir)]) || null;
-    return {now, next};
+  // enkel «cursor» for nåværende adresse
+  function loadCursor(){
+    return Number(localStorage.getItem('BRYT_CURSOR')||'0')||0;
+  }
+  function saveCursor(i){
+    localStorage.setItem('BRYT_CURSOR', String(Math.max(0,i|0)));
   }
 
-  function uiSetWork(){
-    const {now, next} = currentAndNext();
-    setText('#b_now',  now ? (now.name||'—')  : '—');
-    setText('#b_next', next? (next.name||'—') : '—');
-    setText('#b_dir',  S.dir||'Normal');
-    setText('#b_task', (S.mode==='grit')?'Sand/Grus':'Snø');
-
-    // statuslabel for nå
-    const bag = statusStore();
-    const st  = (now && now.name && bag[now.name] && bag[now.name].state) || 'not_started';
-    setText('#b_status', STATE_LABEL[st] || '—');
-
-    updateProgressBars();
-  }
-
-  function allDone(){
-    if(!S.addresses || !S.addresses.length) return false;
-    const bag = statusStore();
-    return S.addresses.every(a => (bag[a.name] && bag[a.name].state==='done'));
-  }
-
-  function setStatusFor(name, patch){
-    const bag=statusStore();
-    const cur=bag[name]||{};
-    bag[name] = {...cur, ...patch, driver:S.driver};
-  }
-
-  // ---------- FULLFØR-RUNDE DIALOG ----------
-  async function fullRoundChoiceDialog(){
-    // 2-stegs confirm (lett å treffe på mobil)
-    const startSnow = window.confirm(
-      'Alt er utført 🎉\n\nVil du starte NY BRØYTERUNDE?\n\nOK = Brøyting\nAvbryt = Velg annet'
-    );
-    if(startSnow){
-      await startNewRound('snow');
-      return;
-    }
-    const startGrit = window.confirm(
-      'Vil du starte NY GRUSRUNDE?\n\nOK = Grus\nAvbryt = Gå til Service'
-    );
-    if(startGrit){
-      await startNewRound('grit');
-      return;
-    }
-    // Ferdig → Service
-    showPage('service');
-  }
-
-  // ---------- Start ny runde (snow/grit) ----------
-  async function startNewRound(mode /* 'snow' | 'grit' */){
-    try{
-      await ensureAddressesSeeded();
-      await refreshCloud();
-
-      // Bekreft at vi nullstiller status-bag for valgt modus
-      const label = (mode==='grit')?'grus':'brøyting';
-      if(!window.confirm(`Nullstille status for ${label}-runden og starte på nytt?`)) return;
-
-      // Nullstill riktig bag
-      const bag = (mode==='grit') ? (S.cloud.statusGrit||{}) : (S.cloud.statusSnow||{});
-      (S.cloud.snapshot.addresses||[]).forEach(a=>{
-        bag[a.name] = {state:'not_started', startedAt:null, finishedAt:null, driver:null, note:null, photo:null};
-      });
-      if(mode==='grit') S.cloud.statusGrit = bag; else S.cloud.statusSnow = bag;
-      await saveCloud();
-
-      // Oppdater prefs slik at appen er i riktig modus
-      const prefs = JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}');
-      const newPrefs = {
-        driver: prefs.driver || S.driver || 'driver',
-        dir: prefs.dir || S.dir || 'Normal',
-        eq: {
-          plow: mode==='snow' ? true : false,
-          fres: prefs.eq && prefs.eq.fres || false,
-          sand: mode==='grit' ? true : false
-        },
-        autoNav: !!(prefs.autoNav)
-      };
-      localStorage.setItem('BROYT_PREFS', JSON.stringify(newPrefs));
-
-      // Klargjør S for ny runde
-      S.driver = newPrefs.driver;
-      S.dir    = newPrefs.dir;
-      S.mode   = (mode==='grit')?'grit':'snow';
-
-      const arr=(S.cloud && S.cloud.snapshot && S.cloud.snapshot.addresses) ? S.cloud.snapshot.addresses : [];
-      S.addresses = arr
-        .filter(a=>a.active!==false)
-        .filter(a=> S.mode==='snow' ? ((a.flags && a.flags.snow)!==false) : !!(a.flags && a.flags.grit));
-      S.idx = (S.dir==='Motsatt') ? (S.addresses.length-1) : 0;
-
-      uiSetWork();
-      showPage('work');
-    }catch(e){
-      alert('Kunne ikke starte ny runde: '+(e.message||e));
-    }
-  }
-
-  // ---------- Steg/handlinger ----------
-  async function stepState(patch, goNext=true){
-    try{
-      await refreshCloud();
-      const cur = (S.addresses && S.addresses[S.idx]) || null;
-      if(!cur) return;
-
-      setStatusFor(cur.name, {...patch});
-      await saveCloud();
-
-      uiSetWork();
-
-      // Sjekk "alt ferdig"
-      if(allDone()){
-        await fullRoundChoiceDialog();
-        return;
-      }
-
-      if(goNext){
-        const ni = nextIndex(S.idx, S.dir);
-        if(ni>=0 && ni<S.addresses.length){
-          S.idx = ni;
-          uiSetWork();
-        }else{
-          // gikk utenfor — åpne service som failsafe
-          showPage('service');
-        }
-      }
-    }catch(e){
-      alert('Feil ved statusoppdatering: '+(e.message||e));
-    }
-  }
-
-  // ---------- Navigasjon til neste ----------
-  function navigateToNext(){
-    const nxt = S.addresses && S.addresses[nextIndex(S.idx,S.dir)];
-    const trg = nxt || (S.addresses && S.addresses[S.idx]) || null;
-    if(!trg) return;
-    const hasCoord = !!(trg.coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(trg.coords));
-    const url = hasCoord
-      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(String(trg.coords).replace(/\s+/g,''))}`
-      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((trg.name||'')+', Norge')}`;
-    window.open(url,'_blank');
-  }
-
-  // ---------- Init kobling ----------
-  window.addEventListener('DOMContentLoaded', ()=>{
-    // Knapper i "Under arbeid"-skjerm (samme IDer som i work.html)
-    $('#act_start') && $('#act_start').addEventListener('click', ()=> stepState({state:'in_progress', startedAt:Date.now()}, false));
-    $('#act_done')  && $('#act_done').addEventListener('click',  ()=> stepState({state:'done',        finishedAt:Date.now()}));
-    $('#act_skip')  && $('#act_skip').addEventListener('click',  ()=> stepState({state:'skipped',     finishedAt:Date.now()}));
-    $('#act_block') && $('#act_block').addEventListener('click',  ()=>{
-      const note = prompt('Hvorfor ikke mulig? (valgfritt)','')||'';
-      stepState({state:'blocked', finishedAt:Date.now(), note});
+  /* ---------- Status-endringer ---------- */
+  function setState(addrId, state){
+    const map = loadStatusMap();
+    const now = new Date().toISOString();
+    map[addrId] = Object.assign({}, map[addrId]||{}, {
+      state, ts: now
     });
-    $('#act_nav')   && $('#act_nav').addEventListener('click', navigateToNext);
+    saveStatusMap(map);
+    // Ping «Status»-siden hvis den er lastet (den re-rendrer på refresh-knappen)
+    document.dispatchEvent(new CustomEvent('bryt:status-updated', {detail:{id:addrId,state}}));
+  }
 
-    // Oppfrisk teksten
-    uiSetWork();
-  });
+  /* ---------- Navigering i liste ---------- */
+  function nextIndex(from, addrs){
+    const n = addrs.length;
+    if (!n) return 0;
+    for (let i=from+1;i<from+1+n;i++){
+      const idx = i % n;
+      // gå til neste element (uansett status)
+      return idx;
+    }
+    return from;
+  }
 
-  // Eksporter det vi trenger andre steder (hvis noe)
-  window.updateProgressBars = updateProgressBars;
-  window.uiSetWork          = uiSetWork;
-  window.stepState          = stepState;
-  window.startNewRound      = startNewRound;
+  /* ---------- Render ---------- */
+  function pct(a,b){ return Math.round(100 * (b? a/b : 0)); }
+  function counts(addrs, map){
+    const c = { none:0, started:0, done:0, skipped:0, impossible:0, incident:0 };
+    addrs.forEach(a=>{
+      const st = map[a.id]?.state || 'none';
+      if (c[st]!==undefined) c[st]++; else c.none++;
+    });
+    return c;
+  }
+  function label(s){
+    return s==='none'?'Ikke påbegynt':
+           s==='started'?'Pågår':
+           s==='done'?'Ferdig':
+           s==='skipped'?'Hoppet over':
+           s==='impossible'?'Ikke mulig':
+           s==='incident'?'Uhell':'—';
+  }
+
+  function render(){
+    const addrs = loadAddresses();
+    const map   = loadStatusMap();
+    let cur     = Math.min(loadCursor(), Math.max(0, addrs.length-1));
+
+    // tomt?
+    if (!addrs.length){
+      SEC.innerHTML = `
+        <h1>Under arbeid</h1>
+        <div class="card">
+          <p>Ingen adresser. Gå til <em>Admin</em> og trykk «Seed demo-adresser», eller last inn dine data.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const nowAddr = addrs[cur];
+    const nxtAddr = addrs[nextIndex(cur, addrs)];
+    const cs      = counts(addrs, map);
+    const total   = addrs.length;
+
+    const nowState = map[nowAddr.id]?.state || 'none';
+
+    SEC.innerHTML = `
+      <h1>Under arbeid</h1>
+
+      <div class="work-top" style="margin-bottom:16px">
+        <div class="work-prog" aria-label="Fremdrift">
+          <div class="me"    style="width:${pct(cs.done, total)}%"></div>
+          <div class="other" style="width:${pct(cs.started, total)}%"></div>
+        </div>
+        <div class="work-caption">
+          <span><strong>${cs.done}/${total}</strong> mine • <strong>${cs.started}</strong> andre</span>
+          <span>${cs.done+cs.started} av ${total} adresser fullført</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="field" style="margin:0 0 6px">
+          <span class="muted">Nå</span>
+          <div style="font-weight:800; font-size:1.8rem; line-height:1.2">${escapeHtml(nowAddr.name||nowAddr.id)}</div>
+        </div>
+
+        <div class="field" style="margin:6px 0 14px">
+          <span class="muted">Neste</span>
+          <div style="font-weight:600; font-size:1.1rem">${escapeHtml(nxtAddr.name||nxtAddr.id)}</div>
+        </div>
+
+        <div class="row" style="gap:10px; flex-wrap:wrap">
+          <button id="w_start"  class="btn btn-ghost ${nowState==='done' ? 'pulse' : ''}">▶️ Start</button>
+          <button id="w_done"   class="btn ${nowState==='started' ? 'pulse' : ''}">✅ Ferdig</button>
+          <button id="w_skip"   class="btn btn-ghost">⏩ Hopp over</button>
+          <button id="w_next"   class="btn btn-ghost">➡️ Neste</button>
+          <button id="w_nav"    class="btn btn-ghost">🧭 Naviger</button>
+          <button id="w_imp"    class="btn btn-ghost">⛔ Ikke mulig</button>
+        </div>
+
+        <div class="muted" style="margin-top:10px">
+          Oppgave: — • Status: ${label(nowState)}
+        </div>
+      </div>
+    `;
+
+    // ----- knapper -----
+    $('#w_start')?.addEventListener('click', ()=>{
+      setState(nowAddr.id, 'started');
+      render(); // oppdatér visning + puls på «Ferdig»
+    });
+
+    $('#w_done')?.addEventListener('click', ()=>{
+      setState(nowAddr.id, 'done');
+      // gå automatisk videre til neste
+      const ni = nextIndex(cur, addrs);
+      saveCursor(ni);
+      render(); // oppdatert liste + fremdrift
+    });
+
+    $('#w_skip')?.addEventListener('click', ()=>{
+      setState(nowAddr.id, 'skipped');
+      const ni = nextIndex(cur, addrs);
+      saveCursor(ni);
+      render();
+    });
+
+    $('#w_imp')?.addEventListener('click', ()=>{
+      setState(nowAddr.id, 'impossible');
+      const ni = nextIndex(cur, addrs);
+      saveCursor(ni);
+      render();
+    });
+
+    $('#w_next')?.addEventListener('click', ()=>{
+      saveCursor(nextIndex(cur, addrs));
+      render();
+    });
+
+    $('#w_nav')?.addEventListener('click', ()=>{
+      // enkel kartlenke
+      const q = (nowAddr.lat && nowAddr.lon) ? `${nowAddr.lat},${nowAddr.lon}` : (nowAddr.name || '');
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
+      window.open(url, '_blank');
+    });
+  }
+
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m])); }
+
+  /* ---------- Puls-animasjon for aktiv knapp ---------- */
+  const style = document.createElement('style');
+  style.textContent = `
+    .pulse { position: relative; }
+    .pulse::after{
+      content:""; position:absolute; inset:-4px;
+      border-radius:14px; pointer-events:none;
+      box-shadow:0 0 0 0 rgba(37,99,235,.55);
+      animation:b_pulse 1.2s ease-out infinite;
+    }
+    @keyframes b_pulse { to { box-shadow:0 0 0 12px rgba(37,99,235,0); } }
+  `;
+  document.head.appendChild(style);
+
+  // første render
+  render();
+
+  // Hvis andre deler av appen endrer adresser/status, kan vi rerendre:
+  document.addEventListener('bryt:status-updated', ()=>render());
 })();
