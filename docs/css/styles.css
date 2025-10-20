@@ -3,122 +3,114 @@
   --bg: #0b1320;
   --surface: #121a2a;
   --text: #e8eefc;
-  --muted: #a7b2cc;
+  --muted: #94a3b8;
   --primary: #2563eb;
   --ok: #22c55e;
   --warn: #f59e0b;
   --err: #ef4444;
   --sep: rgba(255,255,255,0.08);
+
+  /* drawer chips */
+  --chip-bg: rgba(255,255,255,.06);
+  --chip-bg-hover: rgba(255,255,255,.12);
+  --chip-border: rgba(255,255,255,.12);
 }
 @media (prefers-color-scheme: light){
   :root{
-    --bg:#f4f6fb; --surface:#ffffff; --text:#0b1320; --muted:#52525b;
+    --bg:#f6f7fb; --surface:#ffffff; --text:#0b1320; --muted:#6b7280;
     --sep: rgba(0,0,0,0.08);
+
+    --chip-bg: rgba(0,0,0,.04);
+    --chip-bg-hover: rgba(0,0,0,.08);
+    --chip-border: rgba(0,0,0,.10);
   }
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
-  margin:0;
-  font:16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  background:var(--bg);
-  color:var(--text);
+  margin:0; font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background:var(--bg); color:var(--text);
 }
 
 /* ========= Appbar ========= */
 .appbar{
-  position:sticky;
-  top:0;
-  z-index:1000;
-  height:56px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 14px;
-  background:#0b1320;
-  border-bottom:1px solid rgba(255,255,255,0.1);
-  color:#fff;
-  font-size:1rem;
+  position:sticky; top:0; z-index:1000;
+  height:56px; display:flex; align-items:center; gap:12px;
+  padding:0 12px; background:var(--surface);
+  border-bottom:1px solid var(--sep);
 }
 .icon-btn{
-  border:0; background:transparent; color:inherit;
-  width:42px; height:42px; border-radius:8px; font-size:22px;
+  border:0; background:transparent; color:var(--text);
+  width:40px; height:40px; border-radius:8px; font-size:20px;
 }
-.icon-btn:active{background:rgba(255,255,255,0.1)}
-.appbar-title{font-weight:700; font-size:1.05rem}
+.icon-btn:active{background:var(--sep)}
+.appbar-title{font-weight:700}
 
 /* Badges / dots */
-.badge{font-size:.95rem; opacity:.95}
+.badge{font-size:.95rem; opacity:.9}
 .dot{display:inline-block; width:.75rem; height:.75rem; border-radius:50%}
 .dot-ok{background:var(--ok)} .dot-warn{background:var(--warn)}
 .dot-err{background:var(--err)} .dot-unknown{background:#6b7280}
 .dot-on{background:var(--ok)} .dot-off{background:#d1d5db}
 
-/* ========= Drawer (hamburger) ========= */
+/* ========= Drawer + scrim ========= */
 #scrim{
-  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  position:fixed; inset:0; background:rgba(0,0,0,.45);
   opacity:0; pointer-events:none; transition:opacity .18s ease;
-  z-index:1001;
+  z-index:999;
 }
 #scrim.show{opacity:1; pointer-events:auto}
 
-#drawer{
-  position:fixed;
-  top:0; left:0; height:100vh;
-  width:82vw; max-width:330px;
-  background:#0e1524;
-  color:#e8eefc;
-  box-shadow:0 10px 35px rgba(0,0,0,.6);
-  border-right:1px solid rgba(255,255,255,0.08);
-  transform:translateX(-100%);
-  transition:transform .22s ease;
-  z-index:1002;
-  display:flex;
-  flex-direction:column;
-  font-size:1.05rem;
-  pointer-events:none;
+.drawer{
+  position:fixed; top:0; left:0; height:100vh;
+  width:80vw; max-width:320px;
+  background:var(--surface); color:var(--text);
+  box-shadow: 0 10px 30px rgba(0,0,0,.45);
+  border-right:1px solid var(--sep);
+  transform:translateX(-100%); transition:transform .22s ease;
+  z-index:1001; display:flex; flex-direction:column;
 }
-#drawer.open{transform:translateX(0); pointer-events:auto;}
+.drawer.open{transform:translateX(0)}
 .drawer-header{
   display:flex; align-items:center; justify-content:space-between;
-  padding:14px 18px; font-weight:700; font-size:1.1rem;
-  border-bottom:1px solid rgba(255,255,255,0.1);
+  gap:8px; padding:12px 14px; border-bottom:1px solid var(--sep);
+  font-weight:700;
 }
-.drawer-content{
-  padding:16px 14px;
-  flex:1;
-  overflow:auto;
-}
-.drawer-section{
-  margin:14px 6px 8px;
-  font-weight:600;
-  color:var(--muted);
-}
-.drawer-list{list-style:none; margin:10px 0 20px; padding:0;}
+.drawer-content{padding:12px 10px; overflow:auto}
+.drawer-section{margin:10px 8px 6px; font-weight:700; opacity:.9}
+.drawer-list{list-style:none; margin:6px 0 14px; padding:0}
 .drawer-link{
-  display:flex; align-items:center; gap:12px;
-  padding:10px 12px; border-radius:10px;
-  color:inherit; text-decoration:none;
-  transition:background .2s;
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:10px; color:inherit; text-decoration:none;
 }
-.drawer-link:hover{
-  background:rgba(255,255,255,0.08);
+.drawer-link:hover{background:var(--sep)}
+.drawer-link .emoji{width:22px; text-align:center}
+
+/* --- Quick action chips i menyen (bedre kontrast) --- */
+.qa-list{display:flex; flex-direction:column; gap:10px; padding:6px 8px}
+.qa-chip{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
+  border-radius:12px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight:600;
 }
-.drawer-link .emoji{width:22px; text-align:center; font-size:1.25rem}
+.qa-chip:hover{ background: var(--chip-bg-hover); }
+.qa-chip:active{ transform: translateY(1px); }
+.qa-chip .emoji{width:22px; text-align:center}
 
 /* Wake lock kort i meny */
 .card{
-  margin:14px 8px;
-  padding:12px;
-  border-radius:12px;
-  background:rgba(255,255,255,0.05);
-  border:1px solid rgba(255,255,255,0.08);
+  margin:12px 8px; padding:12px; border-radius:12px;
+  background:var(--surface); border:1px solid var(--sep);
 }
 .row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
 
 /* ========= Layout main ========= */
-main{padding:20px}
+main{padding:18px}
 section[hidden]{display:none !important}
 
 /* ========= Form / inputs ========= */
@@ -127,14 +119,12 @@ section[hidden]{display:none !important}
 .input, select, .input-like{
   width:100%; border:1px solid var(--sep); border-radius:10px;
   background:transparent; color:var(--text); padding:10px 12px;
-  font-size:1rem;
 }
 .checkbox-row{display:flex; flex-direction:column; gap:10px}
 .btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  border:0; border-radius:12px; padding:10px 16px;
+  display:inline-flex; align-items:center; gap:8px;
+  border:0; border-radius:12px; padding:10px 14px;
   background:var(--primary); color:white; font-weight:600;
-  font-size:1rem;
 }
 .btn-ghost{background:transparent; border:1px solid var(--sep); color:var(--text)}
 .btn:active{transform:translateY(1px)}
@@ -149,15 +139,71 @@ section[hidden]{display:none !important}
 .work-prog .other{position:absolute; left:0; top:0; bottom:0; width:0%; background:#a78bfa; opacity:.8}
 .work-caption{display:flex; justify-content:space-between; font-size:.9rem; color:var(--muted); margin-top:6px}
 
-/* ========= Små skjermer ========= */
+/* Små skjermer */
 @media (max-width:420px){
-  main{padding:16px}
-  .drawer-link{padding:12px 10px; font-size:1.05rem;}
+  main{padding:14px}
 }
 
-/* ========= iOS fix / stabilitet ========= */
-html, body{
-  backdrop-filter:none !important;
-  -webkit-backdrop-filter:none !important;
-  opacity:1 !important;
+/* ===== Drawer opacity hard-fix ===== */
+#drawer,
+#drawer.drawer,
+aside#drawer {
+  background: var(--surface) !important;
+  opacity: 1 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+#drawer * { background: transparent; }
+
+/* Scrim under drawer */
+#scrim { background: rgba(0,0,0,.55) !important; z-index: 999 !important; }
+#drawer { z-index: 1001 !important; }
+
+/* iOS Safari fix + korrekt åpen/lukket atferd */
+#drawer,
+.drawer,
+aside#drawer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 80vw;
+  max-width: 320px;
+  background-color: var(--surface);
+  z-index: 1002;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  will-change: transform;
+  pointer-events: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#drawer.open,
+.drawer.open,
+aside#drawer.open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Scrim usynlig som standard */
+#scrim {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1001;
+  pointer-events: none;
+}
+#scrim.show {
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Sikre at ingenting annet blir halvtransparent på iOS */
+html, body {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
 }
