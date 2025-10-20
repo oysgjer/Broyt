@@ -1,62 +1,85 @@
-/* Work page UI – farger følger tema-variabler fra styles.css */
-:root {
-  --me: #22c55e;        /* grønn */
-  --other: #7c3aed;     /* lilla */
-  --bar-bg: color-mix(in oklab, var(--fg) 10%, transparent);
-  --fill-shadow: 0 1px 0 rgba(0,0,0,.05) inset;
+/* =========================================================
+   work.css — stil for “Under arbeid”
+   v1.0.0
+   ========================================================= */
+
+:root{
+  --bg: var(--c-bg, #0b1220);
+  --card: rgba(255,255,255,0.04);
+  --muted: #8a93a6;
+  --text: var(--c-fg, #e7eaf2);
+  --me: #22c55e;      /* grønn */
+  --other: #a855f7;   /* lilla */
+  --danger: #ef4444;
+  --primary: #2563eb;
 }
 
-.work-wrap { padding-block: 1rem 2rem; }
+.work-wrap{ padding:16px; }
 
-.work-statusbar {
-  display: grid;
-  gap: .5rem 1rem;
-  grid-template-columns: 1fr 1fr;
-  align-items: end;
-  margin-bottom: 1rem;
+.progress{
+  position:relative;
+  height:10px;
+  background:rgba(255,255,255,0.08);
+  border-radius:6px;
+  overflow:hidden;
+  margin: 8px 0 4px;
 }
-.work-statusbar .ws-item { display: grid; grid-template-columns: auto auto 1fr auto; gap: .5rem; align-items: center; }
-.ws-dot{ width:.6rem; height:.6rem; border-radius:999px; display:inline-block; }
-.ws-me{ background: var(--me); }
-.ws-other{ background: var(--other); }
-.ws-label{ font-weight: 600; }
-.ws-bar{ height:.5rem; background: var(--bar-bg); border-radius:999px; overflow:hidden; }
-.ws-fill{ height:100%; box-shadow: var(--fill-shadow); }
-.ws-fill-me{ background: var(--me); }
-.ws-fill-other{ background: var(--other); }
-.ws-count{ font-variant-numeric: tabular-nums; font-size:.9rem; opacity:.8; }
-.ws-summary{ grid-column: 1 / -1; font-size:.95rem; opacity:.85; }
+.progress .bar{ height:100%; width:0%; transition:width .25s ease; }
+.progress .bar-me{ background:var(--me); }
+.progress .bar-other{ background:var(--other); opacity:.6; }
 
-.addr-block{ margin: .5rem 0 1rem; }
+.progress-meta{
+  display:flex; gap:12px; align-items:center;
+  font-size:.85rem; color:var(--muted); margin-bottom:12px;
+  flex-wrap:wrap;
+}
+.progress-meta span{ white-space:nowrap; }
+
+.card{
+  background:var(--card);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:14px;
+  margin:12px 0;
+}
+.kicker{
+  font-size:.8rem; color:var(--muted); letter-spacing:.02em; text-transform:uppercase;
+}
 .addr-now{
-  font-size: clamp(1.4rem, 3.8vw, 2rem);
-  font-weight: 800;
-  line-height: 1.15;
+  font-size:1.4rem; font-weight:700; margin-top:2px; color:var(--text);
 }
-.addr-next{ margin-top:.25rem; font-size: clamp(1rem, 2.8vw, 1.15rem); }
-.muted{ opacity:.7; }
+.addr-next{
+  font-size:1rem; font-weight:500; margin-top:2px; color:var(--text);
+}
+.badge{
+  display:inline-block;
+  margin-top:8px; padding:4px 8px; border-radius:999px;
+  background:rgba(255,255,255,0.08); color:var(--text); font-size:.85rem;
+}
+.badge[data-state="in_progress"]{ background:#0ea5e9; color:#001016; }
+.badge[data-state="done"]{ background:var(--me); color:#03240e; }
+.badge[data-state="skipped"]{ background:#f59e0b; color:#2a1600; }
+.badge[data-state="blocked"]{ background:var(--danger); color:#2b0000; }
 
-.btn-row{ display:flex; gap:.5rem; flex-wrap:wrap; margin:.5rem 0; }
+.actions-grid{
+  display:grid; gap:10px;
+  grid-template-columns: 1fr 1fr; /* to kolonner */
+  margin-top:16px;
+}
 .btn{
-  appearance:none; border:0; border-radius:.7rem; padding:.8rem 1rem;
-  font-weight:700; letter-spacing:.2px; cursor:pointer;
-  background: var(--card); color: var(--fg); box-shadow: var(--shadow-1);
+  display:inline-flex; align-items:center; justify-content:center;
+  border-radius:10px; padding:12px 14px; font-weight:600;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.06);
+  color:var(--text);
 }
-.btn:active{ transform: translateY(1px); }
-.btn-green{  background: color-mix(in oklab, var(--me) 22%, var(--card)); color: var(--fg-strong, #fff); }
-.btn-emerald{ background: color-mix(in oklab, #10b981 24%, var(--card)); }
-.btn-slate{ background: color-mix(in oklab, #64748b 18%, var(--card)); }
-.btn-indigo{ background: color-mix(in oklab, #6366f1 22%, var(--card)); }
-.btn-blue{   background: color-mix(in oklab, #3b82f6 22%, var(--card)); }
-.btn-red{    background: color-mix(in oklab, #ef4444 22%, var(--card)); }
+.btn[disabled]{ opacity:.45; pointer-events:none; }
+.btn-ghost{ background:rgba(255,255,255,0.04); }
+.btn-primary{ background:var(--primary); border-color:var(--primary); color:#fff; }
+.btn-danger{ background:var(--danger); border-color:var(--danger); color:#fff; }
 
-.work-log{
-  margin-top: .75rem;
-  font-size: .95rem;
-  min-height: 1.2em;
-}
-
-/* Småskjermer: status-feltene i 1 kolonne hvis det blir trangt */
-@media (max-width: 380px){
-  .work-statusbar{ grid-template-columns: 1fr; }
-}
+/* små dot-klasser brukt av synk-badge */
+.dot{ display:inline-block; width:.75em; height:.75em; border-radius:50%; margin-right:.35em; vertical-align:middle; }
+.dot-ok{ background: var(--me); }
+.dot-err{ background: var(--danger); }
+.dot-warn{ background: #f59e0b; }
