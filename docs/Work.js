@@ -1,143 +1,124 @@
-/* =============== UNDER ARBEID – LOGIKK =============== */
+// Work page – bare UI + trygg «demo»-logikk. Kobles senere mot JSONBin.
 
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+/* Små hjelpere (deles med resten av appen) */
+const $  = (s,root=document)=>root.querySelector(s);
+const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
 
-let workState = {
+/* Demo-datastruktur for å SE UI nå */
+const Demo = {
+  driver: localStorage.getItem('BROYT_DEMO_DRIVER') || 'Fører',
   idx: 0,
-  dir: 'Normal',
-  mode: 'snow',
-  driver: '',
-  addresses: [],
-  cloud: null
+  addresses: [
+    { name:'Hjeramoen 12–24', coords:'60.2664414,11.2208819' },
+    { name:'Grendehuset',     coords:'60.2527264,11.1687230' },
+    { name:'Vognvegen 17',    coords:'60.2523185,11.1899926' }
+  ],
+  bag: {} // name -> {state,driver}
 };
 
-async function refreshCloud() {
-  const res = await fetch(localStorage.getItem('BROYT_BIN_URL'), {
-    headers: { 'X-Master-Key': localStorage.getItem('BROYT_XKEY') }
-  });
-  const data = await res.json();
-  workState.cloud = data.record || data;
-}
-
-function statusStore() {
-  return workState.mode === 'snow'
-    ? workState.cloud.statusSnow
-    : workState.cloud.statusGrit;
-}
-
-/* ---------- Oppdater fremdriftslinje ---------- */
-function updateProgressBars() {
-  const total = workState.addresses.length || 1;
-  const bag = statusStore();
+/* ---------- UI oppfrisking ---------- */
+function updateProgressBars(){
+  const total = Demo.addresses.length || 1;
   let me = 0, other = 0;
 
-  for (const k in bag) {
-    const st = bag[k];
-    if (st && st.state === 'done') {
-      if (st.driver === workState.driver) me++;
-      else other++;
+  for (const a of Demo.addresses){
+    const st = Demo.bag[a.name];
+    if (st?.state === 'done'){
+      if (st.driver === Demo.driver) me++; else other++;
     }
   }
+  const mePct = Math.round(100 * me / total);
+  const otPct = Math.round(100 * other / total);
 
-  const mePct = Math.round((100 * me) / total);
-  const otPct = Math.round((100 * other) / total);
+  const bm = $('#b_prog_me'), bo = $('#b_prog_other');
+  if (bm) bm.style.width = mePct + '%';
+  if (bo) bo.style.width = otPct + '%';
 
-  $('#prog-me').style.width = mePct + '%';
-  $('#prog-other').style.width = otPct + '%';
+  const mc = $('#b_prog_me_count'), oc = $('#b_prog_other_count');
+  if (mc) mc.textContent = `${me}/${total}`;
+  if (oc) oc.textContent = `${other}/${total}`;
+
+  const sum = $('#b_prog_summary');
+  if (sum) sum.textContent = `${Math.min(me+other,total)} av ${total} adresser fullført`;
 }
 
-/* ---------- Oppdater adressevisning ---------- */
-function updateAddressUI() {
-  const cur = workState.addresses[workState.idx] || {};
-  const next =
-    workState.addresses[
-      workState.dir === 'Motsatt'
-        ? workState.idx - 1
-        : workState.idx + 1
-    ] || {};
-
-  $('#addr-now').textContent = cur.name
-    ? `📍 ${cur.name}`
-    : '📍 —';
-  $('#addr-next').textContent = next.name
-    ? `Neste: ${next.name}`
-    : 'Neste: —';
-
-  updateProgressBars();
+function showCurrent(){
+  const now = Demo.addresses[Demo.idx] || null;
+  const next = Demo.addresses[Demo.idx+1] || null;
+  $('#addr_now') && ($('#addr_now').textContent = now?.name || '—');
+  $('#addr_next') && ($('#addr_next').textContent = next?.name || '—');
 }
 
-/* ---------- Naviger ---------- */
-function mapsUrlFromAddr(addr) {
-  if (!addr) return 'https://www.google.com/maps';
-  if (addr.coords && /-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?/.test(addr.coords)) {
-    const q = addr.coords.replace(/\s+/g, '');
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
-  }
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr.name || '')}, Norge`;
+/* ---------- Navigasjon / hjelpere ---------- */
+function mapsUrlFromLatLon(latlon){
+  if(!latlon) return 'https://www.google.com/maps';
+  const q=String(latlon).replace(/\s+/g,'');
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
 }
-
-/* ---------- Statusendring ---------- */
-async function stepState(patch, moveNext = true) {
-  const cur = workState.addresses[workState.idx];
-  if (!cur) return;
-
-  const bag = statusStore();
-  const curState = bag[cur.name] || {};
-  bag[cur.name] = { ...curState, ...patch, driver: workState.driver };
-
-  await fetch(localStorage.getItem('BROYT_BIN_PUT'), {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Key': localStorage.getItem('BROYT_XKEY')
-    },
-    body: JSON.stringify(workState.cloud)
-  });
-
-  if (moveNext) {
-    workState.idx =
-      workState.dir === 'Motsatt'
-        ? workState.idx - 1
-        : workState.idx + 1;
-  }
-  updateAddressUI();
+function log(msg){
+  const el = $('#work_log'); if(!el) return;
+  const t = new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});
+  el.textContent = `[${t}] ${msg}`;
 }
 
 /* ---------- Knapper ---------- */
-$('#btn-start')?.addEventListener('click', () =>
-  stepState({ state: 'in_progress', startedAt: Date.now() }, false)
-);
-$('#btn-done')?.addEventListener('click', () =>
-  stepState({ state: 'done', finishedAt: Date.now() })
-);
-$('#btn-skip')?.addEventListener('click', () =>
-  stepState({ state: 'skipped', finishedAt: Date.now() })
-);
-$('#btn-block')?.addEventListener('click', () =>
-  stepState({ state: 'blocked', finishedAt: Date.now() })
-);
-$('#btn-next')?.addEventListener('click', () => {
-  workState.idx++;
-  updateAddressUI();
-});
-$('#btn-nav')?.addEventListener('click', () => {
-  const cur = workState.addresses[workState.idx];
-  if (cur) window.open(mapsUrlFromAddr(cur), '_blank');
+$('#act_start')?.addEventListener('click', ()=>{
+  const now = Demo.addresses[Demo.idx]; if(!now) return;
+  Demo.bag[now.name] = {state:'in_progress', driver: Demo.driver, startedAt: Date.now()};
+  log(`Startet «${now.name}»`);
+  updateProgressBars(); showCurrent();
 });
 
-/* ---------- Init ---------- */
-window.addEventListener('DOMContentLoaded', async () => {
-  await refreshCloud();
-
-  const cloud = workState.cloud;
-  workState.driver =
-    JSON.parse(localStorage.getItem('BROYT_PREFS') || '{}').driver ||
-    'fører';
-  workState.mode = 'snow';
-  workState.dir = 'Normal';
-  workState.addresses =
-    cloud?.snapshot?.addresses?.filter((a) => a.active !== false) || [];
-
-  updateAddressUI();
+$('#act_done')?.addEventListener('click', ()=>{
+  const now = Demo.addresses[Demo.idx]; if(!now) return;
+  Demo.bag[now.name] = {state:'done', driver: Demo.driver, finishedAt: Date.now()};
+  log(`Ferdig «${now.name}»`);
+  updateProgressBars();
 });
+
+$('#act_skip')?.addEventListener('click', ()=>{
+  const now = Demo.addresses[Demo.idx]; if(!now) return;
+  Demo.bag[now.name] = {state:'skipped', driver: Demo.driver, finishedAt: Date.now()};
+  log(`Hoppet over «${now.name}»`);
+  updateProgressBars();
+});
+
+$('#act_block')?.addEventListener('click', ()=>{
+  const now = Demo.addresses[Demo.idx]; if(!now) return;
+  const note = prompt('Hvorfor ikke mulig? (valgfritt)','') || '';
+  Demo.bag[now.name] = {state:'blocked', driver: Demo.driver, finishedAt: Date.now(), note};
+  log(`Ikke mulig «${now.name}»${note?` – ${note}`:''}`);
+  updateProgressBars();
+});
+
+$('#act_next')?.addEventListener('click', ()=>{
+  if (Demo.idx < Demo.addresses.length-1){
+    Demo.idx++;
+    showCurrent();
+    log('Gikk til neste');
+  } else {
+    log('Ingen flere adresser');
+  }
+});
+
+$('#act_nav')?.addEventListener('click', ()=>{
+  const next = Demo.addresses[Demo.idx+1] || Demo.addresses[Demo.idx];
+  if (!next){ log('Ingen destinasjon'); return; }
+  const url = next.coords ? mapsUrlFromLatLon(next.coords)
+           : 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(next.name+', Norge');
+  window.open(url,'_blank');
+  log('Åpnet navigasjon');
+});
+
+/* ---------- Init når seksjonen vises ---------- */
+(function initWork(){
+  // Hvis Work-seksjonen allerede er synlig når skriptet lastes
+  showCurrent();
+  updateProgressBars();
+
+  // Hvis du bytter side senere:
+  window.addEventListener('hashchange', ()=>{
+    const id=(location.hash||'#home').slice(1);
+    if (id==='work'){ showCurrent(); updateProgressBars(); }
+  });
+})();
