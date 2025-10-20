@@ -1,204 +1,111 @@
-/* =========================================================
-   del-d.js
-   Baselogikk: meny, routing, wake lock, snarveier
-   - Robust mot duplikate definisjoner
-   - Solid drawer (ingen transparens, riktig scrim/klikking)
-   - Wake Lock med grønn/rød prikk
-   - Snarveier (grus/diesel/base) fra localStorage (Admin)
-   ========================================================= */
-
-/* ---------- Små hjelpefunksjoner (definer kun hvis mangler) ---------- */
+/* ====== del-d.js — App-skjelett: meny, ruter, wake lock, synk-badge ====== */
 (function(){
-  if(!window.$)   window.$   = (s,root=document)=>root.querySelector(s);
-  if(!window.$$)  window.$$  = (s,root=document)=>Array.from(root.querySelectorAll(s));
-})();
+  const qs  = (s,root=document)=>root.querySelector(s);
+  const qsa = (s,root=document)=>Array.from(root.querySelectorAll(s));
 
-/* ---------- Drawer (hamburger-meny) ---------- */
-(function(){
-  const drawer = $('#drawer');
-  const scrim  = $('#scrim');
-  const btn    = $('#btnMenu');
-  const btnX   = $('#btnCloseDrawer');
+  /* ---------- Drawer ---------- */
+  const drawer = qs('#drawer');
+  const scrim  = qs('#scrim');
 
   function openDrawer(){
-    if(!drawer || !scrim) return;
-    drawer.classList.add('open');
-    scrim.classList.add('show');
-    drawer.setAttribute('aria-hidden','false');
+    drawer?.classList.add('open');
+    scrim?.classList.add('show');
+    drawer?.setAttribute('aria-hidden','false');
   }
   function closeDrawer(){
-    if(!drawer || !scrim) return;
-    drawer.classList.remove('open');
-    scrim.classList.remove('show');
-    drawer.setAttribute('aria-hidden','true');
+    drawer?.classList.remove('open');
+    scrim?.classList.remove('show');
+    drawer?.setAttribute('aria-hidden','true');
   }
 
-  // Toggle på hamburger-ikon
-  btn && btn.addEventListener('click', ()=>{
-    if(drawer?.classList.contains('open')) closeDrawer();
-    else openDrawer();
+  qs('#btnMenu')?.addEventListener('click', ()=>{
+    if(drawer?.classList.contains('open')) closeDrawer(); else openDrawer();
   });
-  // Lukkeknapp + klikk på scrim
-  btnX   && btnX.addEventListener('click', closeDrawer);
-  scrim  && scrim.addEventListener('click', closeDrawer);
+  qs('#btnCloseDrawer')?.addEventListener('click', closeDrawer);
+  scrim?.addEventListener('click', closeDrawer);
 
-  // Klikk på menylenker – naviger og lukk
-  $$('#drawer .drawer-link[data-go]').forEach(a=>{
+  qsa('#drawer .drawer-link[data-go]').forEach(a=>{
     a.addEventListener('click', ()=>{
-      const target = a.getAttribute('data-go');
-      if(target) showPage(target);
+      showPage(a.getAttribute('data-go'));
       closeDrawer();
     });
   });
 
-  // Eksponer dersom andre filer vil bruke det
-  window.openDrawer  = openDrawer;
-  window.closeDrawer = closeDrawer;
-})();
-
-/* ---------- Routing mellom seksjoner ---------- */
-(function(){
+  /* ---------- Routing ---------- */
   function showPage(id){
-    // Skjul alt, vis valgt
-    $$('main section').forEach(s=>{
-      s.hidden = (s.id !== id);
+    qsa('main section').forEach(s=>{
+      s.hidden = (s.id!==id);
     });
-    // Oppdater hash
-    if(id && location.hash !== '#'+id){
-      history.replaceState(null,'','#'+id);
-    }
+    location.hash = '#'+id;
   }
-  // Init – gå til hash eller 'home'
-  const initial = (location.hash||'#home').replace('#','') || 'home';
-  showPage($('#'+initial)? initial : 'home');
-
-  // Endringer på hash (tilfeller der man skriver manuelt i url)
   window.addEventListener('hashchange', ()=>{
-    const id=(location.hash||'#home').replace('#','');
-    showPage($('#'+id)? id : 'home');
+    const id = (location.hash||'#home').replace('#','');
+    showPage(qs('#'+id)?id:'home');
   });
-
-  // Eksponer for andre moduler
   window.showPage = showPage;
-})();
 
-/* ---------- Wake Lock (grønn/rød prikk) ---------- */
-(function(){
-  const dot    = $('#wl_dot') || $('#qk_wl_dot');   // støtt begge id-er
-  const status = $('#wl_status') || $('#qk_wl_status');
-  let wakeLock = null;
+  // start på hash eller home
+  showPage((location.hash||'#home').replace('#','') || 'home');
 
-  function setDot(on){
-    if(!dot) return;
-    dot.classList.toggle('dot-on',  !!on);
-    dot.classList.toggle('dot-off', !on);
-  }
-  // init
-  setDot(false);
-  if(status) status.textContent = 'Status: av';
+  /* ---------- Wake Lock (meny-kort) ---------- */
+  const wlDot = qs('#wl_dot');
+  const wlStatus = qs('#wl_status');
+  let wake = null;
 
-  async function toggleWakeLock(){
+  async function toggleWake(){
     try{
-      // Slå av hvis aktiv
-      if(wakeLock && wakeLock.active){
-        await wakeLock.release();
-        wakeLock = null;
-        setDot(false);
-        if(status) status.textContent = 'Status: av';
+      if(wake && wake.active){
+        await wake.release(); wake=null;
+        wlDot?.classList.remove('dot-on'); wlDot?.classList.add('dot-off');
+        wlStatus && (wlStatus.textContent='Status: av');
         return;
       }
-      // Native API (Chrome/Android m.fl.)
       if('wakeLock' in navigator && navigator.wakeLock?.request){
-        wakeLock = await navigator.wakeLock.request('screen');
-        wakeLock.addEventListener('release', ()=>{
-          setDot(false);
-          if(status) status.textContent = 'Status: av';
+        wake = await navigator.wakeLock.request('screen');
+        wake.addEventListener('release', ()=>{
+          wlDot?.classList.remove('dot-on'); wlDot?.classList.add('dot-off');
+          wlStatus && (wlStatus.textContent='Status: av');
         });
-        setDot(true);
-        if(status) status.textContent = 'Status: på (native)';
+        wlDot?.classList.remove('dot-off'); wlDot?.classList.add('dot-on');
+        wlStatus && (wlStatus.textContent='Status: på (native)');
         return;
       }
-      // iOS/PWA fallback: lydløs loop-video
-      let v = document.querySelector('#wlHiddenVideo');
+      // iOS fallback (lydløs, skjult video)
+      let v = qs('#wlHiddenVideo');
       if(!v){
-        v = document.createElement('video');
-        v.id='wlHiddenVideo';
-        v.loop=true; v.muted=true; v.playsInline=true; v.style.display='none';
+        v=document.createElement('video');
+        v.id='wlHiddenVideo'; v.loop=true; v.muted=true; v.playsInline=true; v.style.display='none';
         v.src='data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbWF2YzEAAABsbW9vdgAAAGxtdmhkAAAAANrJLTrayS06AAAC8AAAFW1sb2NhAAAAAAABAAAAAAEAAAEAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABh0cmFrAAAAXHRraGQAAAAD2sk1OdrJNTkAAAFIAAAUbWRpYQAAACBtZGhkAAAAANrJLTrayS06AAAC8AAAACFoZGxyAAAAAAAAAABzb3VuAAAAAAAAAAAAAAAAU291bmRIYW5kbGVyAAAAAAAwAAAAAAABAQAAAAEAAABPAAAAAAAfAAAAAAALc291bmRfbmFtZQAA';
         document.body.appendChild(v);
       }
-      await v.play(); // må trigges av faktisk trykk
-      setDot(true);
-      if(status) status.textContent = 'Status: på (iOS-fallback)';
-    }catch(e){
-      setDot(false);
-      if(status) status.textContent = 'Status: feil';
-    }
+      await v.play();
+      wlDot?.classList.remove('dot-off'); wlDot?.classList.add('dot-on');
+      wlStatus && (wlStatus.textContent='Status: på (iOS-fallback)');
+    }catch{ wlStatus && (wlStatus.textContent='Status: feil'); }
   }
+  qs('#qk_wl')?.addEventListener('click', toggleWake);
 
-  // Koble til knapp i menyen hvis den finnes
-  $('#qk_wl') && $('#qk_wl').addEventListener('click', toggleWakeLock);
-
-  // Eksponer hvis andre skjermer skal styre WL
-  window.toggleWakeLock = toggleWakeLock;
-})();
-
-/* ---------- Snarveier (grus / diesel / base) ---------- */
-(function(){
-  function mapsUrlFromLatLon(latlon){
+  /* ---------- Quick actions (les fra JSONBin settings hvis finnes, ellers localStorage) ---------- */
+  function mapsUrl(latlon){
     if(!latlon) return 'https://www.google.com/maps';
-    const q = String(latlon).replace(/\s+/g,'');
+    const q=String(latlon).replace(/\s+/g,'');
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
   }
-  function openDest(which){
+  async function openDest(which){
     try{
-      const st = JSON.parse(localStorage.getItem('BRYT_SETTINGS')||'{}');
-      const latlon = which==='grus' ? st.grus
-                    : which==='diesel' ? st.diesel
-                    : which==='base' ? st.base
-                    : '';
-      const url = mapsUrlFromLatLon(latlon||'');
-      window.open(url,'_blank');
-    }catch(e){
-      alert('Kunne ikke åpne destinasjon.');
-    }
+      // forsøk JSONBin settings hvis global finnes, ellers localStorage demo
+      const st = (window.BROYT && BROYT.cloud && BROYT.cloud.settings) || JSON.parse(localStorage.getItem('BRYT_SETTINGS')||'{}');
+      const latlon = which==='grus' ? (st.grusDepot||st.grus) : which==='diesel' ? st.diesel : (st.base||st.hq||st.basePos);
+      window.open(mapsUrl(latlon||''),'_blank');
+    }catch{ window.open('https://www.google.com/maps','_blank'); }
   }
-  $('#qk_grus')   && $('#qk_grus').addEventListener('click', ()=>openDest('grus'));
-  $('#qk_diesel') && $('#qk_diesel').addEventListener('click',()=>openDest('diesel'));
-  $('#qk_base')   && $('#qk_base').addEventListener('click',  ()=>openDest('base'));
+  qs('#qk_grus')  ?.addEventListener('click', ()=>openDest('grus'));
+  qs('#qk_diesel')?.addEventListener('click', ()=>openDest('diesel'));
+  qs('#qk_base')  ?.addEventListener('click', ()=>openDest('base'));
 
-  // Eksponer (kan være nyttig i andre moduler)
-  window.openDepot = openDest;
-})();
-
-/* ---------- Synk-indikator (enkel, kan erstattes av JSONBin) ---------- */
-(function(){
-  const badge = $('#sync_badge');
-  function setSync(state){
-    if(!badge) return;
-    // state: 'ok' | 'local' | 'unknown' | 'error'
-    const dotClass = state==='ok' ? 'dot-ok'
-                   : state==='local' ? 'dot-warn'
-                   : state==='error' ? 'dot-err'
-                   : 'dot-unknown';
-    const txt = state==='ok' ? 'Synk: OK'
-              : state==='local' ? 'Synk: lokal'
-              : state==='error' ? 'Synk: feil'
-              : 'Synk: ukjent';
-    badge.innerHTML = `<span class="dot ${dotClass}"></span> ${txt}`;
+  /* ---------- Synk-badge demo (settes til OK etter 800ms) ---------- */
+  const syncBadge = qs('#sync_badge');
+  if(syncBadge){
+    setTimeout(()=>{ syncBadge.innerHTML = `<span class="dot dot-ok"></span> Synk: OK`; }, 800);
   }
-  // Sett «OK» etter en liten stund slik at UI ser levende ut.
-  setTimeout(()=>setSync('ok'), 600);
-
-  // Eksponer slik at Work/Admin kan oppdatere ved ekte kall
-  window.setSyncBadge = setSync;
-})();
-
-/* ---------- Liten init for å være sikker ---------- */
-(function(){
-  // Sørg for at kun én seksjon er synlig når DOM er klar
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const current = (location.hash||'#home').replace('#','') || 'home';
-    if($('#'+current)) window.showPage(current); else window.showPage('home');
-  });
 })();
