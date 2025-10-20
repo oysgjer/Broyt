@@ -1,4 +1,33 @@
 /* ========= del-d.js (ramme/meny/ruting/wake-lock) ========= */
+// ========== Fallbacker for cloud-funksjoner ==========
+if (typeof window.refreshCloud !== 'function') {
+  window.refreshCloud = async function() {
+    console.log('[fallback] refreshCloud -> bruker lokal cache');
+    // simulerer kort forsinkelse
+    await new Promise(r => setTimeout(r, 150));
+    if (!window.S.cloud) {
+      window.S.cloud = { snapshot: { addresses: [] }};
+    }
+    return window.S.cloud;
+  };
+}
+
+if (typeof window.saveCloud !== 'function') {
+  window.saveCloud = async function() {
+    console.log('[fallback] saveCloud -> lagrer kun lokalt');
+    await new Promise(r => setTimeout(r, 100));
+    return true;
+  };
+}
+
+if (typeof window.ensureAddressesSeeded !== 'function') {
+  window.ensureAddressesSeeded = async function() {
+    console.log('[fallback] ensureAddressesSeeded -> sjekker lokale data');
+    if (!window.S.cloud || !Array.isArray(window.S.cloud.snapshot?.addresses)) {
+      window.S.cloud = { snapshot: { addresses: [] }};
+    }
+  };
+}
 (function () {
   /* Drawer */
   const drawer = $('#drawer'), scrim = $('#scrim');
