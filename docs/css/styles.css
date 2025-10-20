@@ -137,28 +137,56 @@ aside#drawer {
 #scrim { background: rgba(0,0,0,.55) !important; z-index: 999 !important; }
 #drawer { z-index: 1001 !important; }
 
-/* === FIX for gjennomsiktig meny i iOS Safari === */
+/* === iOS Safari fix + korrekt åpen/lukket atferd for meny === */
 #drawer,
+.drawer,
 aside#drawer {
-  background-color: var(--surface) !important;
-  opacity: 1 !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  -webkit-transform: translate3d(0,0,0); /* iOS GPU hack */
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 80vw;
+  max-width: 320px;
+  background-color: var(--surface); /* solid, ingen gjennomskinn */
+  z-index: 1002;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  will-change: transform;
+  pointer-events: none;          /* blokkér klikk når lukket */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none; /* iOS: fjern blur/transparens */
 }
 
-#drawer * {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+#drawer.open,
+.drawer.open,
+aside#drawer.open {
+  transform: translateX(0);
+  pointer-events: auto;          /* klikk kun når åpen */
 }
 
+/* Scrim: usynlig og uklikkbar som standard */
 #scrim {
-  background: rgba(0,0,0,0.55) !important;
-  opacity: 1 !important;
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1001;
+  pointer-events: none;          /* IKKE blokker klikk når skjult */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-/* Hvis det fortsatt ser svakt transparent ut */
+/* Scrim synlig når .show settes fra JS */
+#scrim.show {
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 1;
+  pointer-events: auto;          /* blokker klikk når synlig */
+}
+
+/* Sikre at ingenting annet blir halvtransparent på iOS */
 html, body {
-  -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
 }
