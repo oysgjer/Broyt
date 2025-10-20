@@ -1,7 +1,6 @@
 <h1>Service</h1>
 
-<form id="service">
-
+<form id="serviceForm" novalidate>
   <section class="service-card">
     <h3>Smøring</h3>
     <label><input type="checkbox" id="svc_skjaer"> Skjær smurt</label>
@@ -20,7 +19,7 @@
     <h3>Diesel og grus</h3>
     <label><input type="checkbox" id="svc_diesel"> Diesel fylt</label>
     <label>Antall kasser grus:
-      <input type="text" id="svc_kasser" placeholder="f.eks. 2 kasser">
+      <input type="text" id="svc_kasser" placeholder="f.eks. 2 kasser" inputmode="numeric">
     </label>
   </section>
 
@@ -30,4 +29,4 @@
   </section>
 
   <button id="svc_send" type="button" class="primary-btn">📤 Send rapport</button>
-</form>)
+</form>
