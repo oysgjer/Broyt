@@ -181,3 +181,10 @@ if (wlBtn){
 /* ---------- Eksporter alt vi trenger fra denne "del-d" ---------- */
 window.toggleWakeLock = toggleWakeLock;
 window.openDest       = openDest;
+
+/* ==== Globale eksporterte symboler for andre filer ==== */
+window.ensureAddressesSeeded = ensureAddressesSeeded;
+window.refreshCloud = refreshCloud;
+window.statusStore = statusStore;
+window.JSONBIN = JSONBIN;
+window.STATE_LABEL = STATE_LABEL;
