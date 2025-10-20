@@ -1,130 +1,230 @@
-// Service.js — Service-skjema med førernavn + dato i logg
+/* =========================================================
+   Service.js – serviceutfylling + deling/epost av rapport
+   Forutsetter at HTML har disse id-ene:
+   - svc_skjaer, svc_fres, svc_forstilling
+   - svc_olje_foran, svc_olje_bak, svc_olje_etter
+   - svc_diesel, svc_kasser (text), svc_annet (textarea)
+   - svc_send (knapp)
+   Bruker samme lagring som resten av appen:
+   - BROYT_LOCAL_DATA  (sky-snapshot + status)
+   - BROYT_PREFS       (fører/utstyr/retning)
+   ========================================================= */
+
 (function(){
-  const qs = (sel, root=document) => root.querySelector(sel);
+  const $  = (s,root=document)=>root.querySelector(s);
+  const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
 
-  // === Bygg service-skjemaet ===
-  function ensureServiceShell(){
-    const sec = document.getElementById('service');
-    if(!sec) return;
-    if(qs('.service-form', sec)) return;
+  /* ---------- Små utils ---------- */
+  const nowISO = ()=> new Date().toISOString();
+  const fmtDate = (d=new Date())=>{
+    return d.toLocaleString('no-NO',{ year:'numeric', month:'2-digit', day:'2-digit',
+                                      hour:'2-digit', minute:'2-digit' });
+  };
+  const safe = v => (v==null ? '' : String(v));
 
-    sec.innerHTML = `
-      <h1>Service</h1>
-      <form id="serviceForm" class="service-form">
-        <fieldset>
-          <legend>Smøring</legend>
-          <label><input type="checkbox" name="skjaer"> Skjær smurt</label>
-          <label><input type="checkbox" name="fres"> Fres smurt</label>
-          <label><input type="checkbox" name="forstilling"> Forstilling smurt</label>
-        </fieldset>
+  function getPrefs(){
+    try{ return JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}'); }
+    catch{ return {}; }
+  }
+  function getCloud(){
+    try{ return JSON.parse(localStorage.getItem('BROYT_LOCAL_DATA')||'{}'); }
+    catch{ return {}; }
+  }
 
-        <fieldset>
-          <legend>Olje</legend>
-          <label><input type="checkbox" name="oljeForan"> Olje sjekket foran</label>
-          <label><input type="checkbox" name="oljeBak"> Olje sjekket bak</label>
-          <label><input type="checkbox" name="oljeEtterfylt"> Olje etterfylt</label>
-        </fieldset>
+  /* ---------- Les/skriv service-utkast ---------- */
+  const DRAFT_KEY='BROYT_SERVICE_DRAFT';
 
-        <fieldset>
-          <legend>Diesel og grus</legend>
-          <label><input type="checkbox" name="diesel"> Diesel fylt</label>
-          <label>Antall kasser grus:
-            <input type="text" name="grusKasser" class="input" placeholder="f.eks. 2 kasser">
-          </label>
-        </fieldset>
+  function readDraft(){
+    try{ return JSON.parse(localStorage.getItem(DRAFT_KEY)||'{}'); }
+    catch{ return {}; }
+  }
+  function writeDraft(d){
+    try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(d||{})); }
+    catch{}
+  }
+  function clearDraft(){
+    try{ localStorage.removeItem(DRAFT_KEY); }catch{}
+  }
 
-        <fieldset>
-          <legend>Annet</legend>
-          <textarea name="annet" rows="3" class="input" placeholder="Skriv eventuelle kommentarer..."></textarea>
-        </fieldset>
+  function collectForm(){
+    return {
+      skjaer:       $('#svc_skjaer')?.checked || false,
+      fres:         $('#svc_fres')?.checked || false,
+      forstilling:  $('#svc_forstilling')?.checked || false,
 
-        <div class="service-actions">
-          <button type="submit" class="btn">Lagre</button>
-          <button type="reset" class="btn btn-ghost">Nullstill</button>
-        </div>
-      </form>
+      oljeForan:    $('#svc_olje_foran')?.checked || false,
+      oljeBak:      $('#svc_olje_bak')?.checked || false,
+      oljeEtter:    $('#svc_olje_etter')?.checked || false,
 
-      <div class="svc-log">
-        <h3>Tidligere service</h3>
-        <ul id="svcLogList" class="svc-list">
-          <li class="muted">Ingen registreringer ennå.</li>
-        </ul>
-      </div>
-    `;
+      diesel:       $('#svc_diesel')?.checked || false,
+      kasser:       $('#svc_kasser')?.value?.trim() || '',
+      annet:        $('#svc_annet')?.value?.trim() || '',
 
-    qs('#serviceForm', sec).addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      await saveService(sec);
+      ts:           nowISO()
+    };
+  }
+
+  function applyDraftToForm(d){
+    if(!d) return;
+    if($('#svc_skjaer'))       $('#svc_skjaer').checked = !!d.skjaer;
+    if($('#svc_fres'))         $('#svc_fres').checked = !!d.fres;
+    if($('#svc_forstilling'))  $('#svc_forstilling').checked = !!d.forstilling;
+
+    if($('#svc_olje_foran'))   $('#svc_olje_foran').checked = !!d.oljeForan;
+    if($('#svc_olje_bak'))     $('#svc_olje_bak').checked   = !!d.oljeBak;
+    if($('#svc_olje_etter'))   $('#svc_olje_etter').checked = !!d.oljeEtter;
+
+    if($('#svc_diesel'))       $('#svc_diesel').checked = !!d.diesel;
+    if($('#svc_kasser'))       $('#svc_kasser').value   = safe(d.kasser);
+    if($('#svc_annet'))        $('#svc_annet').value    = safe(d.annet);
+  }
+
+  function autoBindDraft(){
+    const inputs = $$('#service section input, #service section textarea');
+    inputs.forEach(el=>{
+      const ev = (el.tagName==='TEXTAREA' || el.type==='text') ? 'input':'change';
+      el.addEventListener(ev, ()=> writeDraft(collectForm()));
     });
   }
 
-  // === Hent og lagre i sky ===
-  async function getCloud(){
-    const cloud = await window.JSONBIN.getLatest();
-    if(!cloud.serviceReports) cloud.serviceReports = [];
-    return cloud;
-  }
-  async function putCloud(cloud){
-    cloud.updated = Date.now();
-    try { await window.JSONBIN.putRecord(cloud); }
-    catch(e){ console.warn('Feil ved lagring til sky:', e); }
-  }
+  /* ---------- Hent runde-data fra sky (lokal kopi) ---------- */
+  function summarizeRounds(){
+    const cloud = getCloud();
+    const addrs = (cloud && cloud.snapshot && Array.isArray(cloud.snapshot.addresses))
+      ? cloud.snapshot.addresses : [];
 
-  // === Lagre en ny service ===
-  async function saveService(scope){
-    const form = qs('#serviceForm', scope);
-    const data = Object.fromEntries(new FormData(form).entries());
-    data.ts = Date.now();
+    // Back-compat: statusSnow kan ligge som "status"
+    const bagSnow = (cloud && (cloud.statusSnow || cloud.status)) || {};
+    const bagGrit = (cloud && cloud.statusGrit) || {};
 
-    // Hent førernavn (hvis satt på hjem-siden)
-    const driver = localStorage.getItem('driverName') || 'Ukjent fører';
-    data.driver = driver;
-
-    const cloud = await getCloud();
-    cloud.serviceReports.unshift(data);
-    await putCloud(cloud);
-    renderLogs(scope, cloud.serviceReports);
-    form.reset();
-  }
-
-  // === Vis logg ===
-  function renderLogs(scope, rows){
-    const ul = qs('#svcLogList', scope);
-    if(!rows || rows.length === 0){
-      ul.innerHTML = `<li class="muted">Ingen registreringer ennå.</li>`;
-      return;
+    function pickDone(bag){
+      const list=[];
+      addrs.forEach((a,i)=>{
+        const st = bag[a.name] || {};
+        if(st.state==='done'){
+          list.push({
+            idx: i+1,
+            name: a.name,
+            who: st.driver||'',
+            startedAt: st.startedAt||null,
+            finishedAt: st.finishedAt||null
+          });
+        }
+      });
+      return { total:addrs.length, done:list.length, list };
     }
-    ul.innerHTML = rows.slice(0,10).map(r=>{
-      const d = new Date(r.ts).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' });
-      const txt = [
-        r.skjaer?'Skjær smurt':'',
-        r.fres?'Fres smurt':'',
-        r.forstilling?'Forstilling smurt':'',
-        r.oljeForan?'Olje foran':'',
-        r.oljeBak?'Olje bak':'',
-        r.oljeEtterfylt?'Olje etterfylt':'',
-        r.diesel?'Diesel fylt':'',
-        r.grusKasser?`Grus: ${r.grusKasser}`:'',
-        r.annet?`Annet: ${r.annet}`:''
-      ].filter(Boolean).join(', ');
 
-      return `
-        <li>
-          <strong>${r.driver}</strong> – ${d}<br>
-          ${txt || '<em>Ingen detaljer</em>'}
-        </li>`;
-    }).join('');
+    return {
+      snow: pickDone(bagSnow),
+      grit: pickDone(bagGrit),
+      season: (cloud && cloud.settings && cloud.settings.seasonLabel) || '—'
+    };
   }
 
-  // === Init ved lasting / sidebytte ===
-  async function bootIfService(){
-    const hash = (location.hash||'#home').replace('#','');
-    if(hash!=='service') return;
-    ensureServiceShell();
-    const cloud = await getCloud();
-    renderLogs(document.getElementById('service'), cloud.serviceReports);
+  /* ---------- Bygg rapporttekst ---------- */
+  function buildReportText(){
+    const prefs = getPrefs();
+    const svc   = collectForm();
+    const sum   = summarizeRounds();
+
+    const driver = prefs?.driver ? prefs.driver : '—';
+    const modeSnow = prefs?.eq?.sand ? 'Sand/Grus' : 'Snø';
+    const dir   = prefs?.dir || 'Normal';
+
+    const hdr = [
+      `Brøyterapport – ${fmtDate(new Date())}`,
+      `Fører: ${driver}`,
+      `Retning: ${dir}`,
+      `Sesong: ${sum.season}`,
+      `Aktiv modus ved start: ${modeSnow}`,
+      ``,
+    ].join('\n');
+
+    const svcTxt = [
+      `SERVICE`,
+      `- Skjær smurt: ${svc.skjaer?'Ja':'Nei'}`,
+      `- Fres smurt: ${svc.fres?'Ja':'Nei'}`,
+      `- Forstilling smurt: ${svc.forstilling?'Ja':'Nei'}`,
+      ``,
+      `- Olje sjekket foran: ${svc.oljeForan?'Ja':'Nei'}`,
+      `- Olje sjekket bak: ${svc.oljeBak?'Ja':'Nei'}`,
+      `- Olje etterfylt: ${svc.oljeEtter?'Ja':'Nei'}`,
+      ``,
+      `- Diesel fylt: ${svc.diesel?'Ja':'Nei'}`,
+      `- Antall kasser grus: ${svc.kasser||'—'}`,
+      ``,
+      `- Annet: ${svc.annet||'—'}`,
+      ``
+    ].join('\n');
+
+    const snowList = sum.snow.list.map(x=>`  ${String(x.idx).padStart(2,'0')}. ${x.name} (${x.who||'—'})`).join('\n') || '  —';
+    const gritList = sum.grit.list.map(x=>`  ${String(x.idx).padStart(2,'0')}. ${x.name} (${x.who||'—'})`).join('\n') || '  —';
+
+    const roundsTxt = [
+      `RUNDER`,
+      `- Snø: ${sum.snow.done} av ${sum.snow.total} fullført`,
+      snowList,
+      ``,
+      `- Sand/Grus: ${sum.grit.done} av ${sum.grit.total} fullført`,
+      gritList,
+      ``
+    ].join('\n');
+
+    return `${hdr}${svcTxt}${roundsTxt}`.trim();
   }
 
-  document.addEventListener('DOMContentLoaded', bootIfService);
-  window.addEventListener('hashchange', bootIfService);
+  /* ---------- Del / send e-post ---------- */
+  async function shareOrEmail(){
+    const text = buildReportText();
+    const subject = `Brøyterapport ${fmtDate(new Date())}`;
+
+    // 1) Web Share API med fil (best på iOS/Android moderne)
+    try{
+      const blob = new Blob([text], {type:'text/plain'});
+      const file = new File([blob], `Broeyterapport_${new Date().toISOString().slice(0,10)}.txt`, {type:'text/plain'});
+      if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+        await navigator.share({
+          title: subject,
+          text: 'Se vedlagt brøyterapport.',
+          files: [file]
+        });
+        // Rydd utkast når delt
+        clearDraft();
+        alert('Rapport delt.');
+        return;
+      }
+    }catch(e){ /* fallthrough til mailto */ }
+
+    // 2) Vanlig mailto (ingen vedlegg, men alt i body)
+    const body = encodeURIComponent(text);
+    const sub  = encodeURIComponent(subject);
+    // Tips: vil du låse til fast mottaker, legg til &to= i index.html <a> eller endre her:
+    const mailto = `mailto:?subject=${sub}&body=${body}`;
+    // Åpne:
+    window.location.href = mailto;
+
+    // Vi rydder ikke utkast automatisk her; bruker kan angre i epost-appen.
+  }
+
+  /* ---------- Init ---------- */
+  function init(){
+    // Last eventuelt kladd
+    applyDraftToForm(readDraft());
+    // Koble automatisk lagring
+    autoBindDraft();
+    // Koble "Send rapport"
+    $('#svc_send')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      // lagre siste input før send
+      writeDraft(collectForm());
+      shareOrEmail();
+    });
+  }
+
+  // Kjør når DOM er klar
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  }else{
+    init();
+  }
 })();
