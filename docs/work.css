@@ -1,143 +1,62 @@
-/* =============== UNDER ARBEID – LOGIKK =============== */
-
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-
-let workState = {
-  idx: 0,
-  dir: 'Normal',
-  mode: 'snow',
-  driver: '',
-  addresses: [],
-  cloud: null
-};
-
-async function refreshCloud() {
-  const res = await fetch(localStorage.getItem('BROYT_BIN_URL'), {
-    headers: { 'X-Master-Key': localStorage.getItem('BROYT_XKEY') }
-  });
-  const data = await res.json();
-  workState.cloud = data.record || data;
+/* Work page UI – farger følger tema-variabler fra styles.css */
+:root {
+  --me: #22c55e;        /* grønn */
+  --other: #7c3aed;     /* lilla */
+  --bar-bg: color-mix(in oklab, var(--fg) 10%, transparent);
+  --fill-shadow: 0 1px 0 rgba(0,0,0,.05) inset;
 }
 
-function statusStore() {
-  return workState.mode === 'snow'
-    ? workState.cloud.statusSnow
-    : workState.cloud.statusGrit;
+.work-wrap { padding-block: 1rem 2rem; }
+
+.work-statusbar {
+  display: grid;
+  gap: .5rem 1rem;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+.work-statusbar .ws-item { display: grid; grid-template-columns: auto auto 1fr auto; gap: .5rem; align-items: center; }
+.ws-dot{ width:.6rem; height:.6rem; border-radius:999px; display:inline-block; }
+.ws-me{ background: var(--me); }
+.ws-other{ background: var(--other); }
+.ws-label{ font-weight: 600; }
+.ws-bar{ height:.5rem; background: var(--bar-bg); border-radius:999px; overflow:hidden; }
+.ws-fill{ height:100%; box-shadow: var(--fill-shadow); }
+.ws-fill-me{ background: var(--me); }
+.ws-fill-other{ background: var(--other); }
+.ws-count{ font-variant-numeric: tabular-nums; font-size:.9rem; opacity:.8; }
+.ws-summary{ grid-column: 1 / -1; font-size:.95rem; opacity:.85; }
+
+.addr-block{ margin: .5rem 0 1rem; }
+.addr-now{
+  font-size: clamp(1.4rem, 3.8vw, 2rem);
+  font-weight: 800;
+  line-height: 1.15;
+}
+.addr-next{ margin-top:.25rem; font-size: clamp(1rem, 2.8vw, 1.15rem); }
+.muted{ opacity:.7; }
+
+.btn-row{ display:flex; gap:.5rem; flex-wrap:wrap; margin:.5rem 0; }
+.btn{
+  appearance:none; border:0; border-radius:.7rem; padding:.8rem 1rem;
+  font-weight:700; letter-spacing:.2px; cursor:pointer;
+  background: var(--card); color: var(--fg); box-shadow: var(--shadow-1);
+}
+.btn:active{ transform: translateY(1px); }
+.btn-green{  background: color-mix(in oklab, var(--me) 22%, var(--card)); color: var(--fg-strong, #fff); }
+.btn-emerald{ background: color-mix(in oklab, #10b981 24%, var(--card)); }
+.btn-slate{ background: color-mix(in oklab, #64748b 18%, var(--card)); }
+.btn-indigo{ background: color-mix(in oklab, #6366f1 22%, var(--card)); }
+.btn-blue{   background: color-mix(in oklab, #3b82f6 22%, var(--card)); }
+.btn-red{    background: color-mix(in oklab, #ef4444 22%, var(--card)); }
+
+.work-log{
+  margin-top: .75rem;
+  font-size: .95rem;
+  min-height: 1.2em;
 }
 
-/* ---------- Oppdater fremdriftslinje ---------- */
-function updateProgressBars() {
-  const total = workState.addresses.length || 1;
-  const bag = statusStore();
-  let me = 0, other = 0;
-
-  for (const k in bag) {
-    const st = bag[k];
-    if (st && st.state === 'done') {
-      if (st.driver === workState.driver) me++;
-      else other++;
-    }
-  }
-
-  const mePct = Math.round((100 * me) / total);
-  const otPct = Math.round((100 * other) / total);
-
-  $('#prog-me').style.width = mePct + '%';
-  $('#prog-other').style.width = otPct + '%';
+/* Småskjermer: status-feltene i 1 kolonne hvis det blir trangt */
+@media (max-width: 380px){
+  .work-statusbar{ grid-template-columns: 1fr; }
 }
-
-/* ---------- Oppdater adressevisning ---------- */
-function updateAddressUI() {
-  const cur = workState.addresses[workState.idx] || {};
-  const next =
-    workState.addresses[
-      workState.dir === 'Motsatt'
-        ? workState.idx - 1
-        : workState.idx + 1
-    ] || {};
-
-  $('#addr-now').textContent = cur.name
-    ? `📍 ${cur.name}`
-    : '📍 —';
-  $('#addr-next').textContent = next.name
-    ? `Neste: ${next.name}`
-    : 'Neste: —';
-
-  updateProgressBars();
-}
-
-/* ---------- Naviger ---------- */
-function mapsUrlFromAddr(addr) {
-  if (!addr) return 'https://www.google.com/maps';
-  if (addr.coords && /-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?/.test(addr.coords)) {
-    const q = addr.coords.replace(/\s+/g, '');
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
-  }
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr.name || '')}, Norge`;
-}
-
-/* ---------- Statusendring ---------- */
-async function stepState(patch, moveNext = true) {
-  const cur = workState.addresses[workState.idx];
-  if (!cur) return;
-
-  const bag = statusStore();
-  const curState = bag[cur.name] || {};
-  bag[cur.name] = { ...curState, ...patch, driver: workState.driver };
-
-  await fetch(localStorage.getItem('BROYT_BIN_PUT'), {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Key': localStorage.getItem('BROYT_XKEY')
-    },
-    body: JSON.stringify(workState.cloud)
-  });
-
-  if (moveNext) {
-    workState.idx =
-      workState.dir === 'Motsatt'
-        ? workState.idx - 1
-        : workState.idx + 1;
-  }
-  updateAddressUI();
-}
-
-/* ---------- Knapper ---------- */
-$('#btn-start')?.addEventListener('click', () =>
-  stepState({ state: 'in_progress', startedAt: Date.now() }, false)
-);
-$('#btn-done')?.addEventListener('click', () =>
-  stepState({ state: 'done', finishedAt: Date.now() })
-);
-$('#btn-skip')?.addEventListener('click', () =>
-  stepState({ state: 'skipped', finishedAt: Date.now() })
-);
-$('#btn-block')?.addEventListener('click', () =>
-  stepState({ state: 'blocked', finishedAt: Date.now() })
-);
-$('#btn-next')?.addEventListener('click', () => {
-  workState.idx++;
-  updateAddressUI();
-});
-$('#btn-nav')?.addEventListener('click', () => {
-  const cur = workState.addresses[workState.idx];
-  if (cur) window.open(mapsUrlFromAddr(cur), '_blank');
-});
-
-/* ---------- Init ---------- */
-window.addEventListener('DOMContentLoaded', async () => {
-  await refreshCloud();
-
-  const cloud = workState.cloud;
-  workState.driver =
-    JSON.parse(localStorage.getItem('BROYT_PREFS') || '{}').driver ||
-    'fører';
-  workState.mode = 'snow';
-  workState.dir = 'Normal';
-  workState.addresses =
-    cloud?.snapshot?.addresses?.filter((a) => a.active !== false) || [];
-
-  updateAddressUI();
-});
