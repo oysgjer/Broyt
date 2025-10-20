@@ -1,9 +1,5 @@
 // Work page – bare UI + trygg «demo»-logikk. Kobles senere mot JSONBin.
 
-/* Små hjelpere (deles med resten av appen) */
-const $  = (s,root=document)=>root.querySelector(s);
-const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
-
 /* Demo-datastruktur for å SE UI nå */
 const Demo = {
   driver: localStorage.getItem('BROYT_DEMO_DRIVER') || 'Fører',
