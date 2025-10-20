@@ -1,73 +1,40 @@
-// Service.js – kobler opp skjemaet når partialen er lastet
-(function(){
-  function bindServiceUI(){
-    const root = document.querySelector('#service');
-    if(!root || !root.querySelector('#serviceForm')) return false;
+/* ========= Service.js ========= */
+(function () {
+  const root = $('#service'); if (!root) return;
+  if (root.querySelector('.svc-card')) return; // unngå duplikat
 
-    const btn = root.querySelector('#svc_send');
-    if(!btn || btn._bound) return true; // allerede koblet
-    btn._bound = true;
+  const html = `
+    <div class="svc-card card" style="margin-top:12px">
+      <h3 class="muted" style="margin:0 0 8px">Smøring</h3>
+      <label class="row"><input type="checkbox" id="svc_skj"> Skjær smurt</label>
+      <label class="row"><input type="checkbox" id="svc_fres"> Fres smurt</label>
+      <label class="row"><input type="checkbox" id="svc_for"> Forstilling smurt</label>
+    </div>
 
-    btn.addEventListener('click', ()=>{
-      // Hent verdier
-      const v = id => root.querySelector('#'+id);
-      const report = {
-        smoring: {
-          skjaer: !!v('svc_skjaer')?.checked,
-          fres: !!v('svc_fres')?.checked,
-          forstilling: !!v('svc_forstilling')?.checked
-        },
-        olje: {
-          foran: !!v('svc_olje_foran')?.checked,
-          bak: !!v('svc_olje_bak')?.checked,
-          etterfylt: !!v('svc_olje_etter')?.checked
-        },
-        diesel: !!v('svc_diesel')?.checked,
-        kasserGrus: (v('svc_kasser')?.value || '').trim(),
-        annet: (v('svc_annet')?.value || '').trim(),
-        ts: new Date().toLocaleString('no-NO')
-      };
+    <div class="svc-card card">
+      <h3 class="muted" style="margin:0 0 8px">Olje</h3>
+      <label class="row"><input type="checkbox" id="svc_ol_f"> Olje sjekket foran</label>
+      <label class="row"><input type="checkbox" id="svc_ol_b"> Olje sjekket bak</label>
+      <label class="row"><input type="checkbox" id="svc_ol_e"> Olje etterfylt</label>
+    </div>
 
-      // Enkel deling/e-post (kan senere byttes til PDF + automatisk e-post)
-      const subject = `Service-rapport ${report.ts}`;
-      const body =
-`Smøring
-- Skjær smurt: ${report.smoring.skjaer ? 'Ja' : 'Nei'}
-- Fres smurt: ${report.smoring.fres ? 'Ja' : 'Nei'}
-- Forstilling smurt: ${report.smoring.forstilling ? 'Ja' : 'Nei'}
+    <div class="svc-card card">
+      <h3 class="muted" style="margin:0 0 8px">Diesel og grus</h3>
+      <label class="row"><input type="checkbox" id="svc_diesel"> Diesel fylt</label>
+      <label class="field" style="width:100%">
+        <span>Antall kasser grus:</span>
+        <input id="svc_kasser" class="input" inputmode="numeric" placeholder="f.eks. 2 kasser">
+      </label>
+    </div>
 
-Olje
-- Foran sjekket: ${report.olje.foran ? 'Ja' : 'Nei'}
-- Bak sjekket: ${report.olje.bak ? 'Ja' : 'Nei'}
-- Etterfylt: ${report.olje.etterfylt ? 'Ja' : 'Nei'}
+    <div class="svc-card card">
+      <h3 class="muted" style="margin:0 0 8px">Annet</h3>
+      <textarea id="svc_annet" class="input" rows="4" placeholder="Skriv eventuelle kommentarer..."></textarea>
+    </div>
+  `;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  root.appendChild(wrap);
 
-Drivstoff og grus
-- Diesel fylt: ${report.diesel ? 'Ja' : 'Nei'}
-- Antall kasser grus: ${report.kasserGrus || '—'}
-
-Annet:
-${report.annet || '—'}
-
-Tidspunkt: ${report.ts}`;
-
-      // Prøv Web Share hvis tilgjengelig (iOS/Android), ellers fallback til mailto:
-      if (navigator.share) {
-        navigator.share({title: subject, text: body}).catch(()=>{});
-      } else {
-        const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.location.href = mailto;
-      }
-    });
-
-    return true;
-  }
-
-  // Koble når partials er ferdig lastet
-  document.addEventListener('partials:ready', bindServiceUI);
-  // Og ved navigasjon (hvis brukeren kommer til siden etterpå)
-  window.addEventListener('hashchange', ()=>{
-    if (location.hash.replace('#','') === 'service') setTimeout(bindServiceUI, 0);
-  });
-  // fallback ved første last
-  window.addEventListener('DOMContentLoaded', ()=> setTimeout(bindServiceUI, 0));
+  // (Senere: send til e-post/JSONBin – hook legges her.)
 })();
