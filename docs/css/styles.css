@@ -164,3 +164,35 @@ h1{margin:.4rem 0 1rem 0; font-size:1.8rem}
 @media (min-width: 520px){
   .work-card .grid.actions{ grid-template-columns: repeat(3, minmax(0,1fr)); }
 }
+/* --- Drawer & scrim — klikkbarhet --- */
+#scrim{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  opacity: 0;
+  pointer-events: none;          /* <- viktig */
+  transition: opacity .2s ease;
+  z-index: 900;                  /* under drawer */
+}
+#scrim.show{
+  opacity: 1;
+  pointer-events: auto;          /* <- kun når åpen */
+}
+
+.drawer{
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: 280px; max-width: 85vw;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  transform: translateX(-110%);
+  transition: transform .25s ease;
+  pointer-events: none;          /* <- viktig når lukket */
+  z-index: 1000;                 /* over alt annet */
+}
+.drawer.open{
+  transform: translateX(0);
+  pointer-events: auto;          /* <- kun når åpen */
+}
+
+/* sikre at innholdet ikke havner bak noe */
+main{ position: relative; z-index: 0; }
+header.appbar{ position: sticky; top: 0; z-index: 800; }
