@@ -1,20 +1,23 @@
 <div class="card">
   <h1>Hjem</h1>
 
-  <div class="equip-list" aria-label="Utstyr">
-    <label><input id="a_eq_plow" type="checkbox"> Skjær</label>
-    <label><input id="a_eq_fres" type="checkbox"> Fres</label>
-    <label><input id="a_eq_sand" type="checkbox"> Sand/Grus</label>
-    <label style="margin-left:auto;"><input id="a_autoNav" type="checkbox"> Auto-naviger</label>
-  </div>
+  <!-- Utstyr – VERTIKAL liste (én pr linje) -->
+  <fieldset class="stack" aria-label="Utstyr">
+    <legend>Utstyr</legend>
+    <label class="row"><input id="a_eq_plow" type="checkbox"> Skjær</label>
+    <label class="row"><input id="a_eq_fres" type="checkbox"> Fres</label>
+    <label class="row"><input id="a_eq_sand" type="checkbox"> Sand/Grus</label>
+    <label class="row" style="margin-top:8px;"><input id="a_autoNav" type="checkbox"> Auto-naviger</label>
+  </fieldset>
 
-  <div class="home-grid" style="margin-top:8px;">
-    <div class="field">
-      <label for="a_driver">Fører</label>
-      <input id="a_driver" type="text" placeholder="Navn">
+  <!-- Felter: tekst over, input under (to kolonner på brede skjermer) -->
+  <div class="grid-2 gap">
+    <div class="field stack">
+      <label for="a_driver">Fører:</label>
+      <input id="a_driver" type="text" placeholder="Navn" autocomplete="name">
     </div>
-    <div class="field">
-      <label for="a_dir">Rekkefølge</label>
+    <div class="field stack">
+      <label for="a_dir">Rekkefølge:</label>
       <select id="a_dir">
         <option>Normal</option>
         <option>Motsatt</option>
@@ -22,7 +25,7 @@
     </div>
   </div>
 
-  <div class="actions" style="margin-top:12px;">
-    <button id="a_start" class="btn">Start runde</button>
+  <div class="row gap" style="margin-top:12px;">
+    <button id="a_start" class="btn primary">Start runde</button>
   </div>
 </div>
