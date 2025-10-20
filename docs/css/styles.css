@@ -362,3 +362,66 @@ section[hidden]{display:none !important}
   background: rgba(255, 255, 255, 0.04);
   border-radius: 6px;
 }
+
+/* ======== Service-skjema – mørkt tema og høy kontrast ======== */
+.service-card {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--sep);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.service-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  color: var(--text);
+  opacity: 0.95;
+  border-bottom: 1px solid var(--sep);
+  padding-bottom: 6px;
+}
+
+.service-card label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  color: var(--text);
+  padding: 6px 0;
+}
+
+.service-card input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.service-card input[type="text"],
+.service-card textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  border: 1px solid var(--sep);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 1rem;
+}
+
+.service-card textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.service-card input::placeholder,
+.service-card textarea::placeholder {
+  color: var(--muted);
+}
+
+.service-card input:focus,
+.service-card textarea:focus {
+  outline: 1px solid var(--primary);
+  background: rgba(255,255,255,0.08);
+}
