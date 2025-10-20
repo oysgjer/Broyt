@@ -117,3 +117,50 @@ h1{margin:.4rem 0 1rem 0; font-size:1.8rem}
 .btn:active{transform:translateY(1px)}
 
 .muted{color:var(--muted); font-size:.95rem}
+/* ---------- Under arbeid: fremdriftsindikator ---------- */
+.progress-wrap {
+  margin: 8px 12px 16px;
+  display: grid;
+  gap: 8px;
+}
+.progress-row { display: grid; gap: 6px; }
+.track {
+  width: 100%;
+  height: 6px;
+  background: var(--surface-2, rgba(0,0,0,.08));
+  border-radius: 999px;
+  overflow: hidden;
+}
+.bar { height: 100%; border-radius: 999px; transition: width .25s ease; }
+.bar-me { background: #22c55e; }      /* grønn */
+.bar-other { background: #a78bfa; }   /* lilla */
+
+.legend {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .875rem; color: var(--text-subtle, #667085);
+}
+.legend .count { margin-left: auto; color: var(--text, inherit); font-variant-numeric: tabular-nums; }
+
+.dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block;
+}
+.dot-me { background: #22c55e; }
+.dot-other { background: #a78bfa; }
+
+.progress-summary {
+  margin-top: 2px;
+  font-size: .875rem;
+  color: var(--text-subtle, #667085);
+}
+
+/* Arbeidskort */
+.work-card .eyebrow{font-size:.8rem;opacity:.7}
+.work-card h2{margin:.2rem 0}
+.work-card .status-line{margin:.25rem 0 .75rem;opacity:.8}
+.work-card .grid.actions{
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
+}
+@media (min-width: 520px){
+  .work-card .grid.actions{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
