@@ -1,91 +1,95 @@
 <!doctype html>
 <html lang="no">
-  <head>
+<head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Farger/tema -->
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
-
-  <!-- Hjelp Safari/iOS å ikke cache hardt -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
+  <!-- iOS webapp-oppførsel -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <title>Brøyterute</title>
 
-  <!-- CSS med versjonstag -->
-  <link rel="stylesheet" href="css/styles.css?v=20251020a" />
-  <link rel="stylesheet" href="css/work.css?v=20251020a" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/work.css" />
 </head>
 <body>
+
   <!-- Appbar -->
   <header class="appbar">
-    <button id="btnMenu" class="icon-btn" aria-label="Meny">☰</button>
+    <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
     <div class="appbar-title">Brøyterute</div>
 
-    <!-- Synk-indikator og Wake-lås prikk -->
     <div class="appbar-right">
       <span id="sync_badge" class="badge"><span class="dot dot-unknown"></span> Synk: ukjent</span>
-      <span id="wl_badge"   class="badge"><span id="wl_dot" class="dot dot-off"></span></span>
+      <span id="wl_badge" class="badge" title="Skjermlås-status"><span id="wl_dot" class="dot dot-off"></span></span>
     </div>
   </header>
 
-  <!-- Drawer -->
-  <nav id="drawer" aria-hidden="true">
-    <div class="drawer-head">
-      <strong>Brøyterute</strong>
-      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">✕</button>
+  <!-- Scrim + Drawer (med inline styles som siste “hard override”) -->
+  <div id="scrim"></div>
+  <aside id="drawer" class="drawer" style="
+      background:#0b1320 !important;
+      opacity:1 !important;
+      -webkit-backdrop-filter:none !important; backdrop-filter:none !important;
+      z-index:10002 !important;
+    ">
+    <div class="drawer-header">
+      <div>Brøyterute</div>
+      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
     </div>
 
-    <div class="drawer-links">
-      <a class="drawer-link" data-go="home">🏠 Hjem</a>
-      <a class="drawer-link" data-go="work">🧭 Under arbeid</a>
-      <a class="drawer-link" data-go="service">🛠️ Service</a>
-      <a class="drawer-link" data-go="status">📊 Status</a>
-      <a class="drawer-link" data-go="admin">⚙️ Admin</a>
+    <div class="drawer-content">
+      <nav>
+        <div class="drawer-section">Navigasjon</div>
+        <ul class="drawer-list">
+          <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
+          <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
+          <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
+          <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
+          <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
+        </ul>
+
+        <div class="drawer-section">Snarveier</div>
+        <div class="row">
+          <button id="qk_grus"   class="btn-ghost"><span class="emoji">🏗️</span>Hent grus</button>
+          <button id="qk_diesel" class="btn-ghost"><span class="emoji">🛢️</span>Diesel</button>
+          <button id="qk_base"   class="btn-ghost"><span class="emoji">🏡</span>Base</button>
+        </div>
+
+        <div class="drawer-section" style="margin-top:14px">Skjerm</div>
+        <div class="card row">
+          <button id="qk_wl" class="btn-ghost"><span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken</button>
+          <span id="qk_wl_status" class="muted">Status: av</span>
+        </div>
+      </nav>
     </div>
-
-    <hr class="divider">
-
-    <div class="drawer-links">
-      <button id="qk_grus"   class="drawer-link" type="button">🏗️ Hent grus</button>
-      <button id="qk_diesel" class="drawer-link" type="button">⛽ Diesel</button>
-      <button id="qk_base"   class="drawer-link" type="button">🏡 Base</button>
-    </div>
-
-    <hr class="divider">
-
-    <div class="drawer-links">
-      <button id="qk_wl" class="drawer-link" type="button">
-        <span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken
-      </button>
-      <small id="qk_wl_status" class="muted">Status: av</small>
-    </div>
-  </nav>
-  <div id="scrim" aria-hidden="true"></div>
+  </aside>
 
   <!-- Innhold -->
   <main>
-    <!-- HJEM -->
     <section id="home">
       <h1>Hjem</h1>
 
-      <!-- Først: Fører (label over felt) -->
       <label class="field">
         <span>Fører:</span>
-        <input id="a_driver" class="input" type="text" placeholder="Navn" inputmode="text" />
+        <input id="a_driver" class="input" placeholder="Navn" />
       </label>
 
-      <!-- Utstyr: vertikal -->
-      <fieldset class="group">
-        <legend>Utstyr</legend>
-        <label class="check"><input id="a_eq_plow" type="checkbox" /> Skjær</label>
-        <label class="check"><input id="a_eq_fres" type="checkbox" /> Fres</label>
-        <label class="check"><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
-      </fieldset>
+      <label class="field">
+        <span>Utstyr</span>
+        <div class="input-like">
+          <div class="checkbox-row" style="flex-direction:row; gap:18px">
+            <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
+            <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
+            <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
+          </div>
+        </div>
+      </label>
 
-      <!-- Rekkefølge: label over -->
       <label class="field">
         <span>Rekkefølge:</span>
         <select id="a_dir" class="input">
@@ -94,63 +98,68 @@
         </select>
       </label>
 
-      <label class="check">
-        <input id="a_autoNav" type="checkbox" /> Auto-naviger
+      <label class="field">
+        <div class="checkbox-row" style="flex-direction:row; gap:12px; align-items:center">
+          <input id="a_autoNav" type="checkbox" />
+          <span>Auto-naviger</span>
+        </div>
       </label>
 
-      <div class="row gap">
-        <button id="a_start" class="btn primary">Start runde</button>
-      </div>
+      <button id="a_start" class="btn">Start runde</button>
     </section>
 
-    <!-- UNDER ARBEID -->
     <section id="work" hidden>
       <h1>Under arbeid</h1>
       <p class="muted">Plassholder-skjerm – navigering fungerer.</p>
+      <!-- Work.js vil etter hvert fylle denne -->
     </section>
 
-    <!-- SERVICE -->
     <section id="service" hidden>
       <h1>Service</h1>
-      <p class="muted">Plassholder-skjerm – navigering fungerer.</p>
+      <p class="muted">Plassholder.</p>
     </section>
 
-    <!-- STATUS -->
     <section id="status" hidden>
       <h1>Status</h1>
-      <p class="muted">Plassholder-skjerm – navigering fungerer.</p>
+      <p class="muted">Plassholder.</p>
     </section>
 
-    <!-- ADMIN -->
     <section id="admin" hidden>
       <h1>Admin</h1>
-      <div class="stack">
+      <div class="grid2">
         <label class="field">
-          <span>Grusdepot (lat,lon)</span>
-          <input id="adm_grus" class="input" placeholder="60.xxxxxx,11.xxxxxx" />
+          <span>Grus (lat,lon)</span>
+          <input id="adm_grus" class="input" placeholder="60.xxxxx,11.xxxxx" />
         </label>
         <label class="field">
           <span>Diesel (lat,lon)</span>
-          <input id="adm_diesel" class="input" placeholder="60.xxxxxx,11.xxxxxx" />
+          <input id="adm_diesel" class="input" placeholder="60.xxxxx,11.xxxxx" />
         </label>
         <label class="field">
           <span>Base (lat,lon)</span>
-          <input id="adm_base" class="input" placeholder="60.xxxxxx,11.xxxxxx" />
+          <input id="adm_base" class="input" placeholder="60.xxxxx,11.xxxxx" />
         </label>
-        <button id="adm_save" class="btn">Lagre</button>
       </div>
-      <p class="muted">Plassholder-skjerm – lagrer i localStorage for demo.</p>
+      <button id="adm_save" class="btn">Lagre</button>
     </section>
   </main>
 
-  <!-- JS med versjonstag -->
-  <script src="js/del-d.js?v=20251020a" defer></script>
-  <script src="js/include-partials.js?v=20251020a" defer></script>
-  <script src="js/Home.js?v=20251020a" defer></script>
-  <script src="js/Work.js?v=20251020a" defer></script>
-  <script src="js/Service.js?v=20251020a" defer></script>
-  <script src="js/Status.js?v=20251020a" defer></script>
-  <script src="js/Admin.js?v=20251020a" defer></script>
+  <!-- JS (som før) -->
+  <script src="js/del-d.js" defer></script>
+  <script src="js/include-partials.js" defer></script>
+  <script src="js/Home.js" defer></script>
+  <script src="js/Work.js" defer></script>
+  <script src="js/Service.js" defer></script>
+  <script src="js/Status.js" defer></script>
+  <script src="js/Admin.js" defer></script>
+
+  <!-- iOS hardfix: tving solid drawer + riktig z-index -->
   <script src="js/ios-drawer-hardfix.js?v=20251020c" defer></script>
+
+  <!-- Ekstra, siste forsikring: inline stil “over alt” -->
+  <style>
+    #drawer{ background:#0b1320 !important; opacity:1 !important; }
+    #scrim.show{ background:rgba(0,0,0,.66) !important; }
+  </style>
 </body>
 </html>
