@@ -233,3 +233,10 @@ section[hidden]{display:none !important}
 .btn-pulse-blue {
   animation: pulseBlue 1.6s infinite ease-in-out;
 }
+
+/* ===== Vertikal layout på status-teller ===== */
+#st_counts {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 4px !important;
+}
