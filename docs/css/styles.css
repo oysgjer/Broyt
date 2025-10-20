@@ -266,3 +266,58 @@ section[hidden]{display:none !important}
 @media (max-width: 480px){
   .svc-form .svc-grid { grid-template-columns: 1fr 120px; }
 }
+
+/* ===== Service side styling ===== */
+.service-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: var(--surface);
+  border: 1px solid var(--sep);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.service-form fieldset {
+  border: 1px solid var(--sep);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.service-form legend {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.service-form label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.service-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.svc-log {
+  margin-top: 20px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--sep);
+  border-radius: 12px;
+}
+
+.svc-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.svc-list li {
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
