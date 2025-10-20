@@ -1,5 +1,3 @@
-// Work page – bare UI + trygg «demo»-logikk. Kobles senere mot JSONBin.
-
 /* Demo-datastruktur for å SE UI nå */
   driver: localStorage.getItem('BROYT_DEMO_DRIVER') || 'Fører',
   idx: 0,
