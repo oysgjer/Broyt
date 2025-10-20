@@ -1,5 +1,11 @@
 // del-d.js — base wiring (drawer, routing, wake lock, quick actions, sync badge)
-
+// midlertidig fallback:
+if (typeof ensureAddressesSeeded === 'undefined') {
+  function ensureAddressesSeeded() {
+    console.warn('ensureAddressesSeeded() mangler – midlertidig stub brukt');
+    return Promise.resolve();
+  }
+}
 /* ---------- Små helpers ---------- */
 const $  = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
