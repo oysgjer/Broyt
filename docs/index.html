@@ -109,10 +109,44 @@
     </section>
 
     <section id="work" hidden>
-      <h1>Under arbeid</h1>
-      <p class="muted">Plassholder-skjerm – navigering fungerer.</p>
-      <!-- Work.js vil etter hvert fylle denne -->
-    </section>
+  <h1>Under arbeid</h1>
+
+  <!-- Toppkort: fremdrift + sammendrag -->
+  <div class="work-top" id="wk_top">
+    <div class="work-prog" aria-label="Fremdrift">
+      <div class="other" id="b_prog_other"></div>
+      <div class="me"    id="b_prog_me"></div>
+    </div>
+    <div class="work-caption">
+      <div><strong id="b_prog_me_count">0/0</strong> mine • <strong id="b_prog_other_count">0/0</strong> andre</div>
+      <div id="b_prog_summary">0 av 0 adresser fullført</div>
+    </div>
+  </div>
+
+  <!-- Nå / Neste -->
+  <div class="card" style="margin-top:14px">
+    <div style="margin-bottom:8px; color:var(--muted)">Nå</div>
+    <div id="b_now" style="font-weight:800; font-size:1.35rem; line-height:1.2">—</div>
+
+    <div style="margin:14px 0 6px; color:var(--muted)">Neste</div>
+    <div id="b_next" style="font-weight:600; font-size:1rem; opacity:.9">—</div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px">
+      <button id="act_start" class="btn-ghost">▶️ Start</button>
+      <button id="act_done"  class="btn">✅ Ferdig</button>
+
+      <button id="act_skip"  class="btn-ghost">⏭️ Hopp over</button>
+      <button id="act_next"  class="btn-ghost">➡️ Neste</button>
+
+      <button id="act_nav"   class="btn-ghost">🧭 Naviger</button>
+      <button id="act_block" class="btn-ghost">⛔ Ikke mulig</button>
+    </div>
+
+    <div style="margin-top:10px; color:var(--muted)">
+      Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
+    </div>
+  </div>
+</section>
 
     <section id="service" hidden>
       <h1>Service</h1>
