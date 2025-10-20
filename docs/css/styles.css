@@ -9,27 +9,18 @@
   --warn: #f59e0b;
   --err: #ef4444;
   --sep: rgba(255,255,255,0.08);
-
-  /* drawer chips */
-  --chip-bg: rgba(255,255,255,.06);
-  --chip-bg-hover: rgba(255,255,255,.12);
-  --chip-border: rgba(255,255,255,.12);
 }
 @media (prefers-color-scheme: light){
   :root{
     --bg:#f6f7fb; --surface:#ffffff; --text:#0b1320; --muted:#6b7280;
     --sep: rgba(0,0,0,0.08);
-
-    --chip-bg: rgba(0,0,0,.04);
-    --chip-bg-hover: rgba(0,0,0,.08);
-    --chip-border: rgba(0,0,0,.10);
   }
 }
 *{box-sizing:border-box}
-html,body{height:100%}
+html,body{height:100%; background:var(--bg);}
 body{
   margin:0; font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background:var(--bg); color:var(--text);
+  color:var(--text);
 }
 
 /* ========= Appbar ========= */
@@ -45,6 +36,7 @@ body{
 }
 .icon-btn:active{background:var(--sep)}
 .appbar-title{font-weight:700}
+.appbar-right{margin-left:auto; display:flex; gap:12px; align-items:center}
 
 /* Badges / dots */
 .badge{font-size:.95rem; opacity:.9}
@@ -57,18 +49,20 @@ body{
 #scrim{
   position:fixed; inset:0; background:rgba(0,0,0,.45);
   opacity:0; pointer-events:none; transition:opacity .18s ease;
-  z-index:999;
+  z-index:10001;
 }
 #scrim.show{opacity:1; pointer-events:auto}
 
 .drawer{
   position:fixed; top:0; left:0; height:100vh;
-  width:80vw; max-width:320px;
+  width:80vw; max-width:340px;
   background:var(--surface); color:var(--text);
-  box-shadow: 0 10px 30px rgba(0,0,0,.45);
+  box-shadow: 0 12px 32px rgba(0,0,0,.55);
   border-right:1px solid var(--sep);
   transform:translateX(-100%); transition:transform .22s ease;
-  z-index:1001; display:flex; flex-direction:column;
+  z-index:10002;
+  display:flex; flex-direction:column;
+  opacity:1; /* viktig for iOS */
 }
 .drawer.open{transform:translateX(0)}
 .drawer-header{
@@ -86,22 +80,6 @@ body{
 .drawer-link:hover{background:var(--sep)}
 .drawer-link .emoji{width:22px; text-align:center}
 
-/* --- Quick action chips i menyen (bedre kontrast) --- */
-.qa-list{display:flex; flex-direction:column; gap:10px; padding:6px 8px}
-.qa-chip{
-  display:flex; align-items:center; gap:10px;
-  padding:10px 12px;
-  background: var(--chip-bg);
-  border: 1px solid var(--chip-border);
-  border-radius:12px;
-  color: var(--text);
-  text-decoration: none;
-  font-weight:600;
-}
-.qa-chip:hover{ background: var(--chip-bg-hover); }
-.qa-chip:active{ transform: translateY(1px); }
-.qa-chip .emoji{width:22px; text-align:center}
-
 /* Wake lock kort i meny */
 .card{
   margin:12px 8px; padding:12px; border-radius:12px;
@@ -112,6 +90,7 @@ body{
 /* ========= Layout main ========= */
 main{padding:18px}
 section[hidden]{display:none !important}
+h1{margin:0 0 16px}
 
 /* ========= Form / inputs ========= */
 .field{display:block; margin:14px 0 10px}
@@ -120,7 +99,10 @@ section[hidden]{display:none !important}
   width:100%; border:1px solid var(--sep); border-radius:10px;
   background:transparent; color:var(--text); padding:10px 12px;
 }
+.input-like{display:block}
 .checkbox-row{display:flex; flex-direction:column; gap:10px}
+.muted{color:var(--muted)}
+
 .btn{
   display:inline-flex; align-items:center; gap:8px;
   border:0; border-radius:12px; padding:10px 14px;
@@ -142,68 +124,4 @@ section[hidden]{display:none !important}
 /* Små skjermer */
 @media (max-width:420px){
   main{padding:14px}
-}
-
-/* ===== Drawer opacity hard-fix ===== */
-#drawer,
-#drawer.drawer,
-aside#drawer {
-  background: var(--surface) !important;
-  opacity: 1 !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-#drawer * { background: transparent; }
-
-/* Scrim under drawer */
-#scrim { background: rgba(0,0,0,.55) !important; z-index: 999 !important; }
-#drawer { z-index: 1001 !important; }
-
-/* iOS Safari fix + korrekt åpen/lukket atferd */
-#drawer,
-.drawer,
-aside#drawer {
-  position: fixed;
-  left: 0;
-  top: 0;
-  height: 100vh;
-  width: 80vw;
-  max-width: 320px;
-  background-color: var(--surface);
-  z-index: 1002;
-  transform: translateX(-100%);
-  transition: transform 0.25s ease;
-  will-change: transform;
-  pointer-events: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-#drawer.open,
-.drawer.open,
-aside#drawer.open {
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-/* Scrim usynlig som standard */
-#scrim {
-  position: fixed;
-  inset: 0;
-  background: transparent;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: 1001;
-  pointer-events: none;
-}
-#scrim.show {
-  background: rgba(0, 0, 0, 0.6);
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Sikre at ingenting annet blir halvtransparent på iOS */
-html, body {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  opacity: 1 !important;
 }
