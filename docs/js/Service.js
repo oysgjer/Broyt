@@ -1,8 +1,8 @@
-// Service.js — Enkelt service-skjema med avkryssingsbokser og tekstfelt
+// Service.js — Service-skjema med førernavn + dato i logg
 (function(){
   const qs = (sel, root=document) => root.querySelector(sel);
-  const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  
+
+  // === Bygg service-skjemaet ===
   function ensureServiceShell(){
     const sec = document.getElementById('service');
     if(!sec) return;
@@ -51,14 +51,14 @@
         </ul>
       </div>
     `;
-    
-    // Event-handlere
+
     qs('#serviceForm', sec).addEventListener('submit', async (e)=>{
       e.preventDefault();
       await saveService(sec);
     });
   }
 
+  // === Hent og lagre i sky ===
   async function getCloud(){
     const cloud = await window.JSONBIN.getLatest();
     if(!cloud.serviceReports) cloud.serviceReports = [];
@@ -66,14 +66,19 @@
   }
   async function putCloud(cloud){
     cloud.updated = Date.now();
-    try{ await window.JSONBIN.putRecord(cloud); }
+    try { await window.JSONBIN.putRecord(cloud); }
     catch(e){ console.warn('Feil ved lagring til sky:', e); }
   }
 
+  // === Lagre en ny service ===
   async function saveService(scope){
     const form = qs('#serviceForm', scope);
     const data = Object.fromEntries(new FormData(form).entries());
     data.ts = Date.now();
+
+    // Hent førernavn (hvis satt på hjem-siden)
+    const driver = localStorage.getItem('driverName') || 'Ukjent fører';
+    data.driver = driver;
 
     const cloud = await getCloud();
     cloud.serviceReports.unshift(data);
@@ -82,6 +87,7 @@
     form.reset();
   }
 
+  // === Vis logg ===
   function renderLogs(scope, rows){
     const ul = qs('#svcLogList', scope);
     if(!rows || rows.length === 0){
@@ -89,7 +95,7 @@
       return;
     }
     ul.innerHTML = rows.slice(0,10).map(r=>{
-      const d = new Date(r.ts).toLocaleString('no-NO');
+      const d = new Date(r.ts).toLocaleString('no-NO', { dateStyle: 'short', timeStyle: 'short' });
       const txt = [
         r.skjaer?'Skjær smurt':'',
         r.fres?'Fres smurt':'',
@@ -101,10 +107,16 @@
         r.grusKasser?`Grus: ${r.grusKasser}`:'',
         r.annet?`Annet: ${r.annet}`:''
       ].filter(Boolean).join(', ');
-      return `<li><strong>${d}</strong><br>${txt}</li>`;
+
+      return `
+        <li>
+          <strong>${r.driver}</strong> – ${d}<br>
+          ${txt || '<em>Ingen detaljer</em>'}
+        </li>`;
     }).join('');
   }
 
+  // === Init ved lasting / sidebytte ===
   async function bootIfService(){
     const hash = (location.hash||'#home').replace('#','');
     if(hash!=='service') return;
