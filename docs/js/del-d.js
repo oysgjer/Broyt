@@ -96,8 +96,13 @@ function updateProgressBars(){
   const bag = statusStore();
   for(const k in bag){
     const st=bag[k];
-    if(st?.state==='done'){ (st.driver===S.driver? me:other)++; }
+    if (st?.state === 'done') {
+  if (st.driver === S.driver) {
+    me++;
+  } else {
+    other++;
   }
+}
   const mePct=Math.round(100*me/total), otPct=Math.round(100*other/total);
   const bm=$('#b_prog_me'), bo=$('#b_prog_other');
   if(bm) bm.style.width = mePct+'%';
