@@ -321,3 +321,44 @@ section[hidden]{display:none !important}
   margin-bottom: 10px;
   line-height: 1.4;
 }
+
+/* ==== iOS kontrast-fix for service-skjema ==== */
+.service-form fieldset,
+.service-form legend,
+.service-form label,
+.service-form input,
+.service-form textarea {
+  background: transparent !important;
+  color: var(--text) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+}
+
+.service-form fieldset {
+  background: var(--surface) !important;
+  border: 1px solid var(--sep);
+  border-radius: 10px;
+}
+
+.service-form legend {
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.95;
+}
+
+.service-form input[type="text"],
+.service-form textarea {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border: 1px solid var(--sep);
+}
+
+.service-form input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
+.service-form label:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+}
