@@ -127,14 +127,41 @@ window.addEventListener('hashchange', ()=>{
   showPage($('#'+id)?id:'home');
 });
 
-/* ----------------- Drawer ----------------- */
-const drawer=$('#drawer'), scrim=$('#scrim');
-const openDrawer = ()=>{drawer?.classList.add('open');scrim?.classList.add('show');drawer?.setAttribute('aria-hidden','false');};
-const closeDrawer=()=>{drawer?.classList.remove('open');scrim?.classList.remove('show');drawer?.setAttribute('aria-hidden','true');};
-$('#btnMenu')?.addEventListener('click', ()=> drawer?.classList.contains('open') ? closeDrawer() : openDrawer());
+/* ---------- Drawer wiring ---------- */
+const drawer = $('#drawer'), scrim = $('#scrim');
+
+function openDrawer(){
+  drawer?.classList.add('open');
+  scrim?.classList.add('show');
+  drawer?.setAttribute('aria-hidden','false');
+}
+function closeDrawer(){
+  drawer?.classList.remove('open');
+  scrim?.classList.remove('show');
+  drawer?.setAttribute('aria-hidden','true');
+}
+
+$('#btnMenu')?.addEventListener('click', () => {
+  if (drawer?.classList.contains('open')) closeDrawer();
+  else openDrawer();
+});
 $('#btnCloseDrawer')?.addEventListener('click', closeDrawer);
 scrim?.addEventListener('click', closeDrawer);
-$$('#drawer .drawer-link[data-go]').forEach(a=>a.addEventListener('click',()=>{showPage(a.getAttribute('data-go')); closeDrawer();}));
+
+/* lukk alltid ved oppstart */
+document.addEventListener('DOMContentLoaded', closeDrawer);
+
+/* ---------- Routing ---------- */
+function showPage(id){
+  $$('main section').forEach(s => s.hidden = (s.id !== id));
+  location.hash = '#'+id;
+  closeDrawer();                 // <- lukk ved sideskift
+}
+window.addEventListener('hashchange', ()=>{
+  const id=(location.hash||'#home').replace('#','');
+  showPage($('#'+id)?id:'home');
+});
+showPage((location.hash||'#home').replace('#','') || 'home');
 
 /* ----------------- Init ----------------- */
 window.addEventListener('DOMContentLoaded', ()=>{
