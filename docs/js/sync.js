@@ -2,151 +2,154 @@
 (() => {
   'use strict';
 
-  const API_BASE = 'https://api.jsonbin.io/v3/b';
-  // Sett disse i Admin senere; midlertidig her:
-  let CONFIG = {
-    apiKey: localStorage.getItem('BRYT_API_KEY') || '', // legg inn via Admin senere
-    binId:  localStorage.getItem('BRYT_BIN_ID')  || '68e7b4d2ae596e708f0bde7d'
-  };
+  // ====== KONFIG ======
+  const BIN_ID  = '68e7b4d2ae596e708f0bde7d';
+  const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+  const API_KEY = '$2a$10$luKLel7elCpJM4.REcwKOOsWlBK5Xv5lY2oN1BDYgbZbXA6ubT0W.'; // <---- BYTT DENNE
 
-  const $ = (s, r = document) => r.querySelector(s);
-  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
+  // Keys i localStorage
+  const K_ADDR_CACHE   = 'BRYT_ADDR_CACHE';   // [{ id, name, ... }]
+  const K_STATUS_CACHE = 'BRYT_STATUS_CACHE'; // { [id]: {state, driver, ts, task} }
+  const K_LAST_OK      = 'BRYT_SYNC_LAST_OK'; // ISO string
 
-  const K_ADDR   = 'BRYT_ADDR_CACHE';
-  const K_STORE  = 'BRYT_STATUS_STORE'; // { [id]: {state, driver, t} }
+  // Små util’er
+  const $ = (s,r=document)=>r.querySelector(s);
+  const readJSON =(k,d)=>{try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch{ return d }};
+  const writeJSON=(k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
-  function setSyncBadge(state) {
-    const badge = $('#sync_badge');
-    if (!badge) return;
-    const dot = badge.querySelector('.dot') || badge;
-    dot.classList.remove('dot-ok','dot-err','dot-warn','dot-unknown');
-    if (state === 'ok')  { dot.classList.add('dot-ok');  badge.innerHTML = `<span class="dot dot-ok"></span> Synk: OK`; }
-    if (state === 'err') { dot.classList.add('dot-err'); badge.innerHTML = `<span class="dot dot-err"></span> Synk: feil`; }
-    if (state === 'warn'){ dot.classList.add('dot-warn');badge.innerHTML = `<span class="dot dot-warn"></span> Synk: lokalt`; }
-    if (state === 'unknown'){ dot.classList.add('dot-unknown'); badge.innerHTML = `<span class="dot dot-unknown"></span> Synk: ukjent`; }
+  // ====== Badge-oppdatering ======
+  function setBadge(ok) {
+    const el = $('#sync_badge');
+    if (!el) return;
+    const dot = el.querySelector('.dot') || el;
+    el.textContent = '';
+    const spanDot = document.createElement('span');
+    spanDot.className = 'dot ' + (ok ? 'dot-ok' : 'dot-unknown');
+    const text = document.createTextNode(' Synk: ' + (ok ? 'OK' : 'ukjent'));
+    el.appendChild(spanDot);
+    el.appendChild(text);
   }
 
-  async function httpGetLatest() {
-    if (!CONFIG.apiKey || !CONFIG.binId) throw new Error('Manglende API-nøkkel eller BIN-ID.');
-    const url = `${API_BASE}/${CONFIG.binId}/latest`;
-    const res = await fetch(url, { headers: { 'X-Master-Key': CONFIG.apiKey }});
-    if (!res.ok) throw new Error(`GET feilet: ${res.status}`);
-    const json = await res.json();
-    return json.record; // forventer { addresses: [...], status: {...} } eller bare [...]
+  // ====== HTTP wrapper mot JSONBin ======
+  async function binGetLatest() {
+    const res = await fetch(`${API_URL}/latest`, {
+      headers: { 'X-Master-Key': API_KEY }
+    });
+    if (!res.ok) throw new Error(`JSONBin GET feilet: ${res.status}`);
+    const j = await res.json();
+    return j.record; // forventer { addresses:[...], status:{...} }
   }
 
-  async function httpPatch(record) {
-    if (!CONFIG.apiKey || !CONFIG.binId) throw new Error('Manglende API-nøkkel eller BIN-ID.');
-    const url = `${API_BASE}/${CONFIG.binId}`;
-    const res = await fetch(url, {
+  async function binPut(record) {
+    // putter hele dokumentet
+    const res = await fetch(API_URL, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'X-Master-Key': CONFIG.apiKey
+        'X-Master-Key': API_KEY
       },
       body: JSON.stringify(record)
     });
-    if (!res.ok) throw new Error(`PUT feilet: ${res.status}`);
-    return res.json();
+    if (!res.ok) throw new Error(`JSONBin PUT feilet: ${res.status}`);
+    const j = await res.json();
+    return j.record;
   }
 
-  function normRecord(rec){
-    // Støtt både plain array og {addresses, status}
-    if (Array.isArray(rec)) return { addresses: rec, status: readJSON(K_STORE, {}) };
-    const addresses = rec.addresses || [];
-    const status    = rec.status || readJSON(K_STORE, {});
-    return { addresses, status };
-  }
-
-  async function loadAddresses({force=false} = {}){
-    try{
-      if (!force){
-        const cached = readJSON(K_ADDR, null);
-        if (cached?.length) { setSyncBadge('warn'); return cached; }
-      }
-      const rec = normRecord(await httpGetLatest());
-      writeJSON(K_ADDR, rec.addresses);
-      writeJSON(K_STORE, rec.status);
-      setSyncBadge('ok');
-      return rec.addresses;
-    }catch(e){
-      setSyncBadge('err');
-      console.error(e);
-      throw e;
+  // ====== Offentlige funksjoner ======
+  async function ping() {
+    try {
+      // Et lett kall: HEAD mot latest støttes ikke av JSONBin,
+      // så vi bruker en kort GET og avbryter hvis det tar for lang tid.
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 4500);
+      const res = await fetch(`${API_URL}/latest`, {
+        method: 'GET',
+        headers: { 'X-Master-Key': API_KEY },
+        signal: ctrl.signal
+      });
+      clearTimeout(t);
+      const ok = res.ok;
+      setBadge(ok);
+      if (ok) writeJSON(K_LAST_OK, new Date().toISOString());
+      return ok;
+    } catch {
+      setBadge(false);
+      return false;
     }
   }
 
-  function statusStore(){
-    return readJSON(K_STORE, {});
-  }
-  function saveStatusStore(obj){
-    writeJSON(K_STORE, obj);
+  // Laster adresser – cache i localStorage, men oppdaterer fra sky ved behov
+  async function loadAddresses({ force=false } = {}) {
+    let addrs = readJSON(K_ADDR_CACHE, []);
+    if (!force && addrs.length) return addrs;
+
+    const rec = await binGetLatest();
+    if (!rec || !Array.isArray(rec.addresses)) {
+      throw new Error('Ugyldig JSONBin-innhold: mangler addresses[].');
+    }
+    addrs = rec.addresses;
+    writeJSON(K_ADDR_CACHE, addrs);
+
+    // Oppfrisk badge
+    setBadge(true);
+    return addrs;
   }
 
-  async function setStatus(id, payload){
-    // Oppdater lokalt
-    const bag = statusStore();
-    bag[id] = { ...(bag[id]||{}), ...payload, t: Date.now() };
-    saveStatusStore(bag);
+  // Leser status-map (id -> statusobjekt)
+  async function getStatus({ fresh=false } = {}) {
+    let stat = readJSON(K_STATUS_CACHE, {});
+    if (!fresh && Object.keys(stat).length) return stat;
 
-    // Oppdater sky (PUT hele record)
-    try{
-      const rec = normRecord(await httpGetLatest()); // hent fersk
-      rec.status[id] = bag[id];
-      await httpPatch(rec);
-      setSyncBadge('ok');
-    }catch(e){
-      console.warn('Skyoppdatering feilet, behold lokalt:', e);
-      setSyncBadge('warn');
+    const rec = await binGetLatest();
+    const cloud = (rec && rec.status && typeof rec.status === 'object') ? rec.status : {};
+    writeJSON(K_STATUS_CACHE, cloud);
+    setBadge(true);
+    return cloud;
+  }
+
+  // Setter status for én adresse (og skyver til sky)
+  // payload: { state: 'venter'|'pågår'|'ferdig'|'hoppet'|'ikke-mulig',
+  //            driver: 'Navn', task: 'Fjerne snø'|'Strøing', ts?: ISO }
+  async function setStatus(addrId, payload) {
+    // oppdater lokalt først
+    const now = new Date().toISOString();
+    const cur = readJSON(K_STATUS_CACHE, {});
+    cur[addrId] = { ...(cur[addrId]||{}), ...payload, ts: payload.ts || now };
+    writeJSON(K_STATUS_CACHE, cur);
+
+    // forsøk sky
+    try {
+      const rec = await binGetLatest();
+      const merged = {
+        addresses: Array.isArray(rec.addresses) ? rec.addresses : readJSON(K_ADDR_CACHE, []),
+        status: { ...(rec.status||{}), [addrId]: cur[addrId] }
+      };
+      await binPut(merged);
+      setBadge(true);
+      return true;
+    } catch (e) {
+      // stå offline – vi har lokalt cache; Work/Status kan fortsatt fungere
+      console.warn('Kunne ikke lagre til sky. Bruker lokal cache.', e);
+      setBadge(false);
+      return false;
     }
   }
 
-  /** Batch reset: filterFn(id, st) => true for de som skal nullstilles */
-  async function resetWhere(filterFn){
-    const bag = statusStore();
-    for (const id of Object.keys(bag)){
-      const st = bag[id];
-      if (!filterFn || filterFn(id, st)) delete bag[id];
-    }
-    saveStatusStore(bag);
-    try{
-      const rec = normRecord(await httpGetLatest());
-      // Fjern samme i rec.status
-      for (const id of Object.keys(rec.status||{})){
-        const st = rec.status[id];
-        if (!filterFn || filterFn(id, st)) delete rec.status[id];
-      }
-      await httpPatch(rec);
-      setSyncBadge('ok');
-    }catch(e){
-      console.warn('Sky-reset feilet, lokalt ok:', e);
-      setSyncBadge('warn');
-    }
+  function clearLocal(kind='all') {
+    if (kind === 'addresses' || kind === 'all') localStorage.removeItem(K_ADDR_CACHE);
+    if (kind === 'status'    || kind === 'all') localStorage.removeItem(K_STATUS_CACHE);
   }
 
-  function setConfig(cfg){
-    CONFIG = { ...CONFIG, ...cfg };
-    if (cfg.apiKey) localStorage.setItem('BRYT_API_KEY', cfg.apiKey);
-    if (cfg.binId)  localStorage.setItem('BRYT_BIN_ID',  cfg.binId);
-  }
-
-  // Eksporter til appen
+  // Eksponer API
   window.Sync = {
-    setConfig,
+    ping,
     loadAddresses,
-    statusStore,
+    getStatus,
     setStatus,
-    resetMine: (driver) => resetWhere((_, st)=> st?.driver === driver),
-    resetAll:  () => resetWhere(()=>true)
+    clearLocal
   };
 
-  // Prøv å markere wake-lock-dot ved oppstart (om aktiv fra før iOS-hack)
-  const wlDot = document.getElementById('wl_dot') || document.getElementById('qk_wl_dot');
-  if (wlDot && navigator.wakeLock?.type === 'screen') {
-    wlDot.classList.remove('dot-off'); wlDot.classList.add('dot-on');
-  }
-  // Start som ukjent, blir grønn ved første vellykkede synk
-  setSyncBadge('unknown');
+  // Ping med en gang for å male badge riktig
+  ping();
 
 })();
