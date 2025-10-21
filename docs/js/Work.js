@@ -1,228 +1,193 @@
-// docs/js/Work.js
+// js/Work.js
 (() => {
-  "use strict";
+  'use strict';
 
-  const $  = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-
-  const S = {
-    driver: "",
-    taskKind: "snow", // "snow" | "grit"
-    autoNav: false,
-    direction: "Normal"
+  const $  = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+  const J = {
+    get(k,d){ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+    set(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
   };
 
-  function loadSession() {
-    try {
-      const raw = localStorage.getItem("BRYT_SESSION") || "{}";
-      const j = JSON.parse(raw);
-      Object.assign(S, j);
-    } catch {}
+  const LSK_RUN = 'BRYT_RUN';
+
+  function getRun(){
+    return J.get(LSK_RUN, {
+      driver:'',
+      equipment:{plow:false,fres:false,sand:false},
+      dir:'Normal',
+      idx:0
+    });
   }
-  function saveSession() {
-    localStorage.setItem("BRYT_SESSION", JSON.stringify(S));
+  function setRun(r){ J.set(LSK_RUN, r); }
+
+  function getNowNext(){
+    const A = window.Sync.getAddresses() || [];
+    const r = getRun();
+    const total = A.length;
+    const idx = Math.max(0, Math.min(r.idx ?? 0, Math.max(0,total-1)));
+    const now  = total ? A[idx] : null;
+    const next = total && idx+1<total ? A[idx+1] : null;
+    return {A, r, idx, now, next, total};
   }
 
-  function addresses()  { return window.Sync?.getAddresses() || []; }
-  function statusMap()  { return window.Sync?.getStatusMap() || {}; }
-
-  function idFor(a, idx) {
-    return a.id ?? a.ID ?? a.Id ?? a.name ?? String(a.index ?? idx);
+  function describeTaskRow(){
+    // vis en menneskelig tekst basert på valgt utstyr (snø vs grus)
+    const r = getRun();
+    const isGrit = !!r.equipment.sand;
+    return isGrit ? 'Strøing av grus' : 'Snøbrøyting';
   }
 
-  function translateState(s) {
-    switch ((s||"").toLowerCase()) {
-      case "venter": return "Venter";
-      case "pågår": return "Pågår";
-      case "ferdig": return "Ferdig";
-      case "hoppet": 
-      case "hoppet over": return "Hoppet over";
-      case "ikkemulig":
-      case "ikke mulig": return "Ikke mulig";
-      default: return "—";
+  function statusTextFor(id){
+    const map = window.Sync.getStatusMap() || {};
+    const st = map[id]?.state;
+    switch(st){
+      case 'not_started': case 'ikke_påbegynt': return 'Ikke påbegynt';
+      case 'in_progress': case 'pågår':         return 'Pågår';
+      case 'done':         return 'Ferdig';
+      case 'skipped':      return 'Hoppet over';
+      case 'blocked':      return 'Ikke mulig';
+      default:             return 'Ukjent';
     }
   }
 
-  function describeTask() {
-    return S.taskKind === "grit" ? "Strø grus" : "Fjerne snø";
-  }
+  function renderProgress(){
+    const {A} = getNowNext();
+    const total = A.length || 1;
 
-  function computeNowNext() {
-    const arr = addresses();
-    const map = statusMap();
-    if (!arr.length) return { now: null, next: null, total: 0 };
-
-    // Finn første som ikke er "ferdig"
-    let idxNow = arr.findIndex((a, i) => {
-      const st = map[idFor(a, i)];
-      return !st || (st.state !== "ferdig");
-    });
-    if (idxNow < 0) idxNow = arr.length; // alt ferdig
-
-    const now  = arr[idxNow] || null;
-    const next = arr[idxNow + 1] || null;
-
-    return { now, next, total: arr.length };
-  }
-
-  function updateProgressBars() {
-    const arr = addresses();
-    const map = statusMap();
-    const total = arr.length || 1;
-
-    let me = 0, other = 0;
-    for (let i = 0; i < arr.length; i++) {
-      const a = arr[i], id = idFor(a, i);
+    let mine=0, andre=0;
+    const map = window.Sync.getStatusMap() || {};
+    const r = getRun();
+    for (const id in map){
       const st = map[id];
-      if (!st) continue;
-      if (st.state === "ferdig") {
-        if (st.driver && st.driver === S.driver) me++; else other++;
-      }
+      if(!st || st.state!=='done') continue;
+      if(st.driver && r.driver && st.driver === r.driver) mine++; else andre++;
     }
-    const mePct = Math.round(100*me/total);
-    const otPct = Math.round(100*other/total);
+    const mePct = Math.round(100*mine/total);
+    const otPct = Math.round(100*andre/total);
 
-    const bm = $("#b_prog_me"), bo = $("#b_prog_other");
-    if (bm) bm.style.width = mePct + "%";
-    if (bo) bo.style.width = otPct + "%";
+    const bm = $('#b_prog_me'), bo = $('#b_prog_other');
+    if (bm) bm.style.width = mePct + '%';
+    if (bo) bo.style.width = otPct + '%';
 
-    $("#b_prog_me_count")    && ($("#b_prog_me_count").textContent = `${me}/${total}`);
-    $("#b_prog_other_count") && ($("#b_prog_other_count").textContent = `${other}/${total}`);
-    $("#b_prog_summary")     && ($("#b_prog_summary").textContent = `${Math.min(me+other,total)} av ${total} adresser fullført`);
+    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent    = `${mine}/${total}`);
+    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${andre}/${total}`);
+    $('#b_prog_summary')     && ($('#b_prog_summary').textContent     = `${Math.min(mine+andre,total)} av ${total} adresser fullført`);
   }
 
-  function renderWork() {
-    const sec = $("#work");
-    if (!sec || sec.hasAttribute("hidden")) return;
+  function renderWork(){
+    const section = $('#work');
+    if (!section || section.hasAttribute('hidden')) return;
 
-    const { now, next } = computeNowNext();
+    const {now, next, total} = getNowNext();
+    $('#b_now')  && ($('#b_now').textContent  = now  ? (now.name || '—') : '—');
+    $('#b_next') && ($('#b_next').textContent = next ? (next.name|| '—') : '—');
 
-    $("#b_now")  && ($("#b_now").textContent  = now  ? (now.name || now.adresse || now.Address || JSON.stringify(now)) : "—");
-    $("#b_next") && ($("#b_next").textContent = next ? (next.name || next.adresse || next.Address || JSON.stringify(next)) : "—");
+    $('#b_task')   && ($('#b_task').textContent   = describeTaskRow());
+    $('#b_status') && ($('#b_status').textContent = now ? statusTextFor(now.id) : '—');
 
-    $("#b_task")   && ($("#b_task").textContent   = describeTask());
-    $("#b_status") && ($("#b_status").textContent = now ? translateState(statusMap()[idFor(now, 0)]?.state) : "—");
+    renderProgress();
 
-    updateProgressBars();
-  }
-
-  async function setState(addr, newState) {
-    if (!addr) return;
-    const id = idFor(addr, 0);
-    const payload = {
-      state: newState,
-      driver: S.driver || ""
-    };
-    await window.Sync.setStatus(id, payload);
-  }
-
-  function navTo(lat, lon, text) {
-    const base = "https://www.google.com/maps/dir/?api=1";
-    const dest = lat && lon ? `${lat},${lon}` : encodeURIComponent(text || "");
-    const url = `${base}&destination=${dest}`;
-    window.open(url, "_blank");
-  }
-
-  function wireWorkButtons() {
-    $("#act_start")?.addEventListener("click", async () => {
-      const { now } = computeNowNext();
-      if (!now) return;
-      await setState(now, "pågår");
-      renderWork();
-    });
-
-    $("#act_done")?.addEventListener("click", async () => {
-      const { now, next, total } = computeNowNext();
-      if (!now) return;
-      await setState(now, "ferdig");
-      renderWork();
-
-      // Sjekk om alt ferdig
-      const arr = addresses(); const map = statusMap();
-      const left = arr.find(a => (map[idFor(a,0)]?.state !== "ferdig"));
-      if (!left && total > 0) {
-        // Spør hva vi gjør videre
-        const choice = window.prompt("Runden er ferdig. Velg: 'snø' = ny runde (snø), 'grus' = ny runde med grus, 'ferdig' = gå til service.", "ferdig");
-        if (!choice) return;
-        if (choice.toLowerCase().startsWith("sn")) {
-          S.taskKind = "snow"; saveSession();
-          location.hash = "#work";
-        } else if (choice.toLowerCase().startsWith("gr")) {
-          S.taskKind = "grit"; saveSession();
-          location.hash = "#work";
-        } else {
-          location.hash = "#service";
-        }
-      }
-    });
-
-    $("#act_skip")?.addEventListener("click", async () => {
-      const { now } = computeNowNext(); if (!now) return;
-      await setState(now, "hoppet over");
-      renderWork();
-    });
-
-    $("#act_next")?.addEventListener("click", () => {
-      // UI-messig “neste” = gjør ingenting i status, bare hopp i visning.
-      // Vi markerer ikke “hoppet”, da det er egen knapp.
-      // Trigges ved at vi midlertidig setter en markør i session
-      const arr = addresses();
-      const map = statusMap();
-      const idx = arr.findIndex((a, i) => !map[idFor(a,i)] || map[idFor(a,i)].state !== "ferdig");
-      if (idx >= 0 && idx + 1 < arr.length) {
-        // midlertidig: sett “venter” på nå, og “pågår” på neste? vi lar bare rendering gå på polling
-        renderWork();
-      }
-    });
-
-    $("#act_nav")?.addEventListener("click", () => {
-      const { now } = computeNowNext(); if (!now) return;
-      const lat = now.lat ?? now.latitude, lon = now.lon ?? now.longitude;
-      navTo(lat, lon, now.name || now.adresse || "");
-    });
-
-    $("#act_block")?.addEventListener("click", async () => {
-      const { now } = computeNowNext(); if (!now) return;
-      const why = prompt("Hvorfor er det ikke mulig?", "");
-      await setState(now, "ikke mulig");
-      // (Evt. legg på kommentar/why i status senere)
-      renderWork();
+    // deaktiver knapper når ingen adresser
+    const disabled = !now;
+    $$('.btn, .btn-ghost', section).forEach(btn=>{
+      btn.disabled = disabled;
+      btn.setAttribute('aria-disabled', disabled ? 'true':'false');
     });
   }
 
-  function wireQuickShortcuts() {
-    function mapsFromKey(k) {
-      try {
-        const cfg = window.Sync?.readCfg() || JSON.parse(localStorage.getItem("BRYT_SETTINGS")||"{}");
-        const val = (cfg && cfg[k]) || "";
-        if (!val) return null;
-        // "60.xxxxx,11.xxxxx"
-        const [lat, lon] = String(val).split(",").map(s => s.trim());
-        return { lat, lon };
-      } catch { return null; }
-    }
-    $("#qk_grus")?.addEventListener("click", () => {
-      const p = mapsFromKey("grus"); if (p) navTo(p.lat, p.lon); else navTo(null, null, "Grus");
-    });
-    $("#qk_diesel")?.addEventListener("click", () => {
-      const p = mapsFromKey("diesel"); if (p) navTo(p.lat, p.lon); else navTo(null, null, "Diesel");
-    });
-    $("#qk_base")?.addEventListener("click", () => {
-      const p = mapsFromKey("base"); if (p) navTo(p.lat, p.lon); else navTo(null, null, "Base");
-    });
+  function gotoService(){
+    location.hash = '#service';
   }
 
-  function onSyncUpdate() { renderWork(); }
-
-  function init() {
-    loadSession();
-    wireWorkButtons();
-    wireQuickShortcuts();
+  function onStart(){
+    const {now} = getNowNext();
+    if (!now) return;
+    const r = getRun();
+    window.Sync.setAddressState(now.id, 'pågår', {driver: r.driver});
     renderWork();
-    window.Sync?.on(onSyncUpdate);
-    // Oppdater hvis vi kommer inn hit etter “Start runde”
-    window.addEventListener("hashchange", renderWork);
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  function onDone(){
+    const {A, r, idx, now} = getNowNext();
+    if (!now) return;
+    window.Sync.setAddressState(now.id, 'ferdig', {driver: r.driver});
+
+    // neste adresse
+    const nextIdx = idx + 1;
+    if (nextIdx < A.length){
+      r.idx = nextIdx; setRun(r);
+      renderWork();
+      return;
+    }
+
+    // runden er slutt – spør hva videre
+    const choice = window.confirm(
+      'Runden er ferdig.\n\nOK = Start ny brøyterunde\nAvbryt = Gå til Service (ferdig for i dag)'
+    );
+    if (choice){
+      // ny brøyterunde (samme utstyr)
+      r.idx = 0; setRun(r);
+      renderWork();
+    } else {
+      // ferdig -> service
+      gotoService();
+    }
+  }
+
+  function onSkip(){
+    const {A, r, idx, now} = getNowNext();
+    if (!now) return;
+    window.Sync.setAddressState(now.id, 'hoppet', {driver: r.driver});
+    r.idx = Math.min(idx+1, Math.max(0, A.length-1)); setRun(r);
+    renderWork();
+  }
+
+  function onNext(){
+    const {A, r, idx} = getNowNext();
+    r.idx = Math.min(idx+1, Math.max(0, A.length-1)); setRun(r);
+    renderWork();
+  }
+
+  function onBlock(){
+    const {now} = getNowNext();
+    if (!now) return;
+    const r = getRun();
+    window.Sync.setAddressState(now.id, 'ikke_mulig', {driver:r.driver});
+    renderWork();
+  }
+
+  function onNav(){
+    const {now} = getNowNext();
+    if(!now) return;
+    if (Number.isFinite(now.lat) && Number.isFinite(now.lon)){
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${now.lat},${now.lon}`)}`;
+      window.open(url, '_blank');
+    } else {
+      alert('Ingen koordinater tilgjengelig for denne adressen.');
+    }
+  }
+
+  function wire(){
+    // knapper
+    $('#act_start')?.addEventListener('click', onStart);
+    $('#act_done') ?.addEventListener('click', onDone);
+    $('#act_skip') ?.addEventListener('click', onSkip);
+    $('#act_next') ?.addEventListener('click', onNext);
+    $('#act_block')?.addEventListener('click', onBlock);
+    $('#act_nav')  ?.addEventListener('click', onNav);
+
+    // oppdater når Sync er klar / data ankommer
+    if (window.Sync?.on){
+      window.Sync.on('ready',      renderWork);
+      window.Sync.on('addresses',  renderWork);
+      window.Sync.on('status',     renderWork);
+    }
+
+    // når rute endres
+    window.addEventListener('hashchange', renderWork);
+    renderWork();
+  }
+
+  document.addEventListener('DOMContentLoaded', wire);
 })();
