@@ -1,97 +1,184 @@
-// js/sync.js
-// Minimal JSONbin-klient + caching til localStorage
+// docs/js/sync.js
 (() => {
-  'use strict';
+  "use strict";
 
-  const LS_ADDR = 'BRYT_ADDR';        // hvor vi cache’r adresser
-  const LS_SYNC_AT = 'BRYT_ADDR_AT';  // tidspunkt for sist vellykket sync (ms)
+  const CFG_KEY = "BRYT_SETTINGS";
 
-  // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-  // 1) KONFIG – SETT DISSE TO!
-  //    BIN-ID og API-nøkkel kan endres her, eller via Sync.setConfig(...)
-  let BIN_ID   = '68e7b4d2ae596e708f0bde7d';
-  let API_KEY  = '$2a$10$luKLel7elCpJM4.REcwKOOsWlBK5Xv5lY2oN1BDYgbZbXA6ubT0W.';
-  // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+  const qs = (s, r = document) => r.querySelector(s);
 
-  const BASE = 'https://api.jsonbin.io/v3/b';
-
-  // Hjelpere
-  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
-
-  function ensureKey() {
-    if (!API_KEY || API_KEY.startsWith('SETT_')) {
-      throw new Error('JSONbin API-nøkkel mangler i js/sync.js (API_KEY).');
-    }
-    if (!BIN_ID) {
-      throw new Error('JSONbin BIN_ID mangler i js/sync.js.');
-    }
-  }
-
-  // Prøv å tolke retur fra JSONbin smidig:
-  //  - Noen lagrer “{addresses:[...] }”, andre lagrer direkte “[ ... ]”
-  function extractAddresses(payload) {
-    if (!payload) return [];
-    if (Array.isArray(payload)) return payload;
-    if (payload.record) {
-      const r = payload.record;
-      if (Array.isArray(r)) return r;
-      if (Array.isArray(r.addresses)) return r.addresses;
-      // siste utvei: prøv alle verdier og finn første array
-      for (const k of Object.keys(r)) {
-        if (Array.isArray(r[k])) return r[k];
-      }
-    }
-    if (payload.addresses && Array.isArray(payload.addresses)) return payload.addresses;
-    return [];
-  }
-
-  async function loadAddressesFromCloud({ force = false } = {}) {
-    // Respekter cache om vi nylig har lastet (f.eks. < 2 min)
-    const last = Number(localStorage.getItem(LS_SYNC_AT) || 0);
-    if (!force && Date.now() - last < 2 * 60 * 1000) {
-      return readJSON(LS_ADDR, []);
-    }
-
-    ensureKey();
-
-    const url = `${BASE}/${encodeURIComponent(BIN_ID)}/latest`;
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-Master-Key': API_KEY,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!res.ok) {
-      throw new Error(`JSONbin GET feilet: ${res.status} ${res.statusText}`);
-    }
-
-    const payload = await res.json();
-    const addresses = extractAddresses(payload);
-
-    if (!Array.isArray(addresses)) {
-      throw new Error('Uventet format på JSONbin-data. Forventer en liste med adresser.');
-    }
-
-    writeJSON(LS_ADDR, addresses);
-    localStorage.setItem(LS_SYNC_AT, String(Date.now()));
-
-    return addresses;
-  }
-
-  // Eksporter et lite API globalt
-  window.Sync = {
-    setConfig({ binId, apiKey } = {}) {
-      if (binId) BIN_ID = binId;
-      if (apiKey) API_KEY = apiKey;
-    },
-    async loadAddresses(options) {
-      return loadAddressesFromCloud(options);
-    },
-    getCachedAddresses() {
-      return readJSON(LS_ADDR, []);
-    }
+  const STATE = {
+    online: "unknown",           // "ok" | "err" | "unknown"
+    addresses: [],               // Array<{ id,name,lat,lon,... }>
+    status: {},                  // { [addrId]: { state, driver, ts } }
+    pollHandle: null,
+    listeners: new Set()
   };
+
+  function readCfg() {
+    try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); }
+    catch { return {}; }
+  }
+  function writeCfg(cfg) {
+    localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  }
+
+  // -------- badge (synk) ----------
+  function setSyncBadge(state) {
+    const el = qs("#sync_badge");
+    if (!el) return;
+    if (state === "ok") {
+      el.innerHTML = `<span class="dot dot-ok"></span> Synk: OK`;
+    } else if (state === "err") {
+      el.innerHTML = `<span class="dot dot-err"></span> Synk: feil`;
+    } else {
+      el.innerHTML = `<span class="dot dot-unknown"></span> Synk: ukjent`;
+    }
+  }
+
+  // -------- helpers ----------
+  function jsonbinHeaders(apiKey) {
+    const h = {
+      "Content-Type": "application/json",
+      "X-Bin-Meta": "false"
+    };
+    if (apiKey) h["X-Master-Key"] = apiKey;
+    return h;
+  }
+
+  async function binGetLatest(binId, apiKey) {
+    const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
+    const res = await fetch(url, { headers: jsonbinHeaders(apiKey) });
+    if (!res.ok) throw new Error(`GET latest ${binId} ${res.status}`);
+    return res.json();
+  }
+
+  async function binPut(binId, apiKey, record) {
+    const url = `https://api.jsonbin.io/v3/b/${binId}`;
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: jsonbinHeaders(apiKey),
+      body: JSON.stringify(record)
+    });
+    if (!res.ok) throw new Error(`PUT ${binId} ${res.status}`);
+    return res.json();
+  }
+
+  // -------- public-ish core ----------
+  async function loadAddresses() {
+    const cfg = readCfg();
+    if (!cfg.binAddresses) throw new Error("Mangler Bin ID for adresser (Admin).");
+    const data = await binGetLatest(cfg.binAddresses, cfg.apiKey);
+    // JSONBin v3: {record: ...}
+    const rec = data?.record ?? data ?? [];
+    // Flex: enten {addresses:[...]} eller [...]
+    STATE.addresses = Array.isArray(rec) ? rec : (rec.addresses || []);
+    return STATE.addresses;
+  }
+
+  async function loadStatus() {
+    const cfg = readCfg();
+    if (!cfg.binStatus) {
+      // ingen status-bin: start som tom
+      STATE.status = {};
+      return STATE.status;
+    }
+    const data = await binGetLatest(cfg.binStatus, cfg.apiKey);
+    const rec = data?.record ?? data ?? {};
+    STATE.status = rec || {};
+    return STATE.status;
+  }
+
+  async function saveStatusMap(newMap) {
+    const cfg = readCfg();
+    if (!cfg.binStatus) throw new Error("Mangler Bin ID for status (Admin).");
+    await binPut(cfg.binStatus, cfg.apiKey, newMap);
+    STATE.status = newMap;
+    notify();
+  }
+
+  function getAddresses() { return STATE.addresses; }
+  function getStatusMap() { return STATE.status; }
+
+  function ensureStatusShape() {
+    // sørg for at alle adresser har en node (minst "venter")
+    const map = { ...(STATE.status || {}) };
+    for (const a of STATE.addresses) {
+      const id = (a.id ?? a.ID ?? a.Id ?? a.name ?? String(a.index));
+      if (!map[id]) {
+        map[id] = { state: "venter", driver: "", ts: Date.now() };
+      }
+    }
+    return map;
+  }
+
+  async function setStatus(addrId, updates) {
+    const map = ensureStatusShape();
+    const prev = map[addrId] || { state: "venter", driver: "", ts: Date.now() };
+    map[addrId] = { ...prev, ...updates, ts: Date.now() };
+    await saveStatusMap(map);
+  }
+
+  function notify() {
+    for (const fn of STATE.listeners) {
+      try { fn({ addresses: STATE.addresses, status: STATE.status }); } catch {}
+    }
+  }
+
+  function on(cb)  { STATE.listeners.add(cb); }
+  function off(cb) { STATE.listeners.delete(cb); }
+
+  async function fullReload() {
+    try {
+      await loadAddresses();
+      await loadStatus();
+      STATE.online = "ok";
+      setSyncBadge("ok");
+      notify();
+    } catch (e) {
+      console.error("Synk feil:", e);
+      STATE.online = "err";
+      setSyncBadge("err");
+    }
+  }
+
+  function startPolling() {
+    if (STATE.pollHandle) clearInterval(STATE.pollHandle);
+    STATE.pollHandle = setInterval(async () => {
+      try {
+        await loadStatus(); // lett polling – status er det som endrer seg
+        STATE.online = "ok";
+        setSyncBadge("ok");
+        notify();
+      } catch (e) {
+        console.warn("Polling-feil:", e);
+        STATE.online = "err";
+        setSyncBadge("err");
+      }
+    }, 15000);
+  }
+
+  async function init() {
+    setSyncBadge("unknown");
+    await fullReload();
+    startPolling();
+  }
+
+  // eksponer for resten av appen
+  window.Sync = {
+    init,
+    reload: fullReload,
+    on, off,
+    getAddresses,
+    getStatusMap,
+    setStatus,
+    readCfg,
+    writeCfg
+  };
+
+  // auto-init når DOM er klar
+  document.addEventListener("DOMContentLoaded", () => {
+    // init bare hvis Admin har satt minst addresses-bin
+    const cfg = readCfg();
+    if (cfg?.binAddresses) init();
+  });
 })();
