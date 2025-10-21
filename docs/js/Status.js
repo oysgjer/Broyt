@@ -2,84 +2,130 @@
 (() => {
   'use strict';
 
-  const $ = (s,r=document)=>r.querySelector(s);
+  const $  = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
   const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
+  const K_ADDRS   = 'BRYT_ADDRS';
+  const K_SETTINGS= 'BRYT_SETTINGS';
 
-  const K_STATUS = 'BRYT_STATUS';
-
-  function loadStatus() { return readJSON(K_STATUS, {}); }
-  function saveStatus(s) { writeJSON(K_STATUS, s); }
-
-  async function resetMine() {
-    const s = loadStatus();
-    const me = (localStorage.getItem('BRYT_SETTINGS') ? JSON.parse(localStorage.getItem('BRYT_SETTINGS')).driver : '') || '';
-    Object.values(s).forEach(addr => {
-      if (addr.driver === me) {
-        addr.state = 'Ikke påbegynt';
-        delete addr.startedAt;
-        delete addr.finishedAt;
-      }
-    });
-    saveStatus(s);
-    alert('Nullstilte mine adresser.');
-    render();
+  function stateLabel(code){
+    const L = {
+      not_started: 'Venter',
+      in_progress: 'Pågår',
+      done:        'Ferdig',
+      skipped:     'Hoppet over',
+      blocked:     'Ikke mulig',
+      accident:    'Uhell'
+    };
+    return L[code] || '—';
   }
+  function getDriver(){ return (readJSON(K_SETTINGS,{driver:''}).driver||'').trim(); }
 
-  async function resetAll() {
-    if (!confirm('Er du sikker på at du vil nullstille ALT for denne runden?')) return;
-    const s = loadStatus();
-    Object.values(s).forEach(addr => {
-      addr.state = 'Ikke påbegynt';
-      delete addr.startedAt;
-      delete addr.finishedAt;
-      delete addr.driver;
-    });
-    saveStatus(s);
-
-    // Skyreset hvis Sync har støtte
-    if (window.Sync && typeof window.Sync.resetAll === 'function') {
-      try { await window.Sync.resetAll(); } catch(e){ console.warn('Sky-reset feilet', e); }
+  function buildModeRoundPicker(root, mode, round, maxRound){
+    const modes = [
+      { id:'snow', txt:'Snø' },
+      { id:'grit', txt:'Grus' }
+    ];
+    let html = `<div class="row" style="gap:10px; align-items:center; margin-bottom:12px;">
+      <label>Modus:</label>
+      <select id="st_mode">`;
+    for (const m of modes){
+      html += `<option value="${m.id}" ${mode===m.id?'selected':''}>${m.txt}</option>`;
     }
-
-    alert('Hele runden er nullstilt.');
-    render();
+    html += `</select>
+      <label>Runde:</label>
+      <select id="st_round">`;
+    for (let r=1;r<=maxRound;r++){
+      html += `<option ${r===round?'selected':''}>${r}</option>`;
+    }
+    html += `</select>
+      <button id="st_reload" class="btn-ghost">Oppdater</button>
+      <button id="btn_reset_mine" class="btn">Nullstill mine</button>
+      <button id="btn_reset_all" class="btn-ghost">Nullstill alt</button>
+    </div>`;
+    root.insertAdjacentHTML('beforeend', html);
   }
 
-  function render() {
+  function renderTable(root, mode, round){
+    const addrs = readJSON(K_ADDRS, []);
+    const s = window.Sync.getStatus();
+
+    let html = `<table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left">Adresse</th>
+          <th>Startet</th>
+          <th>Ferdig</th>
+          <th>Status</th>
+          <th>Fører</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    for (const a of addrs){
+      const rec = window.Sync.getAddressStatus(a.name, mode, round) || {};
+      html += `<tr>
+        <td>${a.name}</td>
+        <td>${rec.startedAt || ''}</td>
+        <td>${rec.finishedAt || ''}</td>
+        <td>${stateLabel(rec.state || 'not_started')}</td>
+        <td>${rec.driver || ''}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    root.insertAdjacentHTML('beforeend', html);
+  }
+
+  function render(){
     if (location.hash !== '#status') return;
     const root = $('#status');
     if (!root) return;
-    const s = loadStatus();
+    root.innerHTML = `<h1>Status</h1>`;
 
-    let html = `
-      <h1>Status</h1>
-      <div class="row" style="gap:8px; margin-bottom:12px;">
-        <button class="btn" id="btn_reset_mine">Nullstill mine</button>
-        <button class="btn-ghost" id="btn_reset_all">Nullstill alt</button>
-      </div>
-      <table style="width:100%; border-collapse:collapse;">
-        <thead>
-          <tr><th>Adresse</th><th>Status</th><th>Fører</th><th>Startet</th><th>Fullført</th></tr>
-        </thead>
-        <tbody>
-    `;
+    const modeDefault  = 'snow';
+    const roundsInfo   = window.Sync.readRounds();
+    const roundDefault = roundsInfo.snow?.n || 1;
+    const maxSnow = roundsInfo.snow?.n || 1;
+    const maxGrit = roundsInfo.grit?.n || 1;
 
-    for (const [addr, v] of Object.entries(s)) {
-      html += `<tr>
-        <td>${addr}</td>
-        <td>${v.state || ''}</td>
-        <td>${v.driver || ''}</td>
-        <td>${v.startedAt || ''}</td>
-        <td>${v.finishedAt || ''}</td>
-      </tr>`;
-    }
+    // les valgt modus/runde fra select hvis finnes
+    const curMode  = $('#st_mode')?.value || modeDefault;
+    const curRound = Number($('#st_round')?.value || (curMode==='grit' ? (roundsInfo.grit?.n || 1) : roundDefault));
 
-    html += `</tbody></table>`;
-    root.innerHTML = html;
+    // maks runde for valgt modus
+    const maxR = (curMode==='grit') ? maxGrit : maxSnow;
 
-    $('#btn_reset_mine')?.addEventListener('click', resetMine);
-    $('#btn_reset_all')?.addEventListener('click', resetAll);
+    buildModeRoundPicker(root, curMode, curRound, maxR);
+    renderTable(root, curMode, curRound);
+
+    // wiring
+    $('#st_reload')?.addEventListener('click', render);
+    $('#st_mode')  ?.addEventListener('change', ()=> {
+      // når modus endres, hopp til siste runde for den modusen
+      const m = $('#st_mode').value;
+      const rr = window.Sync.readRounds();
+      const r = (m==='grit') ? (rr.grit?.n || 1) : (rr.snow?.n || 1);
+      window.Sync.setRound(m, r); // bare for at state holdes konsistent
+      render();
+    });
+    $('#st_round') ?.addEventListener('change', ()=>{
+      // Bare rerender – vi lagrer ikke “current round” globalt fra status
+      render();
+    });
+
+    $('#btn_reset_mine')?.addEventListener('click', ()=>{
+      const m = $('#st_mode').value;
+      const r = Number($('#st_round').value);
+      window.Sync.resetMine(m, r, getDriver());
+      render();
+    });
+    $('#btn_reset_all')?.addEventListener('click', ()=>{
+      const m = $('#st_mode').value;
+      const r = Number($('#st_round').value);
+      if (!confirm('Nullstille alt for valgt modus og runde?')) return;
+      window.Sync.resetAll(m, r);
+      render();
+    });
   }
 
   window.addEventListener('hashchange', render);
