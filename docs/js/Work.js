@@ -1,127 +1,103 @@
-/* =========================================================
-   Work.js — “Under arbeid”
-   • Viser nåværende og neste adresse
-   • Statusknapper som oppdaterer JSONBin via Cloud.updateStatus()
-   • Naviger til neste
-   ========================================================= */
+// ===== UNDER ARBEID – vis nå/neste + knapper =====
+(() => {
+  const elNow   = $('#w_now_name');
+  const elNext  = '#w_next_name';
+  const elTask  = $('#w_task');
+  const elStat  = $('#w_status');
 
-(function(){
-  const $  = (s,root=document)=>root.querySelector(s);
+  const bStart  = $('#w_start');
+  const bDone   = $('#w_done');
+  const bSkip   = $('#w_skip');
+  const bNext   = $('#w_next');
+  const bNav    = $('#w_nav');
+  const bBlock  = $('#w_blocked');
 
-  const S = {
-    driver: 'driver',
-    dir: 'Normal',         // 'Normal' | 'Motsatt'
-    autoNav: false,
-    mode: 'snow',          // 'snow' | 'grit'
-    addresses: [],
-    idx: 0
-  };
-
-  function nextIndex(i, d){ return d==='Motsatt' ? i-1 : i+1; }
-
-  function mapsUrl(addr){
-    if(!addr) return 'https://www.google.com/maps';
-    const coords = (addr.coords||'').trim();
-    if (coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(coords)) {
-      const q = coords.replace(/\s+/g,'');
-      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
-    }
-    return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((addr.name||'')+', Norge');
+  function currentIdx() {
+    const curId = sessionStorage.getItem('BRYT_CURR_ID') || '';
+    const idx = window.S.addresses.findIndex(a => a.id === curId);
+    return idx >= 0 ? idx : 0;
   }
 
-  function hydratePrefs(){
-    try{
-      const p = JSON.parse(localStorage.getItem('BROYT_PREFS')||'{}');
-      S.driver = (p.driver||'driver').trim() || 'driver';
-      S.dir = p.dir || 'Normal';
-      S.autoNav = !!p.autoNav;
-      S.mode = (p.eq && p.eq.sand) ? 'grit' : 'snow';
-    }catch{}
+  function setCurrentByIndex(i) {
+    const list = window.S.addresses;
+    const clamped = Math.max(0, Math.min(list.length - 1, i));
+    sessionStorage.setItem('BRYT_CURR_ID', list[clamped]?.id || '');
+    render();
   }
 
-  function filterAddresses(cloud){
-    const all = Array.isArray(cloud?.snapshot?.addresses) ? cloud.snapshot.addresses : [];
-    const list = all
-      .filter(a => a.active!==false)
-      .filter(a => S.mode==='snow' ? ((a.flags && a.flags.snow)!==false) : !!(a.flags && a.flags.grit));
-    return list;
-  }
+  function updateProgressBars() {
+    const total = window.S.addresses.length || 1;
+    const bag = statusStore();
+    let me = 0, other = 0;
 
-  function renderNowNext(){
-    const now = S.addresses[S.idx] || null;
-    const nxt = S.addresses[nextIndex(S.idx, S.dir)] || null;
-
-    const elNow = $('#w_now'), elNext = $('#w_next');
-    if(elNow) elNow.textContent = now ? (now.name||'—') : '—';
-    if(elNext) elNext.textContent = nxt ? (nxt.name||'—') : '—';
-
-    // Status-etikett under progress
-    const bag = (S.mode==='grit') ? (Cloud.snapshot?.statusGrit||{}) : (Cloud.snapshot?.statusSnow||{});
-    const st = now?.name ? (bag[now.name]?.state || 'not_started') : 'not_started';
-    const elLbl = $('#w_state_label');
-    if(elLbl){
-      const L = {not_started:'Ikke påbegynt', in_progress:'Pågår', done:'Ferdig', skipped:'Hoppet over', blocked:'Ikke mulig', accident:'Uhell'};
-      elLbl.textContent = L[st] || '—';
-    }
-
-    // Puls-animasjon (ønsket)
-    const bStart = $('#act_start'), bDone = $('#act_done');
-    if(bStart && bDone){
-      bStart.classList.remove('pulse');
-      bDone.classList.remove('pulse');
-      if (st==='in_progress') {
-        bDone.classList.add('pulse');  // når pågår → pulser ferdig
-      } else if (st==='done' || st==='skipped' || st==='blocked' || st==='accident'){
-        bStart.classList.add('pulse'); // ferdig/annet → pulser start
+    for (const id of window.S.addresses.map(a => a.id)) {
+      const st = bag[id];
+      if (st && st.state === 'done') {
+        if (!window.S.driver || st.driver === window.S.driver) me++;
+        else other++;
       }
     }
+    const mePct = Math.round(100 * me / total);
+    const otPct = Math.round(100 * other / total);
+
+    const bm = $('#b_prog_me'), bo = $('#b_prog_other');
+    if (bm?.style) bm.style.width = mePct + '%';
+    if (bo?.style) bo.style.width = otPct + '%';
+
+    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent    = `${me}/${total}`);
+    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${other}/${total}`);
+    $('#b_prog_summary')     && ($('#b_prog_summary').textContent     = `${Math.min(me+other,total)} av ${total} adresser fullført`);
   }
 
-  async function loadWork(){
-    hydratePrefs();
-    // Hent sky-data
-    const cloud = await Cloud.getLatest();
-    S.addresses = filterAddresses(cloud);
-    S.idx = (S.dir==='Motsatt') ? (S.addresses.length-1) : 0;
-    renderNowNext();
+  function render() {
+    const list = window.S.addresses;
+    if (!list?.length) return;
+
+    const idx = currentIdx();
+    const now  = list[idx];
+    const next = list[idx+1];
+
+    if (elNow)  elNow.textContent  = now?.name  || '—';
+    $(elNext) && ($(elNext).textContent = next?.name || '—');
+    if (elTask) elTask.textContent = `Oppgave: ${now?.task || '—'}`;
+
+    const bag = statusStore();
+    const cur = bag[now?.id || ''];
+    elStat && (elStat.textContent = `Status: ${cur?.state ? cur.state : '—'}`);
+
+    updateProgressBars();
   }
 
-  async function step(patch, {nextAfter=true} = {}){
-    const cur = S.addresses[S.idx]; if(!cur) return;
-    await Cloud.updateStatus(cur.name, {...patch, ts: nowISO()}, {mode:S.mode, driver:S.driver});
-    // Etter lagring: ev. neste
-    if(nextAfter){
-      const ni = nextIndex(S.idx, S.dir);
-      if(ni>=0 && ni<S.addresses.length){
-        S.idx = ni;
-      }
-    }
-    renderNowNext();
+  function setState(state) {
+    const list = window.S.addresses;
+    const idx  = currentIdx();
+    const now  = list[idx];
+    if (!now) return;
+
+    const bag = statusStore();
+    bag[now.id] = { state, driver: (window.S?.driver || ''), ts: Date.now() };
+    statusStoreWrite(bag);
+    refreshCloud().catch(()=>{});
+
+    render();
   }
 
-  function navigateNext(){
-    const target = S.addresses[nextIndex(S.idx,S.dir)] || S.addresses[S.idx] || null;
-    if(!target) return;
-    window.open(mapsUrl(target), '_blank');
-  }
-
-  // ---------- Knapper ----------
-  $('#act_start')?.addEventListener('click', ()=>step({state:'in_progress', startedAt: Date.now()}, {nextAfter:false}));
-  $('#act_done') ?.addEventListener('click', ()=>step({state:'done',        finishedAt: Date.now()}, {nextAfter:true}));
-  $('#act_skip') ?.addEventListener('click', ()=>step({state:'skipped',     finishedAt: Date.now()}, {nextAfter:true}));
-  $('#act_block')?.addEventListener('click', ()=>{
-    const reason = prompt('Hvorfor ikke mulig? (valgfritt)','')||'';
-    step({state:'blocked', note:reason, finishedAt: Date.now()},{nextAfter:true});
+  // Knapper
+  bStart?.addEventListener('click', () => setState('start'));
+  bDone ?.addEventListener('click', () => setState('done'));
+  bSkip ?.addEventListener('click', () => { setState('skip');  setCurrentByIndex(currentIdx()+1); });
+  bNext ?.addEventListener('click', () => setCurrentByIndex(currentIdx()+1));
+  bBlock?.addEventListener('click', () => setState('blocked'));
+  bNav  ?.addEventListener('click', () => {
+    const now = window.S.addresses[currentIdx()];
+    if (!now) return;
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(now.name)}`;
+    window.open(url,'_blank');
   });
-  $('#act_nav')  ?.addEventListener('click', navigateNext);
 
-  // ---------- Oppstart + Abonnement ----------
-  document.addEventListener('DOMContentLoaded', ()=>{
-    loadWork();
-    // Oppdater automatisk fra skyen (f.eks. annen sjåfør)
-    Cloud.subscribe(()=>{ loadWork(); }, 30000);
-  });
+  document.addEventListener('round-started', render);
+  document.addEventListener('page:shown', (e) => { if (e.detail.id === 'work') render(); });
 
-  // Eksponer for debugging
-  window.__WORK__ = { state:S, reload:loadWork };
+  // første render ved lasting
+  if ((location.hash||'#').includes('work')) render();
 })();
