@@ -1,96 +1,245 @@
-// docs/js/Status.js
+// ======================================================
+// Status.js – viser statusliste + nullstill-funksjoner
+// v10.6 – stabil
+// ======================================================
 (() => {
-  "use strict";
+  'use strict';
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
 
-  function idFor(a, idx) {
-    return a.id ?? a.ID ?? a.Id ?? a.name ?? String(a.index ?? idx);
-  }
-  function t(s){ // norsk
-    switch ((s||"").toLowerCase()) {
-      case "venter": return "Venter";
-      case "pågår": return "Pågår";
-      case "ferdig": return "Ferdig";
-      case "hoppet": 
-      case "hoppet over": return "Hoppet over";
-      case "ikke mulig":
-      case "ikkemulig": return "Ikke mulig";
-      default: return "—";
+  const K_RUN   = 'BRYT_RUN';
+  const K_ADDR  = 'BRYT_ADDR';
+  const K_STAT  = 'BRYT_STATUS';
+
+  const STATE_LABEL = {
+    waiting:     'Venter',
+    in_progress: 'Pågår',
+    done:        'Ferdig',
+    skipped:     'Hoppet over',
+    blocked:     'Ikke mulig'
+  };
+
+  const FILTERS = [
+    {key:'alle',     label:'Alle'},
+    {key:'venter',   label:'Venter'},
+    {key:'pågår',    label:'Pågår'},
+    {key:'ferdig',   label:'Ferdig'},
+    {key:'hoppet',   label:'Hoppet over'},
+    {key:'umulig',   label:'Ikke mulig'},
+  ];
+
+  // ---------- Hjelp ----------
+  function mapsUrlFromAddr(a){
+    if (!a) return 'https://www.google.com/maps';
+    if (a.coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(a.coords)){
+      const q = a.coords.replace(/\s+/g,'');
+      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
     }
+    return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((a.name||'')+', Norge');
   }
 
-  function summarize(arr, map){
-    const sum = { venter:0, pågår:0, ferdig:0, hoppet:0, ikke:0 };
-    for (let i=0;i<arr.length;i++){
-      const st = (map[idFor(arr[i], i)]?.state || "venter").toLowerCase();
-      if (st === "pågår") sum.pågår++;
-      else if (st === "ferdig") sum.ferdig++;
-      else if (st === "hoppet" || st==="hoppet over") sum.hoppet++;
-      else if (st === "ikke mulig" || st==="ikkemulig") sum.ikke++;
-      else sum.venter++;
-    }
-    return sum;
+  function summarize(addrs, bag){
+    const c = {tot:addrs.length, venter:0, pågår:0, ferdig:0, hoppet:0, umulig:0};
+    addrs.forEach(a=>{
+      const st = (bag[a.name]?.state) || 'waiting';
+      if (st==='waiting') c.venter++;
+      else if (st==='in_progress') c.pågår++;
+      else if (st==='done') c.ferdig++;
+      else if (st==='skipped') c.hoppet++;
+      else if (st==='blocked') c.umulig++;
+    });
+    return c;
   }
 
-  function render() {
-    const sec = $("#status"); if (!sec || sec.hasAttribute("hidden")) return;
+  function renderStatusUI(){
+    const host = $('#status');
+    if (!host) return;
 
-    const arr = window.Sync?.getAddresses() || [];
-    const map = window.Sync?.getStatusMap() || {};
+    // Bygg UI hvis ikke allerede gjort
+    if (!host.dataset.enhanced){
+      host.innerHTML = `
+        <h1>Status</h1>
 
-    // toppkort (enkelt – du kan style i CSS)
-    let box = $("#stat_top");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "stat_top";
-      box.className = "card";
-      sec.insertBefore(box, sec.children[1] || null);
-    }
+        <div class="work-top" id="st_top">
+          <div class="work-prog" style="height:8px">
+            <div class="other" id="st_prog_other"></div>
+            <div class="me" id="st_prog_me"></div>
+          </div>
+          <div class="work-caption">
+            <div><strong id="st_me_count">0/0</strong> mine • <strong id="st_other_count">0/0</strong> andre</div>
+            <div id="st_summary">0 av 0 adresser fullført</div>
+          </div>
+        </div>
 
-    const s = summarize(arr, map);
-    box.innerHTML = `
-      <div class="row" style="gap:8px; flex-wrap:wrap">
-        <span class="btn-ghost">Ikke påbegynt: ${s.venter}</span>
-        <span class="btn-ghost">Pågår: ${s.pågår}</span>
-        <span class="btn-ghost">Ferdig: ${s.ferdig}</span>
-        <span class="btn-ghost">Hoppet over: ${s.hoppet}</span>
-        <span class="btn-ghost">Ikke mulig: ${s.ikke}</span>
-      </div>
-    `;
+        <div class="row" style="justify-content:space-between; gap:8px; margin:12px 0 6px">
+          <label class="field" style="margin:0; flex:1">
+            <span>Filter</span>
+            <select id="st_filter" class="input"></select>
+          </label>
+          <div class="row" style="gap:8px">
+            <button id="st_reset_mine" class="btn-ghost">Nullstill mine</button>
+            <button id="st_reset_all"  class="btn-ghost">Nullstill alle</button>
+          </div>
+        </div>
 
-    // tabell
-    let tbl = $("#stat_tbl");
-    if (!tbl) {
-      tbl = document.createElement("table");
-      tbl.id = "stat_tbl";
-      tbl.className = "card";
-      tbl.style.width = "100%";
-      tbl.innerHTML = `
-        <thead><tr><th style="text-align:left">#</th><th style="text-align:left">Adresse</th><th style="text-align:left">Status</th><th style="text-align:left">Sjåfør</th></tr></thead>
-        <tbody></tbody>
+        <div class="card" style="padding:0">
+          <table style="width:100%; border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:1px solid var(--sep)">
+                <th style="text-align:left; padding:10px 12px; width:44px">#</th>
+                <th style="text-align:left; padding:10px 12px">Adresse</th>
+                <th style="text-align:left; padding:10px 12px">Oppdrag</th>
+                <th style="text-align:left; padding:10px 12px">Status</th>
+                <th style="text-align:left; padding:10px 12px">Start</th>
+                <th style="text-align:left; padding:10px 12px">Ferdig</th>
+                <th style="text-align:left; padding:10px 12px">Utført av</th>
+                <th style="text-align:center; padding:10px 12px">🧭</th>
+              </tr>
+            </thead>
+            <tbody id="st_tbody"></tbody>
+          </table>
+        </div>
       `;
-      sec.appendChild(tbl);
+      host.dataset.enhanced = '1';
+
+      // Fyll filter
+      const sel = $('#st_filter');
+      FILTERS.forEach(f=>{
+        const o = document.createElement('option');
+        o.value = f.key; o.textContent = f.label;
+        sel.appendChild(o);
+      });
+      sel.value = 'alle';
+
+      // Wire-knapper
+      $('#st_filter')?.addEventListener('change', renderList);
+      $('#st_reset_all')?.addEventListener('click', resetAll);
+      $('#st_reset_mine')?.addEventListener('click', resetMine);
     }
-    const tbody = tbl.querySelector("tbody");
-    tbody.innerHTML = arr.map((a,i) => {
-      const id = idFor(a,i);
-      const st = map[id] || {};
-      const name = a.name || a.adresse || a.Address || `Adresse ${i+1}`;
-      return `<tr>
-        <td>${i+1}</td>
-        <td>${name}</td>
-        <td>${t(st.state)}</td>
-        <td>${st.driver || ""}</td>
-      </tr>`;
-    }).join("");
+
+    renderList();
   }
 
-  function init(){
-    render();
-    window.addEventListener("hashchange", render);
-    window.Sync?.on(render);
+  function updateProgressHeader(addrs, bag, driver){
+    const total = addrs.length || 1;
+    let me = 0, other = 0;
+
+    for (const n in bag){
+      const st = bag[n];
+      if (st?.state === 'done'){
+        if (st.driver === driver) me++; else other++;
+      }
+    }
+    const mePct = Math.round(100 * me / total);
+    const otPct = Math.round(100 * other / total);
+
+    $('#st_prog_me')?.style && ($('#st_prog_me').style.width = mePct + '%');
+    $('#st_prog_other')?.style && ($('#st_prog_other').style.width = otPct + '%');
+
+    $('#st_me_count').textContent = `${me}/${total}`;
+    $('#st_other_count').textContent = `${other}/${total}`;
+    $('#st_summary').textContent = `${Math.min(me+other,total)} av ${total} adresser fullført`;
   }
-  document.addEventListener("DOMContentLoaded", init);
+
+  function renderList(){
+    const run  = readJSON(K_RUN, {});
+    const addrsSrc = readJSON(K_ADDR, []);
+    const addrs = addrsSrc.filter(a => a.active !== false);
+    const bag = readJSON(K_STAT, {});
+
+    updateProgressHeader(addrs, bag, run.driver || '');
+
+    const sel = $('#st_filter')?.value || 'alle';
+    const tbody = $('#st_tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const filterOk = (st) => {
+      if (sel === 'alle') return true;
+      if (sel === 'venter') return st === 'waiting';
+      if (sel === 'pågår')  return st === 'in_progress';
+      if (sel === 'ferdig') return st === 'done';
+      if (sel === 'hoppet') return st === 'skipped';
+      if (sel === 'umulig') return st === 'blocked';
+      return true;
+    };
+
+    addrs.forEach((a, i) => {
+      const s = bag[a.name] || {state:'waiting'};
+      if (!filterOk(s.state)) return;
+
+      const oppdrag = (run?.equipment?.sand) ? 'Strø grus' : 'Fjerne snø';
+      const startTxt  = s.startedAt ? new Date(s.startedAt).toLocaleTimeString('no-NO', {hour:'2-digit', minute:'2-digit'}) : '—';
+      const finishTxt = s.finishedAt? new Date(s.finishedAt).toLocaleTimeString('no-NO', {hour:'2-digit', minute:'2-digit'}) : '—';
+      const nav = `<a href="${mapsUrlFromAddr(a)}" target="_blank" rel="noopener">🧭</a>`;
+
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--sep)';
+      tr.innerHTML = `
+        <td style="padding:10px 12px">${i+1}</td>
+        <td style="padding:10px 12px">${a.name || ''}</td>
+        <td style="padding:10px 12px">${oppdrag}</td>
+        <td style="padding:10px 12px">${STATE_LABEL[s.state] || 'Venter'}</td>
+        <td style="padding:10px 12px">${startTxt}</td>
+        <td style="padding:10px 12px">${finishTxt}</td>
+        <td style="padding:10px 12px">${s.driver || '—'}</td>
+        <td style="padding:10px 12px; text-align:center">${nav}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function resetAll(){
+    if (!confirm('Nullstille denne runden for alle?')) return;
+    const addrsSrc = readJSON(K_ADDR, []);
+    const addrs = addrsSrc.filter(a => a.active !== false);
+
+    const bag = readJSON(K_STAT, {});
+    addrs.forEach(a=>{
+      bag[a.name] = { state:'waiting', startedAt:null, finishedAt:null, driver:null };
+    });
+    writeJSON(K_STAT, bag);
+
+    // TODO: Sync til JSONBin om ønskelig:
+    // if (window.Sync) await window.Sync.saveStatus(bag);
+
+    renderList();
+    alert('Runden er nullstilt for alle.');
+  }
+
+  function resetMine(){
+    const run = readJSON(K_RUN, {});
+    const me = run.driver || '';
+    if (!me){ alert('Fant ikke førernavn (Hjem-siden).'); return; }
+    if (!confirm('Nullstille dine punkter?')) return;
+
+    const bag = readJSON(K_STAT, {});
+    for (const k in bag){
+      if (bag[k]?.driver === me){
+        bag[k] = { state:'waiting', startedAt:null, finishedAt:null, driver:null };
+      }
+    }
+    writeJSON(K_STAT, bag);
+
+    // TODO: Sync til JSONBin om ønskelig:
+    // if (window.Sync) await window.Sync.saveStatus(bag);
+
+    renderList();
+    alert('Dine punkter er nullstilt.');
+  }
+
+  // Re-render når vi åpner Status-siden via hash
+  window.addEventListener('hashchange', ()=>{
+    const id = (location.hash || '#home').replace('#','');
+    if (id === 'status') renderStatusUI();
+  });
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // Vis når siden faktisk er aktiv
+    const id = (location.hash || '#home').replace('#','');
+    if (id === 'status') renderStatusUI();
+  });
 })();
