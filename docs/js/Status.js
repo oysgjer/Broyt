@@ -1,72 +1,57 @@
-/* =========================================================
-   Status.js — oversikt & tabell
-   • Leser fra Cloud (JSONBin) og viser oppsummert status
-   • Oppdaterer seg med polling
-   ========================================================= */
+// ===== STATUS – summerer og viser tabell =====
+(() => {
+  const sumBox = $('#status_summary');
+  const tbody  = $('#status_tbody');
 
-(function(){
-  const $  = (s,root=document)=>root.querySelector(s);
-  const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
+  function summarize() {
+    const bag   = statusStore();
+    const list  = window.S.addresses || [];
+    const c = { none:0, start:0, done:0, skip:0, blocked:0 };
 
-  function fmtTime(t){ return !t ? '—' : new Date(t).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}); }
-  const LABEL={not_started:'Ikke påbegynt',in_progress:'Pågår',done:'Ferdig',skipped:'Hoppet over',blocked:'Ikke mulig',accident:'Uhell'};
-
-  function summarize(addrs, bag){
-    const c = {tot:addrs.length, not:0, prog:0, done:0, skip:0, blk:0, acc:0};
-    addrs.forEach(a=>{
-      const st = (bag[a.name]||{state:'not_started'}).state;
-      if(st==='not_started') c.not++;
-      else if(st==='in_progress') c.prog++;
-      else if(st==='done') c.done++;
-      else if(st==='skipped') c.skip++;
-      else if(st==='blocked') c.blk++;
-      else if(st==='accident') c.acc++;
-    });
+    for (const a of list) {
+      const st = bag[a.id]?.state || 'none';
+      if (c[st] != null) c[st]++; else c.none++;
+    }
     return c;
   }
 
-  function makeRow(i,a,s){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i+1}</td>
-      <td>${a.name||''}</td>
-      <td>${LABEL[s?.state||'not_started']}</td>
-      <td>${fmtTime(s?.startedAt)}</td>
-      <td>${fmtTime(s?.finishedAt)}</td>
-      <td>${s?.driver||'—'}</td>
-    `;
-    return tr;
-  }
+  function render() {
+    const list = window.S.addresses || [];
+    const bag  = statusStore();
 
-  async function renderStatus(){
-    const cloud = await Cloud.getLatest();
-    const modeSel = $('#st_mode')?.value || 'snow';
-    const addrs = Array.isArray(cloud?.snapshot?.addresses) ? cloud.snapshot.addresses : [];
-    const bag   = (modeSel==='snow') ? (cloud.statusSnow||{}) : (cloud.statusGrit||{});
+    const c = summarize();
+    if (sumBox) {
+      sumBox.textContent = `Ikke påbegynt: ${c.none}  •  Pågår: ${c.start}  •  Ferdig: ${c.done}  •  Hoppet: ${c.skip}  •  Ikke mulig: ${c.blocked}`;
+    }
 
-    const tb = $('#st_tbody');
-    if(tb) tb.innerHTML = '';
-    addrs.forEach((a,i)=>{
-      tb?.appendChild(makeRow(i,a, bag[a.name]||{state:'not_started'}));
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    list.forEach((a, i) => {
+      const st = bag[a.id]?.state || '—';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${a.name}</td>
+        <td>${a.task||'—'}</td>
+        <td>${st}</td>
+        <td><button class="btn-ghost btn-sm" data-goto="${a.id}">Gå til</button></td>
+      `;
+      tbody.appendChild(tr);
     });
 
-    const c = summarize(addrs, bag);
-    const label = (modeSel==='snow')?'Snø':'Grus';
-    const sum = $('#st_summary');
-    if(sum) sum.textContent = `${label}-runde: ${c.tot} adresser • Ikke påbegynt ${c.not} • Pågår ${c.prog} • Ferdig ${c.done} • Hoppet ${c.skip} • Ikke mulig ${c.blk} • Uhell ${c.acc}`;
-
-    const badge = $('#st_season_badge');
-    if(badge) badge.textContent = 'Sesong: '+((cloud.settings&&cloud.settings.seasonLabel)||'—');
+    // “Gå til” – åpne Under arbeid på valgt adresse
+    $$('#status_tbody [data-goto]').forEach(b=>{
+      b.addEventListener('click', (e)=>{
+        const id = e.currentTarget.getAttribute('data-goto');
+        if (!id) return;
+        sessionStorage.setItem('BRYT_CURR_ID', id);
+        showPage('work');
+      });
+    });
   }
 
-  $('#st_mode')?.addEventListener('change', renderStatus);
-  $('#st_reload')?.addEventListener('click', renderStatus);
+  document.addEventListener('round-started', render);
+  document.addEventListener('page:shown', (e) => { if (e.detail.id === 'status') render(); });
 
-  document.addEventListener('DOMContentLoaded', ()=>{
-    renderStatus();
-    Cloud.subscribe(()=>{ renderStatus(); }, 30000);
-  });
-
-  // Eksponer for debugging
-  window.__STATUS__ = { reload:renderStatus };
+  if ((location.hash||'#').includes('status')) render();
 })();
