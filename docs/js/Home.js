@@ -2,6 +2,7 @@
 (() => {
   'use strict';
 
+  /* ========= små hjelpere ========= */
   const $ = (s, r = document) => r.querySelector(s);
   const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
@@ -9,21 +10,22 @@
   const K_SETTINGS = 'BRYT_SETTINGS';
   const K_RUN      = 'BRYT_RUN';
 
+  /* ========= settings (UI <-> storage) ========= */
   function loadSettings() {
     return readJSON(K_SETTINGS, {
       driver: '',
       equipment: { plow:false, fres:false, sand:false },
       dir: 'Normal',
       autoNav: false,
-      // shortcuts (lat,lon) kan ligge her hvis ønskelig
-      grus: '', diesel: '', base: ''
+      grus: '', diesel: '', base: '' // ev. snarvei-koordinater
     });
   }
   function saveSettings(s) { writeJSON(K_SETTINGS, s); }
 
   function uiToSettings() {
+    const cur = loadSettings();
     return {
-      ...loadSettings(),
+      ...cur,
       driver: $('#a_driver')?.value.trim() || '',
       equipment: {
         plow: !!$('#a_eq_plow')?.checked,
@@ -45,46 +47,49 @@
     if ($('#a_autoNav')) $('#a_autoNav').checked = !!st.autoNav;
   }
 
+  /* ========= start runde (lokalt) ========= */
   function startRunLocal() {
     const st = uiToSettings();
     saveSettings(st);
 
     const run = {
       driver: st.driver,
-      equipment: st.equipment,
+      equipment: { ...st.equipment },
       dir: st.dir,
+      autoNav: !!st.autoNav,
       idx: 0
     };
     writeJSON(K_RUN, run);
+    return run;
   }
 
+  /* ========= klikk: Start runde ========= */
   async function onStartClick() {
     try {
-      // 1) lagre innstillinger fra UI
-      startRunLocal();
+      // 1) lagre innstillinger & klargjør lokal "run"
+      const run = startRunLocal();
 
-      // 2) Hente adresser fra JSONbin (via Sync) – cache lagres i localStorage
-      if (!window.Sync) throw new Error('Sync-modulen er ikke lastet. Mangler js/sync.js?');
-
-      // Om du vil sette nøkkel/programmatisk i stedet for i sync.js:
-      // window.Sync.setConfig({ apiKey: 'DIN_NØKKEL', binId: '68e7...' });
-
-      const addrs = await window.Sync.loadAddresses({ force: true });
-      if (!addrs || addrs.length === 0) {
-        alert('Fant ingen adresser i JSONbin. Sjekk BIN og dataformat.');
+      // 2) sørg for at Sync er lastet
+      if (!window.Sync?.init) {
+        throw new Error('Sync-modulen er ikke tilgjengelig (mangler js/sync.js eller laster ikke).');
       }
 
-      // 3) Naviger til “Under arbeid”
+      // 3) start synk (henter adresser og status, starter evt. polling)
+      //    init() kan trygt kalles flere ganger – den re-bruker eksisterende tilstand.
+      await window.Sync.init();
+
+      // 4) alt klart – gå til "Under arbeid"
       location.hash = '#work';
-    } catch (e) {
-      console.error(e);
-      alert('Kunne ikke hente adresser fra sky: ' + e.message);
+    } catch (err) {
+      console.error(err);
+      alert('Kunne ikke starte runde: ' + (err?.message || err));
     }
   }
 
+  /* ========= wiring ========= */
   function wire() {
     settingsToUI();
-    $('#a_start') && $('#a_start').addEventListener('click', onStartClick);
+    $('#a_start')?.addEventListener('click', onStartClick);
   }
 
   document.addEventListener('DOMContentLoaded', wire);
