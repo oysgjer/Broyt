@@ -1,58 +1,63 @@
-// ===== HJEM – les/lagre valg og start runde =====
-(() => {
-  const nameInp  = $('#drv_name') || $('#driver_name') || $('#home_driver');
-  const autonav  = $('#chk_autonav');
-  const orderSel = $('#sel_order');
-  const chSkj    = $('#chk_skj')   || $('#equip_skj');
-  const chFres   = $('#chk_fres')  || $('#equip_fres');
-  const chGrus   = $('#chk_grus')  || $('#equip_grus');
-  const btnStart = $('#btn_start') || $('#home_start');
+/* ---------------------------------------------------------
+   Home.js
+   Leser inputs, lagrer state og starter runde.
+--------------------------------------------------------- */
+(function () {
+  const $  = (s, root = document) => root.querySelector(s);
+  const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
 
-  // init fra storage
-  if (nameInp)  nameInp.value = localStorage.getItem('BRYT_DRIVER') || (window.S?.driver || '');
-  if (autonav)  autonav.checked = localStorage.getItem('BRYT_AUTONAV') === '1';
-  if (orderSel) orderSel.value = localStorage.getItem('BRYT_ORDER') || 'normal';
-
-  nameInp?.addEventListener('input', e => {
-    localStorage.setItem('BRYT_DRIVER', e.target.value.trim());
-    if (window.S) window.S.driver = e.target.value.trim();
-  });
-  autonav?.addEventListener('change', e => {
-    localStorage.setItem('BRYT_AUTONAV', e.target.checked ? '1' : '0');
-    if (window.S) window.S.autonav = !!e.target.checked;
-  });
-  orderSel?.addEventListener('change', e => {
-    localStorage.setItem('BRYT_ORDER', e.target.value);
-  });
-
-  function pickMode() {
-    if (chGrus?.checked) return 'grus';
-    if (chFres?.checked) return 'fres';
-    return 'skjær';
+  function readHomeForm() {
+    return {
+      driver: $('#a_driver')?.value?.trim() || '',
+      equipment: {
+        plow:  $('#a_eq_plow')?.checked || false,
+        fres:  $('#a_eq_fres')?.checked || false,
+        sand:  $('#a_eq_sand')?.checked || false,
+      },
+      order:   $('#a_dir')?.value || 'Normal',
+      autoNav: $('#a_autoNav')?.checked || false,
+    };
   }
 
-  btnStart?.addEventListener('click', async () => {
+  function startRound() {
     try {
-      // lagre modus
-      const mode = pickMode();
-      if (window.S) window.S.mode = mode;
+      // Sikre seed + last eksisterende state
+      const s  = window.ensureAddressesSeeded ? ensureAddressesSeeded() : (window.S || {});
+      const fm = readHomeForm();
 
-      await ensureAddressesSeeded();
-      await refreshCloud();
+      // Oppdater state
+      s.driver    = fm.driver;
+      s.equipment = fm.equipment;
+      s.order     = fm.order;
+      s.autoNav   = fm.autoNav;
+      s.idx       = 0;          // start på første adresse
+      s.started   = true;
 
-      // startpeker = første adresse som ikke er "done"
-      const bag = statusStore();
-      const list = window.S.addresses;
-      const first = list.find(a => !bag[a.id] || bag[a.id].state !== 'done') || list[0];
+      window.saveState && saveState(s);
+      window.S = s;
 
-      // Del «nå/neste» til Work
-      sessionStorage.setItem('BRYT_CURR_ID', first?.id || '');
-
-      // gå til work
-      showPage('work');
-      document.dispatchEvent(new CustomEvent('round-started', { detail: { mode }}));
+      // Klargjør data og gå til “work”
+      window.refreshCloud && refreshCloud().catch(()=>{ /* ignorer offline */ });
+      if (window.showPage) showPage('work');
+      else location.hash = '#work';
     } catch (e) {
       alert('Kunne ikke starte runde: ' + e.message);
+      console.error(e);
     }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Fyll inn eventuelle tidligere verdier
+    const s = window.loadState ? loadState() : {};
+    if (s.driver) $('#a_driver') && ($('#a_driver').value = s.driver);
+    if (s.equipment) {
+      $('#a_eq_plow') && ($('#a_eq_plow').checked = !!s.equipment.plow);
+      $('#a_eq_fres') && ($('#a_eq_fres').checked = !!s.equipment.fres);
+      $('#a_eq_sand') && ($('#a_eq_sand').checked = !!s.equipment.sand);
+    }
+    if (s.order)   $('#a_dir') && ($('#a_dir').value = s.order);
+    if (s.autoNav) $('#a_autoNav') && ($('#a_autoNav').checked = !!s.autoNav);
+
+    $('#a_start')?.addEventListener('click', startRound);
   });
 })();
