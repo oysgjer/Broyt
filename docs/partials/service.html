@@ -1,32 +1,32 @@
+<!-- partials/service.html -->
 <h1>Service</h1>
 
-<form id="serviceForm" novalidate>
-  <section class="service-card">
-    <h3>Smøring</h3>
-    <label><input type="checkbox" id="svc_skjaer"> Skjær smurt</label>
-    <label><input type="checkbox" id="svc_fres"> Fres smurt</label>
-    <label><input type="checkbox" id="svc_forstilling"> Forstilling smurt</label>
-  </section>
+<div class="card">
+  <div class="label-muted">Smøring</div>
+  <label><input type="checkbox" id="svc_skjaer" /> Skjær smurt</label><br>
+  <label><input type="checkbox" id="svc_fres" /> Fres smurt</label><br>
+  <label><input type="checkbox" id="svc_forstilling" /> Forstilling smurt</label>
+</div>
 
-  <section class="service-card">
-    <h3>Olje</h3>
-    <label><input type="checkbox" id="svc_olje_foran"> Olje sjekket foran</label>
-    <label><input type="checkbox" id="svc_olje_bak"> Olje sjekket bak</label>
-    <label><input type="checkbox" id="svc_olje_etter"> Olje etterfylt</label>
-  </section>
+<div class="card">
+  <div class="label-muted">Olje</div>
+  <label><input type="checkbox" id="svc_olje_foran" /> Olje sjekket foran</label><br>
+  <label><input type="checkbox" id="svc_olje_bak" /> Olje sjekket bak</label><br>
+  <label><input type="checkbox" id="svc_olje_etterfylt" /> Olje etterfylt</label>
+</div>
 
-  <section class="service-card">
-    <h3>Diesel og grus</h3>
-    <label><input type="checkbox" id="svc_diesel"> Diesel fylt</label>
-    <label>Antall kasser grus:
-      <input type="text" id="svc_kasser" placeholder="f.eks. 2 kasser" inputmode="numeric">
-    </label>
-  </section>
+<div class="card">
+  <div class="label-muted">Diesel og grus</div>
+  <label><input type="checkbox" id="svc_diesel" /> Diesel fylt</label><br>
+  <label>Antall kasser grus:<br>
+    <input id="svc_grus" type="text" class="input" placeholder="f.eks. 2 kasser" />
+  </label>
+</div>
 
-  <section class="service-card">
-    <h3>Annet</h3>
-    <textarea id="svc_annet" placeholder="Skriv eventuelle kommentarer..."></textarea>
-  </section>
+<div class="card">
+  <div class="label-muted">Annet</div>
+  <textarea id="svc_annet" class="input" rows="3" placeholder="Skriv eventuelle kommentarer..."></textarea>
+</div>
 
-  <button id="svc_send" type="button" class="primary-btn">📤 Send rapport</button>
-</form>
+<button id="svc_save" class="btn">Lagre service</button>
+<p id="svc_status" class="muted"></p>
