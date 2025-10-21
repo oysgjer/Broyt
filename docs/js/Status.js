@@ -1,127 +1,96 @@
-/* Status.js — viser fremdrift og tabell over adresser/tilstander.
-   Leser fra localStorage (BRYT_STATUS) og – hvis tilgjengelig – fra global S.addresses.
-*/
-(function () {
+// docs/js/Status.js
+(() => {
+  "use strict";
+
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const LS_STATUS_KEY = 'BRYT_STATUS';
 
-  function statusStore() {
-    try { return JSON.parse(localStorage.getItem(LS_STATUS_KEY) || '{}'); }
-    catch { return {}; }
+  function idFor(a, idx) {
+    return a.id ?? a.ID ?? a.Id ?? a.name ?? String(a.index ?? idx);
   }
-  function readSettings(){
-    try { return JSON.parse(localStorage.getItem('BRYT_SETTINGS') || '{}'); }
-    catch { return {}; }
-  }
-
-  const LABELS = {
-    idle: 'Ikke påbegynt',
-    start: 'Pågår',
-    done: 'Ferdig',
-    skip: 'Hoppet over',
-    blocked: 'Ikke mulig'
-  };
-
-  function summarize(addresses, bag) {
-    let idle=0, start=0, done=0, skip=0, blocked=0;
-    const total = addresses.length;
-    for (const a of addresses) {
-      const st = bag[a.id]?.state || 'idle';
-      if      (st === 'done')    done++;
-      else if (st === 'start')   start++;
-      else if (st === 'skip')    skip++;
-      else if (st === 'blocked') blocked++;
-      else idle++;
+  function t(s){ // norsk
+    switch ((s||"").toLowerCase()) {
+      case "venter": return "Venter";
+      case "pågår": return "Pågår";
+      case "ferdig": return "Ferdig";
+      case "hoppet": 
+      case "hoppet over": return "Hoppet over";
+      case "ikke mulig":
+      case "ikkemulig": return "Ikke mulig";
+      default: return "—";
     }
-    return { total, idle, start, done, skip, blocked };
+  }
+
+  function summarize(arr, map){
+    const sum = { venter:0, pågår:0, ferdig:0, hoppet:0, ikke:0 };
+    for (let i=0;i<arr.length;i++){
+      const st = (map[idFor(arr[i], i)]?.state || "venter").toLowerCase();
+      if (st === "pågår") sum.pågår++;
+      else if (st === "ferdig") sum.ferdig++;
+      else if (st === "hoppet" || st==="hoppet over") sum.hoppet++;
+      else if (st === "ikke mulig" || st==="ikkemulig") sum.ikke++;
+      else sum.venter++;
+    }
+    return sum;
   }
 
   function render() {
-    const root = $('#status');
-    if (!root) return;
+    const sec = $("#status"); if (!sec || sec.hasAttribute("hidden")) return;
 
-    // Finn adresser – bruk global S.addresses om finnes, ellers tom
-    const S = window.S || {};
-    const addresses = Array.isArray(S.addresses) ? S.addresses : [];
-    const bag = statusStore();
-    const sum = summarize(addresses, bag);
+    const arr = window.Sync?.getAddresses() || [];
+    const map = window.Sync?.getStatusMap() || {};
 
-    root.innerHTML = `
-      <h1>Status</h1>
+    // toppkort (enkelt – du kan style i CSS)
+    let box = $("#stat_top");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "stat_top";
+      box.className = "card";
+      sec.insertBefore(box, sec.children[1] || null);
+    }
 
-      <div class="card" id="st_kpis">
-        <div class="row" style="gap:10px; flex-wrap:wrap">
-          <div class="chip">Alle: <strong>${sum.total}</strong></div>
-          <div class="chip">Ikke påbegynt: <strong>${sum.idle}</strong></div>
-          <div class="chip">Pågår: <strong>${sum.start}</strong></div>
-          <div class="chip">Ferdig: <strong>${sum.done}</strong></div>
-          <div class="chip">Hoppet over: <strong>${sum.skip}</strong></div>
-          <div class="chip">Ikke mulig: <strong>${sum.blocked}</strong></div>
-          <span style="flex:1 1 auto"></span>
-          <button id="st_refresh" class="btn-ghost">Oppfrisk</button>
-          <button id="st_export" class="btn-ghost">Eksporter CSV</button>
-        </div>
-      </div>
-
-      <div class="table-wrap">
-        <table class="table" id="st_tbl">
-          <thead>
-            <tr><th>#</th><th>Adresse</th><th>Status</th><th>Sjåfør</th><th>Tid</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+    const s = summarize(arr, map);
+    box.innerHTML = `
+      <div class="row" style="gap:8px; flex-wrap:wrap">
+        <span class="btn-ghost">Ikke påbegynt: ${s.venter}</span>
+        <span class="btn-ghost">Pågår: ${s.pågår}</span>
+        <span class="btn-ghost">Ferdig: ${s.ferdig}</span>
+        <span class="btn-ghost">Hoppet over: ${s.hoppet}</span>
+        <span class="btn-ghost">Ikke mulig: ${s.ikke}</span>
       </div>
     `;
 
-    // Fyll tabell
-    const tbody = $('#st_tbl tbody', root);
-    if (addresses.length === 0) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td colspan="5" class="muted">Ingen adresser tilgjengelig. Sjekk JSONBin-oppsett i Admin.</td>`;
-      tbody.appendChild(tr);
-    } else {
-      addresses.forEach((a, i) => {
-        const s = bag[a.id] || {};
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${i+1}</td>
-          <td>${a.name || a.address || '-'}</td>
-          <td>${LABELS[s.state] || LABELS.idle}</td>
-          <td>${s.driver || ''}</td>
-          <td>${s.ts ? new Date(s.ts).toLocaleString() : ''}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+    // tabell
+    let tbl = $("#stat_tbl");
+    if (!tbl) {
+      tbl = document.createElement("table");
+      tbl.id = "stat_tbl";
+      tbl.className = "card";
+      tbl.style.width = "100%";
+      tbl.innerHTML = `
+        <thead><tr><th style="text-align:left">#</th><th style="text-align:left">Adresse</th><th style="text-align:left">Status</th><th style="text-align:left">Sjåfør</th></tr></thead>
+        <tbody></tbody>
+      `;
+      sec.appendChild(tbl);
     }
-
-    // Oppfrisk → bare re-render lokalt (ev. sync.js kan trigges separat)
-    $('#st_refresh')?.addEventListener('click', () => render());
-
-    // Eksporter CSV
-    $('#st_export')?.addEventListener('click', () => {
-      const rows = [['#','adresse','status','sjåfør','tid']];
-      addresses.forEach((a, i) => {
-        const s = bag[a.id] || {};
-        rows.push([
-          i+1,
-          a.name || a.address || '',
-          LABELS[s.state] || LABELS.idle,
-          s.driver || '',
-          s.ts ? new Date(s.ts).toISOString() : ''
-        ]);
-      });
-      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'status.csv';
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    });
+    const tbody = tbl.querySelector("tbody");
+    tbody.innerHTML = arr.map((a,i) => {
+      const id = idFor(a,i);
+      const st = map[id] || {};
+      const name = a.name || a.adresse || a.Address || `Adresse ${i+1}`;
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${name}</td>
+        <td>${t(st.state)}</td>
+        <td>${st.driver || ""}</td>
+      </tr>`;
+    }).join("");
   }
 
-  document.addEventListener('DOMContentLoaded', render);
-  // Gjør funksjonen tilgjengelig hvis andre vil trigge oppfriskning
-  window.__BRYT_STATUS_RENDER = render;
+  function init(){
+    render();
+    window.addEventListener("hashchange", render);
+    window.Sync?.on(render);
+  }
+  document.addEventListener("DOMContentLoaded", init);
 })();
