@@ -4,215 +4,194 @@
 
   const $  = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
-  const J = {
-    get(k,d){ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
-    set(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
-  };
 
-  const LSK_RUN = 'BRYT_RUN';
+  const K_SETTINGS = 'BRYT_SETTINGS';
+  const K_RUN      = 'BRYT_RUN';
 
-  /* ---------- Run state i LS ---------- */
-  function getRun(){
-    return J.get(LSK_RUN, {
-      driver:'',
-      equipment:{plow:false,fres:false,sand:false},
-      dir:'Normal',
-      idx:0
-    });
+  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
+
+  function settings(){ return readJSON(K_SETTINGS, { driver:'', equipment:{plow:false,fres:false,sand:false}, dir:'Normal' }); }
+  function run(){ return readJSON(K_RUN, { idx:0, driver:'', equipment:{}, dir:'Normal' }); }
+  function saveRun(r){ writeJSON(K_RUN, r); }
+
+  function addresses(){
+    return readJSON('BRYT_ADDR_CACHE', []);
   }
-  function setRun(r){ J.set(LSK_RUN, r); }
 
-  /* ---------- Adresser / kontekst ---------- */
+  function orderList(list, dir){
+    if (dir==='Motsatt') return [...list].reverse();
+    return list;
+  }
+
+  function describeTask(st){
+    const eq = st?.equipment || settings().equipment;
+    // Snøbrøyting hvis plow eller fres; ellers Strøing av grus hvis sand
+    if (eq?.sand && !eq?.plow && !eq?.fres) return 'Strøing av grus';
+    if (eq?.plow || eq?.fres) return 'Snøbrøyting';
+    return '—';
+  }
+
   function getNowNext(){
-    const A = window.Sync?.getAddresses?.() || [];
-    const r = getRun();
-    const total = A.length;
-    const idx = Math.max(0, Math.min(r.idx ?? 0, Math.max(0,total-1)));
-    const now  = total ? A[idx] : null;
-    const next = total && idx+1<total ? A[idx+1] : null;
-    return {A, r, idx, now, next, total};
+    const s = settings();
+    const list = orderList(addresses(), s.dir);
+    const r = run();
+    const idx = Math.max(0, Math.min(r.idx || 0, Math.max(0, list.length-1)));
+    return { s, list, idx, now:list[idx]||null, next:list[idx+1]||null, total:list.length };
   }
 
-  function taskLabel(){
-    const r = getRun();
-    return r.equipment?.sand ? 'Strøing av grus' : 'Snøbrøyting';
+  function setBarColors(){
+    const task = describeTask();
+    const me = $('#b_prog_me');
+    if (!me) return;
+    me.classList.remove('is-grus');
+    if (task === 'Strøing av grus') me.classList.add('is-grus');
   }
 
-  /* ---------- Tilstands-mapping ---------- */
-  const toCanonical = (s)=>({
-    'pågår':'in_progress',
-    'in_progress':'in_progress',
-    'ferdig':'done',
-    'done':'done',
-    'hoppet':'skipped',
-    'skipped':'skipped',
-    'ikke_mulig':'blocked',
-    'blocked':'blocked',
-    'ikke_påbegynt':'not_started',
-    'not_started':'not_started'
-  }[s] || 'not_started');
+  function statusStore(){ return window.Sync?.statusStore() || {}; }
 
-  const toNorwegian = (canon)=>({
-    'not_started':'Ikke påbegynt',
-    'in_progress':'Pågår',
-    'done':'Ferdig',
-    'skipped':'Hoppet over',
-    'blocked':'Ikke mulig'
-  }[canon] || 'Ukjent');
+  function updateProgressBars(){
+    const { s, list, total } = getNowNext();
+    const bag = statusStore();
+    let me=0, other=0;
 
-  function statusTextFor(id){
-    const map = window.Sync?.getStatusMap?.() || {};
-    const canon = toCanonical(map[id]?.state);
-    return toNorwegian(canon);
-  }
-
-  /* ---------- Render ---------- */
-  function renderProgress(){
-    const {A} = getNowNext();
-    const total = A.length || 1;
-
-    let mine=0, andre=0;
-    const map = window.Sync?.getStatusMap?.() || {};
-    const r = getRun();
-
-    for (const id in map){
-      const st = map[id];
-      if(!st) continue;
-      if (toCanonical(st.state) !== 'done') continue;
-      if (st.driver && r.driver && st.driver === r.driver) mine++;
-      else andre++;
+    for (const a of list){
+      const st = bag[a.id];
+      if (st?.state === 'done'){
+        if (st.driver === s.driver) me++; else other++;
+      }
     }
 
-    const mePct = Math.round(100*mine/total);
-    const otPct = Math.round(100*andre/total);
+    const mePct = Math.round(100 * me / (total||1));
+    const otPct = Math.round(100 * other / (total||1));
 
     const bm = $('#b_prog_me'), bo = $('#b_prog_other');
     if (bm) bm.style.width = mePct + '%';
     if (bo) bo.style.width = otPct + '%';
 
-    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent    = `${mine}/${total}`);
-    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${andre}/${total}`);
-    $('#b_prog_summary')     && ($('#b_prog_summary').textContent     = `${Math.min(mine+andre,total)} av ${total} adresser fullført`);
+    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent    = `${me}/${total}`);
+    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${other}/${total}`);
+    $('#b_prog_summary')     && ($('#b_prog_summary').textContent     = `${Math.min(me+other,total)} av ${total} adresser fullført`);
   }
 
   function renderWork(){
-    const section = $('#work');
-    if (!section || section.hasAttribute('hidden')) return;
+    const { s, list, idx, now, next, total } = getNowNext();
+    if (!$('#work') || $('#work').hasAttribute('hidden')) return;
 
-    const {now, next} = getNowNext();
-    $('#b_now')  && ($('#b_now').textContent  = now  ? (now.name || '—') : '—');
-    $('#b_next') && ($('#b_next').textContent = next ? (next.name|| '—') : '—');
+    $('#b_now')  && ($('#b_now').textContent  = now ? now.name : '—');
+    $('#b_next') && ($('#b_next').textContent = next ? next.name : '—');
 
-    $('#b_task')   && ($('#b_task').textContent   = taskLabel());
-    $('#b_status') && ($('#b_status').textContent = now ? statusTextFor(now.id) : '—');
+    $('#b_task')   && ($('#b_task').textContent   = describeTask(s));
+    $('#b_status') && ($('#b_status').textContent = 'Venter');
 
-    renderProgress();
+    setBarColors();
+    updateProgressBars();
+  }
 
-    const disabled = !now;
-    $$('.btn, .btn-ghost', section).forEach(btn=>{
-      btn.disabled = disabled;
-      btn.setAttribute('aria-disabled', disabled ? 'true':'false');
+  async function setState(newState){
+    const { list } = getNowNext();
+    const r = run();
+    const current = list[r.idx];
+    if (!current) return;
+
+    const payload = {
+      state: newState,
+      driver: settings().driver || ''
+    };
+    await window.Sync.setStatus(current.id, payload);
+    // oppdater label
+    $('#b_status') && ($('#b_status').textContent = (newState==='start'?'Pågår': newState==='done'?'Ferdig':'Venter'));
+    updateProgressBars();
+  }
+
+  function goNext(){
+    const r = run();
+    r.idx = Math.min(r.idx + 1, Math.max(0, addresses().length-1));
+    saveRun(r);
+    renderWork();
+  }
+
+  function goSkip(){
+    goNext();
+  }
+
+  function navTo(lat,lon,text){
+    const base = "https://www.google.com/maps/dir/?api=1";
+    const url = `${base}&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
+    window.open(url, '_blank');
+  }
+
+  function ensureResetButtons(){
+    const host = $('.work-card');
+    if (!host || $('#reset_bar')) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'row';
+    wrap.id = 'reset_bar';
+    wrap.style.marginTop = '12px';
+    wrap.innerHTML = `
+      <button id="reset_mine" class="btn-ghost">↺ Nullstill mine</button>
+      <button id="reset_all"  class="btn-ghost">⟲ Nullstill alt</button>
+    `;
+    host.appendChild(wrap);
+
+    $('#reset_mine')?.addEventListener('click', async ()=>{
+      const me = settings().driver || '';
+      if (!me) return alert('Sett fører under Hjem først.');
+      if (!confirm('Nullstille alle mine adresser til “ikke påbegynt”?')) return;
+      await window.Sync.resetMine(me);
+      renderWork();
+    });
+    $('#reset_all')?.addEventListener('click', async ()=>{
+      if (!confirm('Nullstille ALLE adresser for alle sjåfører?')) return;
+      await window.Sync.resetAll();
+      renderWork();
     });
   }
 
-  function gotoService(){ location.hash = '#service'; }
-
-  /* ---------- Handling av statuser ---------- */
-  async function changeState(newHumanState){
-    const {now, r} = getNowNext();
-    if(!now) return;
-    const id = now.id;
-    const state = toCanonical(newHumanState);
-
-    // Lagre i sky via Sync (driver inkludert for “mine/andre”)
-    await window.Sync.setAddressState(id, state, { driver: r.driver || '' });
-
-    // Hent fersk status slik at progress og tekst oppdateres umiddelbart
-    if (window.Sync?.refreshStatus) {
-      await window.Sync.refreshStatus();
-    }
-    renderWork();
-  }
-
-  async function onStart(){ await changeState('pågår'); }
-
-  async function onDone(){
-    await changeState('ferdig');
-
-    const {A, r, idx} = getNowNext();
-    const nextIdx = idx + 1;
-
-    if (nextIdx < A.length){
-      r.idx = nextIdx; setRun(r);
-      renderWork();
-      return;
-    }
-
-    // Runde ferdig -> valg
-    const val = prompt(
-      'Runden er ferdig.\n\nSkriv ett av valgene:\n- "ny"  = Ny brøyterunde\n- "grus" = Start ny runde med grus\n- "ferdig" = Gå til Service',
-      'ferdig'
-    );
-    const choice = (val||'').trim().toLowerCase();
-
-    if (choice === 'ny'){
-      r.idx = 0; setRun(r);
-      // Nullstill status om du ønsker? (da trengs egen sync-funksjon)
-      renderWork();
-    } else if (choice === 'grus'){
-      r.idx = 0;
-      r.equipment = {...r.equipment, sand:true, plow:false, fres:false};
-      setRun(r);
-      renderWork();
-    } else {
-      gotoService();
-    }
-  }
-
-  async function onSkip(){
-    await changeState('hoppet');
-    const {A, r, idx} = getNowNext();
-    r.idx = Math.min(idx+1, Math.max(0, A.length-1)); setRun(r);
-    renderWork();
-  }
-
-  function onNext(){
-    const {A, r, idx} = getNowNext();
-    r.idx = Math.min(idx+1, Math.max(0, A.length-1)); setRun(r);
-    renderWork();
-  }
-
-  async function onBlock(){ await changeState('ikke_mulig'); }
-
-  function onNav(){
-    const {now} = getNowNext();
-    if(!now) return;
-    if (Number.isFinite(now.lat) && Number.isFinite(now.lon)){
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${now.lat},${now.lon}`)}`;
-      window.open(url, '_blank');
-    } else {
-      alert('Ingen koordinater tilgjengelig for denne adressen.');
-    }
-  }
-
-  /* ---------- Wire ---------- */
   function wire(){
-    $('#act_start')?.addEventListener('click', onStart);
-    $('#act_done') ?.addEventListener('click', onDone);
-    $('#act_skip') ?.addEventListener('click', onSkip);
-    $('#act_next') ?.addEventListener('click', onNext);
-    $('#act_block')?.addEventListener('click', onBlock);
-    $('#act_nav')  ?.addEventListener('click', onNav);
+    // knapper
+    $('#act_start')?.addEventListener('click', async ()=>{ await setState('start'); });
+    $('#act_done') ?.addEventListener('click', async ()=>{
+      await setState('done');
+      // Når siste adresse er ferdig -> spør hva videre
+      const { idx, total } = getNowNext();
+      if (idx >= total-1){
+        const choice = prompt('Runde fullført. Svar med: NY, GRUS eller FERDIG', 'FERDIG');
+        const s = settings();
+        if (choice && choice.toUpperCase().startsWith('NY')){
+          // Ny runde samme utstyr
+          saveRun({ ...run(), idx:0 });
+          renderWork();
+        } else if (choice && choice.toUpperCase().startsWith('GRUS')){
+          // Ny runde grus
+          const st = { ...settings(), equipment:{plow:false,fres:false,sand:true} };
+          localStorage.setItem(K_SETTINGS, JSON.stringify(st));
+          saveRun({ ...run(), idx:0 });
+          renderWork();
+        } else {
+          // Ferdig -> til service
+          location.hash = '#service';
+        }
+      } else {
+        goNext();
+      }
+    });
 
-    if (window.Sync?.on){
-      window.Sync.on('ready',     renderWork);
-      window.Sync.on('addresses', renderWork);
-      window.Sync.on('status',    renderWork);
-    }
+    $('#act_next') ?.addEventListener('click', ()=> goNext());
+    $('#act_skip') ?.addEventListener('click', ()=> goSkip());
+    $('#act_block')?.addEventListener('click', async ()=>{ await setState('blocked'); goNext(); });
+    $('#act_nav')  ?.addEventListener('click', ()=>{
+      const { now } = getNowNext();
+      if (now?.lat && now?.lon) navTo(now.lat, now.lon, now.name);
+      else alert('Ingen koordinater på denne adressen.');
+    });
 
-    window.addEventListener('hashchange', renderWork);
+    ensureResetButtons();
+    setBarColors();
     renderWork();
   }
 
+  window.addEventListener('hashchange', renderWork);
   document.addEventListener('DOMContentLoaded', wire);
 })();
