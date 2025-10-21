@@ -108,14 +108,35 @@
   }
 
   // --- eksponer API
-  window.Sync = {
+  // --- event-system (enkelt pub/sub)
+  const listeners = {};
+  function on(event, fn) {
+    if (!listeners[event]) listeners[event] = [];
+    listeners[event].push(fn);
+  }
+  function off(event, fn) {
+    if (!listeners[event]) return;
+    listeners[event] = listeners[event].filter(f => f !== fn);
+  }
+  function emit(event, data) {
+    (listeners[event] || []).forEach(fn => {
+      try { fn(data); } catch (err) { console.warn('Listener error for', event, err); }
+    });
+  }
+
+  // koble til eksisterende CustomEvent-system
+  document.addEventListener('sync:addresses', e => emit('addresses', e.detail));
+  document.addEventListener('sync:status',    e => emit('status', e.detail));
+  document.addEventListener('sync:ready',     e => emit('ready', e.detail));
+    window.Sync = {
     init,
     loadAddresses,
     getAddresses,
     getStatusMap,
     setAddressState,
     setConfig,
-    _state: S,    // nyttig for debugging
+    on, off, // 👈 nye event-metoder
+    _state: S,
     _cfg:   () => ({ ...CFG })
   };
 })();
