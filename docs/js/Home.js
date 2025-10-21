@@ -8,6 +8,7 @@
 
   const K_SETTINGS = 'BRYT_SETTINGS';
   const K_RUN      = 'BRYT_RUN';
+  const K_SYNC_CFG = 'BRYT_SYNC_CFG';
 
   function loadSettings() {
     return readJSON(K_SETTINGS, {
@@ -46,22 +47,34 @@
   function startRunLocal() {
     const st = uiToSettings();
     saveSettings(st);
-    const run = { driver: st.driver, equipment: st.equipment, dir: st.dir, idx: 0 };
+
+    const run = {
+      driver: st.driver,
+      equipment: st.equipment,
+      dir: st.dir,
+      idx: 0
+    };
     writeJSON(K_RUN, run);
+  }
+
+  function ensureSyncConfigIntoModule(){
+    const cfg = readJSON(K_SYNC_CFG, {binId:'', apiKey:''});
+    if (window.Sync) window.Sync.setConfig(cfg);
   }
 
   async function onStartClick() {
     try {
-      startRunLocal();
+      ensureSyncConfigIntoModule();
 
-      // Sørg for at Sync finnes (boot.js prøver å laste den)
-      if (!(window.Sync && typeof window.Sync.loadAddresses === 'function')) {
-        throw new Error('Sync-modulen er ikke tilgjengelig (mangler js/sync.js eller ble blokkert av cache).');
+      if (!window.Sync || !window.Sync.isConfigured()){
+        throw new Error('Sync ikke konfigurert (binId/apiKey). Gå til Admin ➜ Sky (JSONBin).');
       }
+
+      startRunLocal();
 
       const addrs = await window.Sync.loadAddresses({ force: true });
       if (!addrs || addrs.length === 0) {
-        alert('Fant ingen adresser i JSONbin. Sjekk BIN og dataformat.');
+        alert('Fant ingen adresser i JSONBin. Sjekk BIN og dataformat.');
       }
 
       location.hash = '#work';
@@ -74,6 +87,12 @@
   function wire() {
     settingsToUI();
     $('#a_start') && $('#a_start').addEventListener('click', onStartClick);
+
+    // oppdater synk-badge ved last
+    try{
+      ensureSyncConfigIntoModule();
+      if (window.Sync) window.Sync.paintBadge(window.Sync.isConfigured() ? 'unknown' : 'unknown');
+    }catch{}
   }
 
   document.addEventListener('DOMContentLoaded', wire);
