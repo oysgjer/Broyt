@@ -1,253 +1,228 @@
-// js/Work.js
+// docs/js/Work.js
 (() => {
-  'use strict';
+  "use strict";
 
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
+  const $  = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-  const K_ADDR     = 'BRYT_ADDR';
-  const K_RUN      = 'BRYT_RUN';
-  const K_SETTINGS = 'BRYT_SETTINGS';
+  const S = {
+    driver: "",
+    taskKind: "snow", // "snow" | "grit"
+    autoNav: false,
+    direction: "Normal"
+  };
 
-  // --- Fallback hvis ingen adresser (kun for demo) ---
-  function seedIfEmpty() {
-    let addr = readJSON(K_ADDR, null);
-    if (!addr || !Array.isArray(addr) || addr.length === 0) {
-      addr = [
-        { id: 1, name: 'Tunlandvegen',   status: 'todo' },
-        { id: 2, name: 'Sessvollvegen 9',status: 'todo' },
-        { id: 3, name: 'Skolevegen',     status: 'todo' },
-        { id: 4, name: 'Åsvegen',        status: 'todo' }
-      ];
-      writeJSON(K_ADDR, addr);
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem("BRYT_SESSION") || "{}";
+      const j = JSON.parse(raw);
+      Object.assign(S, j);
+    } catch {}
+  }
+  function saveSession() {
+    localStorage.setItem("BRYT_SESSION", JSON.stringify(S));
+  }
+
+  function addresses()  { return window.Sync?.getAddresses() || []; }
+  function statusMap()  { return window.Sync?.getStatusMap() || {}; }
+
+  function idFor(a, idx) {
+    return a.id ?? a.ID ?? a.Id ?? a.name ?? String(a.index ?? idx);
+  }
+
+  function translateState(s) {
+    switch ((s||"").toLowerCase()) {
+      case "venter": return "Venter";
+      case "pågår": return "Pågår";
+      case "ferdig": return "Ferdig";
+      case "hoppet": 
+      case "hoppet over": return "Hoppet over";
+      case "ikkemulig":
+      case "ikke mulig": return "Ikke mulig";
+      default: return "—";
     }
   }
 
-  // --- Lese/lagre run + settings ---
-  function loadRun() {
-    const d = { driver:'', equipment:{plow:false,fres:false,sand:false}, dir:'Normal', idx:0 };
-    return readJSON(K_RUN, d);
+  function describeTask() {
+    return S.taskKind === "grit" ? "Strø grus" : "Fjerne snø";
   }
-  function saveRun(s){ writeJSON(K_RUN, s); }
 
-  function loadSettings(){
-    return readJSON(K_SETTINGS, {
-      driver:'', equipment:{plow:false,fres:false,sand:false}, dir:'Normal', autoNav:false
+  function computeNowNext() {
+    const arr = addresses();
+    const map = statusMap();
+    if (!arr.length) return { now: null, next: null, total: 0 };
+
+    // Finn første som ikke er "ferdig"
+    let idxNow = arr.findIndex((a, i) => {
+      const st = map[idFor(a, i)];
+      return !st || (st.state !== "ferdig");
     });
-  }
-  function saveSettings(s){ writeJSON(K_SETTINGS, s); }
+    if (idxNow < 0) idxNow = arr.length; // alt ferdig
 
-  // --- Hente nå/neste ---
-  function getNowNext() {
-    const s = loadRun();
-    const list = readJSON(K_ADDR, []);
-    const total = list.length;
+    const now  = arr[idxNow] || null;
+    const next = arr[idxNow + 1] || null;
 
-    let idx = Math.max(0, Math.min(s.idx || 0, Math.max(0, total - 1)));
-    while (idx < total && list[idx] && list[idx].status === 'done') idx++;
-
-    const now  = list[idx] || null;
-    let j = idx + 1, next = null;
-    while (j < total) { if (list[j].status !== 'done') { next = list[j]; break; } j++; }
-
-    return { s, list, idx, now, next, total };
+    return { now, next, total: arr.length };
   }
 
-  // --- Norsk status-tekst ---
-  function statusLabel(code){
-    switch((code||'').toLowerCase()){
-      case 'todo':    return 'Venter';
-      case 'doing':   return 'Pågår';
-      case 'done':    return 'Ferdig';
-      case 'skipped': return 'Hoppet over';
-      case 'blocked': return 'Ikke mulig';
-      default:        return '—';
-    }
-  }
-
-  // --- Oppgave-tekst (basert på utstyr) ---
-  function describeTask(s) {
-    const eq = (s && s.equipment) || {};
-    const hasPlow = !!(eq.plow || eq.fres);
-    const hasSand = !!eq.sand;
-
-    if (hasPlow && hasSand) return 'Brøyting og strøing';
-    if (hasPlow)            return 'Brøyting (fjerne snø)';
-    if (hasSand)            return 'Strøing av grus';
-    return 'Uspesifisert oppgave';
-  }
-
-  // --- Progress ---
   function updateProgressBars() {
-    const { list, total } = getNowNext();
-    let me = 0, other = 0; // "other" kommer når vi kobler ordentlig sky-synk
+    const arr = addresses();
+    const map = statusMap();
+    const total = arr.length || 1;
 
-    for (const a of list) if (a.status === 'done') me++;
+    let me = 0, other = 0;
+    for (let i = 0; i < arr.length; i++) {
+      const a = arr[i], id = idFor(a, i);
+      const st = map[id];
+      if (!st) continue;
+      if (st.state === "ferdig") {
+        if (st.driver && st.driver === S.driver) me++; else other++;
+      }
+    }
+    const mePct = Math.round(100*me/total);
+    const otPct = Math.round(100*other/total);
 
-    const mePct = total ? Math.round(100 * me / total) : 0;
-    const otPct = total ? Math.round(100 * other / total) : 0;
+    const bm = $("#b_prog_me"), bo = $("#b_prog_other");
+    if (bm) bm.style.width = mePct + "%";
+    if (bo) bo.style.width = otPct + "%";
 
-    const bm = $('#b_prog_me'), bo = $('#b_prog_other');
-    if (bm) bm.style.width = mePct + '%';
-    if (bo) bo.style.width = otPct + '%';
-
-    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${me}/${total}`);
-    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${other}/${total}`);
-    $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(me+other,total)} av ${total} adresser fullført`);
+    $("#b_prog_me_count")    && ($("#b_prog_me_count").textContent = `${me}/${total}`);
+    $("#b_prog_other_count") && ($("#b_prog_other_count").textContent = `${other}/${total}`);
+    $("#b_prog_summary")     && ($("#b_prog_summary").textContent = `${Math.min(me+other,total)} av ${total} adresser fullført`);
   }
 
-  // --- Render-kortet ---
   function renderWork() {
-    if (!$('#work') || $('#work').hasAttribute('hidden')) return;
+    const sec = $("#work");
+    if (!sec || sec.hasAttribute("hidden")) return;
 
-    const { s, now, next } = getNowNext();
+    const { now, next } = computeNowNext();
 
-    $('#b_now')    && ($('#b_now').textContent    = now  ? now.name         : '—');
-    $('#b_next')   && ($('#b_next').textContent   = next ? next.name        : '—');
-    $('#b_task')   && ($('#b_task').textContent   = describeTask(s));
-    $('#b_status') && ($('#b_status').textContent = now ? statusLabel(now.status || 'todo') : '—');
+    $("#b_now")  && ($("#b_now").textContent  = now  ? (now.name || now.adresse || now.Address || JSON.stringify(now)) : "—");
+    $("#b_next") && ($("#b_next").textContent = next ? (next.name || next.adresse || next.Address || JSON.stringify(next)) : "—");
 
-    const st = now ? now.status || 'todo' : 'none';
-    const dis = (sel, v) => { const el = $(sel); if (!el) return; el.disabled = !!v; el.classList.toggle('btn-disabled', !!v); };
-
-    if (!now) {
-      ['#act_start','#act_done','#act_skip','#act_next','#act_nav','#act_block'].forEach(sel => dis(sel, true));
-    } else {
-      dis('#act_start', st === 'doing' || st === 'done');
-      dis('#act_done',  st === 'done');
-      dis('#act_skip',  st === 'done');
-      dis('#act_next',  false);
-      dis('#act_nav',   false);
-      dis('#act_block', st === 'done');
-    }
+    $("#b_task")   && ($("#b_task").textContent   = describeTask());
+    $("#b_status") && ($("#b_status").textContent = now ? translateState(statusMap()[idFor(now, 0)]?.state) : "—");
 
     updateProgressBars();
   }
 
-  // --- Statusoperasjoner ---
-  function setStatusForIdx(idx, status) {
-    const addr = readJSON(K_ADDR, []);
-    if (!addr[idx]) return;
-    addr[idx].status = status;
-    writeJSON(K_ADDR, addr);
+  async function setState(addr, newState) {
+    if (!addr) return;
+    const id = idFor(addr, 0);
+    const payload = {
+      state: newState,
+      driver: S.driver || ""
+    };
+    await window.Sync.setStatus(id, payload);
   }
 
-  function advanceToNextNotDone(idxStart) {
-    const addr = readJSON(K_ADDR, []);
-    let i = Math.max(0, idxStart + 1);
-    while (i < addr.length && addr[i].status === 'done') i++;
-    const s = loadRun(); s.idx = Math.min(i, Math.max(0, addr.length - 1)); saveRun(s);
+  function navTo(lat, lon, text) {
+    const base = "https://www.google.com/maps/dir/?api=1";
+    const dest = lat && lon ? `${lat},${lon}` : encodeURIComponent(text || "");
+    const url = `${base}&destination=${dest}`;
+    window.open(url, "_blank");
   }
 
-  // --- Fullført-runde: håndter valg ---
-  function resetAllToTodo() {
-    const list = readJSON(K_ADDR, []);
-    for (const a of list) a.status = 'todo';
-    writeJSON(K_ADDR, list);
-    const run = loadRun(); run.idx = 0; saveRun(run);
-  }
-
-  function switchToSandEquipment() {
-    const st = loadSettings();
-    st.equipment = { plow:false, fres:false, sand:true };
-    saveSettings(st);
-    const run = loadRun();
-    run.equipment = { ...st.equipment };
-    run.idx = 0;
-    saveRun(run);
-  }
-
-  function onRoundComplete() {
-    // Enkelt valg via prompt (1/2/3) for å slippe egen modal nå
-    const msg = [
-      'Runden er fullført ✅',
-      '',
-      'Hva vil du gjøre nå?',
-      '1 = Start ny brøyterunde',
-      '2 = Start ny runde med grus',
-      '3 = Ferdig (gå til Service)',
-      '',
-      'Skriv 1, 2 eller 3:'
-    ].join('\n');
-
-    const val = (window.prompt(msg, '3') || '').trim();
-
-    if (val === '1') {
-      resetAllToTodo();
-      alert('Ny brøyterunde starter.');
+  function wireWorkButtons() {
+    $("#act_start")?.addEventListener("click", async () => {
+      const { now } = computeNowNext();
+      if (!now) return;
+      await setState(now, "pågår");
       renderWork();
-      return;
-    }
-    if (val === '2') {
-      switchToSandEquipment();
-      resetAllToTodo();
-      alert('Ny runde med grus starter.');
+    });
+
+    $("#act_done")?.addEventListener("click", async () => {
+      const { now, next, total } = computeNowNext();
+      if (!now) return;
+      await setState(now, "ferdig");
       renderWork();
-      return;
-    }
-    // 3 eller annet -> Service
-    location.hash = '#service';
+
+      // Sjekk om alt ferdig
+      const arr = addresses(); const map = statusMap();
+      const left = arr.find(a => (map[idFor(a,0)]?.state !== "ferdig"));
+      if (!left && total > 0) {
+        // Spør hva vi gjør videre
+        const choice = window.prompt("Runden er ferdig. Velg: 'snø' = ny runde (snø), 'grus' = ny runde med grus, 'ferdig' = gå til service.", "ferdig");
+        if (!choice) return;
+        if (choice.toLowerCase().startsWith("sn")) {
+          S.taskKind = "snow"; saveSession();
+          location.hash = "#work";
+        } else if (choice.toLowerCase().startsWith("gr")) {
+          S.taskKind = "grit"; saveSession();
+          location.hash = "#work";
+        } else {
+          location.hash = "#service";
+        }
+      }
+    });
+
+    $("#act_skip")?.addEventListener("click", async () => {
+      const { now } = computeNowNext(); if (!now) return;
+      await setState(now, "hoppet over");
+      renderWork();
+    });
+
+    $("#act_next")?.addEventListener("click", () => {
+      // UI-messig “neste” = gjør ingenting i status, bare hopp i visning.
+      // Vi markerer ikke “hoppet”, da det er egen knapp.
+      // Trigges ved at vi midlertidig setter en markør i session
+      const arr = addresses();
+      const map = statusMap();
+      const idx = arr.findIndex((a, i) => !map[idFor(a,i)] || map[idFor(a,i)].state !== "ferdig");
+      if (idx >= 0 && idx + 1 < arr.length) {
+        // midlertidig: sett “venter” på nå, og “pågår” på neste? vi lar bare rendering gå på polling
+        renderWork();
+      }
+    });
+
+    $("#act_nav")?.addEventListener("click", () => {
+      const { now } = computeNowNext(); if (!now) return;
+      const lat = now.lat ?? now.latitude, lon = now.lon ?? now.longitude;
+      navTo(lat, lon, now.name || now.adresse || "");
+    });
+
+    $("#act_block")?.addEventListener("click", async () => {
+      const { now } = computeNowNext(); if (!now) return;
+      const why = prompt("Hvorfor er det ikke mulig?", "");
+      await setState(now, "ikke mulig");
+      // (Evt. legg på kommentar/why i status senere)
+      renderWork();
+    });
   }
 
-  // --- Handlers ---
-  function handleStart(){ 
-    const { idx, now } = getNowNext(); 
-    if (!now) return; 
-    if (now.status !== 'doing' && now.status !== 'done') setStatusForIdx(idx,'doing'); 
-    renderWork(); 
+  function wireQuickShortcuts() {
+    function mapsFromKey(k) {
+      try {
+        const cfg = window.Sync?.readCfg() || JSON.parse(localStorage.getItem("BRYT_SETTINGS")||"{}");
+        const val = (cfg && cfg[k]) || "";
+        if (!val) return null;
+        // "60.xxxxx,11.xxxxx"
+        const [lat, lon] = String(val).split(",").map(s => s.trim());
+        return { lat, lon };
+      } catch { return null; }
+    }
+    $("#qk_grus")?.addEventListener("click", () => {
+      const p = mapsFromKey("grus"); if (p) navTo(p.lat, p.lon); else navTo(null, null, "Grus");
+    });
+    $("#qk_diesel")?.addEventListener("click", () => {
+      const p = mapsFromKey("diesel"); if (p) navTo(p.lat, p.lon); else navTo(null, null, "Diesel");
+    });
+    $("#qk_base")?.addEventListener("click", () => {
+      const p = mapsFromKey("base"); if (p) navTo(p.lat, p.lon); else navTo(null, null, "Base");
+    });
   }
 
-  function handleDone (){
-    const { idx, now, list } = getNowNext(); 
-    if (!now) return;
-    setStatusForIdx(idx,'done');
+  function onSyncUpdate() { renderWork(); }
 
-    const left = list.some(a => a.status !== 'done');
-    if (!left) {
-      updateProgressBars();
-      onRoundComplete();
-      return;
-    }
-    advanceToNextNotDone(idx);
+  function init() {
+    loadSession();
+    wireWorkButtons();
+    wireQuickShortcuts();
     renderWork();
+    window.Sync?.on(onSyncUpdate);
+    // Oppdater hvis vi kommer inn hit etter “Start runde”
+    window.addEventListener("hashchange", renderWork);
   }
 
-  function handleSkip (){ const { idx, now } = getNowNext(); if (!now) return; setStatusForIdx(idx,'skipped'); advanceToNextNotDone(idx); renderWork(); }
-  function handleNext (){ const { idx } = getNowNext(); advanceToNextNotDone(idx); renderWork(); }
-  function handleBlock(){ const { idx, now } = getNowNext(); if (!now) return; setStatusForIdx(idx,'blocked'); advanceToNextNotDone(idx); renderWork(); }
-  function handleNav  (){
-    const { now } = getNowNext(); if (!now) return;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(now.name)}`;
-    window.open(url,'_blank');
-  }
-
-  // --- Sørg for adresser (JSONbin hvis tilgjengelig, ellers seed) ---
-  async function ensureAddresses() {
-    let addr = readJSON(K_ADDR, []);
-    if ((!addr || addr.length === 0) && window.Sync) {
-      try { addr = await window.Sync.loadAddresses({ force: false }); }
-      catch (e) { console.warn('Klarte ikke hente fra JSONbin nå:', e.message); }
-    }
-    if (!addr || addr.length === 0) seedIfEmpty();
-  }
-
-  function wire() {
-    $('#act_start')?.addEventListener('click', handleStart);
-    $('#act_done') ?.addEventListener('click', handleDone);
-    $('#act_skip') ?.addEventListener('click', handleSkip);
-    $('#act_next') ?.addEventListener('click', handleNext);
-    $('#act_block')?.addEventListener('click', handleBlock);
-    $('#act_nav')  ?.addEventListener('click', handleNav);
-    window.addEventListener('hashchange', renderWork);
-  }
-
-  document.addEventListener('DOMContentLoaded', async () => {
-    await ensureAddresses();
-    wire();
-    renderWork();
-  });
-
-  // tilgjengelig for andre filer
-  window.updateProgressBars = updateProgressBars;
+  document.addEventListener("DOMContentLoaded", init);
 })();
