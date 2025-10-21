@@ -1,91 +1,29 @@
-/* =========================================================
-   work.css — stil for “Under arbeid”
-   v1.0.0
-   ========================================================= */
+/* css/work.css */
 
-:root{
-  --bg: var(--c-bg, #0b1220);
-  --card: rgba(255,255,255,0.04);
-  --muted: #8a93a6;
-  --text: var(--c-fg, #e7eaf2);
-  --me: #22c55e;      /* grønn */
-  --other: #a855f7;   /* lilla */
-  --danger: #ef4444;
-  --primary: #2563eb;
+.work-top{
+  border:1px solid var(--sep); border-radius:14px; background:var(--surface);
+  padding:12px; margin:0 0 14px 0;
 }
+.work-prog{position:relative; height:12px; border-radius:999px; background:#1f2937; overflow:hidden}
+.work-prog .other{position:absolute; inset:0 auto 0 0; width:0%; background:#a78bfa; opacity:.85}
+.work-prog .me{position:absolute; inset:0 auto 0 0; width:0%; background:#22c55e} /* snø = grønn */
+.work-prog .me.is-grus{ background:#f59e0b; } /* grus = oransje */
+.work-caption{display:flex; justify-content:space-between; font-size:.9rem; color:var(--muted); margin-top:6px}
 
-.work-wrap{ padding:16px; }
+.work-card{ background:var(--surface); border:1px solid var(--sep); border-radius:14px; padding:12px; }
+.addr-now{ font-size:1.8rem; font-weight:800; letter-spacing:.2px; }
+.addr-next{ font-size:1.1rem; font-weight:600; color:var(--muted); }
 
-.progress{
-  position:relative;
-  height:10px;
-  background:rgba(255,255,255,0.08);
-  border-radius:6px;
-  overflow:hidden;
-  margin: 8px 0 4px;
+.btn-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0 8px;
 }
-.progress .bar{ height:100%; width:0%; transition:width .25s ease; }
-.progress .bar-me{ background:var(--me); }
-.progress .bar-other{ background:var(--other); opacity:.6; }
+.btn, .btn-ghost{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  height:48px; border-radius:12px; font-weight:700;
+}
+.btn-ghost{ background:transparent; border:1px solid var(--sep); color:var(--text); }
 
-.progress-meta{
-  display:flex; gap:12px; align-items:center;
-  font-size:.85rem; color:var(--muted); margin-bottom:12px;
-  flex-wrap:wrap;
-}
-.progress-meta span{ white-space:nowrap; }
+.row{ display:flex; gap:10px; flex-wrap:wrap; }
 
-.card{
-  background:var(--card);
-  border:1px solid rgba(255,255,255,0.08);
-  border-radius:12px;
-  padding:14px;
-  margin:12px 0;
-}
-.kicker{
-  font-size:.8rem; color:var(--muted); letter-spacing:.02em; text-transform:uppercase;
-}
-.addr-now{
-  font-size:1.4rem; font-weight:700; margin-top:2px; color:var(--text);
-}
-.addr-next{
-  font-size:1rem; font-weight:500; margin-top:2px; color:var(--text);
-}
-.badge{
-  display:inline-block;
-  margin-top:8px; padding:4px 8px; border-radius:999px;
-  background:rgba(255,255,255,0.08); color:var(--text); font-size:.85rem;
-}
-.badge[data-state="in_progress"]{ background:#0ea5e9; color:#001016; }
-.badge[data-state="done"]{ background:var(--me); color:#03240e; }
-.badge[data-state="skipped"]{ background:#f59e0b; color:#2a1600; }
-.badge[data-state="blocked"]{ background:var(--danger); color:#2b0000; }
-
-.actions-grid{
-  display:grid; gap:10px;
-  grid-template-columns: 1fr 1fr; /* to kolonner */
-  margin-top:16px;
-}
-.btn{
-  display:inline-flex; align-items:center; justify-content:center;
-  border-radius:10px; padding:12px 14px; font-weight:600;
-  border:1px solid rgba(255,255,255,0.12);
-  background:rgba(255,255,255,0.06);
-  color:var(--text);
-}
-.btn[disabled]{ opacity:.45; pointer-events:none; }
-.btn-ghost{ background:rgba(255,255,255,0.04); }
-.btn-primary{ background:var(--primary); border-color:var(--primary); color:#fff; }
-.btn-danger{ background:var(--danger); border-color:var(--danger); color:#fff; }
-
-/* små dot-klasser brukt av synk-badge */
-.dot{ display:inline-block; width:.75em; height:.75em; border-radius:50%; margin-right:.35em; vertical-align:middle; }
-.dot-ok{ background: var(--me); }
-.dot-err{ background: var(--danger); }
-.dot-warn{ background: #f59e0b; }
-.pulse { animation: pulse 0.9s ease-in-out infinite; }
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50%{ transform: scale(1.03); }
-  100%{transform: scale(1); }
-}
+.label-muted{ color:var(--muted); font-weight:700; margin-bottom:6px; }
+.work-meta{ color:var(--muted); margin-top:8px; }
