@@ -1,176 +1,164 @@
-/* ====== Hjelpefunksjoner og global app-tilstand ====== */
-const $  = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+// ===== Core helpers + app state (må lastes først) =====
+(() => {
+  // Korte query helpers (brukes av alle filer)
+  window.$  = (s, root = document) => root.querySelector(s);
+  window.$$ = (s, root = document) => Array.from(root.querySelectorAll(s));
 
-/* Global (enkel) state som også lagres i localStorage */
-const LS_STATE_KEY  = 'BRYT_STATE';
-const LS_STATUS_KEY = 'BRYT_STATUS';
+  // Globalt "S" – enkel app-state
+  const S = window.S || {};
+  S.mode = S.mode || 'skjær';         // valgt oppdragstype
+  S.driver = S.driver || (localStorage.getItem('BRYT_DRIVER') || '');
+  S.autonav = S.autonav ?? (localStorage.getItem('BRYT_AUTONAV') === '1');
 
-const S = loadState() || {
-  driver: '',
-  order: 'normal',
-  autoNav: false,
-  addresses: [],   // {id, name, task, state, by, ts}
-  cursor: 0        // peker på “nå”-adresse
-};
-
-function loadState(){
-  try { return JSON.parse(localStorage.getItem(LS_STATE_KEY) || 'null'); }
-  catch { return null; }
-}
-function saveState(){
-  try { localStorage.setItem(LS_STATE_KEY, JSON.stringify(S)); } catch {}
-}
-
-/* Minimal statusStore – lokalt (kan senere kobles mot JSONBin) */
-function statusStore(){
-  try { return JSON.parse(localStorage.getItem(LS_STATUS_KEY) || '{}'); }
-  catch { return {}; }
-}
-function setStatusStore(obj){
-  try { localStorage.setItem(LS_STATUS_KEY, JSON.stringify(obj || {})); } catch {}
-}
-
-/* Demo-seeding av adresser hvis listen er tom.
-   Senere bytter vi denne med ekte henting fra sky. */
-function ensureAddressesSeeded(){
-  if (Array.isArray(S.addresses) && S.addresses.length > 0) return S.addresses;
-
-  const demo = [
-    { id: 'A01', name: 'Tunlandvegen',   task: 'Sand/Grus', state: 'idle' },
-    { id: 'A02', name: 'Sessvollvegen 9',task: 'Sand/Grus', state: 'idle' },
-    { id: 'A03', name: 'Ekornstubben',   task: 'Skjær',     state: 'idle' },
-    { id: 'A04', name: 'Bjørkestien',    task: 'Skjær',     state: 'idle' }
+  // Demo-adresser (enkle IDer og navn)
+  S.addresses = S.addresses || [
+    { id: 'a1', name: 'Tunlandvegen', task: 'Sand/Grus' },
+    { id: 'a2', name: 'Sessvollvegen 9', task: 'Skjær' },
+    { id: 'a3', name: 'Åsvegen 12', task: 'Skjær' },
+    { id: 'a4', name: 'Gamleveien 3', task: 'Fres' }
   ];
-  S.addresses = demo;
-  S.cursor = 0;
-  saveState();
-  return S.addresses;
-}
 
-/* “Sky”-oppfriskning – no-op nå; kan kobles mot JSONBin senere */
-async function refreshCloud(){
-  // Her kan du senere lese/merge status fra JSONBin.
-  return true;
-}
+  window.S = S;
 
-/* Enkel navigasjon mellom seksjoner */
-function showPage(id){
-  $$('main section').forEach(sec => {
-    sec.hidden = (sec.id !== id);
+  /* ---------- Drawer (hamburger) ---------- */
+  const drawer   = $('#drawer');
+  const scrim    = $('#scrim');
+  const btnMenu  = $('#btnMenu');
+  const btnClose = $('#btnCloseDrawer');
+
+  const openDrawer = () => {
+    drawer?.classList.add('open');
+    scrim?.classList.add('show');
+    drawer?.setAttribute('aria-hidden','false');
+  };
+  const closeDrawer = () => {
+    drawer?.classList.remove('open');
+    scrim?.classList.remove('show');
+    drawer?.setAttribute('aria-hidden','true');
+  };
+
+  btnMenu?.addEventListener('click', () => {
+    drawer?.classList.contains('open') ? closeDrawer() : openDrawer();
   });
-  if (id) location.hash = '#'+id;
-}
+  btnClose?.addEventListener('click', closeDrawer);
+  scrim?.addEventListener('click', closeDrawer);
 
-/* Drawer (hamburger) */
-const drawer = $('#drawer');
-const scrim  = $('#scrim');
-
-function openDrawer(){
-  drawer?.classList.add('open');
-  scrim?.classList.add('show');
-  drawer?.setAttribute('aria-hidden','false');
-}
-function closeDrawer(){
-  drawer?.classList.remove('open');
-  scrim?.classList.remove('show');
-  drawer?.setAttribute('aria-hidden','true');
-}
-
-$('#btnMenu')?.addEventListener('click', () => {
-  if (drawer?.classList.contains('open')) closeDrawer(); else openDrawer();
-});
-$('#btnCloseDrawer')?.addEventListener('click', closeDrawer);
-scrim?.addEventListener('click', closeDrawer);
-
-$$('#drawer .drawer-link[data-go]').forEach(a=>{
-  a.addEventListener('click', ()=>{
-    showPage(a.getAttribute('data-go'));
-    closeDrawer();
+  $$('#drawer .drawer-link[data-go]').forEach(a => {
+    a.addEventListener('click', () => {
+      showPage(a.getAttribute('data-go'));
+      closeDrawer();
+    });
   });
-});
 
-/* Wake Lock-indikator (prikk) + toggle */
-let wakeLock = null;
-const wlDot    = $('#wl_dot') || $('#qk_wl_dot');
-const wlStatus = $('#wl_badge') || $('#qk_wl_status');
+  /* ---------- Router ---------- */
+  function showPage(id) {
+    if (!id) id = 'home';
+    $$('main section').forEach(sec => {
+      sec.hidden = (sec.id !== id);
+    });
+    if (location.hash !== '#'+id) location.hash = '#'+id;
+    document.dispatchEvent(new CustomEvent('page:shown', { detail: { id }}));
+  }
+  window.showPage = showPage;
 
-async function toggleWakeLock(){
-  try{
-    if (wakeLock && wakeLock.active){
-      await wakeLock.release(); wakeLock = null;
-      wlDot?.classList.remove('dot-on'); wlDot?.classList.add('dot-off');
-      wlStatus && (wlStatus.textContent = 'Status: av');
-      return;
-    }
-    if ('wakeLock' in navigator && navigator.wakeLock?.request){
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', ()=>{
+  window.addEventListener('hashchange', () => {
+    const id = (location.hash || '#home').slice(1) || 'home';
+    showPage($('#'+id) ? id : 'home');
+  });
+  // startvisning
+  requestAnimationFrame(() => showPage((location.hash || '#home').slice(1)));
+
+  /* ---------- Wake Lock (meny) ---------- */
+  const wlDot    = $('#qk_wl_dot') || $('#wl_dot');
+  const wlStatus = $('#wl_badge')  || $('#qk_wl_status');
+  let   wakeLock = null;
+
+  async function toggleWakeLock() {
+    try {
+      if (wakeLock?.active) {
+        await wakeLock.release();
+        wakeLock = null;
         wlDot?.classList.remove('dot-on'); wlDot?.classList.add('dot-off');
         wlStatus && (wlStatus.textContent = 'Status: av');
-      });
+        return;
+      }
+      if ('wakeLock' in navigator && navigator.wakeLock?.request) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          wlDot?.classList.remove('dot-on'); wlDot?.classList.add('dot-off');
+          wlStatus && (wlStatus.textContent = 'Status: av');
+        });
+        wlDot?.classList.remove('dot-off'); wlDot?.classList.add('dot-on');
+        wlStatus && (wlStatus.textContent = 'Status: på (native)');
+        return;
+      }
+      // iOS fallback – lydløs loop-video
+      let v = document.querySelector('#wlHiddenVideo');
+      if (!v) {
+        v = document.createElement('video');
+        v.id='wlHiddenVideo'; v.loop=true; v.muted=true; v.playsInline=true; v.style.display='none';
+        // 1px mp4 stub
+        v.src='data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbWF2YzEAAABsbW9vdgAAAGxtdmhkAAAAANrJLTrayS06AAAC8AAAFW1sb2NhAAAAAAABAAAAAAEAAAEAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABh0cmFrAAAAXHRraGQAAAAD2sk1OdrJNTkAAAFIAAAUbWRpYQAAACBtZGhkAAAAANrJLTrayS06AAAC8AAAACFoZGxyAAAAAAAAAABzb3VuAAAAAAAAAAAAAAAAU291bmRIYW5kbGVyAAAAAAAwAAAAAAABAQAAAAEAAABPAAAAAAAfAAAAAAALc291bmRfbmFtZQAA';
+        document.body.appendChild(v);
+      }
+      await v.play();
       wlDot?.classList.remove('dot-off'); wlDot?.classList.add('dot-on');
-      wlStatus && (wlStatus.textContent = 'Status: på (native)');
-      return;
-    }
-    // iOS-fallback: stille, loopet, usynlig video
-    let v = document.querySelector('#wlHiddenVideo');
-    if (!v){
-      v = document.createElement('video');
-      v.id='wlHiddenVideo'; v.loop=true; v.muted=true; v.playsInline=true; v.style.display='none';
-      v.src='data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbWF2YzEAAABsbW9vdgAAAGxtdmhkAAAAANrJLTrayS06AAAC8AAAFW1sb2NhAAAAAAABAAAAAAEAAAEAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABh0cmFrAAAAXHRraGQAAAAD2sk1OdrJNTkAAAFIAAAUbWRpYQAAACBtZGhkAAAAANrJLTrayS06AAAC8AAAACFoZGxyAAAAAAAAAABzb3VuAAAAAAAAAAAAAAAAU291bmRIYW5kbGVyAAAAAAAwAAAAAAABAQAAAAEAAABPAAAAAAAfAAAAAAALc291bmRfbmFtZQAA';
-      document.body.appendChild(v);
-    }
-    await v.play();
-    wlDot?.classList.remove('dot-off'); wlDot?.classList.add('dot-on');
-    wlStatus && (wlStatus.textContent = 'Status: på (iOS-fallback)');
-  }catch(e){
-    wlStatus && (wlStatus.textContent = 'Status: feil');
-  }
-}
-$('#qk_wl')?.addEventListener('click', toggleWakeLock);
-
-/* Progress-bar oppdatering (trygg ved tom liste) */
-function updateProgressBars(){
-  const total = (S.addresses && S.addresses.length) ? S.addresses.length : 0;
-  if (!total){
-    const bm = $('#b_prog_me'), bo = $('#b_prog_other');
-    if (bm) bm.style.width = '0%';
-    if (bo) bo.style.width = '0%';
-    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent    = `0/0`);
-    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `0/0`);
-    $('#b_prog_summary')     && ($('#b_prog_summary').textContent     = `0 av 0 adresser fullført`);
-    return;
-  }
-
-  const store = statusStore();
-  let me = 0, other = 0;
-  for (const k in store){
-    const st = store[k];
-    if (st?.state === 'done'){
-      if (st.driver === S.driver) me++; else other++;
+      wlStatus && (wlStatus.textContent = 'Status: på (iOS-fallback)');
+    } catch(e) {
+      wlStatus && (wlStatus.textContent = 'Status: feil');
     }
   }
-  const mePct = Math.round(100 * me / total);
-  const otPct = Math.round(100 * other / total);
+  $('#qk_wl')?.addEventListener('click', toggleWakeLock);
 
-  const bm = $('#b_prog_me'), bo = $('#b_prog_other');
-  if (bm) bm.style.width = mePct + '%';
-  if (bo) bo.style.width = otPct + '%';
+  /* ---------- Snarveier (åpner Maps) ---------- */
+  function mapsUrlFromLatLon(latlon) {
+    if (!latlon) return 'https://maps.google.com';
+    const q = String(latlon).replace(/\s+/g,'');
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
+  }
+  function openDest(which) {
+    try {
+      const st = JSON.parse(localStorage.getItem('BRYT_SETTINGS') || '{}');
+      const latlon = which === 'grus' ? st.grus : which === 'diesel' ? st.diesel : st.base;
+      const url = mapsUrlFromLatLon(latlon || '');
+      window.open(url, '_blank');
+    } catch(e){}
+  }
+  $('#qk_grus')  ?.addEventListener('click', () => openDest('grus'));
+  $('#qk_diesel')?.addEventListener('click', () => openDest('diesel'));
+  $('#qk_base')  ?.addEventListener('click', () => openDest('base'));
 
-  $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent    = `${me}/${total}`);
-  $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${other}/${total}`);
-  $('#b_prog_summary')     && ($('#b_prog_summary').textContent     = `${Math.min(me+other,total)} av ${total} adresser fullført`);
-}
+  /* ---------- Sky/lokal status (enkel) ---------- */
+  // Lagrer status per adresse-id: { state: 'none'|'start'|'done'|'skip'|'blocked', driver: 'navn', ts: number }
+  function statusStore() {
+    const raw = localStorage.getItem('BRYT_STATUS');
+    return raw ? JSON.parse(raw) : {};
+  }
+  function statusStoreWrite(bag) {
+    localStorage.setItem('BRYT_STATUS', JSON.stringify(bag));
+  }
+  window.statusStore = statusStore;
+  window.statusStoreWrite = statusStoreWrite;
 
-/* Gjør symboler tilgjengelige for andre filer */
-window.$ = $;
-window.$$ = $$;
-window.S = S;
-window.saveState = saveState;
-window.statusStore = statusStore;
-window.setStatusStore = setStatusStore;
-window.ensureAddressesSeeded = ensureAddressesSeeded;
-window.refreshCloud = refreshCloud;
-window.showPage = showPage;
-window.updateProgressBars = updateProgressBars;
+  // Demo "cloud": no-op med kort delay – men behold navnet, andre filer kaller den
+  async function refreshCloud() {
+    await new Promise(r => setTimeout(r, 150));
+    return true;
+  }
+  window.refreshCloud = refreshCloud;
+
+  // Sikrer at demo-adresser finnes (her bare returnerer vi S.addresses)
+  async function ensureAddressesSeeded() {
+    if (!Array.isArray(S.addresses) || S.addresses.length === 0) {
+      S.addresses = [{ id: 'x1', name: 'Demo-vei 1', task: 'Skjær' }];
+    }
+    return S.addresses;
+  }
+  window.ensureAddressesSeeded = ensureAddressesSeeded;
+
+  // Enkel synk-indikator -> OK etter 0.5s
+  const badge = $('#sync_badge');
+  if (badge) {
+    setTimeout(() => { badge.innerHTML = `<span class="dot dot-ok"></span> Synk: OK`; }, 500);
+  }
+})();
