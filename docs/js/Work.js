@@ -2,197 +2,204 @@
 (() => {
   'use strict';
 
-  const $ = (s,r=document)=>r.querySelector(s);
-  const $$= (s,r=document)=>Array.from(r.querySelectorAll(s));
+  const $  = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
 
-  const LS_SETTINGS = 'BRYT_SETTINGS';
-  const LS_RUN      = 'BRYT_RUN';
+  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
 
-  const STATE_LABEL = {
-    not_started: 'Venter',
-    in_progress: 'Pågår',
-    done:        'Ferdig',
-    skipped:     'Hoppet over',
-    blocked:     'Ikke mulig',
-    accident:    'Uhell',
-  };
+  const K_SETTINGS = 'BRYT_SETTINGS'; // { driver, equipment:{sand}, dir, autoNav }
+  const K_RUN      = 'BRYT_RUN';      // { idx, mode }
+  const K_ADDRS    = 'BRYT_ADDRS';    // [] fra Sync
 
-  function readJSON(k,d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } }
-  function writeJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
-
-  function getModeFromEquip(eq){ return eq?.sand ? 'grit' : 'snow'; }
-
-  function currentRun(){
-    const st  = readJSON(LS_SETTINGS, {driver:'driver',equipment:{sand:false},dir:'Normal'});
-    const run = readJSON(LS_RUN, { driver: st.driver, equipment: st.equipment, dir: st.dir, idx: 0 });
-    run.driver = st.driver || run.driver || 'driver';
-    run.mode   = getModeFromEquip(st.equipment);
-    return run;
+  function stateLabel(code){
+    const L = {
+      not_started: 'Venter',
+      in_progress: 'Pågår',
+      done:        'Ferdig',
+      skipped:     'Hoppet over',
+      blocked:     'Ikke mulig',
+      accident:    'Uhell'
+    };
+    return L[code] || '—';
   }
 
-  // ---- UI helpers ----
-  function updateTopProgress(addresses, bag, meName){
-    const { total, me, other } = window.Sync.summarize(addresses, bag, meName);
-    const mePct = total ? Math.round(100*me/total) : 0;
-    const otPct = total ? Math.round(100*other/total) : 0;
+  function getMode() {
+    // sand/ grus = "grit", ellers "snow"
+    const st = readJSON(K_SETTINGS, { equipment:{ sand:false }});
+    return st?.equipment?.sand ? 'grit' : 'snow';
+  }
+  function getDriver(){ return (readJSON(K_SETTINGS,{driver:''}).driver||'').trim(); }
+  function getDir(){ return readJSON(K_SETTINGS,{dir:'Normal'}).dir || 'Normal'; }
+  function setRunIdx(i){ const r=readJSON(K_RUN,{idx:0}); r.idx=i; writeJSON(K_RUN,r); }
+  function getRun(){
+    const mode = getMode();
+    const r = readJSON(K_RUN, { idx:0, mode });
+    if (r.mode !== mode) { r.mode = mode; r.idx = 0; writeJSON(K_RUN, r); }
+    return r;
+  }
 
-    const bm=$('#b_prog_me'), bo=$('#b_prog_other');
-    if(bm) bm.style.width = mePct+'%';
-    if(bo) bo.style.width = otPct+'%';
+  function filteredAddresses(mode){
+    const list = readJSON(K_ADDRS, []);
+    return list
+      .filter(a => a.active !== false)
+      .filter(a => mode==='snow' ? (a.flags?.snow !== false) : !!a.flags?.grit);
+  }
 
-    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${me}/${total}`);
+  function nextIndex(idx, dir){ return (dir === 'Motsatt') ? idx - 1 : idx + 1; }
+
+  // ---------- Progress ----------
+  function updateProgressBars(){
+    const mode = getMode();
+    const round= window.Sync.currentRound(mode);
+    const addrs = filteredAddresses(mode);
+    const total = addrs.length || 1;
+
+    let me = 0, other = 0;
+    const meName = getDriver();
+
+    for (const a of addrs){
+      const rec = window.Sync.getAddressStatus(a.name, mode, round);
+      if (!rec || rec.state !== 'done') continue;
+      if (rec.driver === meName) me++; else other++;
+    }
+    const mePct = Math.round(100 * me / total);
+    const otPct = Math.round(100 * other / total);
+
+    const bm = $('#b_prog_me'), bo = $('#b_prog_other');
+    if (bm && bm.style) bm.style.width = mePct + '%';
+    if (bo && bo.style) bo.style.width = otPct + '%';
+
+    $('#b_prog_me_count') && ($('#b_prog_me_count').textContent = `${me}/${total}`);
     $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${other}/${total}`);
-    $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(me+other,total)} av ${total} adresser fullført`);
+    $('#b_prog_summary') && ($('#b_prog_summary').textContent = `${Math.min(me+other,total)} av ${total} adresser fullført`);
   }
 
-  function renderNowNext(addresses, idx){
-    const now  = addresses[idx] || null;
-    const next = addresses[(idx + 1 < addresses.length) ? idx+1 : idx] || null;
+  function uiSetWork(){
+    const mode  = getMode();
+    const round = window.Sync.currentRound(mode);
+    const dir   = getDir();
+    const run   = getRun();
+    const addrs = filteredAddresses(mode);
 
-    $('#b_now')  && ($('#b_now').textContent  = now?.name  || '—');
-    $('#b_next') && ($('#b_next').textContent = next?.name || '—');
+    const now = addrs[run.idx] || null;
+    const nxt = addrs[nextIndex(run.idx, dir)] || null;
+
+    if ($('#b_now'))  $('#b_now').textContent  = now ? (now.name || '—') : '—';
+    if ($('#b_next')) $('#b_next').textContent = nxt ? (nxt.name || '—') : '—';
+    if ($('#b_task')) $('#b_task').textContent = (mode==='snow') ? 'Fjerne snø' : 'Strø grus';
+
+    const st = now ? window.Sync.getAddressStatus(now.name, mode, round) : null;
+    if ($('#b_status')) $('#b_status').textContent = stateLabel(st?.state || 'not_started');
+
+    updateProgressBars();
   }
 
-  function renderStatus(nowName, bag){
-    const st = (nowName && bag[nowName]?.state) || 'not_started';
-    $('#b_status') && ($('#b_status').textContent = STATE_LABEL[st] || '—');
-  }
-
-  function renderTask(mode){
-    $('#b_task') && ($('#b_task').textContent = mode==='grit' ? 'Strøing' : 'Snø');
-  }
-
-  // ---- NAV ----
-  function mapsUrlFromAddr(a){
-    if(!a) return 'https://www.google.com/maps';
-    if(a.coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(a.coords)){
-      const q=a.coords.replace(/\s+/g,'');
+  function mapsUrlFromAddr(addr){
+    if(!addr) return 'https://www.google.com/maps';
+    if (addr.coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(addr.coords)){
+      const q=addr.coords.replace(/\s+/g,'');
       return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
     }
-    return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((a.name||'')+', Norge');
+    return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((addr.name||'')+', Norge');
   }
 
-  // ---- Kontrollflyt Work ----
-  async function refreshWork(){
-    const run = currentRun();
-    const all = await window.Sync.loadAddresses();               // alle adresser
-    const list = all
-      .filter(a=>a.active!==false)
-      .filter(a=> run.mode==='snow' ? (a.flags?.snow!==false) : !!a.flags?.grit);
-
-    // startindeks
-    let idx = readJSON(LS_RUN, {}).idx ?? 0;
-    if(run.dir==='Motsatt'){ idx = Math.min(idx, list.length-1); }
-
-    // statusbag
-    const bag = await window.Sync.getStatusBag(run.mode);
-
-    // UI
-    renderTask(run.mode);
-    renderNowNext(list, idx);
-    renderStatus(list[idx]?.name, bag);
-    updateTopProgress(list, bag, run.driver);
-
-    // persist indeks i LS
-    const saved = readJSON(LS_RUN, {});
-    saved.idx = idx; writeJSON(LS_RUN, saved);
-
-    return { run, list, bag, idx };
+  // ---------- All done? ----------
+  function isAllDone(){
+    const mode  = getMode();
+    const round = window.Sync.currentRound(mode);
+    const addrs = filteredAddresses(mode);
+    if (!addrs.length) return false;
+    return addrs.every(a => (window.Sync.getAddressStatus(a.name, mode, round)?.state === 'done'));
   }
 
-  async function stepAndMaybeAutoNav(nextIdx, list){
-    const st = readJSON(LS_SETTINGS, {});
-    const auto = !!st.autoNav;
-    if(nextIdx>=0 && nextIdx<list.length){
-      const run = readJSON(LS_RUN,{});
-      run.idx = nextIdx; writeJSON(LS_RUN, run);
-      renderNowNext(list, nextIdx);
-      if(auto){
-        const t = list[nextIdx];
-        window.open(mapsUrlFromAddr(t),'_blank');
+  function afterAllDoneFlow(){
+    const mode  = getMode();
+    const txtMode = (mode==='snow') ? 'Snø' : 'Grus';
+    const choice = prompt(
+      `Alt er utført for ${txtMode}-runden 🎉\n\n` +
+      `Skriv ett av valgene:\n` +
+      `1 = Ny runde (${txtMode})\n` +
+      `2 = Start ny runde (Grus)\n` +
+      `3 = Ferdig (gå til Service)`
+    , '3');
+
+    if (choice === '1'){ // ny runde samme modus
+      window.Sync.incrementRound(mode);
+      const run = readJSON(K_RUN,{idx:0,mode}); run.idx=0; writeJSON(K_RUN,run);
+      location.hash = '#work';
+      uiSetWork();
+      return;
+    }
+    if (choice === '2'){ // bytt til grus og ny runde
+      const st = readJSON(K_SETTINGS, { equipment:{sand:false}, dir:'Normal' });
+      st.equipment.sand = true;  // grus
+      writeJSON(K_SETTINGS, st);
+      window.Sync.incrementRound('grit');
+      const run = { idx:0, mode:'grit' }; writeJSON(K_RUN, run);
+      location.hash = '#work';
+      uiSetWork();
+      return;
+    }
+    // Ferdig -> Service
+    location.hash = '#service';
+  }
+
+  // ---------- Handling ----------
+  function setStatusForCurrent(patch, advance = false){
+    const mode  = getMode();
+    const round = window.Sync.currentRound(mode);
+    const addrs = filteredAddresses(mode);
+    const run   = getRun();
+    const cur   = addrs[run.idx]; if (!cur) return;
+
+    window.Sync.setAddressStatus(cur.name, mode, round, { ...patch, driver: getDriver() });
+
+    if (advance){
+      const dir = getDir();
+      const ni = nextIndex(run.idx, dir);
+      if (ni >=0 && ni < addrs.length) {
+        setRunIdx(ni);
       }
     }
+    uiSetWork();
+
+    if (isAllDone()) afterAllDoneFlow();
   }
 
-  async function checkAllDone(list, bag, mode){
-    const allDone = list.length>0 && list.every(a=> bag[a.name]?.state==='done');
-    if(!allDone) return;
-
-    // Ferdig dialog
-    const modeTxt = (mode==='grit') ? 'grusrunden' : 'snørunden';
-    const pick = confirm(`Alt er utført for ${modeTxt} 🎉\n\nOK = Gå til Service\nAvbryt = bli på siden`);
-    if(pick){
-      location.hash = '#service';
-    }
+  function onStart(){ setStatusForCurrent({ state:'in_progress', startedAt: new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) }, false); }
+  function onDone(){
+    setStatusForCurrent({ state:'done', finishedAt: new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) }, true);
   }
-
-  // ---- Actions ----
-  async function onStart(){
-    const { run, list } = await refreshWork();
-    const cur = list[readJSON(LS_RUN,{}).idx];
-    if(!cur) return;
-    await window.Sync.setStatus(cur.name, { state:'in_progress', startedAt:Date.now() }, { mode: run.mode, driver: run.driver });
-    await refreshWork();
+  function onSkip(){ setStatusForCurrent({ state:'skipped', finishedAt: new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) }, true); }
+  function onBlock(){ const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||''; setStatusForCurrent({ state:'blocked', note:reason, finishedAt: new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) }, true); }
+  function onNext(){
+    const dir=getDir();
+    const run=getRun();
+    const addrs=filteredAddresses(getMode());
+    const ni=nextIndex(run.idx, dir);
+    if (ni>=0 && ni<addrs.length) { setRunIdx(ni); uiSetWork(); }
   }
-
-  async function onDone(){
-    const { run, list } = await refreshWork();
-    const idx = readJSON(LS_RUN,{}).idx;
-    const cur = list[idx];
-    if(!cur) return;
-    await window.Sync.setStatus(cur.name, { state:'done', finishedAt:Date.now() }, { mode: run.mode, driver: run.driver });
-    await refreshWork();
-    await stepAndMaybeAutoNav(Math.min(idx+1, list.length-1), list);
-    const bag = await window.Sync.getStatusBag(run.mode);
-    await checkAllDone(list, bag, run.mode);
-  }
-
-  async function onSkip(){
-    const { run, list } = await refreshWork();
-    const idx = readJSON(LS_RUN,{}).idx;
-    const cur = list[idx];
-    if(!cur) return;
-    await window.Sync.setStatus(cur.name, { state:'skipped', finishedAt:Date.now() }, { mode: run.mode, driver: run.driver });
-    await refreshWork();
-    await stepAndMaybeAutoNav(Math.min(idx+1, list.length-1), list);
-  }
-
-  async function onNext(){
-    const { list } = await refreshWork();
-    const idx = readJSON(LS_RUN,{}).idx;
-    await stepAndMaybeAutoNav(Math.min(idx+1, list.length-1), list);
-    await refreshWork();
-  }
-
-  async function onBlock(){
-    const why = prompt('Hvorfor ikke mulig? (valgfritt)','') || '';
-    const { run, list } = await refreshWork();
-    const idx = readJSON(LS_RUN,{}).idx;
-    const cur = list[idx];
-    if(!cur) return;
-    await window.Sync.setStatus(cur.name, { state:'blocked', finishedAt:Date.now(), note: why }, { mode: run.mode, driver: run.driver });
-    await refreshWork();
-    await stepAndMaybeAutoNav(Math.min(idx+1, list.length-1), list);
+  function onNav(){
+    const run=getRun(), mode=getMode(), dir=getDir();
+    const addrs=filteredAddresses(mode);
+    const target = addrs[nextIndex(run.idx,dir)] || addrs[run.idx];
+    if (!target) return;
+    window.open(mapsUrlFromAddr(target),'_blank');
   }
 
   function wire(){
-    // knapper
+    if (location.hash !== '#work') return;
     $('#act_start')?.addEventListener('click', onStart);
     $('#act_done') ?.addEventListener('click', onDone);
     $('#act_skip') ?.addEventListener('click', onSkip);
-    $('#act_next') ?.addEventListener('click', onNext);
     $('#act_block')?.addEventListener('click', onBlock);
+    $('#act_next') ?.addEventListener('click', onNext);
+    $('#act_nav')  ?.addEventListener('click', onNav);
 
-    // oppdater når siden vises
-    window.addEventListener('hashchange', ()=>{
-      const id=(location.hash||'#home').replace('#','');
-      if(id==='work'){ refreshWork().catch(console.error); }
-    });
-
-    // første last hvis vi allerede er på work
-    const cur=(location.hash||'#home').replace('#','');
-    if(cur==='work'){ refreshWork().catch(console.error); }
+    uiSetWork();
   }
 
+  window.addEventListener('hashchange', wire);
   document.addEventListener('DOMContentLoaded', wire);
 })();
