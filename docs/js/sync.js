@@ -2,157 +2,151 @@
 (() => {
   'use strict';
 
-  /* ========= helpers ========= */
-  const $ls = {
-    get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
-    set(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+  const API_BASE = 'https://api.jsonbin.io/v3/b';
+  // Sett disse i Admin senere; midlertidig her:
+  let CONFIG = {
+    apiKey: localStorage.getItem('BRYT_API_KEY') || '', // legg inn via Admin senere
+    binId:  localStorage.getItem('BRYT_BIN_ID')  || '68e7b4d2ae596e708f0bde7d'
   };
 
-  const LSK_ADDRESSES = 'BRYT_ADDRESSES';
-  const LSK_STATUS    = 'BRYT_STATUS';
+  const $ = (s, r = document) => r.querySelector(s);
+  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
 
-  // App-state vi lar andre lese
-  const S = {
-    addresses: [],   // [{id,name,lat,lon,task}]
-    statusMap: {},   // { id: {state:'ikke_påbegynt'|'pågår'|'ferdig'|'hoppet'|'ikke_mulig', driver?:string, ts?:number } }
-    lastSync: 0
-  };
+  const K_ADDR   = 'BRYT_ADDR_CACHE';
+  const K_STORE  = 'BRYT_STATUS_STORE'; // { [id]: {state, driver, t} }
 
-  // Konfig til JSONBin
-  const CFG = {
-    apiKey: 'PUT_YOUR_JSONBIN_KEY_HERE',           // <— SETT NØKKEL HER
-    binId : '68e7b4d2ae596e708f0bde7d',
-    base  : 'https://api.jsonbin.io/v3/b'
-  };
-
-  /* ========= veldig enkel events (pub/sub) ========= */
-  const listeners = {};
-  function on(event, fn){ (listeners[event] ??= []).push(fn); }
-  function off(event, fn){ if(!listeners[event]) return; listeners[event] = listeners[event].filter(f=>f!==fn); }
-  function emit(event, data){ (listeners[event]||[]).forEach(fn => { try{ fn(data); }catch(e){ console.warn('listener err',event,e); } }); }
-
-  // bro til DOM CustomEvent (for evt. eldre filer som brukte disse)
-  document.addEventListener('sync:addresses', e => emit('addresses', e.detail));
-  document.addEventListener('sync:status',    e => emit('status',    e.detail));
-  document.addEventListener('sync:ready',     e => emit('ready',     e.detail));
-
-  /* ========= normalisering av JSON ========= */
-  function normalizeAddresses(raw){
-    // Støtt både array og {addresses:[…]}
-    const list = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.addresses) ? raw.addresses : []);
-    let i = 0;
-    return list.map(item => {
-      // støtt ulike feltnavn
-      const id   = item.id ?? item.ID ?? `addr_${i++}`;
-      const name = item.name ?? item.adresse ?? item.Address ?? `Adresse ${i}`;
-      const lat  = Number(item.lat ?? item.latitude  ?? item.Lat ?? item.Latitude ?? NaN);
-      const lon  = Number(item.lon ?? item.lng       ?? item.Lon ?? item.Longitude ?? NaN);
-      // oppgavetypen (snø / grus)
-      let task   = item.task ?? item.type ?? item.oppdrag ?? 'snow';
-      if (typeof task === 'string'){
-        const t = task.toLowerCase();
-        task = (t.includes('grus') || t.includes('sand') || t.includes('salt')) ? 'grit' : 'snow';
-      } else {
-        task = 'snow';
-      }
-      return { id, name, lat, lon, task };
-    });
+  function setSyncBadge(state) {
+    const badge = $('#sync_badge');
+    if (!badge) return;
+    const dot = badge.querySelector('.dot') || badge;
+    dot.classList.remove('dot-ok','dot-err','dot-warn','dot-unknown');
+    if (state === 'ok')  { dot.classList.add('dot-ok');  badge.innerHTML = `<span class="dot dot-ok"></span> Synk: OK`; }
+    if (state === 'err') { dot.classList.add('dot-err'); badge.innerHTML = `<span class="dot dot-err"></span> Synk: feil`; }
+    if (state === 'warn'){ dot.classList.add('dot-warn');badge.innerHTML = `<span class="dot dot-warn"></span> Synk: lokalt`; }
+    if (state === 'unknown'){ dot.classList.add('dot-unknown'); badge.innerHTML = `<span class="dot dot-unknown"></span> Synk: ukjent`; }
   }
 
-  /* ========= cloud IO ========= */
-  async function fetchLatest(){
-    const url = `${CFG.base}/${CFG.binId}/latest`;
+  async function httpGetLatest() {
+    if (!CONFIG.apiKey || !CONFIG.binId) throw new Error('Manglende API-nøkkel eller BIN-ID.');
+    const url = `${API_BASE}/${CONFIG.binId}/latest`;
+    const res = await fetch(url, { headers: { 'X-Master-Key': CONFIG.apiKey }});
+    if (!res.ok) throw new Error(`GET feilet: ${res.status}`);
+    const json = await res.json();
+    return json.record; // forventer { addresses: [...], status: {...} } eller bare [...]
+  }
+
+  async function httpPatch(record) {
+    if (!CONFIG.apiKey || !CONFIG.binId) throw new Error('Manglende API-nøkkel eller BIN-ID.');
+    const url = `${API_BASE}/${CONFIG.binId}`;
     const res = await fetch(url, {
+      method: 'PUT',
       headers: {
-        'X-Master-Key': CFG.apiKey,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Master-Key': CONFIG.apiKey
       },
-      cache: 'no-store'
+      body: JSON.stringify(record)
     });
-    if(!res.ok) throw new Error(`JSONBin ${res.status}`);
-    const data = await res.json();
-    // JSONBin v3: {record, metadata}
-    return data?.record ?? data;
+    if (!res.ok) throw new Error(`PUT feilet: ${res.status}`);
+    return res.json();
   }
 
-  async function loadAddresses(opts={}){
-    const force = !!opts.force;
-
-    if (!force){
-      const cached = $ls.get(LSK_ADDRESSES, null);
-      if (cached && Array.isArray(cached) && cached.length){
-        S.addresses = cached;
-        emit('addresses', S.addresses);
-        emit('ready', true);
-        return S.addresses;
-      }
-    }
-
-    const raw = await fetchLatest();
-    const normalized = normalizeAddresses(raw);
-    S.addresses = normalized;
-    S.lastSync = Date.now();
-    $ls.set(LSK_ADDRESSES, normalized);
-
-    // behold tidligere status hvis finnes
-    const existingStatus = $ls.get(LSK_STATUS, {});
-    S.statusMap = existingStatus;
-    emit('addresses', S.addresses);
-    emit('status',    S.statusMap);
-    emit('ready', true);
-    return S.addresses;
+  function normRecord(rec){
+    // Støtt både plain array og {addresses, status}
+    if (Array.isArray(rec)) return { addresses: rec, status: readJSON(K_STORE, {}) };
+    const addresses = rec.addresses || [];
+    const status    = rec.status || readJSON(K_STORE, {});
+    return { addresses, status };
   }
 
-  /* ========= status-håndtering ========= */
-  function getAddresses(){ return S.addresses; }
-  function getStatusMap(){ return S.statusMap; }
-
-  function setAddressState(id, state, extra={}){
-    S.statusMap[id] = { state, ...extra, ts: Date.now() };
-    $ls.set(LSK_STATUS, S.statusMap);
-    emit('status', S.statusMap);
-  }
-
-  function setConfig({apiKey, binId}={}){
-    if(apiKey) CFG.apiKey = apiKey;
-    if(binId)  CFG.binId  = binId;
-  }
-
-  async function init(){
+  async function loadAddresses({force=false} = {}){
     try{
-      // last evt. cache synkront
-      const cachedA = $ls.get(LSK_ADDRESSES, []);
-      if (cachedA?.length){
-        S.addresses = cachedA;
-        emit('addresses', S.addresses);
+      if (!force){
+        const cached = readJSON(K_ADDR, null);
+        if (cached?.length) { setSyncBadge('warn'); return cached; }
       }
-      const cachedS = $ls.get(LSK_STATUS, {});
-      if (cachedS) {
-        S.statusMap = cachedS;
-        emit('status', S.statusMap);
-      }
-      emit('ready', true);
-      // forsøk å hente ferskt i bakgrunnen
-      loadAddresses({force:true}).catch(()=>{});
+      const rec = normRecord(await httpGetLatest());
+      writeJSON(K_ADDR, rec.addresses);
+      writeJSON(K_STORE, rec.status);
+      setSyncBadge('ok');
+      return rec.addresses;
     }catch(e){
-      console.warn('Sync init error', e);
-      emit('ready', false);
+      setSyncBadge('err');
+      console.error(e);
+      throw e;
     }
   }
 
-  /* ========= public API ========= */
+  function statusStore(){
+    return readJSON(K_STORE, {});
+  }
+  function saveStatusStore(obj){
+    writeJSON(K_STORE, obj);
+  }
+
+  async function setStatus(id, payload){
+    // Oppdater lokalt
+    const bag = statusStore();
+    bag[id] = { ...(bag[id]||{}), ...payload, t: Date.now() };
+    saveStatusStore(bag);
+
+    // Oppdater sky (PUT hele record)
+    try{
+      const rec = normRecord(await httpGetLatest()); // hent fersk
+      rec.status[id] = bag[id];
+      await httpPatch(rec);
+      setSyncBadge('ok');
+    }catch(e){
+      console.warn('Skyoppdatering feilet, behold lokalt:', e);
+      setSyncBadge('warn');
+    }
+  }
+
+  /** Batch reset: filterFn(id, st) => true for de som skal nullstilles */
+  async function resetWhere(filterFn){
+    const bag = statusStore();
+    for (const id of Object.keys(bag)){
+      const st = bag[id];
+      if (!filterFn || filterFn(id, st)) delete bag[id];
+    }
+    saveStatusStore(bag);
+    try{
+      const rec = normRecord(await httpGetLatest());
+      // Fjern samme i rec.status
+      for (const id of Object.keys(rec.status||{})){
+        const st = rec.status[id];
+        if (!filterFn || filterFn(id, st)) delete rec.status[id];
+      }
+      await httpPatch(rec);
+      setSyncBadge('ok');
+    }catch(e){
+      console.warn('Sky-reset feilet, lokalt ok:', e);
+      setSyncBadge('warn');
+    }
+  }
+
+  function setConfig(cfg){
+    CONFIG = { ...CONFIG, ...cfg };
+    if (cfg.apiKey) localStorage.setItem('BRYT_API_KEY', cfg.apiKey);
+    if (cfg.binId)  localStorage.setItem('BRYT_BIN_ID',  cfg.binId);
+  }
+
+  // Eksporter til appen
   window.Sync = {
-    init,
-    loadAddresses,
-    getAddresses,
-    getStatusMap,
-    setAddressState,
     setConfig,
-    on, off,
-    _state: S,
-    _cfg:   () => ({...CFG})
+    loadAddresses,
+    statusStore,
+    setStatus,
+    resetMine: (driver) => resetWhere((_, st)=> st?.driver === driver),
+    resetAll:  () => resetWhere(()=>true)
   };
 
-  // auto-init når siden lastes
-  document.addEventListener('DOMContentLoaded', init);
+  // Prøv å markere wake-lock-dot ved oppstart (om aktiv fra før iOS-hack)
+  const wlDot = document.getElementById('wl_dot') || document.getElementById('qk_wl_dot');
+  if (wlDot && navigator.wakeLock?.type === 'screen') {
+    wlDot.classList.remove('dot-off'); wlDot.classList.add('dot-on');
+  }
+  // Start som ukjent, blir grønn ved første vellykkede synk
+  setSyncBadge('unknown');
+
 })();
