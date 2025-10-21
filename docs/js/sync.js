@@ -10,7 +10,7 @@
   // 1) KONFIG – SETT DISSE TO!
   //    BIN-ID og API-nøkkel kan endres her, eller via Sync.setConfig(...)
   let BIN_ID   = '68e7b4d2ae596e708f0bde7d';
-  let API_KEY  = 'SETT_DIN_JSONBIN_API_NØKKEL_HER';
+  let API_KEY  = '$2a$10$luKLel7elCpJM4.REcwKOOsWlBK5Xv5lY2oN1BDYgbZbXA6ubT0W.';
   // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
   const BASE = 'https://api.jsonbin.io/v3/b';
