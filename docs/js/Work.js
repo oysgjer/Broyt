@@ -124,6 +124,33 @@
     });
   }
 
+// Oversett utstyrsvalg til menneskelig oppgave
+function describeTask(s) {
+  const eq = s.equipment || {};
+  const hasPlow = eq.plow || eq.fres;
+  const hasSand = eq.sand;
+
+  if (hasPlow && hasSand) return 'Brøyting og strøing';
+  if (hasPlow) return 'Brøyting (fjerne snø)';
+  if (hasSand) return 'Strøing av grus';
+  return 'Uspesifisert oppgave';
+}
+
+// Endre linjen i renderWork()
+function renderWork() {
+  if (!$('#work') || $('#work').hasAttribute('hidden')) return;
+
+  const { s, now, next, total } = getNowNext();
+  $('#b_now')  && ($('#b_now').textContent  = now  ? now.name  : '—');
+  $('#b_next') && ($('#b_next').textContent = next ? next.name : '—');
+
+  // HER: vis oppgaven basert på utstyr
+  $('#b_task') && ($('#b_task').textContent = describeTask(s));
+
+  ...
+}
+
   window.addEventListener('hashchange', renderWork);
   document.addEventListener('DOMContentLoaded', () => { wire(); renderWork(); });
 })();
+
