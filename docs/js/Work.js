@@ -32,10 +32,8 @@
   }
 
   function describeTaskRow(){
-    // vis en menneskelig tekst basert på valgt utstyr (snø vs grus)
     const r = getRun();
-    const isGrit = !!r.equipment.sand;
-    return isGrit ? 'Strøing av grus' : 'Snøbrøyting';
+    return r.equipment?.sand ? 'Strøing av grus' : 'Snøbrøyting';
   }
 
   function statusTextFor(id){
@@ -79,7 +77,7 @@
     const section = $('#work');
     if (!section || section.hasAttribute('hidden')) return;
 
-    const {now, next, total} = getNowNext();
+    const {now, next} = getNowNext();
     $('#b_now')  && ($('#b_now').textContent  = now  ? (now.name || '—') : '—');
     $('#b_next') && ($('#b_next').textContent = next ? (next.name|| '—') : '—');
 
@@ -88,7 +86,6 @@
 
     renderProgress();
 
-    // deaktiver knapper når ingen adresser
     const disabled = !now;
     $$('.btn, .btn-ghost', section).forEach(btn=>{
       btn.disabled = disabled;
@@ -96,9 +93,7 @@
     });
   }
 
-  function gotoService(){
-    location.hash = '#service';
-  }
+  function gotoService(){ location.hash = '#service'; }
 
   function onStart(){
     const {now} = getNowNext();
@@ -113,7 +108,6 @@
     if (!now) return;
     window.Sync.setAddressState(now.id, 'ferdig', {driver: r.driver});
 
-    // neste adresse
     const nextIdx = idx + 1;
     if (nextIdx < A.length){
       r.idx = nextIdx; setRun(r);
@@ -121,16 +115,13 @@
       return;
     }
 
-    // runden er slutt – spør hva videre
     const choice = window.confirm(
       'Runden er ferdig.\n\nOK = Start ny brøyterunde\nAvbryt = Gå til Service (ferdig for i dag)'
     );
     if (choice){
-      // ny brøyterunde (samme utstyr)
       r.idx = 0; setRun(r);
       renderWork();
     } else {
-      // ferdig -> service
       gotoService();
     }
   }
@@ -169,7 +160,6 @@
   }
 
   function wire(){
-    // knapper
     $('#act_start')?.addEventListener('click', onStart);
     $('#act_done') ?.addEventListener('click', onDone);
     $('#act_skip') ?.addEventListener('click', onSkip);
@@ -177,14 +167,12 @@
     $('#act_block')?.addEventListener('click', onBlock);
     $('#act_nav')  ?.addEventListener('click', onNav);
 
-    // oppdater når Sync er klar / data ankommer
     if (window.Sync?.on){
       window.Sync.on('ready',      renderWork);
       window.Sync.on('addresses',  renderWork);
       window.Sync.on('status',     renderWork);
     }
 
-    // når rute endres
     window.addEventListener('hashchange', renderWork);
     renderWork();
   }
