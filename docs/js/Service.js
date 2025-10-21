@@ -1,90 +1,44 @@
-/* ---------------------------------------------------------
-   Service.js — lagre + tilby e-post
---------------------------------------------------------- */
-(function () {
-  const $ = (s, r = document) => r.querySelector(s);
+// js/Service.js
+(() => {
+  'use strict';
 
-  function collectService() {
-    const val = (id) => !!$(id)?.checked;
+  const $ = (s, r=document) => r.querySelector(s);
+  const readJSON  = (k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d;}catch{return d;}};
+  const writeJSON = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
+  const K_SERVICE = 'BRYT_SERVICE_LOGS';
+
+  function collectForm(){
     return {
-      grease: {
-        plow:  val('#srv_plow'),
-        fres:  val('#srv_fres'),
-        front: val('#srv_front'),
-      },
-      oil: {
-        front: val('#srv_oil_front'),
-        rear:  val('#srv_oil_rear'),
-        fill:  val('#srv_oil_fill'),
-      },
-      dieselFilled: val('#srv_diesel'),
-      gritBoxes: ($('#srv_grit')?.value || '').trim(),
-      notes: ($('#srv_notes')?.value || '').trim(),
-      driver: (loadState()?.driver || ''),
-      ts: new Date().toISOString()
+      skjaer: $('#svc_skjaer')?.checked,
+      fres: $('#svc_fres')?.checked,
+      forstilling: $('#svc_forstilling')?.checked,
+      olje_foran: $('#svc_olje_foran')?.checked,
+      olje_bak: $('#svc_olje_bak')?.checked,
+      olje_etterfylt: $('#svc_olje_etterfylt')?.checked,
+      diesel: $('#svc_diesel')?.checked,
+      grus: $('#svc_grus')?.value || '',
+      annet: $('#svc_annet')?.value || '',
+      tid: new Date().toLocaleString()
     };
   }
 
-  function saveServiceLocal(rec) {
-    const key = 'BRYT_SERVICE_LOG';
-    let arr = [];
-    try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
-    arr.push(rec);
-    localStorage.setItem(key, JSON.stringify(arr));
-  }
+  function saveService(){
+    const entry = collectForm();
+    const logs = readJSON(K_SERVICE, []);
+    logs.push(entry);
+    writeJSON(K_SERVICE, logs);
+    $('#svc_status').textContent = '✅ Service lagret ' + entry.tid;
 
-  function pretty(rec) {
-    return [
-      `Fører: ${rec.driver || '—'}`,
-      `Tid: ${rec.ts}`,
-      '',
-      'Smøring:',
-      `  • Skjær smurt: ${rec.grease.plow ? 'Ja' : 'Nei'}`,
-      `  • Fres smurt: ${rec.grease.fres ? 'Ja' : 'Nei'}`,
-      `  • Forstilling smurt: ${rec.grease.front ? 'Ja' : 'Nei'}`,
-      '',
-      'Olje:',
-      `  • Foran sjekket: ${rec.oil.front ? 'Ja' : 'Nei'}`,
-      `  • Bak sjekket: ${rec.oil.rear ? 'Ja' : 'Nei'}`,
-      `  • Etterfylt: ${rec.oil.fill ? 'Ja' : 'Nei'}`,
-      '',
-      `Diesel fylt: ${rec.dieselFilled ? 'Ja' : 'Nei'}`,
-      `Antall kasser grus: ${rec.gritBoxes || '—'}`,
-      '',
-      `Annet:\n${rec.notes || '—'}`
-    ].join('\n');
-  }
-
-  function toMailto(rec) {
-    const to = (loadSettings()?.serviceEmail) || 'oysgjer@gmail.com';
-    const subject = encodeURIComponent('Service-rapport (Brøyterute)');
-    const body = encodeURIComponent(pretty(rec));
-    return `mailto:${to}?subject=${subject}&body=${body}`;
-  }
-
-  function wire() {
-    // vi lytter på en "lagre"-knapp hvis den finnes i partialen,
-    // ellers auto-lagre når du åpner Service-siden
-    const btn = $('#srv_save');
-    const runSave = () => {
-      const rec = collectService();
-      saveServiceLocal(rec);
-      alert('Service lagret.');
-      setTimeout(() => {
-        if (confirm('Vil du sende service-rapport på e-post nå?')) {
-          location.href = toMailto(rec);
-        }
-      }, 50);
-    };
-
-    if (btn) btn.addEventListener('click', runSave);
-
-    // auto-wire når vi går til service
-    window.addEventListener('hashchange', () => {
-      if (location.hash === '#service' && !btn) {
-        // auto-lagring gjøres ikke; bare sikre at skjema finnes
+    // Til testing: send valg om e-post
+    setTimeout(()=>{
+      if(confirm('Vil du sende servicerapport på e-post til oysgjer@gmail.com?')){
+        window.open(`mailto:oysgjer@gmail.com?subject=Servicerapport&body=${encodeURIComponent(JSON.stringify(entry,null,2))}`);
       }
-    });
+    },300);
+  }
+
+  function wire(){
+    $('#svc_save')?.addEventListener('click', saveService);
   }
 
   document.addEventListener('DOMContentLoaded', wire);
