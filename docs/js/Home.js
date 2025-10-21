@@ -1,63 +1,91 @@
-/* ---------------------------------------------------------
-   Home.js
-   Leser inputs, lagrer state og starter runde.
---------------------------------------------------------- */
-(function () {
-  const $  = (s, root = document) => root.querySelector(s);
-  const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
+// js/Home.js
+(() => {
+  'use strict';
 
-  function readHomeForm() {
+  const $ = (s, r = document) => r.querySelector(s);
+  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
+
+  const K_SETTINGS = 'BRYT_SETTINGS';
+  const K_RUN      = 'BRYT_RUN';
+
+  function loadSettings() {
+    return readJSON(K_SETTINGS, {
+      driver: '',
+      equipment: { plow:false, fres:false, sand:false },
+      dir: 'Normal',
+      autoNav: false,
+      // shortcuts (lat,lon) kan ligge her hvis ønskelig
+      grus: '', diesel: '', base: ''
+    });
+  }
+  function saveSettings(s) { writeJSON(K_SETTINGS, s); }
+
+  function uiToSettings() {
     return {
-      driver: $('#a_driver')?.value?.trim() || '',
+      ...loadSettings(),
+      driver: $('#a_driver')?.value.trim() || '',
       equipment: {
-        plow:  $('#a_eq_plow')?.checked || false,
-        fres:  $('#a_eq_fres')?.checked || false,
-        sand:  $('#a_eq_sand')?.checked || false,
+        plow: !!$('#a_eq_plow')?.checked,
+        fres: !!$('#a_eq_fres')?.checked,
+        sand: !!$('#a_eq_sand')?.checked
       },
-      order:   $('#a_dir')?.value || 'Normal',
-      autoNav: $('#a_autoNav')?.checked || false,
+      dir: $('#a_dir')?.value || 'Normal',
+      autoNav: !!$('#a_autoNav')?.checked
     };
   }
 
-  function startRound() {
+  function settingsToUI() {
+    const st = loadSettings();
+    if ($('#a_driver'))  $('#a_driver').value = st.driver || '';
+    if ($('#a_eq_plow')) $('#a_eq_plow').checked = !!st.equipment.plow;
+    if ($('#a_eq_fres')) $('#a_eq_fres').checked = !!st.equipment.fres;
+    if ($('#a_eq_sand')) $('#a_eq_sand').checked = !!st.equipment.sand;
+    if ($('#a_dir'))     $('#a_dir').value = st.dir || 'Normal';
+    if ($('#a_autoNav')) $('#a_autoNav').checked = !!st.autoNav;
+  }
+
+  function startRunLocal() {
+    const st = uiToSettings();
+    saveSettings(st);
+
+    const run = {
+      driver: st.driver,
+      equipment: st.equipment,
+      dir: st.dir,
+      idx: 0
+    };
+    writeJSON(K_RUN, run);
+  }
+
+  async function onStartClick() {
     try {
-      // Sikre seed + last eksisterende state
-      const s  = window.ensureAddressesSeeded ? ensureAddressesSeeded() : (window.S || {});
-      const fm = readHomeForm();
+      // 1) lagre innstillinger fra UI
+      startRunLocal();
 
-      // Oppdater state
-      s.driver    = fm.driver;
-      s.equipment = fm.equipment;
-      s.order     = fm.order;
-      s.autoNav   = fm.autoNav;
-      s.idx       = 0;          // start på første adresse
-      s.started   = true;
+      // 2) Hente adresser fra JSONbin (via Sync) – cache lagres i localStorage
+      if (!window.Sync) throw new Error('Sync-modulen er ikke lastet. Mangler js/sync.js?');
 
-      window.saveState && saveState(s);
-      window.S = s;
+      // Om du vil sette nøkkel/programmatisk i stedet for i sync.js:
+      // window.Sync.setConfig({ apiKey: 'DIN_NØKKEL', binId: '68e7...' });
 
-      // Klargjør data og gå til “work”
-      window.refreshCloud && refreshCloud().catch(()=>{ /* ignorer offline */ });
-      if (window.showPage) showPage('work');
-      else location.hash = '#work';
+      const addrs = await window.Sync.loadAddresses({ force: true });
+      if (!addrs || addrs.length === 0) {
+        alert('Fant ingen adresser i JSONbin. Sjekk BIN og dataformat.');
+      }
+
+      // 3) Naviger til “Under arbeid”
+      location.hash = '#work';
     } catch (e) {
-      alert('Kunne ikke starte runde: ' + e.message);
       console.error(e);
+      alert('Kunne ikke hente adresser fra sky: ' + e.message);
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    // Fyll inn eventuelle tidligere verdier
-    const s = window.loadState ? loadState() : {};
-    if (s.driver) $('#a_driver') && ($('#a_driver').value = s.driver);
-    if (s.equipment) {
-      $('#a_eq_plow') && ($('#a_eq_plow').checked = !!s.equipment.plow);
-      $('#a_eq_fres') && ($('#a_eq_fres').checked = !!s.equipment.fres);
-      $('#a_eq_sand') && ($('#a_eq_sand').checked = !!s.equipment.sand);
-    }
-    if (s.order)   $('#a_dir') && ($('#a_dir').value = s.order);
-    if (s.autoNav) $('#a_autoNav') && ($('#a_autoNav').checked = !!s.autoNav);
+  function wire() {
+    settingsToUI();
+    $('#a_start') && $('#a_start').addEventListener('click', onStartClick);
+  }
 
-    $('#a_start')?.addEventListener('click', startRound);
-  });
+  document.addEventListener('DOMContentLoaded', wire);
 })();
