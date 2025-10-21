@@ -1,500 +1,237 @@
-/* ========= Base / tema ========= */
+/* =========================================================
+   Brøyt — styles.css (mørk som standard)
+   ========================================================= */
+
+/* ---------- Tema / farger ---------- */
 :root{
-  --bg: #0b1320;
-  --surface: #121a2a;
-  --text: #e8eefc;
-  --muted: #94a3b8;
-  --primary: #2563eb;
-  --ok: #22c55e;
-  --warn: #f59e0b;
-  --err: #ef4444;
-  --sep: rgba(255,255,255,0.08);
+  color-scheme: dark;
+  --bg: #0b1320;           /* sidebakgrunn */
+  --surface: #111a2a;      /* panel */
+  --surface-2:#0e1726;     /* dypere panel */
+  --text: #e8eefc;         /* primærtekst */
+  --muted:#9aa8bf;         /* sekundærtekst */
+  --sep: rgba(255,255,255,.10);
+
+  --primary:#2563eb;       /* primærknapp */
+  --primary-2:#1d4ed8;
+
+  --ok:#22c55e;
+  --warn:#f59e0b;
+  --err:#ef4444;
+
+  --chip-bg: rgba(255,255,255,.06);
+  --chip-br: rgba(255,255,255,.10);
 }
+
 @media (prefers-color-scheme: light){
   :root{
-    --bg:#f6f7fb; --surface:#ffffff; --text:#0b1320; --muted:#6b7280;
-    --sep: rgba(0,0,0,0.08);
+    color-scheme: light;
+    --bg:#f6f7fb;
+    --surface:#ffffff;
+    --surface-2:#ffffff;
+    --text:#0b1320;
+    --muted:#64748b;
+    --sep: rgba(0,0,0,.10);
+
+    --chip-bg: rgba(0,0,0,.05);
+    --chip-br: rgba(0,0,0,.08);
   }
 }
-*{box-sizing:border-box}
-html,body{height:100%}
+
+/* ---------- Reset ---------- */
+*{ box-sizing:border-box }
+html, body { height: 100% }
 body{
-  margin:0; font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background:var(--bg); color:var(--text);
+  margin:0;
+  font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ========= Appbar ========= */
+/* iOS: aldri utilsiktet blur/transparens på body/html */
+html, body{ -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+
+/* ---------- Appbar ---------- */
 .appbar{
-  position:sticky; top:0; z-index:1000;
-  height:56px; display:flex; align-items:center; gap:12px;
-  padding:calc(env(safe-area-inset-top,0) + 0px) 12px 0 12px; /* notch-safe */
-  background:var(--bg) !important;                /* <- hard mørk bakgrunn */
-  color:var(--text);
-  border-bottom:1px solid var(--sep);
-  -webkit-backdrop-filter:none !important; backdrop-filter:none !important;
-  opacity:1 !important;
+  position: sticky; top:0; z-index: 1000;
+  display:flex; align-items:center; gap:12px;
+  height:56px; padding:0 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--sep);
 }
 .icon-btn{
+  width:40px; height:40px; border-radius:10px;
+  display:grid; place-items:center;
   border:0; background:transparent; color:var(--text);
-  width:40px; height:40px; border-radius:8px; font-size:20px;
+  font-size:20px;
 }
-.icon-btn:active{background:var(--sep)}
-.appbar-title{font-weight:700}
+.icon-btn:active{ background: var(--sep) }
+.appbar-title{ font-weight:700; letter-spacing:.2px }
+.appbar-right{ margin-left:auto; display:flex; gap:10px; align-items:center }
+.badge{ font-size:.95rem; opacity:.95 }
+.dot{ display:inline-block; width:.7rem; height:.7rem; border-radius:999px; vertical-align:middle }
+.dot-ok{ background: var(--ok) }
+.dot-warn{ background: var(--warn) }
+.dot-err{ background: var(--err) }
+.dot-unknown{ background:#6b7280 }
+.dot-on{ background: var(--ok) }
+.dot-off{ background:#9ca3af }
 
-/* Badges / dots */
-.badge{font-size:.95rem; opacity:.9}
-.dot{display:inline-block; width:.75rem; height:.75rem; border-radius:50%}
-.dot-ok{background:var(--ok)} .dot-warn{background:var(--warn)}
-.dot-err{background:var(--err)} .dot-unknown{background:#6b7280}
-.dot-on{background:var(--ok)} .dot-off{background:#d1d5db}
-
-/* ========= Drawer + scrim ========= */
+/* ---------- Drawer + scrim (solid, ikke gjennomsiktig) ---------- */
 #scrim{
-  position:fixed; inset:0; background:rgba(0,0,0,.55); /* tydelig dim */
-  opacity:0; pointer-events:none; transition:opacity .18s ease;
-  z-index:999;
+  position: fixed; inset:0; z-index: 1001;
+  background: rgba(0,0,0,.65);
+  opacity:0; pointer-events:none; transition: opacity .2s ease;
 }
-#scrim.show{opacity:1; pointer-events:auto}
+#scrim.show{ opacity:1; pointer-events:auto }
 
-.drawer{
-  position:fixed; top:0; left:0; height:100vh;
-  width:80vw; max-width:320px;
-  background:var(--surface); color:var(--text);
-  box-shadow: 0 10px 30px rgba(0,0,0,.45);
-  border-right:1px solid var(--sep);
-  transform:translateX(-100%); transition:transform .22s ease;
-  z-index:1001; display:flex; flex-direction:column;
-  -webkit-backdrop-filter:none; backdrop-filter:none; opacity:1;
+.drawer, #drawer, aside#drawer{
+  position: fixed; left:0; top:0;
+  width: 82vw; max-width: 340px; height: 100vh;
+  background: var(--surface) !important; /* SOLID */
+  color: var(--text);
+  border-right: 1px solid var(--sep);
+  transform: translateX(-100%);
+  transition: transform .22s ease;
+  z-index: 1002;               /* over scrim */
+  pointer-events: none;        /* klikk blokkeres når lukket */
+  -webkit-backdrop-filter:none !important; backdrop-filter:none !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
 }
-.drawer.open{transform:translateX(0)}
+.drawer.open{ transform: translateX(0); pointer-events: auto }
+
 .drawer-header{
   display:flex; align-items:center; justify-content:space-between;
-  gap:8px; padding:12px 14px; border-bottom:1px solid var(--sep);
-  font-weight:700;
+  gap:8px; padding:12px 14px;
+  font-weight:700; border-bottom:1px solid var(--sep);
 }
-.drawer-content{padding:12px 10px; overflow:auto}
-.drawer-section{margin:10px 8px 6px; font-weight:700; opacity:.9}
-.drawer-list{list-style:none; margin:6px 0 14px; padding:0}
+.drawer-content{ padding:10px 8px; height: calc(100vh - 56px); overflow:auto }
+.drawer-section{ margin:10px 8px 6px; font-weight:700; color:var(--muted) }
+
+.drawer-list{ list-style:none; margin:8px 0 14px; padding:0 }
 .drawer-link{
-  display:flex; align-items:center; gap:10px;
-  padding:10px 12px; border-radius:10px; color:inherit; text-decoration:none;
+  display:flex; align-items:center; gap:12px;
+  padding:10px 12px; border-radius:12px;
+  text-decoration:none; color:inherit;
 }
-.drawer-link:hover{background:var(--sep)}
-.drawer-link .emoji{width:22px; text-align:center}
+.drawer-link:hover{ background: var(--chip-bg) }
+.drawer-link .emoji{ width:22px; text-align:center }
 
-/* Wake lock kort i meny */
 .card{
-  margin:12px 8px; padding:12px; border-radius:12px;
-  background:var(--surface); border:1px solid var(--sep);
+  background: var(--surface-2);
+  border:1px solid var(--sep); border-radius:14px;
+  padding:12px;
 }
-.row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap }
 
-/* ========= Layout main ========= */
-main{padding:18px}
-section[hidden]{display:none !important}
+/* ---------- Innhold ---------- */
+main{ padding:18px; }
+section[hidden]{ display:none !important }
 
-/* ========= Form / inputs ========= */
-.field{display:block; margin:14px 0 10px}
-.field > span{display:block; margin-bottom:6px; color:var(--muted)}
-.input, select, .input-like{
-  width:100%; border:1px solid var(--sep); border-radius:10px;
-  background:transparent; color:var(--text); padding:10px 12px;
+h1{ font-size: clamp(22px, 2.4rem, 32px); margin: 6px 0 14px }
+.label-muted{ color: var(--muted); font-weight:600; margin-bottom:6px }
+
+/* ---------- Form / inputs ---------- */
+.field{ display:block; margin:14px 0 10px }
+.field > span{ display:block; margin-bottom:6px; color: var(--muted) }
+
+.input, select, .input-like, textarea{
+  width:100%; border:1px solid var(--sep); border-radius:12px;
+  background:transparent; color:var(--text);
+  padding:12px 12px; outline:none;
 }
-.checkbox-row{display:flex; flex-direction:column; gap:10px}
+.input:focus, select:focus, .input-like:focus-within, textarea:focus{
+  border-color: rgba(37,99,235,.6); box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+}
+.input-like{ display:block }
+.checkbox-row{ display:flex; gap:14px; flex-wrap:wrap }
+.checkbox-row label{ display:flex; align-items:center; gap:8px }
+
+.grid2{ display:grid; gap:12px; grid-template-columns: repeat(2,minmax(0,1fr)) }
+@media (max-width:560px){ .grid2{ grid-template-columns: 1fr } }
+
+/* ---------- Knappestiler ---------- */
 .btn{
-  display:inline-flex; align-items:center; gap:8px;
-  border:0; border-radius:12px; padding:10px 14px;
-  background:var(--primary); color:white; font-weight:600;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding:11px 16px; border:0; border-radius:14px;
+  background: var(--primary); color:#fff; font-weight:700;
 }
-.btn-ghost{background:transparent; border:1px solid var(--sep); color:var(--text)}
-.btn:active{transform:translateY(1px)}
+.btn:active{ transform: translateY(1px) }
+.btn-ghost{
+  background: transparent; color: var(--text);
+  border:1px solid var(--sep);
+}
+.btn.badge{ font-weight:600 }
+.btn--ok{ background: var(--ok); color:#052012 }
+.btn--warn{ background: var(--warn) }
+.btn--err{ background: var(--err) }
 
-/* ========= Work-top (progress/status) ========= */
+/* Pulserende state (brukes når noe «venter») */
+.pulse{
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%{ box-shadow: 0 0 0 0 rgba(37,99,235,.45) }
+  70%{ box-shadow: 0 0 0 12px rgba(37,99,235,0) }
+  100%{ box-shadow: 0 0 0 0 rgba(37,99,235,0) }
+}
+
+/* ---------- Work (Under arbeid) ---------- */
 .work-top{
-  border:1px solid var(--sep); border-radius:14px; background:var(--surface);
-  padding:12px; margin-bottom:14px;
+  border:1px solid var(--sep); border-radius:16px;
+  padding:12px; margin-bottom:14px; background: var(--surface-2);
 }
-.work-prog{position:relative; height:10px; border-radius:999px; background:#1f2937; overflow:hidden}
-.work-prog .me{position:absolute; left:0; top:0; bottom:0; width:0%; background:#22c55e}
-.work-prog .other{position:absolute; left:0; top:0; bottom:0; width:0%; background:#a78bfa; opacity:.8}
-.work-caption{display:flex; justify-content:space-between; font-size:.9rem; color:var(--muted); margin-top:6px}
+.work-prog{
+  position:relative; height:12px; border-radius:999px;
+  background: rgba(255,255,255,.08); overflow:hidden;
+}
+.work-prog .me{
+  position:absolute; left:0; top:0; bottom:0; width:0%;
+  background: var(--ok);
+}
+.work-prog .other{
+  position:absolute; left:0; top:0; bottom:0; width:0%;
+  background: #a78bfa; opacity:.85;
+}
+.work-caption{ display:flex; justify-content:space-between; color:var(--muted); margin-top:6px }
 
-/* Små skjermer */
+.work-card{
+  background: var(--surface-2);
+  border:1px solid var(--sep); border-radius:16px; padding:14px;
+}
+.addr-now{ font-size: clamp(22px, 2.2rem, 30px); font-weight:800; letter-spacing:.2px }
+.addr-next{ font-size: clamp(16px, 1.4rem, 20px); opacity:.9 }
+
+.btn-grid{
+  display:grid; gap:10px; margin-top:14px;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+}
+.work-meta{ color:var(--muted); margin-top:10px }
+
+/* Små skjermer: bedre padding */
 @media (max-width:420px){
-  main{padding:14px}
+  main{ padding:14px }
 }
 
-/* ===== iOS-sikkerhet: ingen uønsket translucens noe sted ===== */
-#drawer, .drawer, aside#drawer,
-.appbar, html, body{
-  -webkit-backdrop-filter:none !important;
-  backdrop-filter:none !important;
-  opacity:1 !important;
-}
-/* --- Under arbeid – layoutjustering --- */
-.work-card {
-  margin-top: 14px;
+/* ---------- Chips / snarveier i drawer ---------- */
+.btn-ghost .emoji{ width:20px; text-align:center }
+.drawer .btn-ghost{
+  background: var(--chip-bg);
+  border-color: var(--chip-br);
+  padding:8px 10px; border-radius:12px;
 }
 
-.label-muted {
-  color: var(--muted);
-  font-size: 0.95rem;
-  margin-bottom: 6px;
+/* ---------- iOS safe-area (notch) ---------- */
+@supports (padding: max(0px)){
+  .appbar{ padding-left: max(12px, env(safe-area-inset-left));
+           padding-right: max(12px, env(safe-area-inset-right)); }
+  main{ padding-left: max(18px, env(safe-area-inset-left));
+        padding-right: max(18px, env(safe-area-inset-right));
+        padding-bottom: max(18px, env(safe-area-inset-bottom)); }
 }
 
-.addr-now {
-  font-weight: 900;
-  font-size: 1.6rem;
-  line-height: 1.25;
-  color: var(--text);
-}
-
-.addr-next {
-  font-weight: 600;
-  font-size: 1.05rem;
-  opacity: 0.9;
-}
-
-.btn-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.btn-grid .btn,
-.btn-grid .btn-ghost {
-  font-size: 1.05rem;
-  padding: 14px;
-  justify-content: center;
-}
-
-.work-meta {
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-
-/* Små skjermer – fyll hele bredden */
-@media (max-width: 480px) {
-  .btn-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-  .btn-grid .btn,
-  .btn-grid .btn-ghost {
-    font-size: 1.1rem;
-    padding: 16px 0;
-  }
-  .addr-now {
-    font-size: 1.8rem;
-  }
-}
-/* --- Lysere knapper --- */
-.btn {
-  background: linear-gradient(180deg, var(--primary) 0%, #3b82f6 100%);
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(37,99,235,0.35);
-  transition: transform 0.1s, box-shadow 0.2s;
-}
-.btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 3px rgba(37,99,235,0.25);
-}
-
-.btn-ghost {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: var(--text);
-  transition: background 0.2s;
-}
-.btn-ghost:hover {
-  background: rgba(255,255,255,0.12);
-}
-
-/* --- Puls-animasjon for aktiv knapp --- */
-@keyframes pulseGlow {
-  0%   { box-shadow: 0 0 0px rgba(34,197,94,0.0); }
-  50%  { box-shadow: 0 0 14px rgba(34,197,94,0.8); }
-  100% { box-shadow: 0 0 0px rgba(34,197,94,0.0); }
-}
-
-.btn-pulse {
-  animation: pulseGlow 1.6s infinite ease-in-out;
-}
-
-/* Alternativ (for Start etter ferdig) – blå puls */
-@keyframes pulseBlue {
-  0%   { box-shadow: 0 0 0px rgba(59,130,246,0.0); }
-  50%  { box-shadow: 0 0 14px rgba(59,130,246,0.9); }
-  100% { box-shadow: 0 0 0px rgba(59,130,246,0.0); }
-}
-
-.btn-pulse-blue {
-  animation: pulseBlue 1.6s infinite ease-in-out;
-}
-
-/* ===== Vertikal layout på status-teller ===== */
-#st_counts {
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  gap: 4px !important;
-}
-
-/* ===== Service styles ===== */
-.svc-wrap { display: grid; gap: 14px; }
-.svc-card {
-  background: var(--surface);
-  border: 1px solid var(--sep);
-  border-radius: 14px;
-  padding: 12px;
-}
-.svc-card-title { font-weight: 700; margin-bottom: 8px; }
-.svc-quick-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.svc-form .svc-grid { display: grid; grid-template-columns: 1fr 160px; gap: 12px; }
-.svc-actions { display:flex; gap:10px; margin-top: 6px; }
-.svc-toolbar { display:flex; gap:8px; margin-bottom: 8px; }
-
-.svc-table { width:100%; border-collapse: collapse; }
-.svc-table th, .svc-table td { padding:10px; border-bottom:1px solid var(--sep); }
-.svc-table th { text-align: left; color: var(--muted); font-weight: 600; }
-.svc-actions-cell { text-align: right; }
-
-.muted { color: var(--muted); font-size: .95rem; }
-
-/* Smal skjerm */
-@media (max-width: 480px){
-  .svc-form .svc-grid { grid-template-columns: 1fr 120px; }
-}
-
-/* ===== Service side styling ===== */
-.service-form {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  background: var(--surface);
-  border: 1px solid var(--sep);
-  border-radius: 12px;
-  padding: 14px;
-}
-
-.service-form fieldset {
-  border: 1px solid var(--sep);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-
-.service-form legend {
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-
-.service-form label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0;
-}
-
-.service-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.svc-log {
-  margin-top: 20px;
-  padding: 12px;
-  background: var(--surface);
-  border: 1px solid var(--sep);
-  border-radius: 12px;
-}
-
-.svc-list {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0;
-}
-
-.svc-list li {
-  margin-bottom: 10px;
-  line-height: 1.4;
-}
-
-/* ==== iOS kontrast-fix for service-skjema ==== */
-.service-form fieldset,
-.service-form legend,
-.service-form label,
-.service-form input,
-.service-form textarea {
-  background: transparent !important;
-  color: var(--text) !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  opacity: 1 !important;
-}
-
-.service-form fieldset {
-  background: var(--surface) !important;
-  border: 1px solid var(--sep);
-  border-radius: 10px;
-}
-
-.service-form legend {
-  font-weight: 700;
-  color: var(--text);
-  opacity: 0.95;
-}
-
-.service-form input[type="text"],
-.service-form textarea {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-  border: 1px solid var(--sep);
-}
-
-.service-form input[type="checkbox"] {
-  accent-color: var(--primary);
-}
-
-.service-form label:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 6px;
-}
-
-/* ======== Service-skjema – mørkt tema og høy kontrast ======== */
-.service-card {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--sep);
-  border-radius: 14px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-}
-
-.service-card h3 {
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-  color: var(--text);
-  opacity: 0.95;
-  border-bottom: 1px solid var(--sep);
-  padding-bottom: 6px;
-}
-
-.service-card label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 1rem;
-  color: var(--text);
-  padding: 6px 0;
-}
-
-.service-card input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--primary);
-  cursor: pointer;
-}
-
-.service-card input[type="text"],
-.service-card textarea {
-  width: 100%;
-  background: rgba(255,255,255,0.05);
-  color: var(--text);
-  border: 1px solid var(--sep);
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 1rem;
-}
-
-.service-card textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-
-.service-card input::placeholder,
-.service-card textarea::placeholder {
-  color: var(--muted);
-}
-
-.service-card input:focus,
-.service-card textarea:focus {
-  outline: 1px solid var(--primary);
-  background: rgba(255,255,255,0.08);
-}
-
-.service-card {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--sep);
-  border-radius: 14px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-}
-
-.service-card h3 {
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-  color: var(--text);
-  opacity: 0.95;
-  border-bottom: 1px solid var(--sep);
-  padding-bottom: 6px;
-}
-
-.service-card label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 1rem;
-  color: var(--text);
-  padding: 6px 0;
-}
-
-.service-card input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--primary);
-  cursor: pointer;
-}
-
-.service-card input[type="text"],
-.service-card textarea {
-  width: 100%;
-  background: rgba(255,255,255,0.05);
-  color: var(--text);
-  border: 1px solid var(--sep);
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 1rem;
-}
-
-.service-card textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-
-.service-card input::placeholder,
-.service-card textarea::placeholder {
-  color: var(--muted);
-}
-
-.primary-btn {
-  display: block;
-  width: 100%;
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 14px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-top: 20px;
-  cursor: pointer;
-}
-.primary-btn:hover {
-  opacity: 0.9;
-}
+/* ---------- Ekstra util ---------- */
+.muted{ color: var(--muted) }
+.hidden{ display:none !important }
