@@ -1,162 +1,208 @@
-/* Admin.js — rendrer Admin-siden og lagrer oppsett i localStorage
-   Nøkler lagres under BRYT_SETTINGS, og brukes av sync.js / resten av appen.
-*/
-(function () {
-  const $  = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const LS_SETTINGS_KEY = 'BRYT_SETTINGS';
+// js/Admin.js
+(() => {
+  'use strict';
 
-  function readSettings() {
-    try { return JSON.parse(localStorage.getItem(LS_SETTINGS_KEY) || '{}'); }
-    catch { return {}; }
-  }
-  function writeSettings(obj) {
-    localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(obj));
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
+
+  const K_ADMIN   = 'BRYT_ADMIN';          // { season, addresses[] } (se schema)
+  const K_ADDRSRC = 'BRYT_ADDR_CACHE';     // valgfri cache fra Sync, hvis finnes
+
+  function loadAdmin() {
+    let data = readJSON(K_ADMIN, null);
+    if (!data) {
+      // Førstegangs-seed: bruk ev. Sync-cache om den finnes, ellers tom liste
+      let seedAddrs = [];
+      // prøv å hente addresser fra Sync sin cache
+      if (window.Sync && Array.isArray(window.Sync.__addrCache)) {
+        seedAddrs = window.Sync.__addrCache.map((a, i) => ({
+          id: a.id || ('addr_'+i),
+          name: a.name || a.adresse || ('Adresse '+(i+1)),
+          lat: a.lat ?? null,
+          lon: a.lon ?? null,
+          tasks: { snow: true, gravel: false },
+          pins: {}
+        }));
+      }
+      data = { season: deriveSeason(), addresses: seedAddrs };
+      writeJSON(K_ADMIN, data);
+    }
+    return data;
   }
 
-  // Små helpers som kan brukes fra Status.js også
-  function statusStore() {
-    try { return JSON.parse(localStorage.getItem('BRYT_STATUS') || '{}'); }
-    catch { return {}; }
-  }
-  function clearStatusStore() { localStorage.removeItem('BRYT_STATUS'); }
+  function saveAdmin(data) { writeJSON(K_ADMIN, data); }
 
-  // Render Admin-siden dynamisk (slik at vi slipper å endre index.html)
-  function renderAdmin() {
+  function deriveSeason(d=new Date()) {
+    // Enkel sesongstreng: "YYYY-YY" (høst->vår)
+    const y = d.getFullYear();
+    const month = d.getMonth()+1;
+    if (month >= 7) return `${y}-${String((y+1)%100).padStart(2,'0')}`;
+    return `${y-1}-${String(y%100).padStart(2,'0')}`;
+  }
+
+  function render() {
+    if (location.hash !== '#admin') return;
     const root = $('#admin');
     if (!root) return;
+
+    const data = loadAdmin();
 
     root.innerHTML = `
       <h1>Admin</h1>
 
-      <div class="card" style="margin-bottom:12px">
-        <div class="label-muted">JSONBin (sky)</div>
-        <div class="grid2" style="gap:10px">
-          <label class="field">
-            <span>Bin ID</span>
-            <input id="adm_binid" class="input" placeholder="f.eks. 66fabc...">
-          </label>
-          <label class="field">
-            <span>API-nøkkel (X-Master-Key)</span>
-            <input id="adm_apikey" class="input" placeholder="••••••••••" type="password">
-          </label>
-        </div>
-        <div class="row" style="margin-top:8px; gap:8px">
-          <button id="adm_test" class="btn-ghost">Test tilkobling</button>
-          <span id="adm_test_msg" class="muted"></span>
+      <div class="card" style="margin-bottom:14px">
+        <div class="row" style="justify-content:space-between; align-items:center">
+          <div><strong>Aktiv sesong:</strong> <span id="adm_season_lbl">${data.season}</span></div>
+          <div class="row" style="gap:8px">
+            <button class="btn-ghost" id="btn_copy_prev">Kopier pinner fra forrige sesong</button>
+            <button class="btn" id="btn_new_season">Start ny sesong</button>
+          </div>
         </div>
       </div>
 
-      <div class="card" style="margin-bottom:12px">
-        <div class="label-muted">E-post</div>
-        <label class="field">
-          <span>Service-rapport sendes til</span>
-          <input id="adm_mail" class="input" placeholder="oysgjer@gmail.com">
-        </label>
+      <div class="field">
+        <span>Søk</span>
+        <input id="adm_search" class="input" placeholder="Filtrer adresser..." />
       </div>
 
-      <div class="card" style="margin-bottom:12px">
-        <div class="label-muted">Snarveier (lat,lon)</div>
-        <div class="grid2" style="gap:10px">
-          <label class="field">
-            <span>Grus</span>
-            <input id="adm_grus" class="input" placeholder="60.xxxxx,11.xxxxx">
-          </label>
-          <label class="field">
-            <span>Diesel</span>
-            <input id="adm_diesel" class="input" placeholder="60.xxxxx,11.xxxxx">
-          </label>
-          <label class="field">
-            <span>Base</span>
-            <input id="adm_base" class="input" placeholder="60.xxxxx,11.xxxxx">
-          </label>
-        </div>
+      <div class="card" style="overflow:auto">
+        <table style="width:100%; border-collapse:separate; border-spacing:0 8px">
+          <thead style="position:sticky; top:0; background:var(--surface)">
+            <tr>
+              <th style="text-align:left; padding:8px">Adresse</th>
+              <th>Snø</th>
+              <th>Grus</th>
+              <th style="width:160px">Brøytepinner<br><small>${data.season}</small></th>
+              <th style="width:1%"></th>
+            </tr>
+          </thead>
+          <tbody id="adm_tbody"></tbody>
+        </table>
       </div>
 
-      <div class="row" style="gap:8px">
-        <button id="adm_save" class="btn">Lagre</button>
-        <button id="adm_export" class="btn-ghost">Eksporter status (CSV)</button>
-        <button id="adm_clear" class="btn-ghost">Tøm lokal status</button>
+      <div class="row" style="margin-top:12px; gap:8px">
+        <button class="btn" id="btn_add">Legg til adresse</button>
+        <button class="btn-ghost" id="btn_save">Lagre</button>
       </div>
     `;
 
-    // Fyll feltene fra localStorage
-    const st = readSettings();
-    $('#adm_binid').value   = st?.jsonbin?.binId   || '';
-    $('#adm_apikey').value  = st?.jsonbin?.apiKey  || '';
-    $('#adm_mail').value    = st?.serviceEmail     || 'oysgjer@gmail.com';
-    $('#adm_grus').value    = st?.grus             || '';
-    $('#adm_diesel').value  = st?.diesel           || '';
-    $('#adm_base').value    = st?.base             || '';
+    const tbody = $('#adm_tbody');
 
-    // Lagre
-    $('#adm_save')?.addEventListener('click', () => {
-      const next = readSettings();
-      next.jsonbin = {
-        binId: ($('#adm_binid')?.value || '').trim(),
-        apiKey: ($('#adm_apikey')?.value || '').trim()
-      };
-      next.serviceEmail = ($('#adm_mail')?.value || '').trim();
-      next.grus   = ($('#adm_grus')?.value || '').trim();
-      next.diesel = ($('#adm_diesel')?.value || '').trim();
-      next.base   = ($('#adm_base')?.value || '').trim();
-      writeSettings(next);
-      alert('Lagret.');
-    });
-
-    // Test JSONBin
-    $('#adm_test')?.addEventListener('click', async () => {
-      const binId = ($('#adm_binid')?.value || '').trim();
-      const key   = ($('#adm_apikey')?.value || '').trim();
-      const msgEl = $('#adm_test_msg');
-      if (!binId || !key) {
-        msgEl.textContent = 'Fyll inn både Bin ID og API-nøkkel.';
-        return;
-      }
-      msgEl.textContent = 'Tester…';
-      try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(binId)}/latest`, {
-          headers: { 'X-Master-Key': key }
+    function drawRows(filter='') {
+      tbody.innerHTML = '';
+      const term = filter.trim().toLowerCase();
+      data.addresses
+        .filter(a => !term || (a.name||'').toLowerCase().includes(term))
+        .forEach((a, idx) => {
+          const pins = a.pins?.[data.season] ?? '';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="padding:6px 8px">
+              <input data-k="name" class="input" value="${a.name||''}" />
+              <div class="row" style="gap:8px; margin-top:6px">
+                <input data-k="lat" class="input" placeholder="lat" style="max-width:140px" value="${a.lat??''}">
+                <input data-k="lon" class="input" placeholder="lon" style="max-width:140px" value="${a.lon??''}">
+              </div>
+            </td>
+            <td style="text-align:center"><input type="checkbox" data-k="snow" ${a.tasks?.snow?'checked':''}></td>
+            <td style="text-align:center"><input type="checkbox" data-k="gravel" ${a.tasks?.gravel?'checked':''}></td>
+            <td style="text-align:center">
+              <input data-k="pins" class="input" inputmode="numeric" style="max-width:120px; text-align:center" value="${pins}">
+            </td>
+            <td style="text-align:right; padding-right:8px">
+              <button class="btn-ghost" data-act="del">Slett</button>
+            </td>
+          `;
+          // Endrings-lyttere
+          tr.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('input', () => {
+              const k = inp.dataset.k;
+              if (k === 'name') a.name = inp.value;
+              if (k === 'lat')  a.lat  = inp.value ? Number(inp.value) : null;
+              if (k === 'lon')  a.lon  = inp.value ? Number(inp.value) : null;
+              if (k === 'snow') a.tasks = { ...(a.tasks||{}), snow: inp.checked };
+              if (k === 'gravel') a.tasks = { ...(a.tasks||{}), gravel: inp.checked };
+              if (k === 'pins') {
+                a.pins = a.pins || {};
+                a.pins[data.season] = inp.value ? Number(inp.value) : 0;
+              }
+            });
+          });
+          tr.querySelector('[data-act="del"]').addEventListener('click', () => {
+            if (confirm(`Slette “${a.name}”?`)) {
+              data.addresses.splice(idx, 1);
+              drawRows($('#adm_search').value||'');
+            }
+          });
+          tbody.appendChild(tr);
         });
-        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-        const data = await res.json();
-        const arr = Array.isArray(data?.record) ? data.record : (data?.record?.addresses || []);
-        msgEl.textContent = `OK – fant ${arr.length} adresser.`;
+    }
+
+    // init render
+    drawRows();
+
+    // søk
+    $('#adm_search').addEventListener('input', (e) => drawRows(e.target.value));
+
+    // legg til
+    $('#btn_add').addEventListener('click', () => {
+      data.addresses.push({
+        id: 'addr_' + Math.random().toString(36).slice(2,8),
+        name: '',
+        lat: null, lon: null,
+        tasks: { snow:true, gravel:false },
+        pins: {}
+      });
+      drawRows($('#adm_search').value||'');
+    });
+
+    // lagre lokalt (+ hook for skylagring senere)
+    $('#btn_save').addEventListener('click', async () => {
+      saveAdmin(data);
+      try {
+        // Hvis Sync senere får metode for å lagre config, kan vi kalle den her:
+        if (window.Sync && typeof window.Sync.saveAdminConfig === 'function') {
+          await window.Sync.saveAdminConfig(data);
+        }
+        alert('Lagret.');
       } catch (e) {
-        msgEl.textContent = 'Feil: ' + (e.message || 'ukjent');
+        console.warn('Sky-lagring feilet:', e);
+        alert('Lagret lokalt (sky-lagring ikke aktiv).');
       }
     });
 
-    // Tøm lokal status
-    $('#adm_clear')?.addEventListener('click', () => {
-      if (confirm('Tømme lokal status (kun denne enheten)?')) {
-        clearStatusStore();
-        alert('Tømt.');
-      }
+    // ny sesong
+    $('#btn_new_season').addEventListener('click', () => {
+      const next = prompt('Ny sesong (f.eks "2025-26"):', deriveSeason());
+      if (!next) return;
+      data.season = next;
+      $('#adm_season_lbl').textContent = data.season;
+      saveAdmin(data);
+      drawRows($('#adm_search').value||'');
     });
 
-    // Eksporter CSV
-    $('#adm_export')?.addEventListener('click', () => {
-      const bag = statusStore();
-      const rows = [['id','adresse','status','sjåfør','tid']];
-      for (const k in bag) {
-        const s = bag[k];
-        rows.push([k, s.address||'', s.state||'', s.driver||'', s.ts||'']);
-      }
-      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'broyterute-status.csv';
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+    // kopier pinner fra forrige sesong
+    $('#btn_copy_prev').addEventListener('click', () => {
+      const s = data.season;
+      const [y1, y2] = s.split('-').map(Number);
+      const prev = `${(y1-1)}-${String(y1%100).padStart(2,'0')}`;
+      let changed = 0;
+      data.addresses.forEach(a => {
+        if (!a.pins) a.pins = {};
+        if (a.pins[prev] != null && a.pins[s] == null) {
+          a.pins[s] = a.pins[prev];
+          changed++;
+        }
+      });
+      saveAdmin(data);
+      drawRows($('#adm_search').value||'');
+      alert(changed ? `Kopierte pinner for ${changed} adresser.` : 'Ingenting å kopiere.');
     });
   }
 
-  // Vis Admin-UI straks DOM er klar (scriptet er lastet med defer)
-  document.addEventListener('DOMContentLoaded', renderAdmin);
-
-  // Eksponer noen helpers globalt i tilfelle andre moduler vil bruke dem
-  window.__BRYT_READ_SETTINGS  = readSettings;
-  window.__BRYT_WRITE_SETTINGS = writeSettings;
+  // re-render ved navigasjon
+  window.addEventListener('hashchange', render);
+  document.addEventListener('DOMContentLoaded', render);
 })();
