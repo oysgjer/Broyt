@@ -1,96 +1,121 @@
-// js/Home.js
+// js/sync.js
 (() => {
   'use strict';
 
-  /* ========= små hjelpere ========= */
-  const $ = (s, r = document) => r.querySelector(s);
+  // --- små hjelpere
   const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
+  const ev = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
 
-  const K_SETTINGS = 'BRYT_SETTINGS';
-  const K_RUN      = 'BRYT_RUN';
+  // --- storage keys
+  const K_ADDR   = 'BRYT_ADDR';   // adresser (array)
+  const K_STATE  = 'BRYT_STATE';  // status per adresse-id (obj)
 
-  /* ========= settings (UI <-> storage) ========= */
-  function loadSettings() {
-    return readJSON(K_SETTINGS, {
-      driver: '',
-      equipment: { plow:false, fres:false, sand:false },
-      dir: 'Normal',
-      autoNav: false,
-      grus: '', diesel: '', base: '' // ev. snarvei-koordinater
+  // --- KONFIG  (du kan endre apiKey her eller via window.Sync.setConfig() )
+  let CFG = {
+    apiBase: 'https://api.jsonbin.io/v3/b',
+    binId:   '68e7b4d2ae596e708f0bde7d',
+    apiKey:  '$2a$10$luKLel7elCpJM4.REcwKOOsWlBK5Xv5lY2oN1BDYgbZbXA6ubT0W.', // <-- legg inn nøkkel når du er klar
+    pollMs:  0 // 0 = ingen polling foreløpig
+  };
+
+  // --- intern state
+  const S = {
+    addresses: readJSON(K_ADDR, []),
+    status:    readJSON(K_STATE, {}), // { [addressId]: { state, driver, ts } }
+    ready:     false,
+    lastLoad:  0
+  };
+
+  function setAddresses(arr){
+    S.addresses = Array.isArray(arr) ? arr : [];
+    writeJSON(K_ADDR, S.addresses);
+    ev('sync:addresses', { count: S.addresses.length });
+  }
+
+  function setStatusMap(map){
+    S.status = map && typeof map === 'object' ? map : {};
+    writeJSON(K_STATE, S.status);
+    ev('sync:status', { size: Object.keys(S.status).length });
+  }
+
+  // --- HENT adresser fra JSONBin
+  async function fetchAddressesFromBin(){
+    const url = `${CFG.apiBase}/${CFG.binId}/latest`;
+    const res = await fetch(url, {
+      headers: { 'X-Master-Key': CFG.apiKey }
     });
-  }
-  function saveSettings(s) { writeJSON(K_SETTINGS, s); }
-
-  function uiToSettings() {
-    const cur = loadSettings();
-    return {
-      ...cur,
-      driver: $('#a_driver')?.value.trim() || '',
-      equipment: {
-        plow: !!$('#a_eq_plow')?.checked,
-        fres: !!$('#a_eq_fres')?.checked,
-        sand: !!$('#a_eq_sand')?.checked
-      },
-      dir: $('#a_dir')?.value || 'Normal',
-      autoNav: !!$('#a_autoNav')?.checked
-    };
+    if(!res.ok){
+      const t = await res.text().catch(()=> '');
+      throw new Error(`JSONBin ${res.status}: ${t || res.statusText}`);
+    }
+    const data = await res.json();
+    // Forventet dataformat: { record: [...] } eller direkte [...]
+    const list = Array.isArray(data?.record) ? data.record :
+                 Array.isArray(data) ? data : [];
+    return list;
   }
 
-  function settingsToUI() {
-    const st = loadSettings();
-    if ($('#a_driver'))  $('#a_driver').value = st.driver || '';
-    if ($('#a_eq_plow')) $('#a_eq_plow').checked = !!st.equipment.plow;
-    if ($('#a_eq_fres')) $('#a_eq_fres').checked = !!st.equipment.fres;
-    if ($('#a_eq_sand')) $('#a_eq_sand').checked = !!st.equipment.sand;
-    if ($('#a_dir'))     $('#a_dir').value = st.dir || 'Normal';
-    if ($('#a_autoNav')) $('#a_autoNav').checked = !!st.autoNav;
-  }
+  // --- offentlige funksjoner
+  async function init(){
+    // les fra localStorage først (gir UI noe å vise)
+    S.addresses = readJSON(K_ADDR, []);
+    S.status    = readJSON(K_STATE, {});
 
-  /* ========= start runde (lokalt) ========= */
-  function startRunLocal() {
-    const st = uiToSettings();
-    saveSettings(st);
-
-    const run = {
-      driver: st.driver,
-      equipment: { ...st.equipment },
-      dir: st.dir,
-      autoNav: !!st.autoNav,
-      idx: 0
-    };
-    writeJSON(K_RUN, run);
-    return run;
-  }
-
-  /* ========= klikk: Start runde ========= */
-  async function onStartClick() {
-    try {
-      // 1) lagre innstillinger & klargjør lokal "run"
-      const run = startRunLocal();
-
-      // 2) sørg for at Sync er lastet
-      if (!window.Sync?.init) {
-        throw new Error('Sync-modulen er ikke tilgjengelig (mangler js/sync.js eller laster ikke).');
-      }
-
-      // 3) start synk (henter adresser og status, starter evt. polling)
-      //    init() kan trygt kalles flere ganger – den re-bruker eksisterende tilstand.
-      await window.Sync.init();
-
-      // 4) alt klart – gå til "Under arbeid"
-      location.hash = '#work';
-    } catch (err) {
-      console.error(err);
-      alert('Kunne ikke starte runde: ' + (err?.message || err));
+    // prøv å laste ferskt fra sky
+    try{
+      const list = await fetchAddressesFromBin();
+      setAddresses(list);
+      S.ready = true;
+      S.lastLoad = Date.now();
+      ev('sync:ready', { ok: true, count: list.length });
+    }catch(err){
+      console.warn('Sync.init: klarte ikke hente fra sky:', err);
+      // beholder cache hvis den finnes
+      S.ready = S.addresses.length > 0;
+      ev('sync:ready', { ok: S.ready, cached: S.addresses.length });
+      if(!S.ready) throw err;
     }
   }
 
-  /* ========= wiring ========= */
-  function wire() {
-    settingsToUI();
-    $('#a_start')?.addEventListener('click', onStartClick);
+  async function loadAddresses({ force=false } = {}){
+    // bruk cache hvis nylig lastet
+    if(!force && S.addresses.length) return S.addresses;
+    const list = await fetchAddressesFromBin();
+    setAddresses(list);
+    S.ready = true;
+    S.lastLoad = Date.now();
+    return S.addresses;
   }
 
-  document.addEventListener('DOMContentLoaded', wire);
+  function getAddresses(){ return S.addresses; }
+  function getStatusMap(){ return S.status; }
+
+  // Oppdater lokal status (kan senere utvides til å pushe til sky)
+  function setAddressState(addressId, newState){
+    const st = { ...(S.status || {}) };
+    st[addressId] = {
+      ...(st[addressId] || {}),
+      state: newState,
+      ts: Date.now()
+    };
+    setStatusMap(st);
+  }
+
+  // lar Home.js/andre sette inn nøkkel/binId uten å endre filen
+  function setConfig(patch = {}){
+    CFG = { ...CFG, ...patch };
+  }
+
+  // --- eksponer API
+  window.Sync = {
+    init,
+    loadAddresses,
+    getAddresses,
+    getStatusMap,
+    setAddressState,
+    setConfig,
+    _state: S,    // nyttig for debugging
+    _cfg:   () => ({ ...CFG })
+  };
 })();
