@@ -2,204 +2,251 @@
 (() => {
   'use strict';
 
-  const $  = (s,r=document)=>r.querySelector(s);
-  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+  const $  = (s, r = document) => r.querySelector(s);
+  const readJSON  = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
+  const writeJSON = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
-  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const writeJSON = (k, v)  => localStorage.setItem(k, JSON.stringify(v));
+  const K_RUN        = 'BRYT_RUN';           // {driver, equipment, dir, idx}
+  const K_ADDR_CACHE = 'BRYT_ADDR_CACHE';    // {ts, data:[...]} – fylles av Sync
+  const K_STATUS_LOC = 'BRYT_STATUS_LOC';    // frivillig tillegg (lokal statuslogg)
 
-  const K_SETTINGS = 'BRYT_SETTINGS'; // { driver, equipment:{sand}, dir, autoNav }
-  const K_RUN      = 'BRYT_RUN';      // { idx, mode }
-  const K_ADDRS    = 'BRYT_ADDRS';    // [] fra Sync
+  const state = {
+    addrs: [],   // liste med adresser
+    run:   null, // gjeldende run
+  };
 
-  function stateLabel(code){
-    const L = {
-      not_started: 'Venter',
-      in_progress: 'Pågår',
-      done:        'Ferdig',
-      skipped:     'Hoppet over',
-      blocked:     'Ikke mulig',
-      accident:    'Uhell'
-    };
-    return L[code] || '—';
+  function loadRun(){
+    return readJSON(K_RUN, { driver:'', equipment:{plow:false,fres:false,sand:false}, dir:'Normal', idx:0 });
+  }
+  function saveRun(r){ writeJSON(K_RUN, r); }
+
+  function currentTask(){
+    // sand = grus, ellers snø
+    const eq = state.run?.equipment || {};
+    return eq.sand ? 'grus' : 'snø';
   }
 
-  function getMode() {
-    // sand/ grus = "grit", ellers "snow"
-    const st = readJSON(K_SETTINGS, { equipment:{ sand:false }});
-    return st?.equipment?.sand ? 'grit' : 'snow';
-  }
-  function getDriver(){ return (readJSON(K_SETTINGS,{driver:''}).driver||'').trim(); }
-  function getDir(){ return readJSON(K_SETTINGS,{dir:'Normal'}).dir || 'Normal'; }
-  function setRunIdx(i){ const r=readJSON(K_RUN,{idx:0}); r.idx=i; writeJSON(K_RUN,r); }
-  function getRun(){
-    const mode = getMode();
-    const r = readJSON(K_RUN, { idx:0, mode });
-    if (r.mode !== mode) { r.mode = mode; r.idx = 0; writeJSON(K_RUN, r); }
-    return r;
+  function ensureIdxBounds(){
+    if (!state.run) return;
+    const n = state.addrs.length;
+    if (state.run.idx < 0) state.run.idx = 0;
+    if (state.run.idx >= n) state.run.idx = n - 1;
   }
 
-  function filteredAddresses(mode){
-    const list = readJSON(K_ADDRS, []);
-    return list
-      .filter(a => a.active !== false)
-      .filter(a => mode==='snow' ? (a.flags?.snow !== false) : !!a.flags?.grit);
+  function nowNext(){
+    const n = state.addrs.length;
+    if (!n) return { now:null, next:null, total:n };
+    ensureIdxBounds();
+    const i = state.run.idx;
+    const now  = state.addrs[i] ?? null;
+    const next = (i + 1 < n) ? state.addrs[i+1] : null;
+    return { now, next, total:n };
   }
 
-  function nextIndex(idx, dir){ return (dir === 'Motsatt') ? idx - 1 : idx + 1; }
-
-  // ---------- Progress ----------
-  function updateProgressBars(){
-    const mode = getMode();
-    const round= window.Sync.currentRound(mode);
-    const addrs = filteredAddresses(mode);
-    const total = addrs.length || 1;
-
-    let me = 0, other = 0;
-    const meName = getDriver();
-
-    for (const a of addrs){
-      const rec = window.Sync.getAddressStatus(a.name, mode, round);
-      if (!rec || rec.state !== 'done') continue;
-      if (rec.driver === meName) me++; else other++;
+  function pctDone(){
+    // telt ferdig for valgt oppgave
+    const task = currentTask(); // 'snø' | 'grus'
+    let done = 0;
+    for (const a of state.addrs){
+      if (task === 'snø' && a.snowEnd) done++;
+      if (task === 'grus' && a.gritEnd) done++;
     }
-    const mePct = Math.round(100 * me / total);
-    const otPct = Math.round(100 * other / total);
-
-    const bm = $('#b_prog_me'), bo = $('#b_prog_other');
-    if (bm && bm.style) bm.style.width = mePct + '%';
-    if (bo && bo.style) bo.style.width = otPct + '%';
-
-    $('#b_prog_me_count') && ($('#b_prog_me_count').textContent = `${me}/${total}`);
-    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${other}/${total}`);
-    $('#b_prog_summary') && ($('#b_prog_summary').textContent = `${Math.min(me+other,total)} av ${total} adresser fullført`);
+    return { done, total: state.addrs.length };
   }
 
-  function uiSetWork(){
-    const mode  = getMode();
-    const round = window.Sync.currentRound(mode);
-    const dir   = getDir();
-    const run   = getRun();
-    const addrs = filteredAddresses(mode);
-
-    const now = addrs[run.idx] || null;
-    const nxt = addrs[nextIndex(run.idx, dir)] || null;
-
-    if ($('#b_now'))  $('#b_now').textContent  = now ? (now.name || '—') : '—';
-    if ($('#b_next')) $('#b_next').textContent = nxt ? (nxt.name || '—') : '—';
-    if ($('#b_task')) $('#b_task').textContent = (mode==='snow') ? 'Fjerne snø' : 'Strø grus';
-
-    const st = now ? window.Sync.getAddressStatus(now.name, mode, round) : null;
-    if ($('#b_status')) $('#b_status').textContent = stateLabel(st?.state || 'not_started');
-
-    updateProgressBars();
+  function fmtTime(ts){
+    if (!ts) return '—';
+    try{
+      const d = new Date(ts);
+      const dd = d.getDate().toString().padStart(2,'0');
+      const mm = (d.getMonth()+1).toString().padStart(2,'0');
+      const hh = d.getHours().toString().padStart(2,'0');
+      const mi = d.getMinutes().toString().padStart(2,'0');
+      return `${dd}.${mm} ${hh}:${mi}`;
+    }catch{ return '—'; }
   }
 
-  function mapsUrlFromAddr(addr){
-    if(!addr) return 'https://www.google.com/maps';
-    if (addr.coords && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(addr.coords)){
-      const q=addr.coords.replace(/\s+/g,'');
-      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
-    }
-    return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((addr.name||'')+', Norge');
-  }
+  function render(){
+    const { now, next } = nowNext();
 
-  // ---------- All done? ----------
-  function isAllDone(){
-    const mode  = getMode();
-    const round = window.Sync.currentRound(mode);
-    const addrs = filteredAddresses(mode);
-    if (!addrs.length) return false;
-    return addrs.every(a => (window.Sync.getAddressStatus(a.name, mode, round)?.state === 'done'));
-  }
+    // topptekst “Nå / Neste”
+    $('#b_now')  && ($('#b_now').textContent  = now  ? (now.name || now.title || now.adresse || 'Ukjent') : '—');
+    $('#b_next') && ($('#b_next').textContent = next ? (next.name || next.title || next.adresse || '—') : '—');
 
-  function afterAllDoneFlow(){
-    const mode  = getMode();
-    const txtMode = (mode==='snow') ? 'Snø' : 'Grus';
-    const choice = prompt(
-      `Alt er utført for ${txtMode}-runden 🎉\n\n` +
-      `Skriv ett av valgene:\n` +
-      `1 = Ny runde (${txtMode})\n` +
-      `2 = Start ny runde (Grus)\n` +
-      `3 = Ferdig (gå til Service)`
-    , '3');
+    // Oppgave & status-tekst
+    const task = currentTask(); // 'snø' | 'grus'
+    $('#b_task')   && ($('#b_task').textContent = task === 'grus' ? 'Strø grus' : 'Fjerne snø');
 
-    if (choice === '1'){ // ny runde samme modus
-      window.Sync.incrementRound(mode);
-      const run = readJSON(K_RUN,{idx:0,mode}); run.idx=0; writeJSON(K_RUN,run);
-      location.hash = '#work';
-      uiSetWork();
-      return;
-    }
-    if (choice === '2'){ // bytt til grus og ny runde
-      const st = readJSON(K_SETTINGS, { equipment:{sand:false}, dir:'Normal' });
-      st.equipment.sand = true;  // grus
-      writeJSON(K_SETTINGS, st);
-      window.Sync.incrementRound('grit');
-      const run = { idx:0, mode:'grit' }; writeJSON(K_RUN, run);
-      location.hash = '#work';
-      uiSetWork();
-      return;
-    }
-    // Ferdig -> Service
-    location.hash = '#service';
-  }
-
-  // ---------- Handling ----------
-  function setStatusForCurrent(patch, advance = false){
-    const mode  = getMode();
-    const round = window.Sync.currentRound(mode);
-    const addrs = filteredAddresses(mode);
-    const run   = getRun();
-    const cur   = addrs[run.idx]; if (!cur) return;
-
-    window.Sync.setAddressStatus(cur.name, mode, round, { ...patch, driver: getDriver() });
-
-    if (advance){
-      const dir = getDir();
-      const ni = nextIndex(run.idx, dir);
-      if (ni >=0 && ni < addrs.length) {
-        setRunIdx(ni);
+    let statusTxt = '—';
+    if (now){
+      if (task === 'snø'){
+        if (now.snowEnd) statusTxt = 'Ferdig';
+        else if (now.snowStart) statusTxt = 'Pågår';
+        else statusTxt = 'Ikke påbegynt';
+      } else {
+        if (now.gritEnd) statusTxt = 'Ferdig';
+        else if (now.gritStart) statusTxt = 'Pågår';
+        else statusTxt = 'Ikke påbegynt';
       }
     }
-    uiSetWork();
+    $('#b_status') && ($('#b_status').textContent = statusTxt);
 
-    if (isAllDone()) afterAllDoneFlow();
+    // Fremdriftsbar
+    const { done, total } = pctDone();
+    const meBar    = $('#b_prog_me');
+    const otherBar = $('#b_prog_other'); // ikke i bruk enda, men lar stå
+    if (meBar){
+      const pct = total ? Math.round(100 * done / total) : 0;
+      meBar.style.width = pct + '%';
+    }
+    if (otherBar){ otherBar.style.width = '0%'; }
+
+    $('#b_prog_summary')    && ($('#b_prog_summary').textContent = `${done} av ${total} adresser fullført`);
+    $('#b_prog_me_count')   && ($('#b_prog_me_count').textContent = `${done}/${total}`);
+    $('#b_prog_other_count')&& ($('#b_prog_other_count').textContent = `0/${total}`);
   }
 
-  function onStart(){ setStatusForCurrent({ state:'in_progress', startedAt: new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) }, false); }
-  function onDone(){
-    setStatusForCurrent({ state:'done', finishedAt: new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) }, true);
+  function goNext(){
+    if (!state.run) return;
+    if (state.run.idx < state.addrs.length - 1){
+      state.run.idx++;
+      saveRun(state.run);
+    }
+    render();
   }
-  function onSkip(){ setStatusForCurrent({ state:'skipped', finishedAt: new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) }, true); }
-  function onBlock(){ const reason=prompt('Hvorfor ikke mulig? (valgfritt)','')||''; setStatusForCurrent({ state:'blocked', note:reason, finishedAt: new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) }, true); }
+
+  async function setStatusFor(addr, patch){
+    // Bruk Sync.setStatus (lokal stub i dag). Oppdater også lokal liste.
+    try{
+      await window.Sync.setStatus(addr.id || addr.name, patch);
+      // Merge lokalt
+      Object.assign(addr, patch);
+      // logg lokalt om ønskelig
+      const lg = readJSON(K_STATUS_LOC, []);
+      lg.push({ id: addr.id || addr.name, at: Date.now(), ...patch, driver: state.run.driver });
+      writeJSON(K_STATUS_LOC, lg);
+    }catch(e){
+      alert('Klarte ikke lagre status: ' + e.message);
+    }
+  }
+
+  // === Handlers ===
+  async function onStart(){
+    const { now } = nowNext();
+    if (!now) return;
+    const task = currentTask();
+    const patch = {
+      driver: state.run.driver || '',
+    };
+    if (task === 'snø'){
+      if (!now.snowStart) patch.snowStart = Date.now();
+    } else {
+      if (!now.gritStart) patch.gritStart = Date.now();
+    }
+    await setStatusFor(now, patch);
+    render();
+  }
+
+  async function onDone(){
+    const { now } = nowNext();
+    if (!now) return;
+    const task = currentTask();
+    const patch = {
+      driver: state.run.driver || '',
+    };
+    if (task === 'snø'){
+      if (!now.snowStart) patch.snowStart = Date.now();
+      patch.snowEnd = Date.now();
+    } else {
+      if (!now.gritStart) patch.gritStart = Date.now();
+      patch.gritEnd = Date.now();
+    }
+    await setStatusFor(now, patch);
+    goNext();
+  }
+
+  async function onSkip(){
+    const { now } = nowNext();
+    if (!now) return;
+    const patch = { skipped: true, driver: state.run.driver || '' };
+    await setStatusFor(now, patch);
+    goNext();
+  }
+
+  async function onBlock(){
+    const { now } = nowNext();
+    if (!now) return;
+    const patch = { blocked: true, driver: state.run.driver || '' };
+    await setStatusFor(now, patch);
+    goNext();
+  }
+
   function onNext(){
-    const dir=getDir();
-    const run=getRun();
-    const addrs=filteredAddresses(getMode());
-    const ni=nextIndex(run.idx, dir);
-    if (ni>=0 && ni<addrs.length) { setRunIdx(ni); uiSetWork(); }
+    goNext();
   }
+
   function onNav(){
-    const run=getRun(), mode=getMode(), dir=getDir();
-    const addrs=filteredAddresses(mode);
-    const target = addrs[nextIndex(run.idx,dir)] || addrs[run.idx];
-    if (!target) return;
-    window.open(mapsUrlFromAddr(target),'_blank');
+    const { now } = nowNext();
+    if (!now) return;
+    // støtt både lat/lon eller tekst-adresse
+    if (now.lat && now.lon){
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${now.lat},${now.lon}`;
+      window.open(url, '_blank');
+      return;
+    }
+    const q = encodeURIComponent(now.name || now.title || now.adresse || '');
+    const url = `https://www.google.com/maps/search/?api=1&query=${q}`;
+    window.open(url, '_blank');
   }
 
-  function wire(){
+  async function init(){
     if (location.hash !== '#work') return;
-    $('#act_start')?.addEventListener('click', onStart);
-    $('#act_done') ?.addEventListener('click', onDone);
-    $('#act_skip') ?.addEventListener('click', onSkip);
-    $('#act_block')?.addEventListener('click', onBlock);
-    $('#act_next') ?.addEventListener('click', onNext);
-    $('#act_nav')  ?.addEventListener('click', onNav);
 
-    uiSetWork();
+    // last run + adresser
+    state.run = loadRun();
+
+    // Hent fra Sync (bruk cache – force:false) for kjapp last
+    let addrs = [];
+    try{
+      addrs = await window.Sync.loadAddresses({ force:false });
+    }catch(e){
+      // som fallback: les cache direkte
+      const cache = readJSON(K_ADDR_CACHE, {data:[]});
+      addrs = cache.data || [];
+    }
+
+    // Normaliser litt, og behold rekkefølge (evt motsatt)
+    state.addrs = (addrs || []).map((a, i) => ({
+      id: a.id ?? a.ID ?? a.idr ?? (a.name || String(i)),
+      name: a.name || a.title || a.adresse || `Adresse #${i+1}`,
+      lat: a.lat ?? a.latitude,
+      lon: a.lon ?? a.longitude,
+      // eksisterende status-felter beholdes
+      snowStart: a.snowStart, snowEnd: a.snowEnd,
+      gritStart: a.gritStart, gritEnd: a.gritEnd,
+      driver: a.driver,
+      skipped: a.skipped,
+      blocked: a.blocked
+    }));
+
+    if ((state.run?.dir || 'Normal') === 'Motsatt'){
+      state.addrs.reverse();
+      // juster idx slik at den fortsatt peker på korrekt element i reversert liste
+      state.run.idx = Math.max(0, state.addrs.length - 1 - (state.run.idx || 0));
+      saveRun(state.run);
+    }
+
+    // Wire knapper
+    $('#act_start') && ($('#act_start').onclick = onStart);
+    $('#act_done')  && ($('#act_done').onclick  = onDone);
+    $('#act_skip')  && ($('#act_skip').onclick  = onSkip);
+    $('#act_next')  && ($('#act_next').onclick  = onNext);
+    $('#act_block') && ($('#act_block').onclick = onBlock);
+    $('#act_nav')   && ($('#act_nav').onclick   = onNav);
+
+    render();
   }
 
-  window.addEventListener('hashchange', wire);
-  document.addEventListener('DOMContentLoaded', wire);
+  window.addEventListener('hashchange', init);
+  document.addEventListener('DOMContentLoaded', init);
 })();
