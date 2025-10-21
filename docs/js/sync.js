@@ -223,4 +223,33 @@
       try{ await Sync.loadCloud({force:true}); }catch{}
     }
   }, 60000);
+// --- Lagre / hente admin-konfig ---
+window.Sync.saveAdminConfig = async function (data) {
+  if (!window.Sync || !Sync._cfg) throw new Error('Sync ikke initialisert');
+  const { binId, apiKey } = Sync._cfg;
+  const url = `https://api.jsonbin.io/v3/b/${binId}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': apiKey
+    },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Feil ved lagring (' + res.status + ')');
+  return await res.json();
+};
+
+// Last admin-konfig fra JSONBin (kan kalles ved start av Admin-siden)
+window.Sync.loadAdminConfig = async function () {
+  if (!window.Sync || !Sync._cfg) throw new Error('Sync ikke initialisert');
+  const { binId, apiKey } = Sync._cfg;
+  const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
+  const res = await fetch(url, {
+    headers: { 'X-Master-Key': apiKey }
+  });
+  if (!res.ok) throw new Error('Feil ved lasting (' + res.status + ')');
+  const js = await res.json();
+  return js.record;
+};
 })();
