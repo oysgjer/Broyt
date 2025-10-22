@@ -55,16 +55,15 @@
     if (theme==='light' || theme==='dark') {
       document.documentElement.setAttribute('data-theme', theme);
       WJ(K_THEME, theme);
-      $('#theme_label') && ($('#theme_label.textContent = (theme==="dark"?"Mørk":"Lys")'));
     } else {
       // system (null)
       localStorage.removeItem(K_THEME);
       document.documentElement.removeAttribute('data-theme'); // lar @media styre
     }
     // Oppdater menylabel
-    const t = RJ(K_THEME, null);
+    const cur = RJ(K_THEME, null);
     const label = $('#theme_label');
-    if (label) label.textContent = t ? (t==='dark'?'Mørk':'Lys') : 'System';
+    if (label) label.textContent = cur ? (cur==='dark' ? 'Mørk' : 'Lys') : 'System';
   }
   function toggleTheme(){
     const cur = RJ(K_THEME, null); // kan være null=system
