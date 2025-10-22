@@ -1,199 +1,137 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- Farger/tema -->
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
-  <!-- iOS webapp-oppførsel -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Brøyterute</title>
-
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/work.css">
-  <link rel="stylesheet" href="css/service.css">
+  <link rel="stylesheet" href="css/styles.css" />
+  <script defer src="js/main.js"></script>
 </head>
+
 <body>
-
-  <!-- Appbar -->
-  <header class="appbar">
-    <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
-    <div class="appbar-title">Brøyterute</div>
-
-    <div class="appbar-right">
-      <span id="sync_badge" class="badge"><span class="dot dot-unknown"></span> Synk: ukjent</span>
-      <span id="wl_badge" class="badge" title="Skjermlås-status"><span id="wl_dot" class="dot dot-off"></span></span>
+  <header class="topbar">
+    <button id="menuBtn" class="icon">☰</button>
+    <h1>Brøyterute</h1>
+    <div id="syncIndicator">
+      <span id="syncDot" class="dot"></span>
+      <span id="syncText">Synk: ukjent</span>
     </div>
   </header>
 
-  <!-- Scrim + Drawer (med inline styles som siste “hard override”) -->
-  <div id="scrim"></div>
-  <aside id="drawer" class="drawer"
-    <div class="drawer-header">
-      <div>Brøyterute</div>
-      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
-    </div>
+  <!-- Side-meny -->
+  <aside id="drawer" class="drawer">
+    <nav>
+      <h3>Navigasjon</h3>
+      <ul>
+        <li><a href="#home">🏠</a></li>
+        <li><a href="#work">🧭</a></li>
+        <li><a href="#service">🛠️</a></li>
+        <li><a href="#status">📊</a></li>
+        <li><a href="#admin">⚙️</a></li>
+      </ul>
 
-    <div class="drawer-content">
-      <nav>
-        <div class="drawer-section">Navigasjon</div>
-        <ul class="drawer-list">
-          <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
-          <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
-          <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
-          <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
-          <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
-        </ul>
+      <h3>Snarveier</h3>
+      <div class="shortcuts">
+        <button>🏗️ Hent grus</button>
+        <button>🛢️ Diesel</button>
+        <button>🏡 Base</button>
+      </div>
 
-        <div class="drawer-section">Snarveier</div>
-        <div class="row">
-          <button id="qk_grus"   class="btn-ghost"><span class="emoji">🏗️</span>Hent grus</button>
-          <button id="qk_diesel" class="btn-ghost"><span class="emoji">🛢️</span>Diesel</button>
-          <button id="qk_base"   class="btn-ghost"><span class="emoji">🏡</span>Base</button>
-        </div>
-
-        <div class="drawer-section" style="margin-top:14px">Skjerm</div>
-        <div class="card row">
-          <button id="qk_wl" class="btn-ghost"><span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken</button>
-          <span id="qk_wl_status" class="muted">Status: av</span>
-        </div>
-      </nav>
-    </div>
+      <h3>Skjerm</h3>
+      <div id="wakelockBox" class="wakelock-box">
+        <span id="wakelockDot" class="dot"></span>
+        <span id="wakelockLabel">Hold skjerm våken</span>
+        <span id="wakelockStatus">Status: av</span>
+      </div>
+    </nav>
   </aside>
 
+  <div id="scrim"></div>
+
   <!-- Innhold -->
-  <main>
-    <section id="home">
-      <h1>Hjem</h1>
+  <main id="content">
+    <section id="home" class="page active">
+      <h2>Hjem</h2>
+      <label>Fører:</label>
+      <input id="driver" type="text" placeholder="Navn" />
 
-      <label class="field">
-        <span>Fører:</span>
-        <input id="a_driver" class="input" placeholder="Navn" />
-      </label>
+      <fieldset>
+        <legend>Utstyr:</legend>
+        <label><input type="checkbox" id="eqSkjaer"> Skjær</label>
+        <label><input type="checkbox" id="eqFres"> Fres</label>
+        <label><input type="checkbox" id="eqGrus"> Sand/Grus</label>
+      </fieldset>
 
-      <label class="field">
-        <span>Utstyr</span>
-        <div class="input-like">
-          <div class="checkbox-row" style="flex-direction:row; gap:18px">
-            <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
-            <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
-            <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
-          </div>
-        </div>
-      </label>
+      <label>Rekkefølge:</label>
+      <select id="dirSelect">
+        <option>Normal</option>
+        <option>Mot normalt</option>
+      </select>
 
-      <label class="field">
-        <span>Rekkefølge:</span>
-        <select id="a_dir" class="input">
-          <option>Normal</option>
-          <option>Motsatt</option>
-        </select>
-      </label>
-
-      <label class="field">
-        <div class="checkbox-row" style="flex-direction:row; gap:12px; align-items:center">
-          <input id="a_autoNav" type="checkbox" />
-          <span>Auto-naviger</span>
-        </div>
-      </label>
-
-      <button id="a_start" class="btn">Start runde</button>
+      <label><input type="checkbox" id="autoNav"> Auto-naviger</label>
+      <button id="startRound">Start runde</button>
     </section>
 
-    <section id="work" hidden>
-  <h1>Under arbeid</h1>
-
-  <div class="work-top" id="wk_top">
-    <div class="work-prog">
-      <div class="other" id="b_prog_other"></div>
-      <div class="me" id="b_prog_me"></div>
-    </div>
-    <div class="work-caption">
-      <div><strong id="b_prog_me_count">0/0</strong> mine • <strong id="b_prog_other_count">0/0</strong> andre</div>
-      <div id="b_prog_summary">0 av 0 adresser fullført</div>
-    </div>
-  </div>
-
-  <div class="card work-card">
-    <div class="label-muted">Nå</div>
-    <div id="b_now" class="addr-now">—</div>
-
-    <div class="label-muted" style="margin-top:14px">Neste</div>
-    <div id="b_next" class="addr-next">—</div>
-
-    <div class="btn-grid">
-      <button id="act_start" class="btn-ghost">▶️ Start</button>
-      <button id="act_done"  class="btn">✅ Ferdig</button>
-
-      <button id="act_skip"  class="btn-ghost">⏭️ Hopp over</button>
-      <button id="act_next"  class="btn-ghost">➡️ Neste</button>
-
-      <button id="act_nav"   class="btn-ghost">🧭 Naviger</button>
-      <button id="act_block" class="btn-ghost">⛔ Ikke mulig</button>
-    </div>
-
-    <div class="work-meta">
-      Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
-    </div>
-  </div>
-</section>
-
-    <!-- Service -->
-<section id="service" data-partial="partials/service.html"></section>
-
-    <section id="status" hidden>
-      <h1>Status</h1>
-      <p class="muted">Plassholder.</p>
-    </section>
-
-    <section id="admin" hidden>
-      <h1>Admin</h1>
-      <div class="grid2">
-        <label class="field">
-          <span>Grus (lat,lon)</span>
-          <input id="adm_grus" class="input" placeholder="60.xxxxx,11.xxxxx" />
-        </label>
-        <label class="field">
-          <span>Diesel (lat,lon)</span>
-          <input id="adm_diesel" class="input" placeholder="60.xxxxx,11.xxxxx" />
-        </label>
-        <label class="field">
-          <span>Base (lat,lon)</span>
-          <input id="adm_base" class="input" placeholder="60.xxxxx,11.xxxxx" />
-        </label>
+    <section id="work" class="page" hidden>
+      <h2>Under arbeid</h2>
+      <div class="progress">
+        <div id="b_prog_me" class="bar mine"></div>
+        <div id="b_prog_other" class="bar andre"></div>
       </div>
-      <button id="adm_save" class="btn">Lagre</button>
+      <div class="progress-text">
+        <span id="b_prog_me_count">0/0 mine</span> •
+        <span id="b_prog_other_count">0/0 andre</span> •
+        <span id="b_prog_summary">0 av 0 adresser fullført</span>
+      </div>
+
+      <div class="card">
+        <div>Nå:</div>
+        <h3 id="b_now">—</h3>
+        <div>Neste:</div>
+        <div id="b_next">—</div>
+        <div>Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">Venter</span></div>
+
+        <div class="actions">
+          <button id="act_start">▶️ Start</button>
+          <button id="act_done">✅ Ferdig</button>
+          <button id="act_skip">⏭️ Hopp over</button>
+          <button id="act_next">➡️ Neste</button>
+          <button id="act_nav">🧭 Naviger</button>
+          <button id="act_block">⛔ Ikke mulig</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="status" class="page" hidden>
+      <h2 id="status_header">Status</h2>
+      <div id="status_table"></div>
+    </section>
+
+    <section id="admin" class="page" hidden>
+      <h2>Admin</h2>
+      <div class="card">
+        <div>Aktiv sesong: <span id="seasonName">2025-26</span></div>
+        <div class="btnrow">
+          <button id="copySeason">Kopier pinner fra forrige sesong</button>
+          <button id="newSeason">Start ny sesong</button>
+        </div>
+      </div>
+
+      <input id="searchAddr" type="text" placeholder="Filtrer adresser…" />
+
+      <table class="adminTable">
+        <thead>
+          <tr><th>Adresse</th><th>Snø</th><th>Grus</th><th>Brøytepinner 2025-26</th></tr>
+        </thead>
+        <tbody id="adminTableBody"></tbody>
+      </table>
+
+      <div class="btnrow">
+        <button id="addAddr">Legg til adresse</button>
+        <button id="saveAddr">Lagre</button>
+      </div>
     </section>
   </main>
-
-<!-- CSS -->
-<link rel="stylesheet" href="css/styles.css?v=20251021">
-<link rel="stylesheet" href="css/work.css?v=20251021">
-<link rel="stylesheet" href="css/service.css?v=20251021">
-
-<!-- JS -->
-<script src="js/boot.js" defer></script>
-
-<script src="js/sync.js" defer></script>
-<script src="js/del-d.js" defer></script>
-<script src="js/include-partials.js" defer></script>
-
-<script src="js/Home.js" defer></script>
-<script src="js/Work.js" defer></script>
-<script src="js/Status.js" defer></script>
-<script src="js/Service.js" defer></script>
-<script src="js/Admin.js" defer></script>
-
-<script src="js/ios-drawer-hardfix.js?v=20251020c" defer></script>
-
-  <!-- Ekstra, siste forsikring: inline stil “over alt” -->
-  <style>
-    #drawer{ background:#0b1320 !important; opacity:1 !important; }
-    #scrim.show{ background:rgba(0,0,0,.66) !important; }
-  </style>
 </body>
 </html>
