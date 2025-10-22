@@ -125,21 +125,31 @@
     if (dot){ dot.className = 'dot ' + (state==='ok' ? 'dot-ok' : state==='error' ? 'dot-err' : 'dot-unknown'); badge.prepend(dot); }
   }
   function refreshSyncBadge(){
-    try{
-      if (!window.Sync) { setSyncBadge('unknown'); return; }
-      const cfg = window.Sync.getConfig?.() || {};
-      const cache = window.Sync.getCache?.() || {};
-      if (!cfg.binId || !cfg.apiKey){ setSyncBadge('unknown'); return; }
-      const ok = Array.isArray(cache.addresses) && cache.addresses.length>0;
-      const t  = cache._fetchedAt ? new Date(cache._fetchedAt) : null;
-      const when = t ? t.toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}) : '';
-      setSyncBadge(ok ? 'ok' : 'unknown', when);
-    }catch{ setSyncBadge('unknown'); }
+  try{
+    if (!window.Sync) { setSyncBadge('unknown'); return; }
+    const cfg   = window.Sync.getConfig?.() || {};
+    const cache = window.Sync.getCache?.() || {};
+
+    if (!cfg.binId || !cfg.apiKey) { setSyncBadge('unknown'); return; }
+
+    // «OK» når vi har adresser i cachen
+    const ok = Array.isArray(cache.addresses) && cache.addresses.length>0;
+
+    // tidspunkt = sist vellykket write ELLER sist fetch
+    const ts = cache._lastWriteAt || cache._fetchedAt ||
+               Number(localStorage.getItem('BRYT_LAST_SYNC') || '') || null;
+
+    const when = ts ? new Date(ts).toLocaleTimeString('no-NO', { hour:'2-digit', minute:'2-digit' }) : '';
+    setSyncBadge(ok ? 'ok' : 'unknown', when);
+  }catch{
+    setSyncBadge('unknown');
   }
+}
   function wireSyncBadge(){
     refreshSyncBadge();
     if (window.Sync?.on){
       window.Sync.on('change', refreshSyncBadge);
+      window.Sync.on('synced', refreshSyncBadge); // <- nytt
       window.Sync.on('error',  ()=>setSyncBadge('error'));
     }
     setInterval(refreshSyncBadge, 15000);
