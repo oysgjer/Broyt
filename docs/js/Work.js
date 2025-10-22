@@ -244,62 +244,63 @@
 
   // ---- Actions ----
   async function actStart(){
-    const run  = getRun();
-    const lane = run.lane || currentLane();
-    const list = filteredAddresses();
-    if (!list.length) return;
+  const run  = getRun();
+  const lane = run.lane || currentLane();
+  const list = filteredAddresses();
+  if (!list.length) return;
 
-    // sørg for at vi står på en tilgjengelig
-    let idx = clampIdx(run.idx ?? 0, list.length);
-    const fix = findFirstAvailableFrom(idx, true);
-    if (fix === -1) { checkAllDoneDialog(); return; }
-    if (fix !== idx){ idx = fix; setRun({ idx }); }
+  const cur = list[run.idx];
+  const driver = settings().driver || '';
+  const s = getStatusFor(cur.id, lane);
+  const nowISO = new Date().toISOString();
 
-    const cur = list[idx];
-    const driver = settings().driver || '';
-    const s = statusFor(cur.id, lane);
-    const nowISO = new Date().toISOString();
+  const rounds = Array.isArray(s.rounds) && s.rounds.length ? s.rounds : [{ start: nowISO, by: driver }];
 
-    const rounds = Array.isArray(s.rounds) && s.rounds.length ? s.rounds : [{ start: nowISO, by: driver }];
-    const patch = { status:{} }; patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = { state:'pågår', by:driver, rounds };
+  const patch = { status:{} };
+  patch.status[cur.id] = {
+    [lane]: { state:'pågår', by:driver, rounds }
+  };
+  await window.Sync.setStatusPatch(patch);
 
-    await window.Sync.setStatusPatch(patch);
-    await afterWriteSync();
-    uiUpdate();
-
-    autoNavigateToCurrent();
-  }
+  uiUpdate();                 // <— ikke gotoNext() her
+}
 
   async function actDone(){
-    const run  = getRun();
-    const lane = run.lane || currentLane();
-    const list = filteredAddresses();
-    if (!list.length) return;
+  const run  = getRun();
+  const lane = run.lane || currentLane();
+  const list = filteredAddresses();
+  if (!list.length) return;
 
-    let idx = clampIdx(run.idx ?? 0, list.length);
-    const cur = list[idx];
-    const driver = settings().driver || '';
-    const s = statusFor(cur.id, lane);
-    const nowISO = new Date().toISOString();
+  const cur = list[run.idx];
+  const driver = settings().driver || '';
 
-    let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
-    let lr = lastRoundForDriver(s, driver);
+  const s = getStatusFor(cur.id, lane);
+  const nowISO = new Date().toISOString();
 
-    if (!lr) rounds.push({ start: nowISO, done: nowISO, by: driver });
-    else lr.done = nowISO;
+  let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
+  let lr = lastRoundForDriver(s, driver);
+  if (!lr) rounds.push({ start: nowISO, done: nowISO, by: driver });
+  else lr.done = nowISO;
 
-    const patch = { status:{} }; patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = { state:'ferdig', by:driver, rounds };
+  const patch = { status:{} };
+  patch.status[cur.id] = { [lane]: { state:'ferdig', by:driver, rounds } };
+  await window.Sync.setStatusPatch(patch);
 
-    await window.Sync.setStatusPatch(patch);
-    await afterWriteSync();
-    uiUpdate();
+  uiUpdate();
 
-    // hopp til neste ledige
-    gotoNext(true);
-    checkAllDoneDialog();
+  // hopp til neste UBEHANDLET adresse
+  gotoNext();
+
+  // auto-navigasjon (hvis valgt på Hjem)
+  const st = settings();
+  if (st?.autoNav){
+    const newList = filteredAddresses();
+    const idx = getRun().idx;
+    if (newList[idx]) window.open(mapsUrl(newList[idx]), '_blank');
   }
+
+  checkAllDoneDialog();
+}
 
   async function actSkip(){
     const run  = getRun();
@@ -343,34 +344,40 @@
     gotoNext(true);
   }
 
-  function actNav(){
-    // Naviger ALLTID til NÅVÆRENDE (ikke hopp)
-    const run  = getRun();
-    const list = filteredAddresses();
-    if (!list.length) return;
+function actNav(){
+  const run  = getRun();
+  const list = filteredAddresses();
+  if(!list.length) return;
 
-    const idx = clampIdx(run.idx ?? 0, list.length);
-    const target = list[idx];
-    if (!target) return;
-    window.open(mapsUrl(target), '_blank');
-  }
+  const idx = Math.min(Math.max(run.idx ?? 0, 0), Math.max(list.length-1, 0));
+  const cur = list[idx];                     // <— bruk NÅ
+  window.open(mapsUrl(cur), '_blank');
+}
 
-  function gotoNext(doAutoNav){
-    const run  = getRun();
-    const list = filteredAddresses();
-    if (!list.length) return;
+  function gotoNext(){
+  const run  = getRun();
+  const lane = run.lane || currentLane();
+  const list = filteredAddresses();
+  if (!list.length) return;
 
-    const curIdx = clampIdx(run.idx ?? 0, list.length);
-    const ni = findNextAvailableAfter(curIdx);
-    if (ni !== -1){
-      setRun({ idx: ni });
+  let i = run.idx;
+  let loops = 0;
+  while (loops < list.length){
+    i = nextIndex(i, run.dir, list.length);
+    if (i < 0 || i >= list.length) break;
+
+    const st = getStatusFor(list[i].id, lane);
+    if (st.state !== 'ferdig' && st.state !== 'pågår'){ // <— hopp over ferdig/pågår
+      setRun({ idx: i });
       uiUpdate();
-      if (doAutoNav && settings().autoNav) autoNavigateToCurrent();
-    } else {
-      // ingen ledige videre – sjekk om runden er ferdig
-      checkAllDoneDialog();
+      return;
     }
+    loops++;
   }
+
+  // kom hit = alt er sannsynligvis ferdig/pågår
+  checkAllDoneDialog();
+}
 
   // ---- Wire / Boot ----
   function wire(){
