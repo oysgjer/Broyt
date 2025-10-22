@@ -15,11 +15,11 @@
 
       <div class="card">
         <div class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end">
-          <label class="field" style="min-width:240px">
+          <label class="field" style="min-width:240px; flex:1">
             <span>JSONBin ID</span>
             <input id="adm_bin" class="input" placeholder="68e7b4d2ae596e708f0bde7d" />
           </label>
-          <label class="field" style="min-width:280px">
+          <label class="field" style="min-width:260px; flex:1">
             <span>Master Key</span>
             <input id="adm_key" class="input" placeholder="••••••" />
           </label>
@@ -31,12 +31,12 @@
         <table style="width:100%; border-collapse:collapse">
           <thead style="position:sticky; top:0; background:var(--surface);">
             <tr>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Adresse</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Snø</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Grus</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Brøytepinner</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Lat</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Lon</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);min-width:260px">Adresse</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:70px">Snø</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:70px">Grus</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:90px">Pinner</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:120px">Lat</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:120px">Lon</th>
             </tr>
           </thead>
           <tbody id="adm_tbody"></tbody>
@@ -72,22 +72,33 @@
       return `
         <tr data-id="${a.id}">
           <td style="padding:6px;border-bottom:1px solid var(--sep)">
-            <input class="adm_name input" value="${a.name||''}" />
+            <input class="adm_name input"
+                   style="width:100%;min-width:240px"
+                   value="${(a.name||'').replace(/"/g,'&quot;')}" />
           </td>
-          <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <td style="padding:6px;border-bottom:1px solid var(--sep);text-align:center">
             <input type="checkbox" class="adm_snow" ${snow?'checked':''} />
           </td>
-          <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <td style="padding:6px;border-bottom:1px solid var(--sep);text-align:center">
             <input type="checkbox" class="adm_grit" ${grit?'checked':''} />
           </td>
           <td style="padding:6px;border-bottom:1px solid var(--sep)">
-            <input class="adm_pins input" type="number" min="0" value="${a.pins??0}">
+            <input class="adm_pins input"
+                   type="number" min="0" inputmode="numeric"
+                   style="width:64px;text-align:center"
+                   value="${a.pins??0}">
           </td>
           <td style="padding:6px;border-bottom:1px solid var(--sep)">
-            <input class="adm_lat input" type="number" step="any" value="${a.lat??''}">
+            <input class="adm_lat input"
+                   type="number" step="any" inputmode="decimal"
+                   style="max-width:140px"
+                   value="${a.lat??''}">
           </td>
           <td style="padding:6px;border-bottom:1px solid var(--sep)">
-            <input class="adm_lon input" type="number" step="any" value="${a.lon??''}">
+            <input class="adm_lon input"
+                   type="number" step="any" inputmode="decimal"
+                   style="max-width:140px"
+                   value="${a.lon??''}">
           </td>
         </tr>
       `;
@@ -110,7 +121,6 @@
         lon:  parseFloat(tr.querySelector('.adm_lon')?.value || 'NaN'),
       });
     });
-    // rydd NaN
     return out.map(a=>({
       ...a,
       lat: isNaN(a.lat)?null:a.lat,
@@ -121,7 +131,7 @@
   async function saveAll(){
     try{
       const prepared = pullFromDOM();
-      ADDR = await Sync.saveAddresses(prepared); // lagrer til JSONBin og oppdaterer cache
+      ADDR = await Sync.saveAddresses(prepared);
       alert('Lagret ✅');
       render();
     }catch(e){ console.error(e); alert('Kunne ikke lagre: '+e.message); }
@@ -149,7 +159,6 @@
   window.addEventListener('hashchange', ()=>{ if (location.hash==='#admin') boot(); });
   document.addEventListener('DOMContentLoaded', boot);
 
-  // Oppdater når sync endrer seg (f.eks. lagret andre steder)
   Sync.on('change', ()=>{
     if (location.hash==='#admin'){
       ADDR = Sync.getCache().addresses || [];
