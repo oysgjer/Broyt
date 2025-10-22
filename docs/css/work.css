@@ -181,3 +181,30 @@
     font-size: 1.7rem;
   }
 }
+/* ===== STØRRE UNDER-KNAPPER – DOBBEL STØRRELSE ===== */
+
+/* Kun knappene etter Start/Ferdig */
+#work .btn-grid .btn {
+  min-height: 120px;       /* dobbelt så høy */
+  padding: 24px 28px;
+  font-size: 1.5rem;       /* større tekst */
+  font-weight: 800;
+  border-radius: 18px;
+  justify-content: center;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* Litt mer avstand mellom radene for luft */
+#work .btn-grid {
+  gap: 20px;
+  margin-top: 24px;
+}
+
+/* Mobiljustering */
+@media (max-width: 420px) {
+  #work .btn-grid .btn {
+    min-height: 130px;
+    font-size: 1.45rem;
+  }
+}
