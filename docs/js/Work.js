@@ -45,7 +45,7 @@
     return st[addrId]?.[lane] || { state:'venter', by:null, rounds:[] };
   }
 
-  // Skip regler: ferdig, eller pågår av annen sjåfør
+  // Skip-regler: ferdig, eller pågår av annen sjåfør
   function isSkip(addr, lane, myDriver){
     const s = getStatus(addr.id, lane);
     if (s.state === 'ferdig') return true;
@@ -121,21 +121,16 @@
     let mePct = Math.round(100 * pr.mine  / total);
     let otPct = Math.round(100 * pr.other / total);
 
-    // ✅ Ikke overlapp: kap lilla slik at mePct + otPct ≤ 100
-    if (mePct + otPct > 100) {
-      otPct = Math.max(0, 100 - mePct);
-    }
+    // ✅ Ikke overlapp
+    if (mePct + otPct > 100) otPct = Math.max(0, 100 - mePct);
 
-    // Sikker kapping til [0,100]
     mePct = Math.max(0, Math.min(100, mePct));
     otPct = Math.max(0, Math.min(100, otPct));
 
-    // Oppdater bredder
     const bm = $('#b_prog_me'), bo = $('#b_prog_other');
     if (bm) bm.style.width = mePct + '%';   // venstre (grønn)
-    if (bo) bo.style.width = otPct + '%';   // høyre  (lilla, vokser fra høyre)
+    if (bo) bo.style.width = otPct + '%';   // høyre  (lilla)
 
-    // Telling – bare oppadgående tall, ikke “/total” på hver side
     $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${pr.mine}`);
     $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${pr.other}`);
     $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(pr.done, pr.total)} av ${pr.total} adresser fullført`);
@@ -354,6 +349,19 @@
     window.open(mapsUrl(cur), '_blank'); // naviger til AKTUELL (ikke hopp)
   }
 
+  // --- liten hjelpefunksjon for klikkanimasjon/haptics ---
+  function wireClickFeedback(ids){
+    ids.forEach(id=>{
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener('click', ()=>{
+        btn.classList.add('clicked');
+        if (navigator.vibrate) navigator.vibrate(30);
+        setTimeout(()=>btn.classList.remove('clicked'), 600);
+      });
+    });
+  }
+
   function wire(){
     if (!$('#work')) return;
 
@@ -371,6 +379,9 @@
     $('#act_next') ?.addEventListener('click', actNext);
     $('#act_nav')  ?.addEventListener('click', actNav);
     $('#act_block')?.addEventListener('click', actBlock);
+
+    // 🔔 visuell/haptisk tilbakemelding på Start/Ferdig
+    wireClickFeedback(['act_start','act_done']);
 
     // initial UI
     uiUpdate();
