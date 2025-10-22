@@ -3,65 +3,53 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-
-  <!-- Tema / farger -->
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
-
-  <!-- iOS webapp-oppførsel -->
+  <meta name="theme-color" content="#0b1320">
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
   <title>Brøyterute</title>
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/work.css">
-  <link rel="stylesheet" href="css/service.css">
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body>
 
-  <!-- Appbar -->
+<body>
+  <!-- Topplinje -->
   <header class="appbar">
     <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
     <div class="appbar-title">Brøyterute</div>
     <div class="appbar-right">
-      <span id="sync_badge" class="badge"><span id="sync_dot" class="dot dot-unknown"></span> Synk: ukjent</span>
-      <span id="wl_badge" class="badge" title="Skjermlås-status"><span id="wl_dot" class="dot dot-off"></span></span>
+      <span id="sync_badge" class="badge"><span class="dot dot-unknown"></span> Synk: ukjent</span>
+      <span id="wl_badge" class="badge"><span id="wl_dot" class="dot dot-off"></span></span>
     </div>
   </header>
 
-  <!-- Scrim + Drawer -->
+  <!-- Meny -->
   <div id="scrim"></div>
   <aside id="drawer" class="drawer">
     <div class="drawer-header">
-      <div>Brøyterute</div>
+      <strong>Brøyterute</strong>
       <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
     </div>
-
     <div class="drawer-content">
       <nav>
         <div class="drawer-section">Navigasjon</div>
         <ul class="drawer-list">
-          <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
-          <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
-          <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
-          <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
-          <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
+          <li><a class="drawer-link" data-go="home">🏠 Hjem</a></li>
+          <li><a class="drawer-link" data-go="work">🧭 Under arbeid</a></li>
+          <li><a class="drawer-link" data-go="service">🛠 Service</a></li>
+          <li><a class="drawer-link" data-go="status">📊 Status</a></li>
+          <li><a class="drawer-link" data-go="admin">⚙️ Admin</a></li>
         </ul>
 
-        <div class="drawer-section">Snarveier</div>
-        <div class="row">
-          <button id="qk_grus"   class="btn-ghost"><span class="emoji">🏗️</span>Hent grus</button>
-          <button id="qk_diesel" class="btn-ghost"><span class="emoji">🛢️</span>Diesel</button>
-          <button id="qk_base"   class="btn-ghost"><span class="emoji">🏡</span>Base</button>
-        </div>
-
-        <div class="drawer-section" style="margin-top:14px">Skjerm</div>
+        <div class="drawer-section">Skjerm</div>
         <div class="card row" style="align-items:center; justify-content:space-between">
           <button id="qk_wl" class="btn-ghost"><span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken</button>
           <span id="qk_wl_status" class="muted">Status: av</span>
+        </div>
+
+        <div class="drawer-section">Tema</div>
+        <div class="card row" style="align-items:center; justify-content:space-between">
+          <button id="theme_toggle" class="btn-ghost">🌓 Bytt tema</button>
+          <span id="theme_status" class="muted">System</span>
         </div>
       </nav>
     </div>
@@ -69,167 +57,102 @@
 
   <!-- Innhold -->
   <main>
-
     <!-- HJEM -->
     <section id="home">
       <h1>Hjem</h1>
 
-      <div class="card">
-        <label class="field">
-          <span>Fører</span>
-          <input id="a_driver" class="input" placeholder="Navn" />
-        </label>
+      <label class="field">
+        <span>Fører</span>
+        <input id="a_driver" class="input" placeholder="Navn" />
+      </label>
 
-        <label class="field">
-          <span>Utstyr</span>
-          <div class="input-like">
-            <div class="checkbox-col">
-              <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
-              <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
-              <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
-            </div>
+      <label class="field">
+        <span>Utstyr</span>
+        <div class="input-like">
+          <div class="checkbox-col">
+            <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
+            <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
+            <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
           </div>
-        </label>
-
-        <div class="field" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap">
-          <label class="field" style="flex:1; margin:0">
-            <span>Rekkefølge</span>
-            <select id="a_dir" class="input">
-              <option>Normal</option>
-              <option>Motsatt</option>
-            </select>
-          </label>
-
-          <label class="field" style="margin:0">
-            <div class="checkbox-col" style="gap:0">
-              <label><input id="a_autoNav" type="checkbox" /> Auto-naviger</label>
-            </div>
-          </label>
         </div>
+      </label>
 
-        <button id="a_start" class="btn" style="width:100%; margin-top:6px">Start runde</button>
-      </div>
+      <label class="field">
+        <span>Rekkefølge</span>
+        <div class="row" style="gap:18px; align-items:center">
+          <select id="a_dir" class="input" style="flex:1;max-width:320px">
+            <option>Normal</option>
+            <option>Motsatt</option>
+          </select>
+          <div class="checkbox-row">
+            <input id="a_autoNav" type="checkbox" />
+            <span class="muted-strong">Auto-naviger</span>
+          </div>
+        </div>
+      </label>
+
+      <button id="a_start" class="btn btn-primary">Start runde</button>
     </section>
 
-    <!-- UNDER ARBEID -->
-    <section id="work" hidden>
-      <h1>Under arbeid</h1>
-
-      <div class="work-top" id="wk_top">
-        <div class="work-prog">
-          <div class="other" id="b_prog_other"></div>
-          <div class="me" id="b_prog_me"></div>
-        </div>
-        <div class="work-caption">
-          <div><strong id="b_prog_me_count">0/0</strong> mine • <strong id="b_prog_other_count">0/0</strong> andre</div>
-          <div id="b_prog_summary">0 av 0 adresser fullført</div>
-        </div>
-      </div>
-
-      <div class="card work-card">
-        <div class="label-muted">Nå</div>
-        <div id="b_now" class="addr-now">—</div>
-
-        <div class="label-muted" style="margin-top:14px">Neste</div>
-        <div id="b_next" class="addr-next">—</div>
-
-        <div class="btn-grid">
-          <button id="act_start" class="btn-ghost">▶️ Start</button>
-          <button id="act_done"  class="btn">✅ Ferdig</button>
-
-          <button id="act_skip"  class="btn-ghost">⏭️ Hopp over</button>
-          <button id="act_next"  class="btn-ghost">➡️ Neste</button>
-
-          <button id="act_nav"   class="btn-ghost">🧭 Naviger</button>
-          <button id="act_block" class="btn-ghost">⛔ Ikke mulig</button>
-        </div>
-
-        <div class="work-meta" style="margin-top:10px">
-          Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- SERVICE (partials/service.html lastes inn) -->
-    <section id="service" data-partial="partials/service.html"></section>
-
-    <!-- STATUS -->
-    <section id="status" hidden>
-      <h1>Status</h1>
-      <div class="card" style="margin-bottom:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
-        <button id="st_reset_mine" class="btn-ghost">Nullstill mine</button>
-        <button id="st_reset_all" class="btn-ghost">Nullstill alt</button>
-        <span id="st_summary" class="label-muted" style="margin-left:auto"></span>
-      </div>
-
-      <div class="card" style="overflow:auto">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Adresse</th>
-              <th>Startet snø</th>
-              <th>Ferdig snø</th>
-              <th>Startet grus</th>
-              <th>Ferdig grus</th>
-              <th>Sjåfør</th>
-            </tr>
-          </thead>
-          <tbody id="st_tbody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ADMIN (enhances av Admin.js) -->
-    <section id="admin" hidden>
-      <!-- Admin.js bygger UI-et her (sesong, JSONBin-oppsett, adressetabell m.m.) -->
-    </section>
-
+    <section id="work" hidden><h1>Under arbeid</h1></section>
+    <section id="service" hidden><h1>Service</h1></section>
+    <section id="status" hidden><h1>Status</h1></section>
+    <section id="admin" hidden><h1>Admin</h1></section>
   </main>
 
-  <!-- JS (rekkefølge viktig) -->
-  <script src="js/del-d.js" defer></script>
-  <script src="js/include-partials.js" defer></script>
-  <script src="js/sync.js" defer></script>
-
-  <script src="js/Home.js" defer></script>
-  <script src="js/Work.js" defer></script>
-  <script src="js/Status.js" defer></script>
-  <script src="js/Service.js" defer></script>
-  <script src="js/Admin.js" defer></script>
-
-  <!-- (valgfritt) iOS drawer hardfix, om du fortsatt bruker den -->
-  <!-- <script src="js/ios-drawer-hardfix.js" defer></script> -->
-
-  <!-- Små init-ting: meny og synk-badge -->
+  <!-- JS -->
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      // Drawer
-      const scrim  = document.getElementById('scrim');
-      const drawer = document.getElementById('drawer');
-      const open   = () => { drawer?.classList.add('show'); scrim?.classList.add('show'); };
-      const close  = () => { drawer?.classList.remove('show'); scrim?.classList.remove('show'); };
-      document.getElementById('btnMenu')?.addEventListener('click', open);
-      document.getElementById('btnCloseDrawer')?.addEventListener('click', close);
-      scrim?.addEventListener('click', close);
+  (()=>{
+    const $ = (s,r=document)=>r.querySelector(s);
 
-      // Synk-badge (oppdateres også av Sync.js ellers)
-      if (window.Sync?.isConfigured?.()) {
-        const dot = document.getElementById('sync_dot');
-        const badge = document.getElementById('sync_badge');
-        dot?.classList.remove('dot-unknown'); dot?.classList.add('dot-ok');
-        if (badge) badge.innerHTML = '<span class="dot dot-ok"></span> Synk: OK';
-      }
+    // Drawer
+    const scrim=$('#scrim'), drawer=$('#drawer');
+    $('#btnMenu')?.addEventListener('click',()=>{drawer.classList.add('show');scrim.classList.add('show');});
+    $('#btnCloseDrawer')?.addEventListener('click',()=>{drawer.classList.remove('show');scrim.classList.remove('show');});
+    scrim?.addEventListener('click',()=>{drawer.classList.remove('show');scrim.classList.remove('show');});
+    document.querySelectorAll('.drawer-link').forEach(a=>a.addEventListener('click',e=>{
+      e.preventDefault();
+      const id=a.dataset.go; if(id) location.hash='#'+id;
+      drawer.classList.remove('show');scrim.classList.remove('show');
+    }));
 
-      // Navigasjon fra drawer via data-go
-      document.querySelectorAll('.drawer-link').forEach(a=>{
-        a.addEventListener('click', (e)=>{
-          e.preventDefault();
-          const target = a.getAttribute('data-go') || 'home';
-          location.hash = '#' + target;
-          close();
-        });
-      });
+    // Wake Lock
+    const wlDot=$('#wl_dot'), wlDot2=$('#qk_wl_dot'), wlStatus=$('#qk_wl_status'), wlBtn=$('#qk_wl');
+    let wakeLock=null;
+    function paintWL(on){
+      const cls=on?'dot dot-ok':'dot dot-off';
+      wlDot.className=cls; wlDot2.className=cls;
+      wlStatus.textContent='Status: '+(on?'på':'av');
+    }
+    async function reqWL(){
+      try{
+        wakeLock=await navigator.wakeLock.request('screen');
+        paintWL(true);
+        wakeLock.addEventListener('release',()=>{paintWL(false);wakeLock=null;});
+        localStorage.setItem('BRYT_WL','1');
+      }catch{paintWL(false);}
+    }
+    async function relWL(){try{await wakeLock?.release();}catch{} wakeLock=null;paintWL(false);localStorage.removeItem('BRYT_WL');}
+    wlBtn?.addEventListener('click',()=>wakeLock?relWL():reqWL());
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&localStorage.getItem('BRYT_WL')==='1')reqWL();});
+    if(localStorage.getItem('BRYT_WL')==='1')reqWL();else paintWL(false);
+
+    // Tema-bryter
+    const tBtn=$('#theme_toggle'), tStatus=$('#theme_status');
+    function applyTheme(t){
+      document.documentElement.dataset.theme=t;
+      localStorage.setItem('BRYT_THEME',t);
+      tStatus.textContent=t==='dark'?'Mørk':t==='light'?'Lys':'System';
+      if(t==='dark')document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    }
+    tBtn?.addEventListener('click',()=>{
+      const cur=document.documentElement.dataset.theme||'system';
+      const next=cur==='dark'?'light':cur==='light'?'system':'dark';
+      applyTheme(next);
     });
+    applyTheme(localStorage.getItem('BRYT_THEME')||'system');
+  })();
   </script>
 </body>
 </html>
