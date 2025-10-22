@@ -2,244 +2,304 @@
 (() => {
   'use strict';
 
-  /* -------------------- små hjelpere -------------------- */
-  const $  = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const JGET = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const JSET = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-  const K_RUN      = 'BRYT_RUN';       // { driver, equipment:{...}, dir, idx, mode }
-  const K_SETTINGS = 'BRYT_SETTINGS';  // { driver, equipment, ... }
+  const LS_SETTINGS = 'BRYT_SETTINGS';
+  const LS_RUN      = 'BRYT_RUN';
 
-  /* -------------------- Sync-«adapter» -------------------- */
-  // Vi pakker kall mot Sync slik at vi tåler små API-endringer.
-  const Sync = {
-    have() { return !!window.Sync; },
-    addresses() {
-      // Prioritér en «get»-metode om den finnes, ellers fall tilbake på cachefelt.
-      if (!window.Sync) return [];
-      if (typeof window.Sync.getAddresses === 'function') return window.Sync.getAddresses() || [];
-      if (Array.isArray(window.Sync.addresses)) return window.Sync.addresses;
-      if (window.Sync.cache && Array.isArray(window.Sync.cache.addresses)) return window.Sync.cache.addresses;
-      return [];
-    },
-    statuses() {
-      if (!window.Sync) return {};
-      if (typeof window.Sync.getStatuses === 'function') return window.Sync.getStatuses() || {};
-      if (window.Sync.cache && window.Sync.cache.statuses) return window.Sync.cache.statuses;
-      return {};
-    },
-    async setStatus(id, payload) {
-      if (!window.Sync || typeof window.Sync.setStatus !== 'function') {
-        throw new Error('Sync.setStatus mangler');
-      }
-      return window.Sync.setStatus(id, payload);
-    }
+  const readJSON = (k,d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const writeJSON= (k,v) => localStorage.setItem(k, JSON.stringify(v));
+
+  const STATE_LABEL = {
+    venter:   'Venter',
+    'pågår':  'Pågår',
+    ferdig:   'Ferdig',
+    hoppet:   'Hoppet over',
+    blokkert: 'Ikke mulig'
   };
 
-  /* -------------------- aktiv runde / mode -------------------- */
-  function getRun() {
-    let run = JGET(K_RUN, null);
-    if (!run) {
-      // Fallback: hent innstillinger og lag en «minimal» run
-      const st = JGET(K_SETTINGS, { driver:'', equipment:{ plow:false, fres:false, sand:false }, dir:'Normal' });
-      run = { driver: st.driver || '', equipment: st.equipment || {}, dir: st.dir || 'Normal', idx: 0 };
+  function settings(){ return readJSON(LS_SETTINGS, { driver:'', equipment:{plow:false,fres:false,sand:false}, dir:'Normal', autoNav:false }); }
+  function setRun(patch){
+    const cur = readJSON(LS_RUN, { lane:'snow', idx:0, dir:'Normal', driver:'' });
+    const next = {...cur, ...patch};
+    writeJSON(LS_RUN, next);
+    return next;
+  }
+  function getRun(){ return readJSON(LS_RUN, { lane:'snow', idx:0, dir:'Normal', driver:'' }); }
+
+  function currentLane(){ return settings()?.equipment?.sand ? 'grit' : 'snow'; }
+  function laneLabel(l){ return l==='grit' ? 'Grus' : 'Snø'; }
+
+  function filteredAddresses(){
+    const lane = getRun().lane || currentLane();
+    const all  = window.Sync.getCache().addresses || [];
+    return all.filter(a => !!(a?.tasks?.[lane]));
+  }
+
+  function nextIndex(idx, dir, len){
+    return (dir==='Motsatt') ? (idx-1) : (idx+1);
+  }
+
+  function getStatusFor(addrId, lane){
+    const st = window.Sync.getCache().status || {};
+    return st[addrId]?.[lane] || { state:'venter', by:null, rounds:[] };
+  }
+
+  function lastRoundForDriver(s, driver){
+    // Finn siste runde (startet av driver) uten done-tid
+    if(!s?.rounds?.length) return null;
+    for(let i=s.rounds.length-1;i>=0;i--){
+      const r = s.rounds[i];
+      if(r.by===driver && r.start && !r.done) return r;
     }
-    // Bestem modus dersom ikke satt
-    if (!run.mode) {
-      const sand = !!run.equipment?.sand;
-      run.mode = sand ? 'grus' : 'snow';
+    return null;
+  }
+
+  function uiUpdate(){
+    const run  = getRun();
+    const lane = run.lane || currentLane();
+    const list = filteredAddresses();
+
+    const idx  = Math.min(Math.max(run.idx ?? 0, 0), Math.max(list.length-1, 0));
+    if (idx !== run.idx) setRun({ idx });
+
+    const now  = list[idx] || null;
+    const nxt  = (list.length>0) ? list[nextIndex(idx, run.dir, list.length)] : null;
+
+    $('#b_task')  && ($('#b_task').textContent = laneLabel(lane));
+    $('#b_now')   && ($('#b_now').textContent  = now ? (now.name||'—') : '—');
+    $('#b_next')  && ($('#b_next').textContent = nxt ? (nxt.name||'—') : '—');
+
+    const stNow = now ? getStatusFor(now.id, lane) : {state:'venter'};
+    $('#b_status') && ($('#b_status').textContent = STATE_LABEL[stNow.state] || '—');
+
+    // progress
+    updateProgress();
+
+    // deaktiver/aktiver knapper litt “snilt”
+    const hasAny = list.length>0;
+    $('#act_start')?.toggleAttribute('disabled', !hasAny);
+    $('#act_done') ?.toggleAttribute('disabled', !hasAny);
+    $('#act_skip') ?.toggleAttribute('disabled', !hasAny);
+    $('#act_next') ?.toggleAttribute('disabled', !hasAny);
+    $('#act_nav')  ?.toggleAttribute('disabled', !hasAny);
+    $('#act_block')?.toggleAttribute('disabled', !hasAny);
+  }
+
+  function updateProgress(){
+    const driver = settings().driver || '';
+    const pr = window.Sync.computeProgress(driver);
+    const total = pr.total || 0;
+    const mePct = total ? Math.round(100 * (pr.mine||0)  / total) : 0;
+    const otPct = total ? Math.round(100 * (pr.other||0) / total) : 0;
+
+    const bm = $('#b_prog_me'), bo = $('#b_prog_other');
+    if (bm) bm.style.width = mePct+'%';
+    if (bo) bo.style.width = otPct+'%';
+
+    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${pr.mine||0}/${total}`);
+    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${pr.other||0}/${total}`);
+    $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min((pr.done||0), total)} av ${total} adresser fullført`);
+  }
+
+  function mapsUrl(addr){
+    if (!addr) return 'https://www.google.com/maps';
+    if (addr.lat!=null && addr.lon!=null){
+      const q = `${addr.lat},${addr.lon}`;
+      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
     }
-    return run;
-  }
-  function saveRun(run) { JSET(K_RUN, run); }
-
-  /* -------------------- filtrer adresser på valgt oppgave -------------------- */
-  function getActiveAddresses() {
-    const all = Sync.addresses();
-    const run = getRun();
-    const mode = run.mode; // 'snow' | 'grus'
-
-    // Tillat både flat bool-felt (snow/grus) og nested tasks-objekt
-    const hasTask = (a) => {
-      if (!a) return false;
-      if (mode === 'grus') {
-        if (typeof a.grus === 'boolean') return a.grus;
-        if (a.tasks && typeof a.tasks.grus === 'boolean') return a.tasks.grus;
-        // hvis ingen flagg: anta false for grus
-        return false;
-      } else {
-        if (typeof a.snow === 'boolean') return a.snow;
-        if (a.tasks && typeof a.tasks.snow === 'boolean') return a.tasks.snow;
-        // hvis ingen flagg: anta true for snø (bakoverkompatibelt)
-        return true;
-      }
-    };
-
-    const filtered = all.filter(hasTask);
-    // Rekkefølge
-    const dir = (getRun().dir || 'Normal').toLowerCase();
-    if (dir.startsWith('mot')) filtered.reverse();
-
-    return filtered;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((addr.name||'')+', Norge')}`;
   }
 
-  /* -------------------- nå/neste + progresjon -------------------- */
-  function getNowNext() {
-    const run = getRun();
-    const list = getActiveAddresses();
-    const total = list.length || 0;
+  function gotoNext(){
+    const run  = getRun();
+    const list = filteredAddresses();
+    if (!list.length) return;
 
-    // Korriger idx hvis utenfor
-    if (run.idx < 0) run.idx = 0;
-    if (run.idx >= total) run.idx = total > 0 ? (total - 1) : 0;
-    saveRun(run);
-
-    return { list, run, total, now: list[total ? run.idx : 0] || null, next: list[run.idx + 1] || null };
-  }
-
-  // Tell «mine» og «andre» ferdige for valgt oppgave
-  function computeProgress(list, driver) {
-    const st = Sync.statuses(); // { id: { state, driver, ... }, ... }
-    let mine = 0, other = 0, doneTotal = 0;
-
-    for (const a of list) {
-      const s = st[a.id] || st[a._id] || null; // støtt litt ulike ID-felt
-      const isDone = s?.state === 'done' || s?.state === 'ferdig';
-      if (isDone) {
-        doneTotal++;
-        if (s?.driver && driver && s.driver === driver) mine++;
-        else other++;
-      }
-    }
-    return { mine, other, doneTotal, total: list.length };
-  }
-
-  function taskLabel(run) {
-    return run.mode === 'grus' ? 'Strø grus' : 'Fjerne snø';
-  }
-
-  /* -------------------- UI-render -------------------- */
-  function render() {
-    // Ikke gjør noe dersom vi ikke står på «Under arbeid»
-    const host = $('#work');
-    if (!host || host.hasAttribute('hidden')) return;
-
-    const { list, run, total, now, next } = getNowNext();
-
-    // Overskrifter Nå/Neste
-    $('#b_now')  && ($('#b_now').textContent  = now  ? (now.name || now.title || now.address || String(now.id))  : '—');
-    $('#b_next') && ($('#b_next').textContent = next ? (next.name || next.title || next.address || String(next.id)) : '—');
-
-    // Oppgavetekst
-    $('#b_task') && ($('#b_task').textContent = taskLabel(run));
-
-    // Status «venter/pågår/ferdig» for current
-    const st = Sync.statuses();
-    const sid = now ? (now.id || now._id) : null;
-    const sObj = sid ? st[sid] : null;
-    const human =
-      !sObj || !sObj.state ? 'Venter' :
-      sObj.state === 'start'  ? 'Pågår' :
-      sObj.state === 'done'   ? 'Ferdig' :
-      sObj.state === 'skip'   ? 'Hoppet over' :
-      sObj.state === 'block'  ? 'Ikke mulig' : 'Venter';
-    $('#b_status') && ($('#b_status').textContent = human);
-
-    // Progress
-    const prog = computeProgress(list, run.driver || '');
-    const meBar    = $('#b_prog_me');
-    const otherBar = $('#b_prog_other');
-
-    const pctMine  = total ? Math.round(100 * (prog.mine / total)) : 0;
-    const pctOther = total ? Math.round(100 * (prog.other / total)) : 0;
-
-    if (meBar)    meBar.style.width    = pctMine + '%';
-    if (otherBar) otherBar.style.width = pctOther + '%';
-
-    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent    = `${prog.mine}/${total} mine`);
-    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${prog.other}/${total} andre`);
-    $('#b_prog_summary')     && ($('#b_prog_summary').textContent     = `${prog.doneTotal} av ${total} adresser fullført`);
-  }
-
-  /* -------------------- handlinger -------------------- */
-  function ensureNowOrAlert() {
-    const { now } = getNowNext();
-    if (!now) { alert('Ingen adresser i denne modusen. Sjekk oppgave/JSONBin.'); }
-    return now;
-  }
-
-  async function doSet(state) {
-    const run = getRun();
-    const a = ensureNowOrAlert();
-    if (!a) return;
-
-    const id = a.id || a._id;
-    const payload = {
-      state,                    // 'start' | 'done' | 'skip' | 'block'
-      driver: run.driver || '',
-      mode: run.mode            // snø/grus, nyttig i status
-    };
-
-    try {
-      await Sync.setStatus(id, payload);
-      // Om vi markerer «done», hopp automatisk videre
-      if (state === 'done') {
-        const ctx = getNowNext();
-        if (ctx.run.idx < ctx.total - 1) {
-          ctx.run.idx++;
-          saveRun(ctx.run);
-        }
-      }
-      render();
-    } catch (e) {
-      alert('Kunne ikke oppdatere status: ' + (e?.message || e));
-    }
-  }
-
-  function onStart() { return doSet('start'); }
-  function onDone()  { return doSet('done');  }
-  function onSkip()  { return doSet('skip');  }
-  function onBlock() { return doSet('block'); }
-
-  function onNext() {
-    const ctx = getNowNext();
-    if (ctx.run.idx < ctx.total - 1) {
-      ctx.run.idx++;
-      saveRun(ctx.run);
-      render();
-    }
-  }
-
-  function onNav() {
-    const a = ensureNowOrAlert();
-    if (!a) return;
-    const lat = a.lat ?? a.latitude;
-    const lon = a.lon ?? a.lng ?? a.longitude;
-    if (typeof lat === 'number' && typeof lon === 'number') {
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
-      window.open(url, '_blank');
+    const ni = nextIndex(run.idx, run.dir, list.length);
+    if (ni>=0 && ni<list.length) {
+      setRun({ idx: ni });
+      uiUpdate();
     } else {
-      alert('Adresse mangler koordinater.');
+      // Slutt på listen – sjekk om alt er ferdig for denne lane
+      checkAllDoneDialog();
     }
   }
 
-  /* -------------------- wiring -------------------- */
-  function wire() {
-    $('#act_start') && $('#act_start').addEventListener('click', onStart);
-    $('#act_done')  && $('#act_done') .addEventListener('click', onDone);
-    $('#act_skip')  && $('#act_skip') .addEventListener('click', onSkip);
-    $('#act_block') && $('#act_block').addEventListener('click', onBlock);
-    $('#act_next')  && $('#act_next') .addEventListener('click', onNext);
-    $('#act_nav')   && $('#act_nav')  .addEventListener('click', onNav);
+  function allDoneForLane(){
+    const lane = getRun().lane || currentLane();
+    const list = filteredAddresses();
+    if (!list.length) return false;
+    const st = window.Sync.getCache().status || {};
+    return list.every(a => (st[a.id]?.[lane]?.state==='ferdig'));
+  }
 
-    window.addEventListener('hashchange', render);
-    // Hvis Sync finnes med eventer, re-render ved endring
-    if (Sync.have() && typeof window.Sync.on === 'function') {
-      window.Sync.on('status-changed', render);
-      window.Sync.on('addresses-loaded', render);
+  async function checkAllDoneDialog(){
+    if (!allDoneForLane()) return;
+    const res = await askChoice([
+      {id:'repeat_snow',  label:'Ny runde snø'},
+      {id:'switch_grit',  label:'Ny runde grus'},
+      {id:'finish',       label:'Ferdig → Service'}
+    ], 'Alt på denne runden er markert som ferdig. Hva vil du gjøre nå?');
+
+    if (!res) return;
+
+    if (res==='repeat_snow'){
+      // sett lane = snow, behold status (vi støtter flere runder)
+      setRun({ lane:'snow', idx:0 });
+      location.hash = '#work';
+      uiUpdate();
+    } else if (res==='switch_grit'){
+      setRun({ lane:'grit', idx:0 });
+      location.hash = '#work';
+      uiUpdate();
+    } else if (res==='finish'){
+      location.hash = '#service';
     }
-    render();
+  }
+
+  function askChoice(options, title='Velg'){
+    return new Promise(resolve=>{
+      // Enkel prompt – kan byttes ut med bedre dialog senere
+      const txt = [title, '', ...options.map((o,i)=>`${i+1}) ${o.label}`), '', 'Skriv nummer:'].join('\n');
+      const ans = prompt(txt,'');
+      const n   = parseInt(ans||'',10);
+      if (!n || n<1 || n>options.length) return resolve(null);
+      resolve(options[n-1].id);
+    });
+  }
+
+  async function actStart(){
+    const run  = getRun();
+    const lane = run.lane || currentLane();
+    const list = filteredAddresses();
+    if (!list.length) return;
+
+    const cur = list[run.idx];
+    const driver = settings().driver || '';
+
+    const s = getStatusFor(cur.id, lane);
+    const nowISO = new Date().toISOString();
+
+    const patch = { status:{} }; patch.status[cur.id] = {};
+    patch.status[cur.id][lane] = {
+      state: 'pågår',
+      by: driver,
+      rounds: s.rounds?.length
+        ? s.rounds
+        : [{ start: nowISO, by: driver }]
+    };
+    await window.Sync.setStatusPatch(patch);
+    uiUpdate();
+  }
+
+  async function actDone(){
+    const run  = getRun();
+    const lane = run.lane || currentLane();
+    const list = filteredAddresses();
+    if (!list.length) return;
+
+    const cur = list[run.idx];
+    const driver = settings().driver || '';
+
+    const s = getStatusFor(cur.id, lane);
+    const nowISO = new Date().toISOString();
+    let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
+    let lr = lastRoundForDriver(s, driver);
+
+    if (!lr) {
+      // ingen start registrert – opprett “ny runde” nå og fullfør
+      rounds.push({ start: nowISO, done: nowISO, by: driver });
+    } else {
+      // sett done på siste åpne runde
+      lr.done = nowISO;
+    }
+
+    const patch = { status:{} }; patch.status[cur.id] = {};
+    patch.status[cur.id][lane] = {
+      state: 'ferdig',
+      by: driver,
+      rounds
+    };
+    await window.Sync.setStatusPatch(patch);
+
+    uiUpdate();
+    // Automatisk gå videre
+    gotoNext();
+
+    // Dersom alt ferdig, foreslå neste steg
+    checkAllDoneDialog();
+  }
+
+  async function actSkip(){
+    const run  = getRun();
+    const lane = run.lane || currentLane();
+    const list = filteredAddresses();
+    if (!list.length) return;
+    const cur = list[run.idx];
+    const driver = settings().driver || '';
+
+    const patch = { status:{} }; patch.status[cur.id] = {};
+    patch.status[cur.id][lane] = { state:'hoppet', by:driver };
+    await window.Sync.setStatusPatch(patch);
+    uiUpdate();
+    gotoNext();
+  }
+
+  async function actBlock(){
+    const run  = getRun();
+    const lane = run.lane || currentLane();
+    const list = filteredAddresses();
+    if (!list.length) return;
+    const cur = list[run.idx];
+    const driver = settings().driver || '';
+
+    const patch = { status:{} }; patch.status[cur.id] = {};
+    patch.status[cur.id][lane] = { state:'blokkert', by:driver };
+    await window.Sync.setStatusPatch(patch);
+    uiUpdate();
+    gotoNext();
+  }
+
+  function actNext(){
+    gotoNext();
+  }
+
+  function actNav(){
+    const run  = getRun();
+    const list = filteredAddresses();
+    if(!list.length) return;
+
+    const idx  = Math.min(Math.max(run.idx ?? 0, 0), Math.max(list.length-1, 0));
+    const nxt  = list[nextIndex(idx, run.dir, list.length)] || list[idx];
+    window.open(mapsUrl(nxt), '_blank');
+  }
+
+  function wire(){
+    if (!$('#work')) return;
+
+    // lane + idx init fra settings hvis ikke satt
+    const st = settings();
+    const lane = st?.equipment?.sand ? 'grit' : 'snow';
+    const run = getRun();
+    if (!run.driver) setRun({ driver: st.driver||'' });
+    if (!run.dir)    setRun({ dir: st.dir||'Normal' });
+    if (!run.lane)   setRun({ lane });
+
+    // knapper
+    $('#act_start')?.addEventListener('click', actStart);
+    $('#act_done') ?.addEventListener('click', actDone);
+    $('#act_skip') ?.addEventListener('click', actSkip);
+    $('#act_next') ?.addEventListener('click', actNext);
+    $('#act_nav')  ?.addEventListener('click', actNav);
+    $('#act_block')?.addEventListener('click', actBlock);
+
+    // initial UI
+    uiUpdate();
+
+    // live oppdater når sync endrer seg
+    window.Sync.on('change', () => uiUpdate());
   }
 
   document.addEventListener('DOMContentLoaded', wire);
