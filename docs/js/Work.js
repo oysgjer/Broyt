@@ -45,7 +45,7 @@
     return st[addrId]?.[lane] || { state:'venter', by:null, rounds:[] };
   }
 
-  // Hopp over: ferdig, eller pågår av annen sjåfør
+  // Skal vi hoppe over denne adressen? Ferdig, eller "pågår" av en annen sjåfør
   function isSkip(addr, lane, myDriver){
     const s = getStatus(addr.id, lane);
     if (s.state === 'ferdig') return true;
@@ -85,20 +85,32 @@
     }
   }
 
-  // ===== Progress (kun teller opp) =====
+  // ===== Progress (kun teller opp – mine/andre fra siste "done"-runde) =====
+  function lastDoneBy(laneObj){
+    if (!laneObj?.rounds?.length) return null;
+    // Finn siste runde med done
+    for (let i=laneObj.rounds.length-1;i>=0;i--){
+      const r = laneObj.rounds[i];
+      if (r.done) return r.by || null;
+    }
+    return null;
+  }
+
   function computeProgressUI(lane){
     const my = settings().driver || '';
     const list = filteredAddresses(lane);
     const st = window.Sync.getCache().status || {};
-    let total = list.length;
+    const total = list.length;
     let mine = 0, other = 0, done = 0;
 
     for (const a of list){
-      const s = st[a.id]?.[lane];
-      if (s?.state === 'ferdig'){
+      const laneObj = st[a.id]?.[lane];
+      if (laneObj?.state === 'ferdig'){
         done++;
-        if (s.by === my) mine++;
-        else if (s.by) other++;
+        const who = lastDoneBy(laneObj);
+        if (who === my) mine++;
+        else if (who) other++;
+        else other++; // hvis ukjent, regn som "andre"
       }
     }
     return { total, mine, other, done };
@@ -111,10 +123,10 @@
     const otPct = Math.max(0, Math.min(100, Math.round(100 * pr.other / total)));
 
     const bm = $('#b_prog_me'), bo = $('#b_prog_other');
-    if (bm) bm.style.width = mePct + '%';     // venstre
-    if (bo) bo.style.width = otPct + '%';     // høyre (via CSS right:0)
+    if (bm) bm.style.width = mePct + '%';   // venstre
+    if (bo) bo.style.width = otPct + '%';   // høyre
 
-    // Vise kun oppad-tellende tall
+    // Vis kun oppad-tellende tall
     $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${pr.mine}`);
     $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${pr.other}`);
     $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(pr.done, pr.total)} av ${pr.total} adresser fullført`);
@@ -172,7 +184,7 @@
   function allDoneForLane(lane, my){
     const list = filteredAddresses(lane);
     if (!list.length) return false;
-    return list.every(a => isSkip(a, lane, my) || getStatus(a.id,lane).state==='ferdig');
+    return list.every(a => getStatus(a.id,lane).state==='ferdig' || isSkip(a,lane,my));
   }
 
   async function checkAllDoneDialog(){
@@ -226,6 +238,7 @@
     const nowISO = new Date().toISOString();
 
     let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
+    // start ny runde hvis ingen eller forrige er avsluttet
     if (!rounds.length || rounds[rounds.length-1].done){
       rounds.push({ start: nowISO, by: my });
     }
@@ -254,6 +267,7 @@
     const s = getStatus(cur.id, lane);
     const nowISO = new Date().toISOString();
     let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
+    // hvis siste runde er min og ikke avsluttet, avslutt den; ellers lag en start+done nå
     if (rounds.length && !rounds[rounds.length-1].done && rounds[rounds.length-1].by===my){
       rounds[rounds.length-1].done = nowISO;
     } else {
@@ -286,7 +300,7 @@
     const cur = list[idx];
     const patch = { status:{} };
     patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = { state:'hoppet', by: my };
+    patch.status[cur.id][lane] = { state:'hoppet', by: my, rounds: (getStatus(cur.id,lane).rounds||[]) };
     await window.Sync.setStatusPatch(patch);
 
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
@@ -305,7 +319,7 @@
     const cur = list[idx];
     const patch = { status:{} };
     patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = { state:'blokkert', by: my };
+    patch.status[cur.id][lane] = { state:'blokkert', by: my, rounds: (getStatus(cur.id,lane).rounds||[]) };
     await window.Sync.setStatusPatch(patch);
 
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
