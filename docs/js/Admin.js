@@ -37,6 +37,7 @@
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:90px">Pinner</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:120px">Lat</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:120px">Lon</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:92px">Rekkefølge</th>
             </tr>
           </thead>
           <tbody id="adm_tbody"></tbody>
@@ -64,11 +65,23 @@
     render();
   }
 
+  function moveRow(id, dir){
+    const i = ADDR.findIndex(a => a.id === id);
+    if (i < 0) return;
+    if (dir === 'up' && i > 0){
+      [ADDR[i-1], ADDR[i]] = [ADDR[i], ADDR[i-1]];
+    } else if (dir === 'down' && i < ADDR.length-1){
+      [ADDR[i+1], ADDR[i]] = [ADDR[i], ADDR[i+1]];
+    }
+    render();
+  }
+
   function render(){
     const tb = $('#adm_tbody'); if (!tb) return;
-    tb.innerHTML = (ADDR||[]).map(a=>{
+    tb.innerHTML = (ADDR||[]).map((a,ix)=>{
       const snow = !!(a.tasks?.snow ?? a.flags?.snow ?? true);
       const grit = !!(a.tasks?.grit ?? a.flags?.grit ?? false);
+      const canUp = ix>0, canDown = ix<ADDR.length-1;
       return `
         <tr data-id="${a.id}">
           <td style="padding:6px;border-bottom:1px solid var(--sep)">
@@ -100,9 +113,22 @@
                    style="max-width:140px"
                    value="${a.lon??''}">
           </td>
+          <td style="padding:6px;border-bottom:1px solid var(--sep)">
+            <div class="row" style="gap:6px">
+              <button class="btn-ghost adm_up"   ${canUp?'':'disabled'}   title="Flytt opp">⬆️</button>
+              <button class="btn-ghost adm_down" ${canDown?'':'disabled'} title="Flytt ned">⬇️</button>
+            </div>
+          </td>
         </tr>
       `;
     }).join('');
+
+    // wire rad-hendelser
+    tb.querySelectorAll('tr').forEach(tr=>{
+      const id = tr.dataset.id;
+      tr.querySelector('.adm_up')  ?.addEventListener('click', ()=>moveRow(id,'up'));
+      tr.querySelector('.adm_down')?.addEventListener('click', ()=>moveRow(id,'down'));
+    });
   }
 
   function pullFromDOM(){
@@ -131,6 +157,7 @@
   async function saveAll(){
     try{
       const prepared = pullFromDOM();
+      // behold samme rekkefølge som i tabellen (prepared er i riktig rekkefølge)
       ADDR = await Sync.saveAddresses(prepared);
       alert('Lagret ✅');
       render();
