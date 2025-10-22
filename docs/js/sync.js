@@ -1,5 +1,6 @@
 /* js/sync.js
    JSONBin-klient + cache + normalisering + status/lagring
+   Oppdatert: setter _fetchedAt også etter PUT (status/lagring) slik at synk-tid vises riktig.
 */
 (() => {
   'use strict';
@@ -43,7 +44,7 @@
   const _cache = RJ(K_CACHE, { addresses:[], status:{}, _fetchedAt:null, raw:null });
   function getCache(){ return {..._cache}; }
 
-  // --- hjelpe: bool fra alt mulig (true/false, "true"/"false", 1/0)
+  // --- hjelpe: bool fra alt mulig
   const asBool = v => (v===true || v===1 || v==='1' || (typeof v==='string' && v.toLowerCase()==='true'));
 
   function _normalizeAddresses(list){
@@ -120,7 +121,7 @@
     _cache.addresses = addresses;
     _cache.status    = status;
     _cache.raw       = rec;
-    _cache._fetchedAt= Date.now();
+    _cache._fetchedAt= Date.now();         // <- OPPDATERT VED GET
     WJ(K_CACHE, _cache);
     emit('change', getCache());
     return getCache();
@@ -152,8 +153,8 @@
       };
     }
     _cache.status = st;
-    WJ(K_CACHE, _cache);
 
+    // Skriv tilbake i raw: pakk status til statusSnow/statusGrit
     const raw = _cache.raw || {};
     raw.statusSnow = raw.statusSnow || {};
     raw.statusGrit = raw.statusGrit || {};
@@ -163,6 +164,12 @@
     }
 
     await _putRecord(raw);
+
+    // <- NYTT: oppdater synk-tid OGSÅ ETTER PUT
+    _cache.raw        = raw;
+    _cache._fetchedAt = Date.now();
+    WJ(K_CACHE, _cache);
+
     emit('change', getCache());
     return true;
   }
@@ -183,12 +190,17 @@
     });
 
     _cache.addresses = _normalizeAddresses(list);
-    WJ(K_CACHE, _cache);
 
     const raw = _cache.raw || {};
     raw.snapshot = raw.snapshot || {};
     raw.snapshot.addresses = list;
+
     await _putRecord(raw);
+
+    // <- NYTT: oppdater synk-tid ETTER PUT av adresser
+    _cache.raw        = raw;
+    _cache._fetchedAt = Date.now();
+    WJ(K_CACHE, _cache);
 
     emit('change', getCache());
     return _cache.addresses;
