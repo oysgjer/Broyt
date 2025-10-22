@@ -21,15 +21,16 @@
   top:0; bottom:0; left:0;
   width:0%;
   background:#22c55e;
-  z-index:1;               /* ligg over bakgrunnen */
+  z-index:1;                 /* grønn under lilla hvis overlapp skulle oppstå */
 }
 .work-prog .other{
   position:absolute;
-  top:0; bottom:0; right:0;   /* vokser FRA høyre */
+  top:0; bottom:0; right:0;  /* vokser FRA høyre */
+  left:auto;
   width:0%;
   background:#a78bfa;
-  opacity:.95;
-  z-index:1;
+  opacity:.98;
+  z-index:2;                 /* sørg for at lilla er synlig over grønn ved overlap */
 }
 .work-caption{
   display:flex;
