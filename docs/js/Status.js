@@ -2,130 +2,134 @@
 (() => {
   'use strict';
 
-  const $ = (s,r=document)=>r.querySelector(s);
-  const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
-  const K_RUN='BRYT_RUN';
+  const $  = (s, r = document) => r.querySelector(s);
+  const JGET = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 
-  let DATA = [];
+  const K_RUN = 'BRYT_RUN';
 
-  function roundKey(a){
-    const pick = a.snowStart || a.gritStart || a.snowEnd || a.gritEnd;
-    if (!pick) return '—';
-    const d = new Date(pick);
-    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
-    const t = (a.snowStart || a.snowEnd) ? 'SNØ' : 'GRUS';
-    return `${y}-${m}-${dd} ${t}`;
-    // senere kan vi gruppere på timevindu hvis ønskelig
+  const Sync = {
+    have() { return !!window.Sync; },
+    addresses() {
+      if (!window.Sync) return [];
+      if (typeof window.Sync.getAddresses === 'function') return window.Sync.getAddresses() || [];
+      if (Array.isArray(window.Sync.addresses)) return window.Sync.addresses;
+      if (window.Sync.cache && Array.isArray(window.Sync.cache.addresses)) return window.Sync.cache.addresses;
+      return [];
+    },
+    statuses() {
+      if (!window.Sync) return {};
+      if (typeof window.Sync.getStatuses === 'function') return window.Sync.getStatuses() || {};
+      if (window.Sync.cache && window.Sync.cache.statuses) return window.Sync.cache.statuses;
+      return {};
+    }
+  };
+
+  function currentMode() {
+    const run = JGET(K_RUN, null);
+    if (run?.mode) return run.mode;
+    const sand = !!run?.equipment?.sand;
+    return sand ? 'grus' : 'snow';
   }
 
-  function ensureUI(){
+  function activeList() {
+    const all = Sync.addresses();
+    const mode = currentMode();
+    const hasTask = (a) => {
+      if (!a) return false;
+      if (mode === 'grus') {
+        if (typeof a.grus === 'boolean') return a.grus;
+        if (a.tasks && typeof a.tasks.grus === 'boolean') return a.tasks.grus;
+        return false;
+      } else {
+        if (typeof a.snow === 'boolean') return a.snow;
+        if (a.tasks && typeof a.tasks.snow === 'boolean') return a.tasks.snow;
+        return true;
+      }
+    };
+    return all.filter(hasTask);
+  }
+
+  function humanState(s) {
+    if (!s) return 'Ikke påbegynt';
+    switch (s.state) {
+      case 'start': return 'Pågår';
+      case 'done':  return 'Ferdig';
+      case 'skip':  return 'Hoppet over';
+      case 'block': return 'Ikke mulig';
+      default:      return 'Ikke påbegynt';
+    }
+  }
+
+  function renderTable() {
     const host = $('#status');
-    if (!host || host.dataset.enhanced) return;
+    if (!host || host.hasAttribute('hidden')) return;
 
-    host.innerHTML = `
-      <h1>Status</h1>
+    const list = activeList();
+    const statuses = Sync.statuses();
 
-      <div class="work-top" style="margin-bottom:14px">
-        <div class="row" style="gap:10px; flex-wrap:wrap">
-          <button id="st_refresh" class="btn-ghost">Oppfrisk</button>
-          <button id="st_reset_mine" class="btn-ghost">Nullstill min runde</button>
-          <button id="st_reset_all" class="btn-ghost">Nullstill alt</button>
-          <select id="st_round" class="input" style="max-width:220px"></select>
-        </div>
-      </div>
-
+    // bygg enkel tabell
+    let html = `
       <div class="card" style="overflow:auto">
-        <table id="st_table" style="width:100%; border-collapse:collapse">
-          <thead style="position:sticky; top:0; background:var(--surface);">
+        <table style="width:100%; border-collapse:separate; border-spacing:0 8px">
+          <thead>
             <tr>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">#</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Adresse</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Startet snø</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Ferdig snø</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Startet grus</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Ferdig grus</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Sjåfør</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep)">Runde</th>
+              <th style="text-align:left; padding:8px">#</th>
+              <th style="text-align:left; padding:8px">Adresse</th>
+              <th style="text-align:left; padding:8px">Status</th>
+              <th style="text-align:left; padding:8px">Sjåfør</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+    `;
+
+    list.forEach((a, i) => {
+      const id = a.id || a._id;
+      const st = statuses[id] || null;
+      const who = st?.driver || '—';
+      html += `
+        <tr>
+          <td style="padding:6px 8px; opacity:.8">${i+1}</td>
+          <td style="padding:6px 8px">${a.name || a.title || a.address || id}</td>
+          <td style="padding:6px 8px">${humanState(st)}</td>
+          <td style="padding:6px 8px">${who}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
         </table>
       </div>
     `;
-    host.dataset.enhanced='1';
 
-    $('#st_refresh')?.addEventListener('click', load);
-    $('#st_reset_mine')?.addEventListener('click', resetMine);
-    $('#st_reset_all')?.addEventListener('click', resetAll);
-    $('#st_round')?.addEventListener('change', render);
-  }
+    // liten topp-oppsummering
+    const done = list.filter(a => {
+      const st = statuses[a.id || a._id];
+      return st?.state === 'done';
+    }).length;
 
-  function stamp(x){ return x ? new Date(x).toLocaleString() : ''; }
+    const header = $('#status_header');
+    if (header) header.textContent = `Status – ${done} av ${list.length} fullført`;
 
-  function buildRoundOptions(){
-    const sel = $('#st_round'); if (!sel) return;
-    const keys = Array.from(new Set(DATA.map(roundKey)));
-    sel.innerHTML = `<option value="">Alle runder</option>` + keys
-      .filter(k=>k!=='—')
-      .map(k=>`<option>${k}</option>`).join('');
-  }
-
-  function render(){
-    const tb = $('#st_table tbody'); if (!tb) return;
-    const chosen = $('#st_round')?.value || '';
-
-    let rows = DATA.slice();
-    if (chosen){
-      rows = rows.filter(a => roundKey(a)===chosen);
+    const cont = $('#status_table');
+    if (cont) cont.innerHTML = html;
+    else {
+      // første gang: sett opp containere
+      host.innerHTML = `
+        <h1 id="status_header">Status</h1>
+        ${html}
+      `;
     }
-
-    tb.innerHTML = rows.map((a,i)=>`
-      <tr>
-        <td style="padding:8px;border-bottom:1px solid var(--sep)">${i+1}</td>
-        <td style="padding:8px;border-bottom:1px solid var(--sep)">${a.name}</td>
-        <td style="padding:8px;border-bottom:1px solid var(--sep)">${stamp(a.snowStart)}</td>
-        <td style="padding:8px;border-bottom:1px solid var(--sep)">${stamp(a.snowEnd)}</td>
-        <td style="padding:8px;border-bottom:1px solid var(--sep)">${stamp(a.gritStart)}</td>
-        <td style="padding:8px;border-bottom:1px solid var(--sep)">${stamp(a.gritEnd)}</td>
-        <td style="padding:8px;border-bottom:1px solid var(--sep)">${a.driver||''}</td>
-        <td style="padding:8px;border-bottom:1px solid var(--sep)">${roundKey(a)}</td>
-      </tr>
-    `).join('');
   }
 
-  async function resetMine(){
-    const r = RJ(K_RUN, {driver:''});
-    if (!r.driver){ alert('Ingen fører satt.'); return; }
-    if (!confirm(`Nullstille dine markeringer (sjåfør: ${r.driver})?`)) return;
-
-    const mine = DATA.filter(a => a.driver===r.driver);
-    for (const a of mine){
-      await Sync.setStatus(a.id, { snowStart:null, snowEnd:null, gritStart:null, gritEnd:null, skipped:false, blocked:false, driver:'' });
+  function wire() {
+    window.addEventListener('hashchange', renderTable);
+    if (Sync.have() && typeof window.Sync.on === 'function') {
+      window.Sync.on('status-changed', renderTable);
+      window.Sync.on('addresses-loaded', renderTable);
     }
-    await load();
+    renderTable();
   }
 
-  async function resetAll(){
-    if (!confirm('Nullstille ALLE adresser for dagen?')) return;
-    for (const a of DATA){
-      await Sync.setStatus(a.id, { snowStart:null, snowEnd:null, gritStart:null, gritEnd:null, skipped:false, blocked:false, driver:'' });
-    }
-    await load();
-  }
-
-  async function load(){
-    try{
-      DATA = await Sync.loadAddresses({ force:true });
-      buildRoundOptions();
-      render();
-    }catch(e){ console.error(e); alert('Kunne ikke laste status: '+e.message); }
-  }
-
-  function boot(){
-    ensureUI();
-    if (location.hash==='#status') load();
-  }
-
-  window.addEventListener('hashchange', ()=>{ if (location.hash==='#status') boot(); });
-  document.addEventListener('DOMContentLoaded', boot);
+  document.addEventListener('DOMContentLoaded', wire);
 })();
