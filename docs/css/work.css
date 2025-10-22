@@ -83,34 +83,53 @@
   .addr-now{ font-size:1.2rem; }
   .addr-next{ font-size:1rem; }
 }
-/* ===== STORE KNAPPER PÅ UNDER ARBEID ===== */
+/* ===== XL-KNAPPER (GLOBALT I UNDER ARBEID) ===== */
 #work .btn {
-  min-height: 64px;           /* stor trykkflate */
-  padding: 16px 18px;
-  font-size: 1.10rem;
-  font-weight: 700;
-  border-radius: 14px;
+  min-height: 82px;               /* større trykkflate */
+  padding: 20px 24px;
+  font-size: 1.3rem;              /* større tekst */
+  font-weight: 800;               /* ekstra fet */
+  border-radius: 16px;            /* myke hjørner */
   justify-content: center;
+  text-transform: none;           /* behold normal tekst */
+  letter-spacing: 0.02em;
 }
 
-#work .btn .ico {
-  font-size: 1.25em;
-  margin-right: 10px;          /* litt luft hvis du viser ikon + tekst */
+/* Start og Ferdig fremheves ekstra */
+#work .btn-primary,
+#work #act_start,
+#work #act_done {
+  min-height: 96px;
+  font-size: 1.45rem;
+  font-weight: 900;
+  border-radius: 18px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+  transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+}
+#work .btn-primary:active,
+#work #act_start:active,
+#work #act_done:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 
+/* Juster knapp-grid for store knapper */
 #work .btn-grid {
-  grid-template-columns: 1fr 1fr;  /* to store knapper pr rad */
-  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 20px;
 }
 
+/* For veldig små skjermer (iPhone SE etc.) */
 @media (max-width: 420px) {
   #work .btn {
-    min-height: 68px;          /* enda større på mobil */
-    font-size: 1.15rem;
+    min-height: 90px;
+    font-size: 1.25rem;
   }
-}
-#work .btn-primary {
-  min-height: 72px;
-  font-size: 1.2rem;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+  #work .btn-primary,
+  #work #act_start,
+  #work #act_done {
+    min-height: 100px;
+    font-size: 1.4rem;
+  }
 }
