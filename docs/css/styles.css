@@ -154,3 +154,29 @@ section[hidden]{display:none !important}
 @media (max-width:420px){
   main{padding:14px}
 }
+/* Admin-tabell: kolonnebredder og innpakning */
+#adm_table { table-layout: fixed; width: 100%; border-collapse: collapse; }
+#adm_table th, #adm_table td { vertical-align: middle; }
+
+/* Bred adressekolonne + coord-tekstfelt i full bredde */
+#adm_table th:nth-child(2), #adm_table td:nth-child(2) { width: 44%; }
+#adm_table th:nth-child(6), #adm_table td:nth-child(6) { width: 20%; }
+
+#adm_table .adm_name { width: 100%; }
+#adm_table .adm_coords { width: 100%; }
+
+/* Pins-felt lite (2 siffer) */
+#adm_table .adm_pins { max-width: 90px; text-align: right; }
+
+/* Sentrer Snø/Grus avkrysningsbokser */
+#adm_table td:nth-child(3), #adm_table td:nth-child(4) { text-align: center; }
+
+/* Rekkefølgeknapper tett samlet */
+#adm_table .adm_up, #adm_table .adm_down { padding: 6px 8px; }
+
+/* Mobil: unngå knust header – litt mindre tekst */
+@media (max-width: 420px){
+  #adm_table thead th { font-size: 12px; }
+  #adm_table th:nth-child(2), #adm_table td:nth-child(2) { width: 42%; }
+  #adm_table th:nth-child(6), #adm_table td:nth-child(6) { width: 22%; }
+}
