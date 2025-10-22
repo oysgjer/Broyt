@@ -133,3 +133,51 @@
     font-size: 1.4rem;
   }
 }
+
+/* ===== XL+ KNAPPER FOR UNDER ARBEID ===== */
+#work .btn {
+  min-height: 120px;          /* større flate for alle knapper */
+  padding: 28px 30px;
+  font-size: 1.6rem;          /* stor tekst */
+  font-weight: 900;           /* ekstra fet */
+  border-radius: 20px;
+  justify-content: center;
+}
+
+/* Ekstra store hovedknapper Start og Ferdig */
+#work .btn-primary,
+#work #act_start,
+#work #act_done {
+  min-height: 140px;
+  font-size: 1.8rem;
+  border-radius: 22px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  transition: transform 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+#work .btn-primary:active,
+#work #act_start:active,
+#work #act_done:active {
+  transform: scale(0.96);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+}
+
+/* Grid: to svære knapper pr rad med god luft */
+#work .btn-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+/* Mobil – litt tilpasning så det fortsatt ser balansert ut */
+@media (max-width: 420px) {
+  #work .btn {
+    min-height: 130px;
+    font-size: 1.55rem;
+  }
+  #work .btn-primary,
+  #work #act_start,
+  #work #act_done {
+    min-height: 150px;
+    font-size: 1.7rem;
+  }
+}
