@@ -1,29 +1,101 @@
-/* css/work.css */
+/* ===== Under arbeid – layout, statusbar, knapper ===== */
 
 .work-top{
-  border:1px solid var(--sep); border-radius:14px; background:var(--surface);
-  padding:12px; margin:0 0 14px 0;
+  border:1px solid var(--sep);
+  border-radius:14px;
+  background:var(--surface);
+  padding:12px;
+  margin-bottom:14px;
 }
-.work-prog{position:relative; height:12px; border-radius:999px; background:#1f2937; overflow:hidden}
-.work-prog .other{position:absolute; inset:0 auto 0 0; width:0%; background:#a78bfa; opacity:.85}
-.work-prog .me{position:absolute; inset:0 auto 0 0; width:0%; background:#22c55e} /* snø = grønn */
-.work-prog .me.is-grus{ background:#f59e0b; } /* grus = oransje */
-.work-caption{display:flex; justify-content:space-between; font-size:.9rem; color:var(--muted); margin-top:6px}
 
-.work-card{ background:var(--surface); border:1px solid var(--sep); border-radius:14px; padding:12px; }
-.addr-now{ font-size:1.8rem; font-weight:800; letter-spacing:.2px; }
-.addr-next{ font-size:1.1rem; font-weight:600; color:var(--muted); }
+/* Progress-stav: mine (venstre), andre (høyre) */
+.work-prog{
+  position:relative;
+  height:12px;
+  border-radius:999px;
+  background:#1f2937; /* mørk bakgrunn for kontrast */
+  overflow:hidden;
+}
+.work-prog .me{
+  position:absolute;
+  top:0; bottom:0; left:0;
+  width:0%;
+  background:#22c55e;           /* grønn */
+}
+.work-prog .other{
+  position:absolute;
+  top:0; bottom:0; right:0;      /* vokser fra høyre */
+  width:0%;
+  background:#a78bfa;            /* lilla */
+  opacity:.9;
+}
+.work-caption{
+  display:flex;
+  justify-content:space-between;
+  font-size:.95rem;
+  color:var(--muted);
+  margin-top:8px;
+}
+.work-caption strong{
+  color:var(--text);
+}
+
+/* Kortet under: Nå/Neste/knapper */
+.work-card{
+  border:1px solid var(--sep);
+  border-radius:14px;
+  background:var(--surface);
+  padding:14px;
+}
+
+.label-muted{
+  color:var(--muted);
+  font-size:.9rem;
+}
+
+.addr-now{
+  font-size:1.25rem;
+  font-weight:800;
+  line-height:1.2;
+  margin-top:4px;
+}
+.addr-next{
+  font-size:1rem;
+  font-weight:600;
+  line-height:1.2;
+  margin-top:4px;
+  opacity:.9;
+}
 
 .btn-grid{
-  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0 8px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-top:14px;
 }
-.btn, .btn-ghost{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  height:48px; border-radius:12px; font-weight:700;
+.btn-grid .btn{
+  justify-content:center;
 }
-.btn-ghost{ background:transparent; border:1px solid var(--sep); color:var(--text); }
 
-.row{ display:flex; gap:10px; flex-wrap:wrap; }
+/* Puls på aktive knapper */
+.pulse {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(1); filter:brightness(1); }
+  50% { transform: scale(1.02); filter:brightness(1.08); }
+  100% { transform: scale(1); filter:brightness(1); }
+}
 
-.label-muted{ color:var(--muted); font-weight:700; margin-bottom:6px; }
-.work-meta{ color:var(--muted); margin-top:8px; }
+/* Meta-linje */
+.work-meta{
+  margin-top:10px;
+  font-size:.95rem;
+  color:var(--muted);
+}
+
+/* Små skjermer */
+@media (max-width:420px){
+  .addr-now{ font-size:1.2rem; }
+  .addr-next{ font-size:1rem; }
+}
