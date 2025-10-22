@@ -48,15 +48,16 @@
       </div>
 
       <div class="card" style="overflow:auto">
-        <table id="adm_table" style="width:100%; border-collapse:collapse">
+        <table id="adm_table" style="width:100%; border-collapse:collapse; table-layout:fixed">
           <thead style="position:sticky; top:0; background:var(--surface);">
             <tr>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:42%">Adresse</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:7%">Snø</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:7%">Grus</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:10%">Pinner</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:26%">Koordinater (lat, lon)</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:8%">Slett</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:86px">Rekkefølge</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:44%">Adresse</th>
+              <th style="text-align:center;padding:8px;border-bottom:1px solid var(--sep);width:8%">Snø</th>
+              <th style="text-align:center;padding:8px;border-bottom:1px solid var(--sep);width:8%">Grus</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:10%">Pinner</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:20%">Koordinater (lat, lon)</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep);width:8%">Slett</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -98,28 +99,24 @@
   /* -------------------- Hjelpere -------------------- */
   function formatCoords(a){
     if (a?.lat==null || a?.lon==null) return '';
-    // Vis i lat, lon-rekkefølge (Google Maps-klipp passer)
-    return `${a.lat}, ${a.lon}`;
+    return `${a.lat}, ${a.lon}`; // vises i lat, lon-rekkefølge
   }
-
   function parseCoords(str){
-    // Godta "(60.2661131, 11.1962700)" eller "60.2661131,11.1962700" eller "60.2661131 11.1962700"
     let s = String(str||'').trim();
     if (!s) return {lat:null, lon:null};
     s = s.replace(/[()]/g,'').replace(';',',').replace(/\s+/g,' ').trim();
-
-    // split på komma først, ellers på mellomrom
     let parts = s.includes(',') ? s.split(',') : s.split(' ');
     parts = parts.map(p=>p.trim()).filter(Boolean);
     if (parts.length < 2) return {lat:null, lon:null};
-
     const lat = parseFloat(parts[0].replace(',','.'));
     const lon = parseFloat(parts[1].replace(',','.'));
-
     if (Number.isFinite(lat) && Number.isFinite(lon) && lat>=-90 && lat<=90 && lon>=-180 && lon<=180){
       return {lat, lon};
     }
     return {lat:null, lon:null};
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
   /* -------------------- Data → tabell -------------------- */
@@ -131,12 +128,23 @@
   function render(){
     const tb = $('#adm_table tbody'); if (!tb) return;
     const q = ($('#adm_filter')?.value || '').toLowerCase();
-    const rows = ADDR.filter(a => (a.name||'').toLowerCase().includes(q));
 
-    tb.innerHTML = rows.map((a)=>`
-      <tr data-id="${a.id}">
+    // Lag en visningsliste med ekte indeks (for reordering selv ved filter)
+    const view = ADDR
+      .map((a,idx)=>({a,idx}))
+      .filter(x => (x.a.name||'').toLowerCase().includes(q));
+
+    tb.innerHTML = view.map(({a,idx})=>`
+      <tr data-id="${a.id}" data-idx="${idx}">
         <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <input class="adm_name input" value="${escapeHtml(a.name||'')}" />
+          <div class="row" style="gap:6px; flex-wrap:nowrap">
+            <button class="btn-ghost adm_up"   title="Flytt opp">⬆️</button>
+            <button class="btn-ghost adm_down" title="Flytt ned">⬇️</button>
+            <span class="muted" style="min-width:34px;text-align:right">${idx+1}</span>
+          </div>
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <input class="adm_name input" style="width:100%" value="${escapeHtml(a.name||'')}" />
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--sep); text-align:center">
           <input type="checkbox" class="adm_snow" ${a.snow?'checked':''} />
@@ -144,11 +152,11 @@
         <td style="padding:6px;border-bottom:1px solid var(--sep); text-align:center">
           <input type="checkbox" class="adm_grit" ${a.grit?'checked':''} />
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep); max-width:80px">
-          <input class="adm_pins input" type="number" min="0" max="99" style="max-width:80px" value="${a.pins??0}">
+        <td style="padding:6px;border-bottom:1px solid var(--sep); max-width:90px">
+          <input class="adm_pins input" type="number" min="0" max="99" style="max-width:90px" value="${a.pins??0}">
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <input class="adm_coords input" placeholder="60.2661131, 11.1962700" value="${escapeHtml(formatCoords(a))}">
+          <input class="adm_coords input" style="width:100%" placeholder="60.2661131, 11.1962700" value="${escapeHtml(formatCoords(a))}">
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--sep)">
           <button class="btn-ghost adm_del">Slett</button>
@@ -158,16 +166,24 @@
 
     // wire rad-hendelser
     tb.querySelectorAll('tr').forEach(tr=>{
-      const id = tr.dataset.id;
+      const id  = tr.dataset.id;
+      const idx = Number(tr.dataset.idx);
+
       tr.querySelector('.adm_del')?.addEventListener('click', ()=>{
         ADDR = ADDR.filter(a => a.id!==id);
         render();
       });
+      tr.querySelector('.adm_up')?.addEventListener('click', ()=>{
+        if (idx <= 0) return;
+        [ADDR[idx-1], ADDR[idx]] = [ADDR[idx], ADDR[idx-1]];
+        render();
+      });
+      tr.querySelector('.adm_down')?.addEventListener('click', ()=>{
+        if (idx >= ADDR.length-1) return;
+        [ADDR[idx+1], ADDR[idx]] = [ADDR[idx], ADDR[idx+1]];
+        render();
+      });
     });
-  }
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
   /* -------------------- DOM → Data -------------------- */
@@ -182,11 +198,9 @@
       const pins = Number(tr.querySelector('.adm_pins')?.value || 0);
       const coordStr = tr.querySelector('.adm_coords')?.value || '';
       const {lat,lon} = parseCoords(coordStr);
-
       out.push({ id, name, snow, grit, pins, lat, lon });
     });
-
-    // bevar felt som ikke editeres i tabell nå (hvis noe)
+    // bevar uendrede felt fra eksisterende liste
     return out.map(row=>{
       const old = ADDR.find(a=>a.id===row.id) || {};
       return { ...old, ...row };
@@ -198,13 +212,13 @@
     try{
       const prepared = pullFromDOM();
 
-      // Valider coords ganske snilt; gi info, men lagre likevel
+      // Snill validering av coords
       const bad = prepared.filter(a => (a.lat!=null && (a.lat<-90 || a.lat>90)) || (a.lon!=null && (a.lon<-180 || a.lon>180)));
       if (bad.length){
-        alert('Obs: Noen koordinater ser feil ut (lat må være -90..90, lon -180..180). Kontroller disse adressene etter lagring.');
+        alert('Obs: Noen koordinater ser feil ut (lat -90..90, lon -180..180). Kontroller disse etter lagring.');
       }
 
-      ADDR = await Sync.saveAddresses(prepared);  // server/JSONBin oppdateres
+      ADDR = await Sync.saveAddresses(prepared);  // JSONBin oppdateres inkl. rekkefølge
       alert('Lagret ✅');
       render();
     }catch(e){ console.error(e); alert('Kunne ikke lagre: '+(e.message||e)); }
@@ -227,7 +241,7 @@
   }
 
   function copyPins(){
-    alert('Kopiering av pinner fra forrige sesong er notert – vi kan senere koble mot historikk hvis ønskelig.');
+    alert('Kopiering av pinner fra forrige sesong er notert – kan kobles til historikk senere.');
   }
 
   async function load(){
