@@ -94,4 +94,63 @@ body{
 .drawer-section{margin:10px 8px 6px; font-weight:700; opacity:.9}
 .drawer-list{list-style:none; margin:6px 0 14px; padding:0}
 .drawer-link{
-  display:flex; align
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:10px; color:inherit; text-decoration:none;
+}
+.drawer-link:hover{background:var(--sep)}
+.drawer-link .emoji{width:22px; text-align:center}
+
+/* Cards / rows */
+.card{
+  margin:12px 8px; padding:12px; border-radius:12px;
+  background:var(--surface); border:1px solid var(--sep);
+}
+.row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+
+/* ========= Layout main ========= */
+main{padding:18px}
+section[hidden]{display:none !important}
+
+/* ========= Form / inputs ========= */
+.field{display:block; margin:14px 0 10px}
+.field > span{display:block; margin-bottom:6px; color:var(--text); font-weight:700}
+.input, select, .input-like{
+  width:100%; border:1px solid var(--sep); border-radius:10px;
+  background:transparent; color:var(--text); padding:10px 12px;
+}
+.checkbox-col{display:flex; flex-direction:column}
+.checkbox-row{display:flex; flex-direction:row; gap:10px; align-items:center}
+.muted{color:var(--muted)} .muted-strong{color:var(--text); opacity:.9}
+
+.btn{
+  display:inline-flex; align-items:center; gap:8px;
+  border:0; border-radius:12px; padding:12px 16px;
+  background:var(--primary); color:white; font-weight:700;
+}
+.btn-ghost{background:transparent; border:1px solid var(--sep); color:var(--text)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.5; pointer-events:none}
+
+/* ========= Work-top (progress/status) ========= */
+.work-top{
+  border:1px solid var(--sep); border-radius:14px; background:var(--surface);
+  padding:12px; margin-bottom:14px;
+}
+.work-prog{position:relative; height:10px; border-radius:999px; background:#1f2937; overflow:hidden}
+.work-prog .me{position:absolute; left:0; top:0; bottom:0; width:0%; background:#22c55e}
+.work-prog .other{position:absolute; left:0; top:0; bottom:0; width:0%; background:#a78bfa; opacity:.85}
+.work-caption{display:flex; justify-content:space-between; font-size:.9rem; color:var(--muted); margin-top:6px}
+
+/* ========= Work card ========= */
+.work-card .label-muted{color:var(--muted); font-size:.9rem}
+.addr-now{font-size:1.3rem; font-weight:800; margin-top:4px}
+.addr-next{font-size:1.05rem; font-weight:600; opacity:.9; margin-top:2px}
+.btn-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;
+}
+.work-meta{margin-top:10px; color:var(--muted)}
+
+/* Små skjermer */
+@media (max-width:420px){
+  main{padding:14px}
+}
