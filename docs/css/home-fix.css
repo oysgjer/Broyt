@@ -1,0 +1,78 @@
+/* --- HJEM: tydeligere felter, vertikale avkryssinger, tydelig "Rekkefølge" --- */
+
+/* generelt */
+:root{
+  --field-bg: rgba(0,0,0,.04);
+  --field-bd: rgba(0,0,0,.15);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --field-bg: rgba(255,255,255,.04);
+    --field-bd: rgba(255,255,255,.12);
+  }
+}
+
+/* blokk rundt hvert felt */
+.field {
+  display:block;
+  margin: 14px 0;
+}
+
+.field > span {
+  display:block;
+  font-weight: 700;
+  letter-spacing:.2px;
+  margin: 4px 0 8px;
+}
+
+/* selve input’ene */
+.input, select, .input-like {
+  width: 100%;
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--field-bd);
+  background: var(--field-bg);
+  font-size: 1.05rem;
+}
+
+/* navn-input enda tydeligere */
+#a_driver.input {
+  font-size: 1.1rem;
+  padding: 14px 16px;
+  border-width: 2px;
+}
+
+/* utstyr: vertikal liste med luft */
+.checkbox-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.checkbox-col label {
+  display:flex; align-items:center; gap:10px;
+  font-size: 1.06rem;
+}
+
+/* rekkefølge: sett label + select på én linje for tydelighet */
+.field.dir-field > .dir-row {
+  display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+}
+.field.dir-field select {
+  max-width: 220px;
+  font-weight: 600;
+}
+
+/* start-knappen tydelig og stor */
+#a_start.btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height: 48px;
+  min-width: 180px;
+  border-radius: 14px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* små skjermer */
+@media (max-width:420px){
+  #a_start.btn{ width:100%; }
+}
