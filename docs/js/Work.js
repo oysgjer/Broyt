@@ -34,7 +34,6 @@
     return (window.Sync.getCache().addresses || []);
   }
   function laneFilter(a, lane){
-    // kun adresser som har oppgaven (snow/grit)
     return !!(a?.tasks?.[lane]);
   }
   function filteredAddresses(lane){
@@ -46,7 +45,7 @@
     return st[addrId]?.[lane] || { state:'venter', by:null, rounds:[] };
   }
 
-  // Skal vi hoppe over et punkt? (ferdig, eller pågår av en annen sjåfør)
+  // Hopp over: ferdig, eller pågår av annen sjåfør
   function isSkip(addr, lane, myDriver){
     const s = getStatus(addr.id, lane);
     if (s.state === 'ferdig') return true;
@@ -54,38 +53,39 @@
     return false;
   }
 
-  // Finn første gyldige indeks gitt retning og lane
+  // Første gyldige indeks ved init
   function initialIndex(list, dir, lane, myDriver){
     if (!list.length) return null;
     if (dir === 'Motsatt'){
-      for (let i = list.length - 1; i >= 0; i--){
+      for (let i=list.length-1; i>=0; i--){
         if (!isSkip(list[i], lane, myDriver)) return i;
       }
       return null;
     } else {
-      for (let i = 0; i < list.length; i++){
+      for (let i=0; i<list.length; i++){
         if (!isSkip(list[i], lane, myDriver)) return i;
       }
       return null;
     }
   }
 
-  // Finn neste gyldige indeks fra nåværende posisjon (inkl. hopp over)
+  // Neste gyldige indeks i valgt retning
   function findNextIndex(list, curIdx, dir, lane, myDriver){
     if (!list.length || curIdx == null) return null;
     if (dir === 'Motsatt'){
-      for (let i = curIdx - 1; i >= 0; i--){
+      for (let i=curIdx-1; i>=0; i--){
         if (!isSkip(list[i], lane, myDriver)) return i;
       }
       return null;
     } else {
-      for (let i = curIdx + 1; i < list.length; i++){
+      for (let i=curIdx+1; i<list.length; i++){
         if (!isSkip(list[i], lane, myDriver)) return i;
       }
       return null;
     }
   }
 
+  // ===== Progress (kun teller opp) =====
   function computeProgressUI(lane){
     const my = settings().driver || '';
     const list = filteredAddresses(lane);
@@ -97,7 +97,8 @@
       const s = st[a.id]?.[lane];
       if (s?.state === 'ferdig'){
         done++;
-        if (s.by === my) mine++; else if (s.by) other++;
+        if (s.by === my) mine++;
+        else if (s.by) other++;
       }
     }
     return { total, mine, other, done };
@@ -105,11 +106,17 @@
 
   function updateProgressBars(lane){
     const pr = computeProgressUI(lane);
+    const total = pr.total || 1;
+    const mePct = Math.max(0, Math.min(100, Math.round(100 * pr.mine  / total)));
+    const otPct = Math.max(0, Math.min(100, Math.round(100 * pr.other / total)));
+
     const bm = $('#b_prog_me'), bo = $('#b_prog_other');
-    if (bm) bm.style.width = (pr.total ? Math.round(100*pr.mine/pr.total) : 0)+'%';
-    if (bo) bo.style.width = (pr.total ? Math.round(100*pr.other/pr.total) : 0)+'%';
-    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${pr.mine}/${pr.total}`);
-    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${pr.other}/${pr.total}`);
+    if (bm) bm.style.width = mePct + '%';     // venstre
+    if (bo) bo.style.width = otPct + '%';     // høyre (via CSS right:0)
+
+    // Vise kun oppad-tellende tall
+    $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${pr.mine}`);
+    $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${pr.other}`);
     $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(pr.done, pr.total)} av ${pr.total} adresser fullført`);
   }
 
@@ -128,7 +135,7 @@
     const my   = run.driver || settings().driver || '';
     const list = filteredAddresses(lane);
 
-    // init idx hvis mangler eller peker på tom/skip
+    // init idx hvis mangler/ugyldig/skip
     let idx = run.idx;
     if (idx == null || idx < 0 || idx >= list.length || (list[idx] && isSkip(list[idx], lane, my))){
       idx = initialIndex(list, run.dir || 'Normal', lane, my);
@@ -145,6 +152,10 @@
 
     const stNow = now ? getStatus(now.id, lane) : {state:'venter'};
     $('#b_status') && ($('#b_status').textContent = STATE_LABEL[stNow.state] || '—');
+
+    // Puls på riktig knapp (pågår => puls på Ferdig)
+    $('#act_done')  ?.classList.toggle('pulse', stNow.state === 'pågår');
+    $('#act_start') ?.classList.toggle('pulse', stNow.state !== 'pågår');
 
     // progress
     updateProgressBars(lane);
@@ -178,7 +189,7 @@
 
     if (!res) return;
     if (res==='repeat_snow'){
-      setRun({ lane:'snow', idx:null }); // re-init
+      setRun({ lane:'snow', idx:null });
       location.hash = '#work';
       uiUpdate();
     } else if (res==='switch_grit'){
@@ -215,7 +226,6 @@
     const nowISO = new Date().toISOString();
 
     let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
-    // opprett runde hvis ingen åpen
     if (!rounds.length || rounds[rounds.length-1].done){
       rounds.push({ start: nowISO, by: my });
     }
@@ -244,7 +254,6 @@
     const s = getStatus(cur.id, lane);
     const nowISO = new Date().toISOString();
     let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
-    // sett done på siste åpne runde for denne sjåføren, ellers lag en ny kort runde
     if (rounds.length && !rounds[rounds.length-1].done && rounds[rounds.length-1].by===my){
       rounds[rounds.length-1].done = nowISO;
     } else {
@@ -260,12 +269,9 @@
     };
     await window.Sync.setStatusPatch(patch);
 
-    // gå til neste gyldige i valgt retning
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
-
-    // sjekk om alt ferdig
     checkAllDoneDialog();
   }
 
@@ -326,13 +332,13 @@
     const idx  = run.idx;
     const cur  = (idx!=null) ? list[idx] : null;
     if (!cur) return;
-    window.open(mapsUrl(cur), '_blank'); // naviger til AKTUELL, ikke hopp
+    window.open(mapsUrl(cur), '_blank'); // naviger til AKTUELL
   }
 
   function wire(){
     if (!$('#work')) return;
 
-    // init lane/dir/driver fra Home valg
+    // init lane/dir/driver
     const st  = settings();
     const run = getRun();
     if (!run.driver) setRun({ driver: st.driver||'' });
@@ -350,7 +356,7 @@
     // initial UI
     uiUpdate();
 
-    // refresher når Sync oppdateres (andre sjåfører)
+    // oppdater ved eksterne endringer (andre sjåfører)
     window.Sync.on('change', () => uiUpdate());
   }
 
