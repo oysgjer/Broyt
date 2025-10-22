@@ -4,15 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#0b1320">
+  <meta name="theme-color" content="#0b1320" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Brøyterute</title>
+
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 
 <body>
-  <!-- Topplinje -->
+  <!-- Toppmeny -->
   <header class="appbar">
     <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
     <div class="appbar-title">Brøyterute</div>
@@ -22,13 +23,14 @@
     </div>
   </header>
 
-  <!-- Meny -->
+  <!-- Skjermmørker og meny -->
   <div id="scrim"></div>
   <aside id="drawer" class="drawer">
     <div class="drawer-header">
       <strong>Brøyterute</strong>
       <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
     </div>
+
     <div class="drawer-content">
       <nav>
         <div class="drawer-section">Navigasjon</div>
@@ -84,6 +86,7 @@
             <option>Normal</option>
             <option>Motsatt</option>
           </select>
+
           <div class="checkbox-row">
             <input id="a_autoNav" type="checkbox" />
             <span class="muted-strong">Auto-naviger</span>
@@ -102,28 +105,33 @@
 
   <!-- JS -->
   <script>
-  (()=>{
+  (() => {
     const $ = (s,r=document)=>r.querySelector(s);
 
     // Drawer
-    const scrim=$('#scrim'), drawer=$('#drawer');
+    const scrim = $('#scrim');
+    const drawer = $('#drawer');
     $('#btnMenu')?.addEventListener('click',()=>{drawer.classList.add('show');scrim.classList.add('show');});
     $('#btnCloseDrawer')?.addEventListener('click',()=>{drawer.classList.remove('show');scrim.classList.remove('show');});
     scrim?.addEventListener('click',()=>{drawer.classList.remove('show');scrim.classList.remove('show');});
-    document.querySelectorAll('.drawer-link').forEach(a=>a.addEventListener('click',e=>{
-      e.preventDefault();
-      const id=a.dataset.go; if(id) location.hash='#'+id;
-      drawer.classList.remove('show');scrim.classList.remove('show');
-    }));
+    document.querySelectorAll('.drawer-link').forEach(a=>{
+      a.addEventListener('click',e=>{
+        e.preventDefault();
+        const id=a.dataset.go; if(id) location.hash='#'+id;
+        drawer.classList.remove('show');scrim.classList.remove('show');
+      });
+    });
 
     // Wake Lock
-    const wlDot=$('#wl_dot'), wlDot2=$('#qk_wl_dot'), wlStatus=$('#qk_wl_status'), wlBtn=$('#qk_wl');
-    let wakeLock=null;
+    const wlDot = $('#wl_dot'), wlDot2 = $('#qk_wl_dot'), wlStatus = $('#qk_wl_status'), wlBtn = $('#qk_wl');
+    let wakeLock = null;
+
     function paintWL(on){
-      const cls=on?'dot dot-ok':'dot dot-off';
+      const cls = on?'dot dot-ok':'dot dot-off';
       wlDot.className=cls; wlDot2.className=cls;
       wlStatus.textContent='Status: '+(on?'på':'av');
     }
+
     async function reqWL(){
       try{
         wakeLock=await navigator.wakeLock.request('screen');
@@ -132,25 +140,34 @@
         localStorage.setItem('BRYT_WL','1');
       }catch{paintWL(false);}
     }
-    async function relWL(){try{await wakeLock?.release();}catch{} wakeLock=null;paintWL(false);localStorage.removeItem('BRYT_WL');}
+
+    async function relWL(){
+      try{await wakeLock?.release();}catch{}
+      wakeLock=null;paintWL(false);localStorage.removeItem('BRYT_WL');
+    }
+
     wlBtn?.addEventListener('click',()=>wakeLock?relWL():reqWL());
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&localStorage.getItem('BRYT_WL')==='1')reqWL();});
     if(localStorage.getItem('BRYT_WL')==='1')reqWL();else paintWL(false);
 
     // Tema-bryter
-    const tBtn=$('#theme_toggle'), tStatus=$('#theme_status');
+    const tBtn = $('#theme_toggle');
+    const tStatus = $('#theme_status');
+
     function applyTheme(t){
       document.documentElement.dataset.theme=t;
       localStorage.setItem('BRYT_THEME',t);
-      tStatus.textContent=t==='dark'?'Mørk':t==='light'?'Lys':'System';
+      tStatus.textContent = t==='dark'?'Mørk':t==='light'?'Lys':'System';
       if(t==='dark')document.documentElement.classList.add('dark');
       else document.documentElement.classList.remove('dark');
     }
+
     tBtn?.addEventListener('click',()=>{
       const cur=document.documentElement.dataset.theme||'system';
       const next=cur==='dark'?'light':cur==='light'?'system':'dark';
       applyTheme(next);
     });
+
     applyTheme(localStorage.getItem('BRYT_THEME')||'system');
   })();
   </script>
