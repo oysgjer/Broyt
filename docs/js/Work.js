@@ -43,7 +43,6 @@
   function filteredAddresses(){
     const lane = getRun().lane || currentLane();
     const all  = window.Sync.getCache().addresses || [];
-    // behold kun adresser som har valgt oppgave
     return all.filter(a => !!(a?.tasks?.[lane]));
   }
 
@@ -51,13 +50,16 @@
     if (!len) return 0;
     return Math.min(Math.max(idx,0), len-1);
   }
-  function nextIndex(idx, dir, len){
-    return (dir==='Motsatt') ? (idx-1) : (idx+1);
-  }
+  function stepDir(dir){ return (dir==='Motsatt') ? -1 : 1; }
 
   function statusFor(addrId, lane){
     const st = window.Sync.getCache().status || {};
     return st[addrId]?.[lane] || { state:'venter', by:null, rounds:[] };
+  }
+  function isUnavailable(addrId, lane){
+    const s = statusFor(addrId, lane);
+    // Hopp over både 'ferdig' og 'pågår'
+    return (s.state === 'ferdig' || s.state === 'pågår');
   }
   function lastRoundForDriver(s, driver){
     if(!s?.rounds?.length) return null;
@@ -77,15 +79,52 @@
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((addr.name||'')+', Norge')}`;
   }
 
+  // Finn første ledige indeks fra gitt start (inkluder nåværende hvis includeSelf=true)
+  function findFirstAvailableFrom(startIdx, includeSelf){
+    const run   = getRun();
+    const lane  = run.lane || currentLane();
+    const dir   = run.dir || 'Normal';
+    const list  = filteredAddresses();
+    const len   = list.length;
+    if (!len) return -1;
+
+    let i = clampIdx(startIdx, len);
+    const step = stepDir(dir);
+
+    // Sjekk nåværende først hvis ønsket
+    if (includeSelf && !isUnavailable(list[i].id, lane)) return i;
+
+    // Søk videre i valgt retning
+    for (let j = i + step; j >= 0 && j < len; j += step){
+      if (!isUnavailable(list[j].id, lane)) return j;
+    }
+    return -1; // ingen tilgjengelige
+  }
+
+  // Finn neste ledige indeks etter currentIdx (hopper alltid over currentIdx)
+  function findNextAvailableAfter(currentIdx){
+    const run   = getRun();
+    const lane  = run.lane || currentLane();
+    const dir   = run.dir || 'Normal';
+    const list  = filteredAddresses();
+    const len   = list.length;
+    if (!len) return -1;
+
+    const step = stepDir(dir);
+    for (let j = currentIdx + step; j >= 0 && j < len; j += step){
+      if (!isUnavailable(list[j].id, lane)) return j;
+    }
+    return -1;
+  }
+
   function updateProgress(){
     const driver = settings().driver || '';
     const lane   = getRun().lane || currentLane();
-    const total  = filteredAddresses().length; // kun relevante adresser for valgt oppgave
-    const pr     = window.Sync.computeProgress(driver, lane); // forventer å ta hensyn til lane
-
-    const mine  = pr.mine   ?? 0;
-    const other = pr.other  ?? 0;
-    const done  = pr.done   ?? (mine+other);
+    const total  = filteredAddresses().length;
+    const pr     = window.Sync.computeProgress(driver, lane) || {};
+    const mine   = pr.mine  ?? 0;
+    const other  = pr.other ?? 0;
+    const done   = pr.done  ?? (mine+other);
 
     const mePct = total ? Math.round(100 * mine  / total) : 0;
     const otPct = total ? Math.round(100 * other / total) : 0;
@@ -104,12 +143,20 @@
     const lane = run.lane || currentLane();
     const list = filteredAddresses();
 
-    // Juster idx innenfor liste
-    const idx  = clampIdx(run.idx ?? 0, list.length);
+    // Sørg for at vi står på en tilgjengelig adresse (eller hopper til neste)
+    let idx = clampIdx(run.idx ?? 0, list.length);
+    if (list.length){
+      if (isUnavailable(list[idx].id, lane)){
+        const avail = findFirstAvailableFrom(idx, false);
+        if (avail !== -1) idx = avail;
+      }
+    }
     if (idx !== run.idx) setRun({ idx });
 
     const now  = list[idx] || null;
-    const nxt  = (list.length>0) ? list[nextIndex(idx, run.dir, list.length)] : null;
+    // Neste = første tilgjengelige ETTER nåværende
+    const ni   = (list.length && now) ? findNextAvailableAfter(idx) : -1;
+    const nxt  = (ni !== -1) ? list[ni] : null;
 
     $('#b_task')  && ($('#b_task').textContent = laneLabel(lane));
     $('#b_now')   && ($('#b_now').textContent  = now ? (now.name||'—') : '—');
@@ -120,8 +167,7 @@
 
     updateProgress();
 
-    // knapp-tilgjengelighet
-    const hasAny = list.length>0;
+    const hasAny = list.length>0 && idx !== -1;
     $('#act_start')?.toggleAttribute('disabled', !hasAny);
     $('#act_done') ?.toggleAttribute('disabled', !hasAny);
     $('#act_skip') ?.toggleAttribute('disabled', !hasAny);
@@ -149,10 +195,7 @@
   }
 
   async function afterWriteSync(){
-    // kall etter setStatusPatch for å gi bruker rask “synk oppdatert”-feedback
-    try{
-      await window.Sync.refresh?.(); // hvis Sync har en refresh; hvis ikke, on('change') vil likevel trigges
-    }catch{}
+    try{ await window.Sync.refresh?.(); }catch{}
     try{ window.App?.refreshSyncBadge?.(); }catch{}
   }
 
@@ -166,13 +209,21 @@
 
     if (!res) return;
 
+    const list = filteredAddresses();
     if (res==='repeat_snow'){
-      setRun({ lane:'snow', idx: (settings().dir==='Motsatt' ? Math.max(filteredAddresses().length-1,0) : 0) });
+      setRun({ lane:'snow' });
+      // start fra første tilgjengelige gitt retning
+      const start = (settings().dir==='Motsatt') ? Math.max(list.length-1,0) : 0;
+      const i = findFirstAvailableFrom(start, true);
+      setRun({ idx: (i!==-1? i : clampIdx(start, list.length)) });
       location.hash = '#work';
       uiUpdate();
       autoNavigateToCurrent();
     } else if (res==='switch_grit'){
-      setRun({ lane:'grit', idx: (settings().dir==='Motsatt' ? Math.max(filteredAddresses().length-1,0) : 0) });
+      setRun({ lane:'grit' });
+      const start = (settings().dir==='Motsatt') ? Math.max(list.length-1,0) : 0;
+      const i = findFirstAvailableFrom(start, true);
+      setRun({ idx: (i!==-1? i : clampIdx(start, list.length)) });
       location.hash = '#work';
       uiUpdate();
       autoNavigateToCurrent();
@@ -198,7 +249,12 @@
     const list = filteredAddresses();
     if (!list.length) return;
 
-    const idx = clampIdx(run.idx ?? 0, list.length);
+    // sørg for at vi står på en tilgjengelig
+    let idx = clampIdx(run.idx ?? 0, list.length);
+    const fix = findFirstAvailableFrom(idx, true);
+    if (fix === -1) { checkAllDoneDialog(); return; }
+    if (fix !== idx){ idx = fix; setRun({ idx }); }
+
     const cur = list[idx];
     const driver = settings().driver || '';
     const s = statusFor(cur.id, lane);
@@ -212,7 +268,6 @@
     await afterWriteSync();
     uiUpdate();
 
-    // Åpne kart til NÅVÆRENDE adresse (ikke neste)
     autoNavigateToCurrent();
   }
 
@@ -222,7 +277,7 @@
     const list = filteredAddresses();
     if (!list.length) return;
 
-    const idx = clampIdx(run.idx ?? 0, list.length);
+    let idx = clampIdx(run.idx ?? 0, list.length);
     const cur = list[idx];
     const driver = settings().driver || '';
     const s = statusFor(cur.id, lane);
@@ -241,9 +296,8 @@
     await afterWriteSync();
     uiUpdate();
 
-    // Gå videre i lista
+    // hopp til neste ledige
     gotoNext(true);
-    // Dersom alt ferdig, foreslå neste steg
     checkAllDoneDialog();
   }
 
@@ -253,7 +307,7 @@
     const list = filteredAddresses();
     if (!list.length) return;
 
-    const idx = clampIdx(run.idx ?? 0, list.length);
+    let idx = clampIdx(run.idx ?? 0, list.length);
     const cur = list[idx];
     const driver = settings().driver || '';
 
@@ -263,7 +317,7 @@
     await window.Sync.setStatusPatch(patch);
     await afterWriteSync();
     uiUpdate();
-    gotoNext(false); // ikke auto-nav ved hopp
+    gotoNext(false);
   }
 
   async function actBlock(){
@@ -272,7 +326,7 @@
     const list = filteredAddresses();
     if (!list.length) return;
 
-    const idx = clampIdx(run.idx ?? 0, list.length);
+    let idx = clampIdx(run.idx ?? 0, list.length);
     const cur = list[idx];
     const driver = settings().driver || '';
 
@@ -282,7 +336,7 @@
     await window.Sync.setStatusPatch(patch);
     await afterWriteSync();
     uiUpdate();
-    gotoNext(false); // ikke auto-nav ved blokkert
+    gotoNext(false);
   }
 
   function actNext(){
@@ -290,7 +344,7 @@
   }
 
   function actNav(){
-    // ⚠️ Viktig endring: naviger ALLTID til NÅVÆRENDE adresse
+    // Naviger ALLTID til NÅVÆRENDE (ikke hopp)
     const run  = getRun();
     const list = filteredAddresses();
     if (!list.length) return;
@@ -298,7 +352,6 @@
     const idx = clampIdx(run.idx ?? 0, list.length);
     const target = list[idx];
     if (!target) return;
-
     window.open(mapsUrl(target), '_blank');
   }
 
@@ -308,13 +361,13 @@
     if (!list.length) return;
 
     const curIdx = clampIdx(run.idx ?? 0, list.length);
-    const ni = nextIndex(curIdx, run.dir, list.length);
-    if (ni>=0 && ni<list.length) {
+    const ni = findNextAvailableAfter(curIdx);
+    if (ni !== -1){
       setRun({ idx: ni });
       uiUpdate();
       if (doAutoNav && settings().autoNav) autoNavigateToCurrent();
     } else {
-      // Slutt på lista – la allDoneDialog avgjøre veien videre
+      // ingen ledige videre – sjekk om runden er ferdig
       checkAllDoneDialog();
     }
   }
@@ -323,7 +376,6 @@
   function wire(){
     if (!$('#work')) return;
 
-    // init lane + driver + dir + startindex
     const st = settings();
     const lane = st?.equipment?.sand ? 'grit' : 'snow';
     const list = filteredAddresses();
@@ -332,10 +384,10 @@
     if (!getRun().dir)    setRun({ dir: st.dir||'Normal' });
     if (!getRun().lane)   setRun({ lane });
 
-    // startpos: Normal = 0, Motsatt = siste
-    const wantDir = st.dir || 'Normal';
-    const startIdx = (wantDir==='Motsatt') ? Math.max(list.length-1,0) : 0;
-    setRun({ idx: startIdx });
+    // Startpos i valgt retning → finn første ledige
+    const start = (st.dir==='Motsatt') ? Math.max(list.length-1,0) : 0;
+    const i = findFirstAvailableFrom(start, true);
+    setRun({ idx: (i!==-1? i : clampIdx(start, list.length)) });
 
     // knapper
     $('#act_start')?.addEventListener('click', actStart);
@@ -348,7 +400,7 @@
     // første UI
     uiUpdate();
 
-    // oppdater ved sky-endringer
+    // live-oppdater ved sky-endringer
     window.Sync.on('change', () => uiUpdate());
   }
 
