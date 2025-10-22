@@ -45,7 +45,7 @@
     return st[addrId]?.[lane] || { state:'venter', by:null, rounds:[] };
   }
 
-  // Skal vi hoppe over denne adressen? Ferdig, eller "pågår" av en annen sjåfør
+  // Skip regler: ferdig, eller pågår av annen sjåfør
   function isSkip(addr, lane, myDriver){
     const s = getStatus(addr.id, lane);
     if (s.state === 'ferdig') return true;
@@ -53,7 +53,6 @@
     return false;
   }
 
-  // Første gyldige indeks ved init
   function initialIndex(list, dir, lane, myDriver){
     if (!list.length) return null;
     if (dir === 'Motsatt'){
@@ -69,7 +68,6 @@
     }
   }
 
-  // Neste gyldige indeks i valgt retning
   function findNextIndex(list, curIdx, dir, lane, myDriver){
     if (!list.length || curIdx == null) return null;
     if (dir === 'Motsatt'){
@@ -85,10 +83,9 @@
     }
   }
 
-  // ===== Progress (kun teller opp – mine/andre fra siste "done"-runde) =====
+  // ===== Progress (mine/andre ut fra siste "done"-runde) =====
   function lastDoneBy(laneObj){
     if (!laneObj?.rounds?.length) return null;
-    // Finn siste runde med done
     for (let i=laneObj.rounds.length-1;i>=0;i--){
       const r = laneObj.rounds[i];
       if (r.done) return r.by || null;
@@ -110,7 +107,7 @@
         const who = lastDoneBy(laneObj);
         if (who === my) mine++;
         else if (who) other++;
-        else other++; // hvis ukjent, regn som "andre"
+        else other++; // ukjent krediteres "andre"
       }
     }
     return { total, mine, other, done };
@@ -118,15 +115,27 @@
 
   function updateProgressBars(lane){
     const pr = computeProgressUI(lane);
-    const total = pr.total || 1;
-    const mePct = Math.max(0, Math.min(100, Math.round(100 * pr.mine  / total)));
-    const otPct = Math.max(0, Math.min(100, Math.round(100 * pr.other / total)));
+    const total = Math.max(pr.total, 1);
 
+    // Prosent
+    let mePct = Math.round(100 * pr.mine  / total);
+    let otPct = Math.round(100 * pr.other / total);
+
+    // ✅ Ikke overlapp: kap lilla slik at mePct + otPct ≤ 100
+    if (mePct + otPct > 100) {
+      otPct = Math.max(0, 100 - mePct);
+    }
+
+    // Sikker kapping til [0,100]
+    mePct = Math.max(0, Math.min(100, mePct));
+    otPct = Math.max(0, Math.min(100, otPct));
+
+    // Oppdater bredder
     const bm = $('#b_prog_me'), bo = $('#b_prog_other');
-    if (bm) bm.style.width = mePct + '%';   // venstre
-    if (bo) bo.style.width = otPct + '%';   // høyre
+    if (bm) bm.style.width = mePct + '%';   // venstre (grønn)
+    if (bo) bo.style.width = otPct + '%';   // høyre  (lilla, vokser fra høyre)
 
-    // Vis kun oppad-tellende tall
+    // Telling – bare oppadgående tall, ikke “/total” på hver side
     $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${pr.mine}`);
     $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${pr.other}`);
     $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(pr.done, pr.total)} av ${pr.total} adresser fullført`);
@@ -165,7 +174,7 @@
     const stNow = now ? getStatus(now.id, lane) : {state:'venter'};
     $('#b_status') && ($('#b_status').textContent = STATE_LABEL[stNow.state] || '—');
 
-    // Puls på riktig knapp (pågår => puls på Ferdig)
+    // Puls på riktig knapp
     $('#act_done')  ?.classList.toggle('pulse', stNow.state === 'pågår');
     $('#act_start') ?.classList.toggle('pulse', stNow.state !== 'pågår');
 
@@ -230,7 +239,6 @@
     const my   = run.driver || settings().driver || '';
     const list = filteredAddresses(lane);
     const idx  = run.idx;
-
     if (idx==null || !list[idx]) return;
     const cur = list[idx];
 
@@ -238,7 +246,6 @@
     const nowISO = new Date().toISOString();
 
     let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
-    // start ny runde hvis ingen eller forrige er avsluttet
     if (!rounds.length || rounds[rounds.length-1].done){
       rounds.push({ start: nowISO, by: my });
     }
@@ -260,14 +267,12 @@
     const my   = run.driver || settings().driver || '';
     const list = filteredAddresses(lane);
     const idx  = run.idx;
-
     if (idx==null || !list[idx]) return;
     const cur = list[idx];
 
     const s = getStatus(cur.id, lane);
     const nowISO = new Date().toISOString();
     let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
-    // hvis siste runde er min og ikke avsluttet, avslutt den; ellers lag en start+done nå
     if (rounds.length && !rounds[rounds.length-1].done && rounds[rounds.length-1].by===my){
       rounds[rounds.length-1].done = nowISO;
     } else {
@@ -346,7 +351,7 @@
     const idx  = run.idx;
     const cur  = (idx!=null) ? list[idx] : null;
     if (!cur) return;
-    window.open(mapsUrl(cur), '_blank'); // naviger til AKTUELL
+    window.open(mapsUrl(cur), '_blank'); // naviger til AKTUELL (ikke hopp)
   }
 
   function wire(){
@@ -370,7 +375,7 @@
     // initial UI
     uiUpdate();
 
-    // oppdater ved eksterne endringer (andre sjåfører)
+    // live oppdatering når status endres (andre sjåfører / admin / deg selv)
     window.Sync.on('change', () => uiUpdate());
   }
 
