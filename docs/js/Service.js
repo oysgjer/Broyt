@@ -2,75 +2,147 @@
 (() => {
   'use strict';
 
-  const $  = (s, r = document) => r.querySelector(s);
-  const qs = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const readJSON  = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-  const writeJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
+  const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
-  const KEY_LOGS = 'BRYT_SERVICE_LOGS';
+  const K_SETTINGS = 'BRYT_SETTINGS';
+  const K_SVC_LOCAL = 'BRYT_SERVICE_LOCAL'; // lokal “inbox” hvis sky ikke virker
 
-  function collect(root = document) {
-    const val = id => (root.querySelector('#' + id) || {}).checked ?? false;
-    const text = id => (root.querySelector('#' + id) || {}).value ?? '';
+  function driverName(){
+    const st = RJ(K_SETTINGS, {});
+    return (st && st.driver) ? st.driver : '';
+  }
 
+  function ensureUI(){
+    const host = $('#service');
+    if (!host || host.dataset.enhanced) return;
+
+    host.innerHTML = `
+      <h1>Service</h1>
+
+      <div class="card" id="svc_card">
+        <div class="field">
+          <span class="muted-strong">Smøring</span>
+          <div class="checkbox-col" style="margin-top:6px">
+            <label><input type="checkbox" id="svc_blade"> Skjær smurt</label>
+            <label><input type="checkbox" id="svc_fres"> Fres smurt</label>
+            <label><input type="checkbox" id="svc_front"> Forstilling smurt</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="muted-strong">Olje</span>
+          <div class="checkbox-col" style="margin-top:6px">
+            <label><input type="checkbox" id="svc_oil_front"> Olje sjekket foran</label>
+            <label><input type="checkbox" id="svc_oil_back"> Olje sjekket bak</label>
+            <label><input type="checkbox" id="svc_oil_fill"> Olje etterfylt</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="muted-strong">Drivstoff & grus</span>
+          <div class="checkbox-col" style="margin-top:6px">
+            <label><input type="checkbox" id="svc_diesel"> Diesel fylt</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="muted-strong">Antall kasser grus</span>
+          <input id="svc_grit_boxes" class="input" inputmode="numeric" placeholder="0" />
+        </div>
+
+        <div class="field">
+          <span class="muted-strong">Annet?</span>
+          <textarea id="svc_other" class="input" rows="4" placeholder="Notater, avvik, småreparasjoner..."></textarea>
+        </div>
+
+        <div class="row" style="justify-content:space-between; gap:10px; margin-top:10px">
+          <button id="svc_save" class="btn">Lagre service</button>
+          <span id="svc_msg" class="muted"></span>
+        </div>
+      </div>
+    `;
+    host.dataset.enhanced = '1';
+
+    $('#svc_save')?.addEventListener('click', saveService);
+  }
+
+  function collect(){
     return {
-      time: new Date().toISOString(),
-      greit: true,
-      smoring: {
-        skjaer:       val('svc_skjaer'),
-        fres:         val('svc_fres'),
-        forstilling:  val('svc_forstilling'),
-      },
-      olje: {
-        foran:       val('svc_olje_foran'),
-        bak:         val('svc_olje_bak'),
-        etterfylt:   val('svc_olje_etterfylt'),
-      },
-      diesel: {
-        fylt:        val('svc_diesel'),
-      },
-      grus: text('svc_grus'),
-      annet: text('svc_annet'),
+      at: new Date().toISOString(),
+      by: driverName(),
+      blade: !!$('#svc_blade')?.checked,
+      fres: !!$('#svc_fres')?.checked,
+      front: !!$('#svc_front')?.checked,
+      oil_front: !!$('#svc_oil_front')?.checked,
+      oil_back:  !!$('#svc_oil_back')?.checked,
+      oil_fill:  !!$('#svc_oil_fill')?.checked,
+      diesel: !!$('#svc_diesel')?.checked,
+      grit_boxes: ($('#svc_grit_boxes')?.value || '').trim(),
+      other: ($('#svc_other')?.value || '').trim()
     };
   }
 
-  function save(root = document) {
-    const entry = collect(root);
-    const logs = readJSON(KEY_LOGS, []);
-    logs.push(entry);
-    writeJSON(KEY_LOGS, logs);
-
-    const statusEl = root.querySelector('#svc_status');
-    if (statusEl) statusEl.textContent = '✅ Service lagret ' + new Date(entry.time).toLocaleString();
-
-    // Tilbud om e-post (testadresse)
-    setTimeout(() => {
-      const body =
-        'Servicerapport\n\n' +
-        JSON.stringify(entry, null, 2);
-      if (confirm('Vil du sende servicerapport på e-post til oysgjer@gmail.com?')) {
-        window.location.href = `mailto:oysgjer@gmail.com?subject=Servicerapport&body=${encodeURIComponent(body)}`;
-      }
-    }, 150);
+  async function tryCloudSave(payload){
+    // Prøv flere “navn” i Sync for best kompatibilitet.
+    const S = window.Sync || {};
+    if (typeof S.saveService === 'function')   return await S.saveService(payload);
+    if (typeof S.addServiceLog === 'function') return await S.addServiceLog(payload);
+    if (typeof S.submitService === 'function') return await S.submitService(payload);
+    // Hvis Sync ikke tilbyr spesifikk funksjon, fall tilbake til en generell patch hvis mulig
+    if (typeof S.setServicePatch === 'function') {
+      return await S.setServicePatch({ append: true, item: payload });
+    }
+    // Ingen sky-metode tilgjengelig
+    throw new Error('Ingen skyfunksjon for service funnet.');
   }
 
-  function wire(root = document) {
-    // Unngå dobbelt-wiring hvis partial lastes flere ganger
-    if (root?.dataset?.svcWired === '1') return;
-    const btn = root.querySelector('#svc_save');
-    if (btn) btn.addEventListener('click', () => save(root));
-    root.dataset.svcWired = '1';
+  function saveLocal(payload){
+    const bag = RJ(K_SVC_LOCAL, []);
+    bag.push(payload);
+    WJ(K_SVC_LOCAL, bag);
   }
 
-  // 1) Hvis service ligger inline i HTML (eller partial allerede er satt inn)
-  document.addEventListener('DOMContentLoaded', () => {
-    const service = $('#service');
-    if (service && service.querySelector('#svc_save')) wire(service);
+  async function saveService(){
+    const msg = $('#svc_msg');
+    msg && (msg.textContent = 'Lagrer…');
+
+    const data = collect();
+
+    try{
+      // lagre i sky hvis mulig
+      await tryCloudSave(data);
+      msg && (msg.textContent = 'Lagret ✅');
+    }catch(e){
+      // fallback: lagre lokalt
+      saveLocal(data);
+      msg && (msg.textContent = 'Lagret lokalt (offline) ✅');
+      console.warn('Service sky-lagring feilet:', e);
+    }
+
+    // (Valgfritt) Tilbakestill feltene lett
+    // Behold gjerne tekstfelt, men ta vekk bukser:
+    ['svc_blade','svc_fres','svc_front','svc_oil_front','svc_oil_back','svc_oil_fill','svc_diesel'].forEach(id=>{
+      const el = $('#'+id); if (el) el.checked = false;
+    });
+  }
+
+  function boot(){
+    ensureUI();
+  }
+
+  // Vis når du kommer til #service
+  window.addEventListener('hashchange', ()=>{
+    if ((location.hash||'').toLowerCase() === '#service'){
+      boot();
+    }
   });
 
-  // 2) Når include-partials har injisert service.html
-  document.addEventListener('partial:loaded', ev => {
-    const host = ev.target;                       // elementet som fikk partial
-    if (host && host.id === 'service') wire(host);
+  document.addEventListener('DOMContentLoaded', ()=>{
+    if ((location.hash||'').toLowerCase() === '#service'){
+      boot();
+    }
   });
 })();
