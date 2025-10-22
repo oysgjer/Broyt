@@ -109,3 +109,8 @@
     font-size: 1.15rem;
   }
 }
+#work .btn-primary {
+  min-height: 72px;
+  font-size: 1.2rem;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
