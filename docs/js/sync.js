@@ -12,15 +12,12 @@
   const K_CACHE = 'BRYT_SYNC_CACHE';  // {addresses,status,_fetchedAt, raw}
   const K_DEV   = 'BRYT_DEVICE_ID';
 
-  // enkel event-bus
   const listeners = { change:[], error:[] };
   function emit(type, payload){ (listeners[type]||[]).forEach(fn=>{ try{ fn(payload); }catch{} }); }
 
-  // device-id for kollisjonsmerking
   let DEVICE_ID = RJ(K_DEV, null);
   if (!DEVICE_ID) { DEVICE_ID = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36); WJ(K_DEV, DEVICE_ID); }
 
-  // polling
   let _pollTimer = null;
   function startPolling(ms=15000){ stopPolling(); _pollTimer=setInterval(()=>{ _fetchLatest().catch(()=>{}); }, ms); }
   function stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
@@ -44,46 +41,33 @@
   const _cache = RJ(K_CACHE, { addresses:[], status:{}, _fetchedAt:null, raw:null });
   function getCache(){ return {..._cache}; }
 
-  // --- hjelpe: bool fra alt mulig
-  const asBool = v => (v===true || v===1 || v==='1' || (typeof v==='string' && v.toLowerCase()==='true'));
-
   function _normalizeAddresses(list){
     if (!Array.isArray(list)) return [];
     return list.map((a,ix)=>{
       const id    = String(a.id ?? a.name ?? ix);
       const name  = String(a.name ?? '').trim();
-
       const flags = a.flags || {};
       const tasks = a.tasks || {};
+      const snow = (typeof tasks.snow==='boolean') ? tasks.snow :
+                   (typeof flags.snow==='boolean') ? flags.snow : true;
+      const grit = (typeof tasks.grit==='boolean') ? tasks.grit :
+                   (typeof flags.grit==='boolean') ? flags.grit : false;
 
-      // default: SNØ = true om ingenting er eksplisitt satt
-      const snowRaw = (tasks.snow ?? flags.snow);
-      const gritRaw = (tasks.grit ?? flags.grit);
-      const snow = (snowRaw === undefined) ? true  : asBool(snowRaw);
-      const grit = (gritRaw === undefined) ? false : asBool(gritRaw);
-
-      // coords kan være "60.1, 11.2" eller "(60.1, 11.2)"
-      let lat = (a.lat!=null) ? Number(a.lat) : null;
-      let lon = (a.lon!=null) ? Number(a.lon) : null;
-      if ((lat==null || isNaN(lat) || lon==null || isNaN(lon)) && a.coords){
-        const m = String(a.coords).replace(/[()]/g,'').split(',');
-        if (m.length===2){
-          const la = Number(m[0]); const lo = Number(m[1]);
-          if(!isNaN(la) && !isNaN(lo)){ lat=la; lon=lo; }
-        }
-      }
-
-      const pins = (a.pins ?? a.stakes ?? '');
+      const lat  = (a.lat!=null) ? Number(a.lat) : null;
+      const lon  = (a.lon!=null) ? Number(a.lon) : null;
+      const pins = a.pins ?? a.stakes ?? '';
+      const ord  = Number(a.ord ?? ix);
 
       return {
         id, name,
-        tasks: { snow, grit },
-        flags: { snow, grit },
+        tasks: { snow: !!snow, grit: !!grit },
+        flags: { snow: !!snow, grit: !!grit },
         pins,
-        lat: (lat!=null && !isNaN(lat)) ? lat : null,
-        lon: (lon!=null && !isNaN(lon)) ? lon : null
+        lat: isNaN(lat)?null:lat,
+        lon: isNaN(lon)?null:lon,
+        ord
       };
-    });
+    }).sort((a,b)=>(a.ord??0)-(b.ord??0));
   }
 
   function _normalizeStatus(rec){
@@ -121,11 +105,12 @@
     _cache.addresses = addresses;
     _cache.status    = status;
     _cache.raw       = rec;
-    _cache._fetchedAt= Date.now();         // <- OPPDATERT VED GET
+    _cache._fetchedAt= Date.now();
     WJ(K_CACHE, _cache);
     emit('change', getCache());
     return getCache();
   }
+
   async function reloadLatest(){ return _fetchLatest(); }
 
   async function loadAddresses({force=false}={}){
@@ -154,7 +139,6 @@
     }
     _cache.status = st;
 
-    // Skriv tilbake i raw: pakk status til statusSnow/statusGrit
     const raw = _cache.raw || {};
     raw.statusSnow = raw.statusSnow || {};
     raw.statusGrit = raw.statusGrit || {};
@@ -165,7 +149,6 @@
 
     await _putRecord(raw);
 
-    // <- NYTT: oppdater synk-tid OGSÅ ETTER PUT
     _cache.raw        = raw;
     _cache._fetchedAt = Date.now();
     WJ(K_CACHE, _cache);
@@ -175,29 +158,29 @@
   }
 
   async function saveAddresses(prepared){
-    const list = (prepared||[]).map(a=>{
-      const snow = (a.tasks?.snow ?? a.flags?.snow);
-      const grit = (a.tasks?.grit ?? a.flags?.grit);
+    const list = (prepared||[]).map((a,ix)=>{
+      const snow = !!(a.tasks?.snow ?? a.flags?.snow ?? true);
+      const grit = !!(a.tasks?.grit ?? a.flags?.grit ?? false);
       return {
-        id: String(a.id ?? a.name),
+        id: String(a.id ?? a.name ?? ix),
         name: a.name || '',
-        flags: { snow: asBool(snow===undefined?true:snow), grit: asBool(grit===undefined?false:grit) },
-        tasks: { snow: asBool(snow===undefined?true:snow), grit: asBool(grit===undefined?false:grit) },
+        flags: { snow, grit },
+        tasks: { snow, grit },
         pins: a.pins ?? '',
         lat:  a.lat ?? null,
-        lon:  a.lon ?? null
+        lon:  a.lon ?? null,
+        ord:  (a.ord==null ? ix : Number(a.ord))
       };
-    });
+    }).sort((a,b)=>(a.ord??0)-(b.ord??0));
 
     _cache.addresses = _normalizeAddresses(list);
+    localStorage.setItem('BRYT_SYNC_CACHE', JSON.stringify(_cache));
 
     const raw = _cache.raw || {};
     raw.snapshot = raw.snapshot || {};
     raw.snapshot.addresses = list;
-
     await _putRecord(raw);
 
-    // <- NYTT: oppdater synk-tid ETTER PUT av adresser
     _cache.raw        = raw;
     _cache._fetchedAt = Date.now();
     WJ(K_CACHE, _cache);
@@ -227,7 +210,6 @@
     return () => { listeners[type] = listeners[type].filter(f=>f!==fn); };
   }
 
-  // Eksponer
   window.Sync = {
     setConfig, getConfig,
     loadAddresses, reloadLatest,
