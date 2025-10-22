@@ -13,21 +13,23 @@
   position:relative;
   height:12px;
   border-radius:999px;
-  background:#1f2937; /* mørk bakgrunn for kontrast */
+  background:#1f2937;
   overflow:hidden;
 }
 .work-prog .me{
   position:absolute;
   top:0; bottom:0; left:0;
   width:0%;
-  background:#22c55e;           /* grønn */
+  background:#22c55e;
+  z-index:1;               /* ligg over bakgrunnen */
 }
 .work-prog .other{
   position:absolute;
-  top:0; bottom:0; right:0;      /* vokser fra høyre */
+  top:0; bottom:0; right:0;   /* vokser FRA høyre */
   width:0%;
-  background:#a78bfa;            /* lilla */
-  opacity:.9;
+  background:#a78bfa;
+  opacity:.95;
+  z-index:1;
 }
 .work-caption{
   display:flex;
@@ -36,9 +38,7 @@
   color:var(--muted);
   margin-top:8px;
 }
-.work-caption strong{
-  color:var(--text);
-}
+.work-caption strong{ color:var(--text); }
 
 /* Kortet under: Nå/Neste/knapper */
 .work-card{
@@ -48,10 +48,7 @@
   padding:14px;
 }
 
-.label-muted{
-  color:var(--muted);
-  font-size:.9rem;
-}
+.label-muted{ color:var(--muted); font-size:.9rem; }
 
 .addr-now{
   font-size:1.25rem;
@@ -73,28 +70,14 @@
   gap:10px;
   margin-top:14px;
 }
-.btn-grid .btn{
-  justify-content:center;
-}
+.btn-grid .btn{ justify-content:center; }
 
 /* Puls på aktive knapper */
-.pulse {
-  animation: pulse 1.2s ease-in-out infinite;
-}
-@keyframes pulse {
-  0% { transform: scale(1); filter:brightness(1); }
-  50% { transform: scale(1.02); filter:brightness(1.08); }
-  100% { transform: scale(1); filter:brightness(1); }
-}
+.pulse { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
 
-/* Meta-linje */
-.work-meta{
-  margin-top:10px;
-  font-size:.95rem;
-  color:var(--muted);
-}
+.work-meta{ margin-top:10px; font-size:.95rem; color:var(--muted); }
 
-/* Små skjermer */
 @media (max-width:420px){
   .addr-now{ font-size:1.2rem; }
   .addr-next{ font-size:1rem; }
