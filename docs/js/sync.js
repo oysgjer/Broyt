@@ -13,7 +13,18 @@
 
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
+// unik deviceId for konfliktmerking
+const K_DEV = 'BRYT_DEVICE_ID';
+let DEVICE_ID = RJ(K_DEV, null);
+if (!DEVICE_ID) { DEVICE_ID = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36); WJ(K_DEV, DEVICE_ID); }
 
+// enkel polling
+let _pollTimer = null;
+function startPolling(ms=15000){
+  stopPolling();
+  _pollTimer = setInterval(()=>{ _fetchLatest().catch(()=>{}); }, ms);
+}
+function stopPolling(){ if (_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
   const K_CFG      = 'BRYT_SYNC_CFG';    // {binId, apiKey}
   const K_CACHE    = 'BRYT_SYNC_CACHE';  // {addresses,status,_fetchedAt,_lastWriteAt, raw}
   const K_LASTSYNC = 'BRYT_LAST_SYNC';   // siste vellykkede write (millis)
@@ -40,6 +51,8 @@
   const _cache = RJ(K_CACHE, {
     addresses:[], status:{}, _fetchedAt:null, _lastWriteAt: RJ(K_LASTSYNC,null) || null, raw:null
   });
+  function getDeviceId(){ return DEVICE_ID; }
+async function reloadLatest(){ return _fetchLatest(); }
 
   function getCache(){
     // returner en kopi slik at ingen utenfor kan mutere direkte
@@ -234,6 +247,7 @@
 
   // Eksponér
   window.Sync = {
+    getDeviceId, reloadLatest, startPolling, stopPolling,
     setConfig, getConfig,
     loadAddresses, saveAddresses,
     setStatusPatch,
