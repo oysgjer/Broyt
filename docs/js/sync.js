@@ -14,10 +14,11 @@
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
-  const K_CFG   = 'BRYT_SYNC_CFG';    // {binId, apiKey}
-  const K_CACHE = 'BRYT_SYNC_CACHE';  // {addresses,status,_fetchedAt, raw}
+  const K_CFG      = 'BRYT_SYNC_CFG';    // {binId, apiKey}
+  const K_CACHE    = 'BRYT_SYNC_CACHE';  // {addresses,status,_fetchedAt,_lastWriteAt, raw}
+  const K_LASTSYNC = 'BRYT_LAST_SYNC';   // siste vellykkede write (millis)
 
-  const listeners = { change:[], error:[] };
+  const listeners = { change:[], error:[], synced:[] };
   function emit(type, payload){ (listeners[type]||[]).forEach(fn=>{ try{ fn(payload); }catch{} }); }
 
   let cfg = RJ(K_CFG, { binId:'', apiKey:'' });
@@ -35,9 +36,21 @@
     if (cfg.apiKey) h['X-Master-Key']=cfg.apiKey;
     return h;
   }
-  const _cache = RJ(K_CACHE, { addresses:[], status:{}, _fetchedAt:null, raw:null });
 
-  function getCache(){ return {..._cache}; }
+  const _cache = RJ(K_CACHE, {
+    addresses:[], status:{}, _fetchedAt:null, _lastWriteAt: RJ(K_LASTSYNC,null) || null, raw:null
+  });
+
+  function getCache(){
+    // returner en kopi slik at ingen utenfor kan mutere direkte
+    return {
+      addresses: _cache.addresses,
+      status:    _cache.status,
+      raw:       _cache.raw,
+      _fetchedAt: _cache._fetchedAt || null,
+      _lastWriteAt: _cache._lastWriteAt || null
+    };
+  }
 
   function _normalizeAddresses(list){
     if (!Array.isArray(list)) return [];
@@ -51,15 +64,23 @@
                    (typeof flags.snow==='boolean') ? flags.snow : true;
       const grit = (typeof tasks.grit==='boolean') ? tasks.grit :
                    (typeof flags.grit==='boolean') ? flags.grit : false;
-      const lat  = (a.lat!=null) ? Number(a.lat) : (a.coords && String(a.coords).includes(',') ? Number(String(a.coords).split(',')[0]) : null);
-      const lon  = (a.lon!=null) ? Number(a.lon) : (a.coords && String(a.coords).includes(',') ? Number(String(a.coords).split(',')[1]) : null);
+
+      // støtt coords som "lat, lon" (med mellomrom/parentes)
+      let lat = a.lat, lon = a.lon;
+      if ((lat==null || lon==null) && a.coords){
+        const m = String(a.coords).replace(/[()]/g,'').split(',');
+        if (m.length>=2){ lat = Number(m[0]); lon = Number(m[1]); }
+      }
+
       const pins = a.pins ?? a.stakes ?? '';
 
       return {
         id, name,
         tasks: { snow: !!snow, grit: !!grit },
-        flags: { snow: !!snow, grit: !!grit }, // hold begge for kompatibilitet
-        pins, lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon
+        flags: { snow: !!snow, grit: !!grit }, // kompat
+        pins,
+        lat: (lat!=null && !isNaN(Number(lat))) ? Number(lat) : null,
+        lon: (lon!=null && !isNaN(Number(lon))) ? Number(lon) : null
       };
     });
   }
@@ -122,7 +143,6 @@
 
   async function setStatusPatch(patch){
     // patch: { status: { [addrId]: { snow:{...}, grit:{...} } } }
-    // Slå sammen i _cache og skriv tilbake i raw.statusSnow som primær
     const st = _cache.status || {};
     for(const id in (patch.status||{})){
       const cur = st[id] || { snow:{state:'venter',by:null,rounds:[]}, grit:{state:'venter',by:null,rounds:[]}};
@@ -140,18 +160,24 @@
     raw.statusSnow = raw.statusSnow || {};
     raw.statusGrit = raw.statusGrit || {};
     for(const id in st){
-      raw.statusSnow[id] = { snow: st[id].snow };   // legg i snow-pose
-      raw.statusGrit[id] = { grit: st[id].grit };   // legg i grit-pose
+      raw.statusSnow[id] = { snow: st[id].snow };
+      raw.statusGrit[id] = { grit: st[id].grit };
     }
 
     await _putRecord(raw);
+
+    // --- NYTT: marker write-tid og emit 'synced'
+    _cache._lastWriteAt = Date.now();
+    try { localStorage.setItem(K_LASTSYNC, String(_cache._lastWriteAt)); } catch {}
+    WJ(K_CACHE, _cache);
+
     emit('change', getCache());
+    emit('synced', getCache());
     return true;
   }
 
   async function saveAddresses(prepared){
     // prepared: [{id,name,tasks:{snow,grit},pins,lat,lon,...}]
-    // Oppdater cache + raw.snapshot.addresses
     const list = (prepared||[]).map(a=>{
       const snow = !!(a.tasks?.snow ?? a.flags?.snow ?? true);
       const grit = !!(a.tasks?.grit ?? a.flags?.grit ?? false);
@@ -174,7 +200,13 @@
     raw.snapshot.addresses = list; // skriv med både flags og tasks
     await _putRecord(raw);
 
+    // --- NYTT: marker write-tid og emit 'synced'
+    _cache._lastWriteAt = Date.now();
+    try { localStorage.setItem(K_LASTSYNC, String(_cache._lastWriteAt)); } catch {}
+    WJ(K_CACHE, _cache);
+
     emit('change', getCache());
+    emit('synced', getCache());
     return _cache.addresses;
   }
 
@@ -182,12 +214,9 @@
     const addrs = _cache.addresses || [];
     const st = _cache.status || {};
     let total=0, mine=0, other=0, done=0;
-    // total = antall adresser i AKTIV lane bestemmes i Work.js,
-    // men her oppgir vi total for hele lista. Work.js regner relativt.
     total = addrs.length;
     for(const a of addrs){
       const s = st[a.id] || {};
-      // “ferdig” på en lane teller som done (summarisk)
       if (s.snow?.state==='ferdig' || s.grit?.state==='ferdig') done++;
       if (s.snow?.state==='ferdig' && s.snow?.by===driver) mine++;
       if (s.grit?.state==='ferdig' && s.grit?.by===driver) mine++;
