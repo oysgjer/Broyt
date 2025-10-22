@@ -9,7 +9,7 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
 
-  <!-- iOS web-app -->
+  <!-- iOS webapp-oppførsel -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
@@ -19,8 +19,6 @@
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/work.css">
   <link rel="stylesheet" href="css/service.css">
-  <!-- Nye forbedringer for Hjem -->
-  <link rel="stylesheet" href="css/home-fix.css">
 </head>
 <body>
 
@@ -28,16 +26,14 @@
   <header class="appbar">
     <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
     <div class="appbar-title">Brøyterute</div>
-
     <div class="appbar-right">
-      <span id="sync_badge" class="badge"><span class="dot dot-unknown"></span> Synk: ukjent</span>
+      <span id="sync_badge" class="badge"><span id="sync_dot" class="dot dot-unknown"></span> Synk: ukjent</span>
       <span id="wl_badge" class="badge" title="Skjermlås-status"><span id="wl_dot" class="dot dot-off"></span></span>
     </div>
   </header>
 
-  <!-- Scrim + Drawer (solid bakgrunn i alle moduser) -->
+  <!-- Scrim + Drawer -->
   <div id="scrim"></div>
-
   <aside id="drawer" class="drawer">
     <div class="drawer-header">
       <div>Brøyterute</div>
@@ -63,7 +59,7 @@
         </div>
 
         <div class="drawer-section" style="margin-top:14px">Skjerm</div>
-        <div class="card row">
+        <div class="card row" style="align-items:center; justify-content:space-between">
           <button id="qk_wl" class="btn-ghost"><span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken</button>
           <span id="qk_wl_status" class="muted">Status: av</span>
         </div>
@@ -78,41 +74,41 @@
     <section id="home">
       <h1>Hjem</h1>
 
-      <!-- Fører -->
-      <label class="field">
-        <span>Fører:</span>
-        <input id="a_driver" class="input" placeholder="Navn" />
-      </label>
+      <div class="card">
+        <label class="field">
+          <span>Fører</span>
+          <input id="a_driver" class="input" placeholder="Navn" />
+        </label>
 
-      <!-- Utstyr (vertikal liste) -->
-      <label class="field">
-        <span>Utstyr:</span>
-        <div class="input-like">
-          <div class="checkbox-col">
-            <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
-            <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
-            <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
+        <label class="field">
+          <span>Utstyr</span>
+          <div class="input-like">
+            <div class="checkbox-col">
+              <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
+              <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
+              <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
+            </div>
           </div>
-        </div>
-      </label>
+        </label>
 
-      <!-- Rekkefølge + Auto-naviger -->
-      <label class="field dir-field">
-        <span>Rekkefølge:</span>
-        <div class="dir-row">
-          <select id="a_dir" class="input">
-            <option>Normal</option>
-            <option>Motsatt</option>
-          </select>
+        <div class="field" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap">
+          <label class="field" style="flex:1; margin:0">
+            <span>Rekkefølge</span>
+            <select id="a_dir" class="input">
+              <option>Normal</option>
+              <option>Motsatt</option>
+            </select>
+          </label>
 
-          <label style="display:flex; align-items:center; gap:10px">
-            <input id="a_autoNav" type="checkbox" />
-            <span>Auto-naviger</span>
+          <label class="field" style="margin:0">
+            <div class="checkbox-col" style="gap:0">
+              <label><input id="a_autoNav" type="checkbox" /> Auto-naviger</label>
+            </div>
           </label>
         </div>
-      </label>
 
-      <button id="a_start" class="btn">Start runde</button>
+        <button id="a_start" class="btn" style="width:100%; margin-top:6px">Start runde</button>
+      </div>
     </section>
 
     <!-- UNDER ARBEID -->
@@ -148,91 +144,92 @@
           <button id="act_block" class="btn-ghost">⛔ Ikke mulig</button>
         </div>
 
-        <div class="work-meta">
+        <div class="work-meta" style="margin-top:10px">
           Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
         </div>
       </div>
     </section>
 
-    <!-- SERVICE (lastes som partial) -->
+    <!-- SERVICE (partials/service.html lastes inn) -->
     <section id="service" data-partial="partials/service.html"></section>
 
     <!-- STATUS -->
     <section id="status" hidden>
       <h1>Status</h1>
-      <div id="status_tools" class="row" style="gap:8px; margin-bottom:10px">
-        <button id="st_refresh" class="btn-ghost">Oppfrisk</button>
-        <button id="st_reset_me" class="btn-ghost">Nullstill mine</button>
+      <div class="card" style="margin-bottom:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+        <button id="st_reset_mine" class="btn-ghost">Nullstill mine</button>
         <button id="st_reset_all" class="btn-ghost">Nullstill alt</button>
+        <span id="st_summary" class="label-muted" style="margin-left:auto"></span>
       </div>
 
-      <!-- Tabell (fylles av Status.js) -->
-      <div id="status_table_host"></div>
+      <div class="card" style="overflow:auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Adresse</th>
+              <th>Startet snø</th>
+              <th>Ferdig snø</th>
+              <th>Startet grus</th>
+              <th>Ferdig grus</th>
+              <th>Sjåfør</th>
+            </tr>
+          </thead>
+          <tbody id="st_tbody"></tbody>
+        </table>
+      </div>
     </section>
 
-    <!-- ADMIN -->
+    <!-- ADMIN (enhances av Admin.js) -->
     <section id="admin" hidden>
-      <h1>Admin</h1>
-
-      <div class="card" style="margin-bottom:14px">
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
-          <strong>Aktiv sesong:</strong> <span id="adm_season">—</span>
-          <button id="adm_copyPins" class="btn-ghost">Kopier pinner fra forrige sesong</button>
-          <button id="adm_newSeason" class="btn">Start ny sesong</button>
-        </div>
-      </div>
-
-      <label class="field">
-        <span>Søk</span>
-        <input id="adm_search" class="input" placeholder="Filtrer adresser..." />
-      </label>
-
-      <div id="adm_table_host" class="card">
-        <!-- Dynamisk tabell for adresser/oppgaver/pinner fylles av Admin.js -->
-      </div>
-
-      <div class="row" style="gap:10px">
-        <button id="adm_add" class="btn">Legg til adresse</button>
-        <button id="adm_save" class="btn-ghost">Lagre</button>
-      </div>
+      <!-- Admin.js bygger UI-et her (sesong, JSONBin-oppsett, adressetabell m.m.) -->
     </section>
+
   </main>
 
-  <!-- JS (grunnmur) -->
+  <!-- JS (rekkefølge viktig) -->
   <script src="js/del-d.js" defer></script>
   <script src="js/include-partials.js" defer></script>
   <script src="js/sync.js" defer></script>
 
-  <!-- Meny/scrim wiring som alltid virker -->
-  <script src="js/app-shell.js" defer></script>
-
-  <!-- Sider -->
   <script src="js/Home.js" defer></script>
   <script src="js/Work.js" defer></script>
   <script src="js/Status.js" defer></script>
   <script src="js/Service.js" defer></script>
   <script src="js/Admin.js" defer></script>
 
-  <!-- iOS: solid drawer + korrekt z-index -->
-  <script src="js/ios-drawer-hardfix.js" defer></script>
+  <!-- (valgfritt) iOS drawer hardfix, om du fortsatt bruker den -->
+  <!-- <script src="js/ios-drawer-hardfix.js" defer></script> -->
 
-  <!-- Siste forsikring for scrim/drawer-utseende -->
-  <style>
-    /* Solid drawer i både lys/mørk */
-    #drawer{
-      background: var(--surface) !important;
-      opacity: 1 !important;
-      -webkit-backdrop-filter: none !important;
-      backdrop-filter: none !important;
-      z-index: 10002 !important;
-    }
-    /* Scrim over resten, under skuffen */
-    #scrim{
-      position: fixed; inset:0;
-      background: rgba(0,0,0,.55); opacity:0; pointer-events:none;
-      transition: opacity .18s ease; z-index: 10001 !important;
-    }
-    #scrim.show{ opacity:1; pointer-events:auto; }
-  </style>
+  <!-- Små init-ting: meny og synk-badge -->
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      // Drawer
+      const scrim  = document.getElementById('scrim');
+      const drawer = document.getElementById('drawer');
+      const open   = () => { drawer?.classList.add('show'); scrim?.classList.add('show'); };
+      const close  = () => { drawer?.classList.remove('show'); scrim?.classList.remove('show'); };
+      document.getElementById('btnMenu')?.addEventListener('click', open);
+      document.getElementById('btnCloseDrawer')?.addEventListener('click', close);
+      scrim?.addEventListener('click', close);
+
+      // Synk-badge (oppdateres også av Sync.js ellers)
+      if (window.Sync?.isConfigured?.()) {
+        const dot = document.getElementById('sync_dot');
+        const badge = document.getElementById('sync_badge');
+        dot?.classList.remove('dot-unknown'); dot?.classList.add('dot-ok');
+        if (badge) badge.innerHTML = '<span class="dot dot-ok"></span> Synk: OK';
+      }
+
+      // Navigasjon fra drawer via data-go
+      document.querySelectorAll('.drawer-link').forEach(a=>{
+        a.addEventListener('click', (e)=>{
+          e.preventDefault();
+          const target = a.getAttribute('data-go') || 'home';
+          location.hash = '#' + target;
+          close();
+        });
+      });
+    });
+  </script>
 </body>
 </html>
