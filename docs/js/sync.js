@@ -67,7 +67,6 @@
         lat: isNaN(lat)?null:lat,
         lon: isNaN(lon)?null:lon,
         ord
-        note
       };
     }).sort((a,b)=>(a.ord??0)-(b.ord??0));
   }
