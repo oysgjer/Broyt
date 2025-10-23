@@ -1,6 +1,6 @@
 /* js/sync.js
    JSONBin-klient + cache + normalisering + status/lagring
-   Oppdatert: setter _fetchedAt også etter PUT (status/lagring) slik at synk-tid vises riktig.
+   Støtter feltet "note" på adresser (merknad).
 */
 (() => {
   'use strict';
@@ -12,35 +12,29 @@
   const K_CACHE = 'BRYT_SYNC_CACHE';  // {addresses,status,_fetchedAt, raw}
   const K_DEV   = 'BRYT_DEVICE_ID';
 
+  // enkel event-bus
   const listeners = { change:[], error:[] };
-  function emit(type, payload){ (listeners[type]||[]).forEach(fn=>{ try{ fn(payload); }catch{} }); }
+  const emit = (type, payload)=> (listeners[type]||[]).forEach(fn=>{ try{ fn(payload); }catch{} });
 
+  // device-id (kan brukes om ønsket)
   let DEVICE_ID = RJ(K_DEV, null);
   if (!DEVICE_ID) { DEVICE_ID = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36); WJ(K_DEV, DEVICE_ID); }
 
+  // polling
   let _pollTimer = null;
   function startPolling(ms=15000){ stopPolling(); _pollTimer=setInterval(()=>{ _fetchLatest().catch(()=>{}); }, ms); }
   function stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
 
   let cfg = RJ(K_CFG, { binId:'', apiKey:'' });
-
-  function setConfig({binId, apiKey}={}){
-    if (typeof binId === 'string') cfg.binId = binId.trim();
-    if (typeof apiKey === 'string') cfg.apiKey = apiKey.trim();
-    WJ(K_CFG, cfg);
-    return cfg;
-  }
+  function setConfig({binId, apiKey}={}){ if (typeof binId==='string') cfg.binId=binId.trim(); if (typeof apiKey==='string') cfg.apiKey=apiKey.trim(); WJ(K_CFG,cfg); return cfg; }
   function getConfig(){ return {...cfg}; }
 
-  function _headers(){
-    const h={'Content-Type':'application/json'};
-    if (cfg.apiKey) h['X-Master-Key']=cfg.apiKey;
-    return h;
-  }
+  function _headers(){ const h={'Content-Type':'application/json'}; if (cfg.apiKey) h['X-Master-Key']=cfg.apiKey; return h; }
 
   const _cache = RJ(K_CACHE, { addresses:[], status:{}, _fetchedAt:null, raw:null });
-  function getCache(){ return {..._cache}; }
+  const getCache = ()=> ({..._cache});
 
+  // ------- normalisering -------
   function _normalizeAddresses(list){
     if (!Array.isArray(list)) return [];
     return list.map((a,ix)=>{
@@ -57,16 +51,17 @@
       const lon  = (a.lon!=null) ? Number(a.lon) : null;
       const pins = a.pins ?? a.stakes ?? '';
       const ord  = Number(a.ord ?? ix);
-      const note = (typeof a.note === 'string') ? a.note : '';   // 👈 NY
+      const note = typeof a.note === 'string' ? a.note : '';
 
       return {
         id, name,
         tasks: { snow: !!snow, grit: !!grit },
-        flags: { snow: !!snow, grit: !!grit },
+        flags: { snow: !!snow, grit: !!grit }, // bevar for kompatibilitet
         pins,
         lat: isNaN(lat)?null:lat,
         lon: isNaN(lon)?null:lon,
-        ord
+        ord,
+        note
       };
     }).sort((a,b)=>(a.ord??0)-(b.ord??0));
   }
@@ -92,6 +87,7 @@
     return out;
   }
 
+  // ------- fetch / put -------
   async function _fetchLatest(){
     if (!cfg.binId) throw new Error('Mangler JSONBin ID.');
     const url = `https://api.jsonbin.io/v3/b/${encodeURIComponent(cfg.binId)}/latest`;
@@ -100,25 +96,15 @@
     const j = await res.json();
     const rec = j.record || j;
 
-    const addresses = _normalizeAddresses(rec.snapshot?.addresses || rec.addresses || []);
-    const status    = _normalizeStatus(rec);
-
-    _cache.addresses = addresses;
-    _cache.status    = status;
+    _cache.addresses = _normalizeAddresses(rec.snapshot?.addresses || rec.addresses || []);
+    _cache.status    = _normalizeStatus(rec);
     _cache.raw       = rec;
     _cache._fetchedAt= Date.now();
     WJ(K_CACHE, _cache);
     emit('change', getCache());
     return getCache();
   }
-
-  async function reloadLatest(){ return _fetchLatest(); }
-
-  async function loadAddresses({force=false}={}){
-    if (!force && Array.isArray(_cache.addresses) && _cache.addresses.length){ return _cache.addresses; }
-    await _fetchLatest();
-    return _cache.addresses;
-  }
+  const reloadLatest = ()=>_fetchLatest();
 
   async function _putRecord(rec){
     if (!cfg.binId) throw new Error('Mangler JSONBin ID.');
@@ -128,15 +114,18 @@
     return true;
   }
 
+  async function loadAddresses({force=false}={}){
+    if (!force && Array.isArray(_cache.addresses) && _cache.addresses.length){ return _cache.addresses; }
+    await _fetchLatest();
+    return _cache.addresses;
+  }
+
   async function setStatusPatch(patch){
     const st = _cache.status || {};
     for(const id in (patch.status||{})){
       const cur = st[id] || { snow:{state:'venter',by:null,rounds:[]}, grit:{state:'venter',by:null,rounds:[]}};
       const p   = patch.status[id];
-      st[id] = {
-        snow: {...cur.snow, ...(p.snow||{})},
-        grit: {...cur.grit, ...(p.grit||{})},
-      };
+      st[id] = { snow: {...cur.snow, ...(p.snow||{})}, grit: {...cur.grit, ...(p.grit||{})} };
     }
     _cache.status = st;
 
@@ -153,12 +142,12 @@
     _cache.raw        = raw;
     _cache._fetchedAt = Date.now();
     WJ(K_CACHE, _cache);
-
     emit('change', getCache());
     return true;
   }
 
   async function saveAddresses(prepared){
+    // skriver også "note"
     const list = (prepared||[]).map((a,ix)=>{
       const snow = !!(a.tasks?.snow ?? a.flags?.snow ?? true);
       const grit = !!(a.tasks?.grit ?? a.flags?.grit ?? false);
@@ -170,13 +159,13 @@
         pins: a.pins ?? '',
         lat:  a.lat ?? null,
         lon:  a.lon ?? null,
-        ord:  (a.ord==null ? ix : Number(a.ord))
-        note: typeof a.note === 'string' ? a.note : ''    // 👈 NY
+        ord:  (a.ord==null ? ix : Number(a.ord)),
+        note: typeof a.note==='string' ? a.note : ''
       };
     }).sort((a,b)=>(a.ord??0)-(b.ord??0));
 
     _cache.addresses = _normalizeAddresses(list);
-    localStorage.setItem('BRYT_SYNC_CACHE', JSON.stringify(_cache));
+    WJ(K_CACHE, _cache);
 
     const raw = _cache.raw || {};
     raw.snapshot = raw.snapshot || {};
@@ -186,7 +175,6 @@
     _cache.raw        = raw;
     _cache._fetchedAt = Date.now();
     WJ(K_CACHE, _cache);
-
     emit('change', getCache());
     return _cache.addresses;
   }
@@ -206,12 +194,9 @@
     return { total, mine, other, done };
   }
 
-  function on(type, fn){
-    if (!listeners[type]) listeners[type] = [];
-    listeners[type].push(fn);
-    return () => { listeners[type] = listeners[type].filter(f=>f!==fn); };
-  }
+  function on(type, fn){ if (!listeners[type]) listeners[type]=[]; listeners[type].push(fn); return ()=>{ listeners[type]=listeners[type].filter(f=>f!==fn); }; }
 
+  // Eksponér
   window.Sync = {
     setConfig, getConfig,
     loadAddresses, reloadLatest,
