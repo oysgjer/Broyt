@@ -57,6 +57,7 @@
       const lon  = (a.lon!=null) ? Number(a.lon) : null;
       const pins = a.pins ?? a.stakes ?? '';
       const ord  = Number(a.ord ?? ix);
+      const note = (typeof a.note === 'string') ? a.note : '';   // 👈 NY
 
       return {
         id, name,
@@ -66,6 +67,7 @@
         lat: isNaN(lat)?null:lat,
         lon: isNaN(lon)?null:lon,
         ord
+        note
       };
     }).sort((a,b)=>(a.ord??0)-(b.ord??0));
   }
@@ -170,6 +172,7 @@
         lat:  a.lat ?? null,
         lon:  a.lon ?? null,
         ord:  (a.ord==null ? ix : Number(a.ord))
+        note: typeof a.note === 'string' ? a.note : ''    // 👈 NY
       };
     }).sort((a,b)=>(a.ord??0)-(b.ord??0));
 
