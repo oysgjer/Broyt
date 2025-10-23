@@ -236,3 +236,27 @@ section[hidden]{display:none !important}
 
 /* (valgfritt) småjuster badges/ikoner i appbaren hvis de sitter høyt */
 .standalone .appbar-right{ margin-top: calc(var(--safe-top) * 0.2); }
+
+/* --- iOS safe area for PWA (notch/statusbar) --- */
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* fallback for eldre WebKit */
+@supports (padding-top: constant(safe-area-inset-top)) {
+  :root{
+    --safe-top: constant(safe-area-inset-top);
+    --safe-bottom: constant(safe-area-inset-bottom);
+  }
+}
+
+/* Når appen er standalone, gi appbaren ekstra topp-padding */
+.standalone .appbar{
+  padding-top: calc(10px + var(--safe-top));
+}
+
+/* Litt ekstra luft under innholdet for hjemgest og bunnlinje */
+.standalone main{
+  padding-bottom: calc(16px + var(--safe-bottom));
+}
