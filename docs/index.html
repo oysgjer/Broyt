@@ -196,16 +196,15 @@
 
   <!-- JS – rekkefølge er viktig -->
   <!-- Kjerne (router/meny/tema/wakelock/synk-badge) -->
-  <script src="js/app.js" defer></script>
+  <!-- Basis -->
+<script src="js/app.js" defer></script>
+<script src="js/sync.js" defer></script>
 
-  <!-- Sync (JSONBin + lokal cache) -->
-  <script src="js/sync.js" defer></script>
-
-  <!-- Sider -->
-  <script src="js/Home.js" defer></script>
-  <script src="js/Work.js" defer></script>
-  <script src="js/Service.js" defer></script>
-  <script src="js/Status.js" defer></script>
-  <script src="js/Admin.js" defer></script>
+<!-- Sider (må komme etter sync.js) -->
+<script src="js/Home.js" defer></script>
+<script src="js/Work.js" defer></script>
+<script src="js/Status.js" defer></script>
+<script src="js/Service.js" defer></script>
+<script src="js/Admin.js" defer></script>
 </body>
 </html>
