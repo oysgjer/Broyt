@@ -1,8 +1,8 @@
-// js/Admin.js
+<!-- js/Admin.js -->
 (() => {
   'use strict';
 
-  const $ = (s,r=document)=>r.querySelector(s);
+  const $  = (s,r=document)=>r.querySelector(s);
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
@@ -42,13 +42,14 @@
         <table id="adm_table" style="width:100%; border-collapse:collapse">
           <thead style="position:sticky; top:0; background:var(--surface); z-index:2">
             <tr>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:42%">Adresse</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:32%">Adresse</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:7%">Snø</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:7%">Grus</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:10%">Pinner</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:24%">Koordinater (lat, lon)</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:10%">Flytt</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:5%">Slett</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:9%">Pinner</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:25%">Merknad</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:15%">Koordinater (lat, lon)</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:9%">Flytt</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:6%">Slett</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -79,7 +80,16 @@
 
   function addRow(){
     const ord = (ADDR.length ? Math.max(...ADDR.map(a=>a.ord??0))+1 : 0);
-    ADDR.push({ id: nextId(), ord, name:'', tasks:{snow:false,grit:false}, pins:0, lat:null, lon:null });
+    ADDR.push({
+      id: nextId(),
+      ord,
+      name: '',
+      tasks: { snow:false, grit:false },
+      pins: 0,
+      note: '',          // 👈 merknad
+      lat: null,
+      lon: null
+    });
     markDirty();
     render();
     autoSave();
@@ -91,31 +101,34 @@
 
     const rows = sorted().filter(a => (a.name||'').toLowerCase().includes(q));
 
-    tb.innerHTML = rows.map((a,ix)=>`
+    tb.innerHTML = rows.map(a=>`
       <tr data-id="${a.id}">
         <td style="padding:6px;border-bottom:1px solid var(--sep)">
           <input class="adm_name input" value="${a.name||''}" style="width:100%">
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+        <td style="padding:6px;border-bottom:1px solid var(--sep);text-align:center">
           <input type="checkbox" class="adm_snow" ${a.tasks?.snow?'checked':''}>
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+        <td style="padding:6px;border-bottom:1px solid var(--sep);text-align:center">
           <input type="checkbox" class="adm_grit" ${a.tasks?.grit?'checked':''}>
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--sep)">
           <input class="adm_pins input" type="number" min="0" value="${a.pins??0}" style="max-width:80px">
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <input class="adm_coords input" placeholder="60.2661, 11.1962" value="${fmtCoords(a)}" style="width:100%">
+          <input class="adm_note input" placeholder="Valgfri merknad (vises ved Start)" value="${a.note?escapeHTML(a.note):''}" style="width:100%">
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <div class="row" style="gap:8px">
-            <button class="btn-ghost adm_up">⬆️</button>
-            <button class="btn-ghost adm_down">⬇️</button>
+          <input class="adm_coords input" placeholder="60.266113, 11.196270" value="${fmtCoords(a)}" style="width:100%">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <div class="row" style="gap:8px; justify-content:center">
+            <button class="btn-ghost adm_up"   title="Flytt opp">⬆️</button>
+            <button class="btn-ghost adm_down" title="Flytt ned">⬇️</button>
           </div>
         </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <button class="btn-ghost adm_del">🗑️</button>
+        <td style="padding:6px;border-bottom:1px solid var(--sep);text-align:center">
+          <button class="btn-ghost adm_del" title="Slett">🗑️</button>
         </td>
       </tr>
     `).join('');
@@ -148,6 +161,12 @@
         markDirty(); autoSaveSoon();
       });
 
+      tr.querySelector('.adm_note')?.addEventListener('input', e=>{
+        const it = ADDR.find(x=>x.id===id); if(!it) return;
+        it.note = e.target.value;
+        markDirty(); autoSaveSoon();
+      });
+
       tr.querySelector('.adm_coords')?.addEventListener('input', e=>{
         const it = ADDR.find(x=>x.id===id); if(!it) return;
         const {lat,lon} = parseCoords(e.target.value);
@@ -161,10 +180,12 @@
         markDirty(); render(); autoSave();
       });
 
-      tr.querySelector('.adm_up')?.addEventListener('click', ()=>moveRow(id, -1));
+      tr.querySelector('.adm_up')  ?.addEventListener('click', ()=>moveRow(id, -1));
       tr.querySelector('.adm_down')?.addEventListener('click', ()=>moveRow(id, +1));
     });
   }
+
+  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
   function fmtCoords(a){
     if (a?.lat==null || a?.lon==null) return '';
@@ -211,7 +232,7 @@
   }
   async function autoSave(){
     try{
-      await Sync.saveAddresses(ADDR); // bevarer ord
+      await Sync.saveAddresses(ADDR); // bevarer ord + note
       markDirty(false);
     }catch(e){
       console.error(e);
@@ -220,7 +241,6 @@
   }
 
   async function saveAllFromDOM(){
-    // trekk dagens verdier fra DOM (inkludert rekkefølge som ligger i ADDR.ord)
     const tb = $('#adm_table tbody');
     if (!tb){ return; }
 
@@ -232,6 +252,7 @@
       it.tasks.snow = !!tr.querySelector('.adm_snow')?.checked;
       it.tasks.grit = !!tr.querySelector('.adm_grit')?.checked;
       it.pins = Number(tr.querySelector('.adm_pins')?.value || 0);
+      it.note = tr.querySelector('.adm_note')?.value || '';
       const {lat,lon} = parseCoords(tr.querySelector('.adm_coords')?.value);
       it.lat = lat; it.lon = lon;
     });
@@ -256,7 +277,7 @@
     try{
       const list = await Sync.loadAddresses({force:true});
       // sørg for at alle har ord
-      ADDR = (list||[]).map((a,ix)=>({ ...a, ord: (a.ord==null? ix : Number(a.ord)) }));
+      ADDR = (list||[]).map((a,ix)=>({ ...a, ord: (a.ord==null? ix : Number(a.ord)), note: a.note||'' }));
       render();
     }catch(e){ console.error(e); }
   }
@@ -266,7 +287,7 @@
     if (DIRTY) return;
     const cache = Sync.getCache?.() || {};
     const list = cache.addresses || [];
-    ADDR = (list||[]).map((a,ix)=>({ ...a, ord: (a.ord==null? ix : Number(a.ord)) }));
+    ADDR = (list||[]).map((a,ix)=>({ ...a, ord: (a.ord==null? ix : Number(a.ord)), note: a.note||'' }));
     render();
   });
 
