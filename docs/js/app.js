@@ -67,6 +67,22 @@
     applyTheme(RJ(K_THEME, null));
   }
 
+(function(){
+  function applyDisplayMode(){
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true; // iOS Safari
+    document.documentElement.classList.toggle('standalone', standalone);
+  }
+
+  // Kjør ved start og ved endring av display-mode
+  window.addEventListener('DOMContentLoaded', applyDisplayMode);
+  try {
+    window.matchMedia('(display-mode: standalone)')
+      .addEventListener('change', applyDisplayMode);
+  } catch(_) {}
+})();
+
   // ---------- Wake Lock ----------
   async function requestWakeLock(){
     if (!('wakeLock' in navigator)) return false;
