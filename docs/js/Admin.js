@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const $  = (s,r=document)=>r.querySelector(s);
+  const $ = (s,r=document)=>r.querySelector(s);
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
@@ -11,6 +11,8 @@
   let saveTimer = null;
 
   function markDirty(on=true){ DIRTY = !!on; }
+  function nextId(){ return String(Date.now() + Math.random()); }
+  function sorted(){ return [...ADDR].sort((a,b)=>(a.ord??0)-(b.ord??0)); }
 
   // ---------- UI skeleton ----------
   function ensureUI(){
@@ -42,14 +44,14 @@
         <table id="adm_table" style="width:100%; border-collapse:collapse">
           <thead style="position:sticky; top:0; background:var(--surface); z-index:2">
             <tr>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:32%">Adresse</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:7%">Snø</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:7%">Grus</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:9%">Pinner</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:25%">Merknad</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:15%">Koordinater (lat, lon)</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:9%">Flytt</th>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:6%">Slett</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:30%">Adresse</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:8%">Snø</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:8%">Grus</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:10%">Pinner</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:22%">Koordinater (lat, lon)</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:17%">Merknad</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:10%">Flytt</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:5%">Slett</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -68,124 +70,18 @@
     $('#adm_save_cfg')?.addEventListener('click', saveCfg);
     $('#adm_filter')?.addEventListener('input', render);
 
-    // init cfg-felt
     const cfg = Sync.getConfig();
     $('#adm_bin') && ($('#adm_bin').value = cfg.binId || '');
     $('#adm_key') && ($('#adm_key').value = cfg.apiKey || '');
   }
 
-  // ---------- Helpers ----------
-  function nextId(){ return String(Date.now() + Math.random()); }
-  function sorted(){ return [...ADDR].sort((a,b)=>(a.ord??0)-(b.ord??0)); }
-
   function addRow(){
     const ord = (ADDR.length ? Math.max(...ADDR.map(a=>a.ord??0))+1 : 0);
-    ADDR.push({
-      id: nextId(),
-      ord,
-      name: '',
-      tasks: { snow:false, grit:false },
-      pins: 0,
-      note: '',          // 👈 merknad
-      lat: null,
-      lon: null
-    });
+    ADDR.push({ id: nextId(), ord, name:'', tasks:{snow:false,grit:false}, pins:0, lat:null, lon:null, note:'' });
     markDirty();
     render();
     autoSave();
   }
-
-  function render(){
-    const tb = $('#adm_table tbody'); if (!tb) return;
-    const q = ($('#adm_filter')?.value || '').toLowerCase();
-
-    const rows = sorted().filter(a => (a.name||'').toLowerCase().includes(q));
-
-    tb.innerHTML = rows.map(a=>`
-      <tr data-id="${a.id}">
-        <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <input class="adm_name input" value="${a.name||''}" style="width:100%">
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep);text-align:center">
-          <input type="checkbox" class="adm_snow" ${a.tasks?.snow?'checked':''}>
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep);text-align:center">
-          <input type="checkbox" class="adm_grit" ${a.tasks?.grit?'checked':''}>
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <input class="adm_pins input" type="number" min="0" value="${a.pins??0}" style="max-width:80px">
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <input class="adm_note input" placeholder="Valgfri merknad (vises ved Start)" value="${a.note?escapeHTML(a.note):''}" style="width:100%">
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <input class="adm_coords input" placeholder="60.266113, 11.196270" value="${fmtCoords(a)}" style="width:100%">
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep)">
-          <div class="row" style="gap:8px; justify-content:center">
-            <button class="btn-ghost adm_up"   title="Flytt opp">⬆️</button>
-            <button class="btn-ghost adm_down" title="Flytt ned">⬇️</button>
-          </div>
-        </td>
-        <td style="padding:6px;border-bottom:1px solid var(--sep);text-align:center">
-          <button class="btn-ghost adm_del" title="Slett">🗑️</button>
-        </td>
-      </tr>
-    `).join('');
-
-    // wire rad-hendelser
-    tb.querySelectorAll('tr').forEach(tr=>{
-      const id = tr.dataset.id;
-
-      tr.querySelector('.adm_name')?.addEventListener('input', e=>{
-        const it = ADDR.find(x=>x.id===id); if(!it) return;
-        it.name = e.target.value;
-        markDirty(); autoSaveSoon();
-      });
-
-      tr.querySelector('.adm_snow')?.addEventListener('change', e=>{
-        const it = ADDR.find(x=>x.id===id); if(!it) return;
-        it.tasks = it.tasks || {}; it.tasks.snow = !!e.target.checked;
-        markDirty(); autoSaveSoon();
-      });
-
-      tr.querySelector('.adm_grit')?.addEventListener('change', e=>{
-        const it = ADDR.find(x=>x.id===id); if(!it) return;
-        it.tasks = it.tasks || {}; it.tasks.grit = !!e.target.checked;
-        markDirty(); autoSaveSoon();
-      });
-
-      tr.querySelector('.adm_pins')?.addEventListener('input', e=>{
-        const it = ADDR.find(x=>x.id===id); if(!it) return;
-        it.pins = Number(e.target.value||0);
-        markDirty(); autoSaveSoon();
-      });
-
-      tr.querySelector('.adm_note')?.addEventListener('input', e=>{
-        const it = ADDR.find(x=>x.id===id); if(!it) return;
-        it.note = e.target.value;
-        markDirty(); autoSaveSoon();
-      });
-
-      tr.querySelector('.adm_coords')?.addEventListener('input', e=>{
-        const it = ADDR.find(x=>x.id===id); if(!it) return;
-        const {lat,lon} = parseCoords(e.target.value);
-        it.lat = lat; it.lon = lon;
-        markDirty(); autoSaveSoon();
-      });
-
-      tr.querySelector('.adm_del')?.addEventListener('click', ()=>{
-        ADDR = ADDR.filter(a=>a.id!==id);
-        renumberIfNeeded();
-        markDirty(); render(); autoSave();
-      });
-
-      tr.querySelector('.adm_up')  ?.addEventListener('click', ()=>moveRow(id, -1));
-      tr.querySelector('.adm_down')?.addEventListener('click', ()=>moveRow(id, +1));
-    });
-  }
-
-  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
   function fmtCoords(a){
     if (a?.lat==null || a?.lon==null) return '';
@@ -197,22 +93,18 @@
     return { lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon };
   }
 
-  // ---- flytting (bytt ord, behold alt annet) ----
   function moveRow(id, dir){
     const arr = sorted();
     const i = arr.findIndex(x=>x.id===id);
     if (i<0) return;
-
     const j = i + (dir<0 ? -1 : 1);
     if (j<0 || j>=arr.length) return;
 
-    // bytt ord
     const a = arr[i], b = arr[j];
     const tmp = a.ord ?? i;
     a.ord = b.ord ?? j;
     b.ord = tmp;
 
-    // skriv ord tilbake i ADDR by id
     const A = ADDR.find(x=>x.id===a.id); if (A) A.ord = a.ord;
     const B = ADDR.find(x=>x.id===b.id); if (B) B.ord = b.ord;
 
@@ -220,9 +112,91 @@
   }
 
   function renumberIfNeeded(){
-    // sørg for sekvensielle ord-verdier (0..n-1)
     const arr = sorted();
     arr.forEach((x,ix)=>{ x.ord = ix; const ref = ADDR.find(y=>y.id===x.id); if (ref) ref.ord = ix; });
+  }
+
+  function render(){
+    const tb = $('#adm_table tbody'); if (!tb) return;
+    const q = ($('#adm_filter')?.value || '').toLowerCase();
+    const rows = sorted().filter(a => (a.name||'').toLowerCase().includes(q));
+
+    tb.innerHTML = rows.map((a)=>`
+      <tr data-id="${a.id}">
+        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <input class="adm_name input" value="${a.name||''}" style="width:100%">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep); text-align:center">
+          <input type="checkbox" class="adm_snow" ${a.tasks?.snow?'checked':''}>
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep); text-align:center">
+          <input type="checkbox" class="adm_grit" ${a.tasks?.grit?'checked':''}>
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <input class="adm_pins input" type="number" min="0" value="${a.pins??0}" style="max-width:80px">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <input class="adm_coords input" placeholder="60.2661, 11.1962" value="${fmtCoords(a)}" style="width:100%">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <input class="adm_note input" placeholder="Merknad (vises ved Start)" value="${(a.note||'').replace(/"/g,'&quot;')}" style="width:100%">
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <div class="row" style="gap:8px;justify-content:flex-start">
+            <button class="btn-ghost adm_up">⬆️</button>
+            <button class="btn-ghost adm_down">⬇️</button>
+          </div>
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep)">
+          <button class="btn-ghost adm_del">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+
+    // wire rad-hendelser
+    tb.querySelectorAll('tr').forEach(tr=>{
+      const id = tr.dataset.id;
+
+      tr.querySelector('.adm_name')?.addEventListener('input', e=>{
+        const it = ADDR.find(x=>x.id===id); if(!it) return;
+        it.name = e.target.value; markDirty(); autoSaveSoon();
+      });
+
+      tr.querySelector('.adm_snow')?.addEventListener('change', e=>{
+        const it = ADDR.find(x=>x.id===id); if(!it) return;
+        it.tasks = it.tasks || {}; it.tasks.snow = !!e.target.checked; markDirty(); autoSaveSoon();
+      });
+
+      tr.querySelector('.adm_grit')?.addEventListener('change', e=>{
+        const it = ADDR.find(x=>x.id===id); if(!it) return;
+        it.tasks = it.tasks || {}; it.tasks.grit = !!e.target.checked; markDirty(); autoSaveSoon();
+      });
+
+      tr.querySelector('.adm_pins')?.addEventListener('input', e=>{
+        const it = ADDR.find(x=>x.id===id); if(!it) return;
+        it.pins = Number(e.target.value||0); markDirty(); autoSaveSoon();
+      });
+
+      tr.querySelector('.adm_coords')?.addEventListener('input', e=>{
+        const it = ADDR.find(x=>x.id===id); if(!it) return;
+        const {lat,lon} = parseCoords(e.target.value);
+        it.lat = lat; it.lon = lon; markDirty(); autoSaveSoon();
+      });
+
+      tr.querySelector('.adm_note')?.addEventListener('input', e=>{
+        const it = ADDR.find(x=>x.id===id); if(!it) return;
+        it.note = e.target.value; markDirty(); autoSaveSoon();
+      });
+
+      tr.querySelector('.adm_del')?.addEventListener('click', ()=>{
+        ADDR = ADDR.filter(a=>a.id!==id);
+        renumberIfNeeded();
+        markDirty(); render(); autoSave();
+      });
+
+      tr.querySelector('.adm_up')?.addEventListener('click', ()=>moveRow(id, -1));
+      tr.querySelector('.adm_down')?.addEventListener('click', ()=>moveRow(id, +1));
+    });
   }
 
   // ---------- Lagring ----------
@@ -241,8 +215,7 @@
   }
 
   async function saveAllFromDOM(){
-    const tb = $('#adm_table tbody');
-    if (!tb){ return; }
+    const tb = $('#adm_table tbody'); if (!tb) return;
 
     const map = Object.fromEntries(ADDR.map(a=>[a.id,a]));
     tb.querySelectorAll('tr').forEach(tr=>{
@@ -252,9 +225,9 @@
       it.tasks.snow = !!tr.querySelector('.adm_snow')?.checked;
       it.tasks.grit = !!tr.querySelector('.adm_grit')?.checked;
       it.pins = Number(tr.querySelector('.adm_pins')?.value || 0);
-      it.note = tr.querySelector('.adm_note')?.value || '';
       const {lat,lon} = parseCoords(tr.querySelector('.adm_coords')?.value);
       it.lat = lat; it.lon = lon;
+      it.note = tr.querySelector('.adm_note')?.value || '';
     });
 
     try{
@@ -276,18 +249,25 @@
   async function load(){
     try{
       const list = await Sync.loadAddresses({force:true});
-      // sørg for at alle har ord
-      ADDR = (list||[]).map((a,ix)=>({ ...a, ord: (a.ord==null? ix : Number(a.ord)), note: a.note||'' }));
+      ADDR = (list||[]).map((a,ix)=>({
+        ...a,
+        ord: (a.ord==null? ix : Number(a.ord)),
+        note: typeof a.note === 'string' ? a.note : ''   // <- sørg for note-felt
+      }));
       render();
     }catch(e){ console.error(e); }
   }
 
-  // Oppdater fra Sync – men ikke mens vi har lokale, ulagrede endringer
+  // Hent fra Sync når noe endres – men ikke overskriv lokale ulagrede endringer
   Sync.on?.('change', ()=>{
     if (DIRTY) return;
     const cache = Sync.getCache?.() || {};
     const list = cache.addresses || [];
-    ADDR = (list||[]).map((a,ix)=>({ ...a, ord: (a.ord==null? ix : Number(a.ord)), note: a.note||'' }));
+    ADDR = (list||[]).map((a,ix)=>({
+      ...a,
+      ord: (a.ord==null? ix : Number(a.ord)),
+      note: typeof a.note === 'string' ? a.note : ''
+    }));
     render();
   });
 
