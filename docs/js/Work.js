@@ -237,6 +237,12 @@
     if (idx==null || !list[idx]) return;
     const cur = list[idx];
 
+    // 👇 POPUP med merknad (fra Admin) hvis satt på adressen
+    const note = (cur.note || '').trim();
+    if (note) {
+      alert(`Merknad:\n\n${note}`);
+    }
+
     const s = getStatus(cur.id, lane);
     const nowISO = new Date().toISOString();
 
