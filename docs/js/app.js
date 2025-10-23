@@ -4,6 +4,15 @@
 (() => {
   'use strict';
 
+// Marker når vi kjører som installert app (standalone)
+  const isStandalone =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true; // iOS
+
+  if (isStandalone) {
+  document.documentElement.classList.add('standalone');
+}
+
   // ---------- helpers ----------
   const $  = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
