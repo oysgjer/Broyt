@@ -207,3 +207,32 @@ section[hidden]{display:none !important}
   #adm_table th { font-size: 12px; }
   .adm-coord { font-size: 13px; }
 }
+/* Safe area-variabler */
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Appbar på toppen må få ekstra padding i standalone */
+.standalone .appbar{
+  position: sticky;        /* eller fixed om du bruker det */
+  top: 0;
+  padding-top: calc(12px + var(--safe-top));        /* ← skyv under klokka / island */
+  min-height: calc(56px + var(--safe-top));         /* behold høyden pen */
+  z-index: 50;
+}
+
+/* Innhold: litt ekstra luft nederst for home-indikator */
+.standalone main{
+  padding-bottom: calc(16px + var(--safe-bottom));
+}
+
+/* Side-meny (drawer) og scrim – også under notchen */
+.standalone #drawer{
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+.standalone #scrim{ top: 0; }
+
+/* (valgfritt) småjuster badges/ikoner i appbaren hvis de sitter høyt */
+.standalone .appbar-right{ margin-top: calc(var(--safe-top) * 0.2); }
