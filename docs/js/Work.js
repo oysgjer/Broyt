@@ -424,7 +424,7 @@
 
       // Klikk -> åpne kartet i ny fane (samme bin for adresser og ruter)
       btn.addEventListener('click', () => {
-        const url = 'https://DITT-DOMENE.NO/tools/kart.html'
+        const url = 'https://broyt.pages.dev/tools/kart.html'
           + '#addrBin=68ed425cae596e708f11d25f'
           + '&routeBin=68ed425cae596e708f11d25f'
           + '&field=geojsonRoutes';
