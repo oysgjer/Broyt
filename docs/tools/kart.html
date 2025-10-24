@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>KartTegner – brøytekart (mobilvennlig)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <style>
+    :root { 
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+    html, body { height: 100%; margin: 0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#fff; }
+    #app { display: grid; grid-template-rows: auto 1fr auto; height: 100dvh; }
+    header {
+      padding: calc(8px + var(--safe-top)) 12px 8px 12px;
+      background: #0f172a; color: #fff; display: flex; flex-wrap: wrap;
+      gap: .5rem; align-items: center; position: sticky; top: 0; z-index: 500;
+    }
+    header h1 { font-size: 1rem; margin: 0 .5rem 0 0; font-weight: 600; }
+    .btn {
+      background: #1e293b; color: #fff; border: 1px solid #334155;
+      padding: .55rem .8rem; border-radius: .7rem; cursor: pointer;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      font-size: 0.95rem;
+    }
+    .btn:active { transform: translateY(1px); }
+    .sep { width: 1px; height: 28px; background: #334155; margin: 0 .25rem; }
+    #map { height: 100%; width: 100%; }
+    #statusbar {
+      padding: 8px 12px calc(8px + var(--safe-bottom));
+      background: #f8fafc; border-top: 1px solid #e5e7eb;
+      display: grid; grid-template-columns: 1fr; gap: .5rem; align-items: center;
+    }
+    @media (min-width: 720px) {
+      #statusbar { grid-template-columns: 1fr auto; }
+    }
+    .progress { height: 12px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+    .progress > div { height: 100%; width: 0%; background: #16a34a; transition: width .3s ease; }
+    .pill { font-size: .9rem; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; padding: .25rem .5rem; border-radius: 999px; }
+    .legend {
+      position: fixed; right: calc(12px + var(--safe-right)); top: calc(64px + var(--safe-top));
+      background: #fff; border: 1px solid #e5e7eb; padding: .6rem; border-radius: .6rem; 
+      box-shadow: 0 4px 18px rgba(0,0,0,.08); z-index: 450;
+    }
+    .legend h3{ margin:0 0 .5rem 0; font-size:.95rem }
+    .legend .row{ font-size:.85rem; margin:.15rem 0; display:flex; align-items:center; gap:.35rem }
+    .swatch{ width: 10px; height: 10px; border-radius: 2px; display:inline-block }
+    .swatch.route{ background:#ef4444 }
+    .swatch.covered{ background:#16a34a }
+    .swatch.gps{ background:#3b82f6 }
+    .toolbar-note{ font-size:.85rem; color:#cbd5e1 }
+    /* Bigger touch targets on small screens */
+    @media (max-width: 480px) {
+      .btn { padding: .7rem .9rem; font-size: 1rem; }
+      header { gap: .4rem; }
+      .sep { display: none; }
+      .toolbar-note { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>KartTegner</h1>
+    <button id="btnDraw" class="btn">✏️ Tegn linje</button>
+    <button id="btnFinish" class="btn">✅ Avslutt</button>
+    <div class="sep"></div>
+    <button id="btnStartGPS" class="btn">▶️ Start GPS</button>
+    <button id="btnStopGPS" class="btn">⏹️ Stopp</button>
+    <button id="btnSimulate" class="btn">🧪 Simulér</button>
+    <div class="sep"></div>
+    <button id="btnExport" class="btn">⬇️ Eksporter</button>
+    <button id="btnImport" class="btn">⬆️ Importer</button>
+    <button id="btnLoadBin" class="btn">📥 Last JSONBin</button>
+    <button id="btnSaveBin" class="btn">💾 Lagre JSONBin</button>
+    <span class="toolbar-note">Tips: tegn flere streker – alt lagres som FeatureCollection.</span>
+  </header>
+  <div id="map"></div>
+  <div id="statusbar">
+    <div class="progress" aria-label="Dekningsgrad"><div id="bar"></div></div>
+    <div style="display:flex; gap:.5rem; align-items:center; flex-wrap: wrap;">
+      <span id="coverage" class="pill">Dekning: 0%</span>
+      <span id="distance" class="pill">Rutelengde: 0 m</span>
+      <span id="fix" class="pill">GPS: –</span>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <h3>Tegnforklaring</h3>
+  <div class="row"><span class="swatch route"></span> Rute(r)</div>
+  <div class="row"><span class="swatch covered"></span> Dekket del</div>
+  <div class="row"><span class="swatch gps"></span> GPS-spor</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+<script>
+(function(){
+  // --- URL-hash parametere
+  // Bruk separate bins hvis ønskelig:
+  //  #addrBin=...&addrKey=...&routeBin=...&routeKey=...&field=geojsonRoutes
+  const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const ADDR_BIN = params.get('addrBin') || params.get('bin') || '';
+  const ADDR_KEY = params.get('addrKey') || params.get('key') || '';
+  const ROUTE_BIN = params.get('routeBin') || ADDR_BIN;
+  const ROUTE_KEY = params.get('routeKey') || ADDR_KEY;
+  const FIELD = params.get('field') || 'geojsonRoutes';
+  const JSONBIN_API = 'https://api.jsonbin.io/v3/b';
+
+  // --- Kartoppsett
+  const map = L.map('map').setView([60.2563, 11.1941], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 20,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  // Feature-grupper
+  const drawnLayer   = new L.FeatureGroup().addTo(map); // Mange linjer
+  const coveredLayer = new L.FeatureGroup().addTo(map); // Dekket del
+  const gpsLayer     = new L.FeatureGroup().addTo(map); // GPS-spor
+  const addressLayer = new L.FeatureGroup().addTo(map); // Markører fra snapshot.addresses
+
+  // Tegneverktøy
+  const drawControl = new L.Control.Draw({
+    draw: {
+      polygon: false, rectangle: false, circle: false, circlemarker: false, marker: false,
+      polyline: { shapeOptions: { color: '#ef4444', weight: 4 } }
+    },
+    edit: { featureGroup: drawnLayer }
+  });
+
+  let drawing = false;
+  document.getElementById('btnDraw').onclick = () => {
+    drawing = true;
+    new L.Draw.Polyline(map, drawControl.options.draw.polyline).enable();
+  };
+  document.getElementById('btnFinish').onclick = () => { map.fire('draw:drawstop'); drawing = false; };
+
+  map.on(L.Draw.Event.CREATED, (e) => {
+    const layer = e.layer; // polyline
+    const name = prompt('Navn på strekning?', 'Ny brøytestrek') || 'Uten navn';
+    layer.feature = layer.feature || { type:'Feature', properties:{} };
+    layer.feature.properties.name = name;
+    layer.addTo(drawnLayer);
+    map.fitBounds(layer.getBounds(), { padding:[20,20] });
+    recalcRouteStats();
+  });
+
+  map.on(L.Draw.Event.EDITED, recalcRouteStats);
+
+  // Dekningsberegning (samlet for alle linjer)
+  let samples = []; // samplepunkter langs alle linjer
+  const SAMPLE_EVERY_M = 5;  // meter
+  const TOLERANCE_M    = 12; // meter fra GPS til linje
+  let covered = new Set();   // globale sample-indekser som er dekket
+
+  function recalcRouteStats(){
+    covered.clear();
+    coveredLayer.clearLayers();
+    const gjs = toGeoJSONMulti();
+    if(!gjs || gjs.length===0) { updateUI(0, 0); samples=[]; return; }
+
+    let meters = 0;
+    samples = [];
+    gjs.forEach(gj => {
+      const lenKm = turf.length(gj, {units:'kilometers'});
+      meters += Math.round(lenKm * 1000);
+      const steps = Math.max(1, Math.ceil((lenKm*1000) / SAMPLE_EVERY_M));
+      for(let i=0;i<=steps;i++){
+        const distKm = (i * SAMPLE_EVERY_M) / 1000;
+        const pt = turf.along(gj, distKm, {units:'kilometers'});
+        samples.push(pt);
+      }
+    });
+    updateUI(0, meters);
+  }
+
+  function toGeoJSON(){
+    const layers = drawnLayer.getLayers();
+    if(layers.length === 0) return null;
+    const line = layers[0].toGeoJSON();
+    if(line.geometry.type !== 'LineString') return null;
+    return line; // Feature
+  }
+  function toGeoJSONMulti(){
+    const layers = drawnLayer.getLayers();
+    if(layers.length===0) return [];
+    return layers.map(l => l.toGeoJSON()).filter(f => f.geometry?.type==='LineString');
+  }
+
+  function updateUI(percent, meters){
+    const bar = document.getElementById('bar');
+    bar.style.width = `${percent}%`;
+    document.getElementById('coverage').textContent = `Dekning: ${percent.toFixed(0)}%`;
+    document.getElementById('distance').textContent = `Rutelengde: ${meters} m`;
+  }
+  function totalMeters(){
+    const gjs = toGeoJSONMulti();
+    let m=0; gjs.forEach(gj => m += Math.round(turf.length(gj,{units:'kilometers'})*1000));
+    return m;
+  }
+
+  function markCovered(indices){
+    if(!indices || indices.length===0) return;
+    indices.forEach(i => covered.add(i));
+
+    const coveredPts = Array.from(covered).sort((a,b)=>a-b).map(i=>samples[i]);
+    if(coveredPts.length>0){
+      coveredLayer.clearLayers();
+      const coords = coveredPts.map(pt => pt.geometry.coordinates).map(c=>[c[1], c[0]]);
+      L.polyline(coords, {color:'#16a34a', weight:6, opacity:0.6}).addTo(coveredLayer);
+    }
+    const pct = samples.length? Math.min(100, (covered.size / samples.length) * 100) : 0;
+    const meters = totalMeters();
+    updateUI(pct, meters);
+  }
+
+  // GPS-sporing
+  let watchId = null;
+  let gpsPolyline = null;
+  const gpsCoords = [];
+
+  function addGpsPoint(lat, lon){
+    gpsCoords.push([lat, lon]);
+    if(!gpsPolyline){
+      gpsPolyline = L.polyline(gpsCoords, {color:'#3b82f6', weight:3}).addTo(gpsLayer);
+    } else {
+      gpsPolyline.setLatLngs(gpsCoords);
+    }
+    // Sjekk nærhet til samples
+    if(samples.length>0){
+      const pt = turf.point([lon, lat]);
+      let nearestIdx = 0; let best = Infinity;
+      for(let i=0;i<samples.length;i++){
+        const d = turf.distance(pt, samples[i], {units:'kilometers'});
+        if(d<best){ best=d; nearestIdx=i; }
+      }
+      const found = [];
+      const maxJump = 25;
+      for(let j=Math.max(0, nearestIdx-maxJump); j<=Math.min(samples.length-1, nearestIdx+maxJump); j++){
+        const m = turf.distance(pt, samples[j], {units:'kilometers'}) * 1000;
+        if(m <= TOLERANCE_M) found.push(j);
+      }
+      markCovered(found);
+    }
+  }
+
+  function startGPS(){
+    if(watchId!==null) return;
+    if(!navigator.geolocation){ alert('Denne enheten støtter ikke Geolocation. Bruk «Simulér».'); return; }
+    watchId = navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      document.getElementById('fix').textContent = `GPS: ${accuracy? Math.round(accuracy)+'m' : 'ok'}`;
+      addGpsPoint(latitude, longitude);
+    }, err => {
+      document.getElementById('fix').textContent = 'GPS: feil';
+      console.error(err);
+      alert('Fikk ikke GPS. Du kan prøve «Simulér» på desktop.');
+    }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
+  }
+
+  function stopGPS(){
+    if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+    document.getElementById('fix').textContent = 'GPS: stoppet';
+  }
+
+  document.getElementById('btnStartGPS').onclick = startGPS;
+  document.getElementById('btnStopGPS').onclick = stopGPS;
+
+  // Simulering langs valgte linjer
+  let simTimer = null; let simIdx = 0;
+  document.getElementById('btnSimulate').onclick = ()=>{
+    const feats = toGeoJSONMulti();
+    if(!feats.length){ alert('Tegn minst én linje først.'); return; }
+    const coords = [];
+    feats.forEach(f => {
+      f.geometry.coordinates.forEach(c=>coords.push([c[1], c[0]]));
+    });
+    if(simTimer){ clearInterval(simTimer); simTimer=null; }
+    gpsCoords.length = 0; gpsLayer.clearLayers(); gpsPolyline=null; simIdx=0;
+    const speedMs = 6; // ~21.6 km/t
+    const densified = densify(coords, 3); // punkt ca. hver 3. meter
+    simTimer = setInterval(()=>{
+      if(simIdx >= densified.length){ clearInterval(simTimer); simTimer=null; return; }
+      const [lat, lon] = densified[simIdx++];
+      addGpsPoint(lat, lon);
+    }, Math.max(150, 1000 * (3 / speedMs)));
+  };
+
+  function densify(latlngs, everyMeters){
+    const out = [];
+    for(let i=0;i<latlngs.length-1;i++){
+      const a = latlngs[i], b = latlngs[i+1];
+      const segLen = distanceMeters(a,b);
+      const steps = Math.max(1, Math.floor(segLen / everyMeters));
+      for(let s=0; s<steps; s++){
+        const t = s/steps; out.push( lerpLatLng(a,b,t) );
+      }
+    }
+    out.push(latlngs[latlngs.length-1]);
+    return out;
+  }
+  function distanceMeters(a,b){
+    const R=6371000; const toRad=(x)=>x*Math.PI/180;
+    const dLat=toRad(b[0]-a[0]); const dLon=toRad(b[1]-a[1]);
+    const la=toRad(a[0]); const lb=toRad(b[0]);
+    const h=Math.sin(dLat/2)**2 + Math.cos(la)*Math.cos(lb)*Math.sin(dLon/2)**2;
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+  function lerpLatLng(a,b,t){ return [ a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t ]; }
+
+  // Import/eksport GeoJSON
+  document.getElementById('btnExport').onclick = () => {
+    const feats = toGeoJSONMulti();
+    if(!feats.length){ alert('Ingen ruter å eksportere.'); return; }
+    const fc = { type:'FeatureCollection', features: feats };
+    const blob = new Blob([JSON.stringify(fc, null, 2)], {type:'application/geo+json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'broytetraseer.geojson'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  document.getElementById('btnImport').onclick = async () => {
+    const input = document.createElement('input');
+    input.type='file'; input.accept='.geojson,application/geo+json,application/json';
+    input.onchange = async () => {
+      const file = input.files[0]; if(!file) return;
+      const txt = await file.text();
+      try{
+        const gj = JSON.parse(txt);
+        drawnLayer.clearLayers(); coveredLayer.clearLayers(); gpsLayer.clearLayers();
+        if(gj.type==='FeatureCollection'){
+          gj.features.forEach(feat => {
+            if(feat.geometry?.type==='LineString'){
+              const latlngs = feat.geometry.coordinates.map(c=>[c[1], c[0]]);
+              const layer = L.polyline(latlngs, {color:'#ef4444', weight:4}).addTo(drawnLayer);
+              layer.feature = feat;
+            }
+          });
+        } else if(gj.type==='Feature' && gj.geometry?.type==='LineString'){
+          const latlngs = gj.geometry.coordinates.map(c=>[c[1], c[0]]);
+          const layer = L.polyline(latlngs, {color:'#ef4444', weight:4}).addTo(drawnLayer);
+          layer.feature = gj;
+        } else if(gj.type==='LineString'){
+          const latlngs = gj.coordinates.map(c=>[c[1], c[0]]);
+          L.polyline(latlngs, {color:'#ef4444', weight:4}).addTo(drawnLayer);
+        } else {
+          throw new Error('Importer FeatureCollection/Feature/LineString');
+        }
+        if(drawnLayer.getLayers().length){
+          map.fitBounds(drawnLayer.getBounds(), {padding:[20,20]});
+        }
+        recalcRouteStats();
+      }catch(e){ alert('Kunne ikke importere: '+e.message); }
+    };
+    input.click();
+  };
+
+  // --- JSONBin: last & lagre
+  async function jsonbinGet(binId, key){
+    const res = await fetch(`${JSONBIN_API}/${binId}/latest`, {
+      headers: key ? { 'X-Master-Key': key } : {}
+    });
+    if(!res.ok) throw new Error('JSONBin GET feilet');
+    const j = await res.json();
+    return j.record;
+  }
+  async function jsonbinPut(binId, key, record){
+    const res = await fetch(`${JSONBIN_API}/${binId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(key ? { 'X-Master-Key': key } : {})
+      },
+      body: JSON.stringify(record)
+    });
+    if(!res.ok) throw new Error('JSONBin PUT feilet');
+    return res.json();
+  }
+
+  async function safeLoadFromJSONBin(){
+    try{
+      // Adresser
+      if(ADDR_BIN){
+        const dataAddr = await jsonbinGet(ADDR_BIN, ADDR_KEY);
+        addressLayer.clearLayers();
+        const list = (dataAddr?.snapshot?.addresses) || dataAddr?.addresses || [];
+        list.forEach(a => {
+          if(a.lat && a.lon){
+            const m = L.marker([a.lat, a.lon]).addTo(addressLayer);
+            m.bindPopup(`<b>${(a.name || a.id || '').replace(/</g,'&lt;')}</b>`);
+          }
+        });
+        if(addressLayer.getLayers().length){ map.fitBounds(addressLayer.getBounds(), {padding:[30,30]}); }
+      }
+      // Ruter
+      if(ROUTE_BIN){
+        const dataRoute = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
+        const stored = dataRoute?.[FIELD];
+        if(stored){
+          drawnLayer.clearLayers();
+          if(stored.type==='FeatureCollection'){
+            stored.features.forEach(feat => {
+              if(feat.geometry?.type==='LineString'){
+                const latlngs = feat.geometry.coordinates.map(c=>[c[1], c[0]]);
+                const layer = L.polyline(latlngs, {color:'#ef4444', weight:4}).addTo(drawnLayer);
+                layer.feature = feat;
+              }
+            });
+          } else if(stored.type==='Feature' && stored.geometry?.type==='LineString'){
+            const latlngs = stored.geometry.coordinates.map(c=>[c[1], c[0]]);
+            const layer = L.polyline(latlngs, {color:'#ef4444', weight:4}).addTo(drawnLayer);
+            layer.feature = stored;
+          } else if(stored.type==='LineString'){
+            const latlngs = stored.coordinates.map(c=>[c[1], c[0]]);
+            L.polyline(latlngs, {color:'#ef4444', weight:4}).addTo(drawnLayer);
+          }
+          if(drawnLayer.getLayers().length){
+            map.fitBounds(drawnLayer.getBounds(), {padding:[20,20]});
+          }
+          recalcRouteStats();
+        }
+      }
+    }catch(e){ console.warn('Last fra JSONBin feilet:', e); }
+  }
+
+  async function saveToJSONBin(){
+    const feats = toGeoJSONMulti();
+    if(!feats || feats.length===0){ alert('Ingen ruter å lagre.'); return; }
+    const fc = { type:'FeatureCollection', features: feats };
+    try{
+      const data = ROUTE_BIN ? await jsonbinGet(ROUTE_BIN, ROUTE_KEY) : {};
+      const record = { ...(data||{}) };
+      record[FIELD] = fc;
+      record.meta = {
+        ...(record.meta||{}),
+        routesVersion: (record.meta?.routesVersion||0)+1,
+        lastEditedAt: new Date().toISOString(),
+        lastEditedBy: 'KartTegner'
+      };
+      await jsonbinPut(ROUTE_BIN, ROUTE_KEY, record);
+      alert('Lagret til JSONBin!');
+    }catch(e){ alert('Kunne ikke lagre: '+e.message); }
+  }
+
+  document.getElementById('btnLoadBin').onclick = () => {
+    if(!(ADDR_BIN || ROUTE_BIN)) { alert('Legg til #addrBin=... eller #routeBin=... i URL.'); return; }
+    safeLoadFromJSONBin();
+  };
+  document.getElementById('btnSaveBin').onclick = () => {
+    if(!ROUTE_BIN) { alert('Legg til #routeBin=... i URL for å lagre ruter.'); return; }
+    saveToJSONBin();
+  };
+
+  // Autoload hvis parametre er satt
+  if (ADDR_BIN || ROUTE_BIN) { safeLoadFromJSONBin(); }
+})();
+</script>
+</body>
+</html>
