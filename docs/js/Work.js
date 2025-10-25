@@ -183,6 +183,9 @@
     $('#act_next') ?.toggleAttribute('disabled', !hasAny);
     $('#act_nav')  ?.toggleAttribute('disabled', !hasAny);
     $('#act_block')?.toggleAttribute('disabled', !hasAny);
+
+    // også disable map hvis ingen adresser
+    $('#act_map')?.toggleAttribute('disabled', !list.length);
   }
 
   function allDoneForLane(lane, my){
@@ -258,6 +261,16 @@
     };
     await window.Sync.setStatusPatch(patch);
     uiUpdate();
+
+    // valgfri: vis merknad-popup hvis adresse har note/remark (Admin kan lagre)
+    try {
+      const cache = window.Sync.getCache();
+      const addr = cache.addresses?.find(a=>a.id===cur.id);
+      if (addr && addr.note) {
+        // vis note i alert — kan senere gjøres penere (modal)
+        alert(`Merknad for denne adressen:\n\n${addr.note}`);
+      }
+    }catch(e){}
   }
 
   async function actDone(){
@@ -353,6 +366,13 @@
     window.open(mapsUrl(cur), '_blank'); // naviger til AKTUELL (ikke hopp)
   }
 
+  // 🗺️ Brøytekart-knapp: åpner ditt kart i tools/kart.html
+  function actPlowMap(){
+    // hvis du vil bruke en intern route: location.hash = '#tools/kart'
+    // men vi åpner i ny fane (som du ønsket)
+    window.open('docs/tools/kart.html', '_blank');
+  }
+
   // --- liten hjelpefunksjon for klikkanimasjon/haptics ---
   function wireClickFeedback(ids){
     ids.forEach(id=>{
@@ -384,8 +404,11 @@
     $('#act_nav')  ?.addEventListener('click', actNav);
     $('#act_block')?.addEventListener('click', actBlock);
 
-    // 🔔 visuell/haptisk tilbakemelding på Start/Ferdig
-    wireClickFeedback(['act_start','act_done']);
+    // map-knapp (ny)
+    $('#act_map')?.addEventListener('click', actPlowMap);
+
+    // 🔔 visuell/haptisk tilbakemelding på Start/Ferdig og map-knapp
+    wireClickFeedback(['act_start','act_done','act_map']);
 
     // initial UI
     uiUpdate();
