@@ -2,12 +2,18 @@
 (() => {
   'use strict';
 
-  const $ = (s,r=document)=>r.querySelector(s);
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
-  const K_SERVICE_TMP = 'BRYT_SERVICE_TMP';
-  const LS_RUN = 'BRYT_RUN';
+  const K_SETTINGS = 'BRYT_SETTINGS';
+  const K_SVC_LOCAL = 'BRYT_SERVICE_LOCAL'; // lokal “inbox” hvis sky ikke virker
+
+  function driverName(){
+    const st = RJ(K_SETTINGS, {});
+    return (st && st.driver) ? st.driver : '';
+  }
 
   function ensureUI(){
     const host = $('#service');
@@ -15,146 +21,128 @@
 
     host.innerHTML = `
       <h1>Service</h1>
-      <div class="card">
-        <div class="label-muted">Fyll ut service etter runde</div>
-        <label class="field"><span>Skjær smurt</span><input id="sv_skjar" type="checkbox" /></label>
-        <label class="field"><span>Fres smurt</span><input id="sv_fres" type="checkbox" /></label>
-        <label class="field"><span>Forstilling smurt</span><input id="sv_forstilling" type="checkbox" /></label>
 
-        <label class="field"><span>Olje sjekket foran</span><input id="sv_olje_for" type="checkbox" /></label>
-        <label class="field"><span>Olje sjekket bak</span><input id="sv_olje_bak" type="checkbox" /></label>
-        <label class="field"><span>Olje etterfylt</span><input id="sv_olje_fyll" type="checkbox" /></label>
-
-        <label class="field"><span>Diesel fylt</span><input id="sv_diesel" type="checkbox" /></label>
-        <label class="field"><span>Antall kasser grus</span><input id="sv_kasser" class="input" type="number" min="0" /></label>
-
-        <label class="field"><span>Annet?</span><textarea id="sv_other" class="input" rows="3" placeholder="Merknader..."></textarea></label>
-
-        <div class="row" style="gap:10px">
-          <button id="sv_save" class="btn">Lagre service</button>
-          <button id="sv_send" class="btn-ghost">Send på e-post</button>
+      <div class="card" id="svc_card">
+        <div class="field">
+          <span class="muted-strong">Smøring</span>
+          <div class="checkbox-col" style="margin-top:6px">
+            <label><input type="checkbox" id="svc_blade"> Skjær smurt</label>
+            <label><input type="checkbox" id="svc_fres"> Fres smurt</label>
+            <label><input type="checkbox" id="svc_front"> Forstilling smurt</label>
+          </div>
         </div>
 
-        <div id="sv_info" style="margin-top:8px;color:var(--muted)"></div>
+        <div class="field">
+          <span class="muted-strong">Olje</span>
+          <div class="checkbox-col" style="margin-top:6px">
+            <label><input type="checkbox" id="svc_oil_front"> Olje sjekket foran</label>
+            <label><input type="checkbox" id="svc_oil_back"> Olje sjekket bak</label>
+            <label><input type="checkbox" id="svc_oil_fill"> Olje etterfylt</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="muted-strong">Drivstoff & grus</span>
+          <div class="checkbox-col" style="margin-top:6px">
+            <label><input type="checkbox" id="svc_diesel"> Diesel fylt</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="muted-strong">Antall kasser grus</span>
+          <input id="svc_grit_boxes" class="input" inputmode="numeric" placeholder="0" />
+        </div>
+
+        <div class="field">
+          <span class="muted-strong">Annet?</span>
+          <textarea id="svc_other" class="input" rows="4" placeholder="Notater, avvik, småreparasjoner..."></textarea>
+        </div>
+
+        <div class="row" style="justify-content:space-between; gap:10px; margin-top:10px">
+          <button id="svc_save" class="btn">Lagre service</button>
+          <span id="svc_msg" class="muted"></span>
+        </div>
       </div>
     `;
     host.dataset.enhanced = '1';
 
-    $('#sv_save')?.addEventListener('click', saveService);
-    $('#sv_send')?.addEventListener('click', sendServiceEmail);
+    $('#svc_save')?.addEventListener('click', saveService);
   }
 
-  function loadTemp(){
-    return RJ(K_SERVICE_TMP, {
-      skjar:false,fres:false,forstilling:false,
-      olje_for:false,olje_bak:false,olje_fyll:false,
-      diesel:false,kasser:0,other:''
-    });
+  function collect(){
+    return {
+      at: new Date().toISOString(),
+      by: driverName(),
+      blade: !!$('#svc_blade')?.checked,
+      fres: !!$('#svc_fres')?.checked,
+      front: !!$('#svc_front')?.checked,
+      oil_front: !!$('#svc_oil_front')?.checked,
+      oil_back:  !!$('#svc_oil_back')?.checked,
+      oil_fill:  !!$('#svc_oil_fill')?.checked,
+      diesel: !!$('#svc_diesel')?.checked,
+      grit_boxes: ($('#svc_grit_boxes')?.value || '').trim(),
+      other: ($('#svc_other')?.value || '').trim()
+    };
   }
-  function saveTemp(obj){
-    WJ(K_SERVICE_TMP, obj);
+
+  async function tryCloudSave(payload){
+    // Prøv flere “navn” i Sync for best kompatibilitet.
+    const S = window.Sync || {};
+    if (typeof S.saveService === 'function')   return await S.saveService(payload);
+    if (typeof S.addServiceLog === 'function') return await S.addServiceLog(payload);
+    if (typeof S.submitService === 'function') return await S.submitService(payload);
+    // Hvis Sync ikke tilbyr spesifikk funksjon, fall tilbake til en generell patch hvis mulig
+    if (typeof S.setServicePatch === 'function') {
+      return await S.setServicePatch({ append: true, item: payload });
+    }
+    // Ingen sky-metode tilgjengelig
+    throw new Error('Ingen skyfunksjon for service funnet.');
+  }
+
+  function saveLocal(payload){
+    const bag = RJ(K_SVC_LOCAL, []);
+    bag.push(payload);
+    WJ(K_SVC_LOCAL, bag);
   }
 
   async function saveService(){
-    const data = {
-      skjar: !!$('#sv_skjar')?.checked,
-      fres: !!$('#sv_fres')?.checked,
-      forstilling: !!$('#sv_forstilling')?.checked,
-      olje_for: !!$('#sv_olje_for')?.checked,
-      olje_bak: !!$('#sv_olje_bak')?.checked,
-      olje_fyll: !!$('#sv_olje_fyll')?.checked,
-      diesel: !!$('#sv_diesel')?.checked,
-      kasser: Number($('#sv_kasser')?.value||0),
-      other: ($('#sv_other')?.value||'').trim(),
-      savedAt: new Date().toISOString(),
-      driver: (JSON.parse(localStorage.getItem('BRYT_SETTINGS')||'{}')).driver || ''
-    };
+    const msg = $('#svc_msg');
+    msg && (msg.textContent = 'Lagrer…');
 
-    saveTemp(data);
+    const data = collect();
 
-    // lokale demo: legg service inn i raw i Sync (kan også sendes som egen node)
     try{
-      const run = JSON.parse(localStorage.getItem(LS_RUN)||'{}');
-      const roundId = run.roundId || (new Date().toISOString());
-      // hent cache og skriv i raw.serviceReports (enkle demo-arkiv)
-      const cache = window.Sync.getCache();
-      const raw = cache.raw || {};
-      raw.serviceReports = raw.serviceReports || {};
-      raw.serviceReports[roundId] = data;
-
-      // skriv til bin (PUT)
-      // Vi bruker Sync.saveAddresses as workaround hvis du ikke har en dedikert put – men her bruker internal _putRecord not exposed.
-      // For portability: vi oppdaterer via status-patch som inneholder minste mulig effekt: vi bruker Sync.setStatusPatch med tom patch for å tvinge PUT.
-      // I din implementasjon vil Sync ha _putRecord; vi løser dette enkelt ved å bygge en minimal PATCH som bare setter rådata i raw via saveAddresses (ikke ønskelig).
-      // Isteden, bruk Sync.saveAddresses med eksisterende addresses slik at backend PUT skjer (raw.snapshot beholdes).
-      const addresses = cache.addresses || [];
-      // skriv raw.serviceReports inn i cache og bruk saveAddresses for å PUT (den vil bruke raw.snapshot men vi setter raw først via internal cache update)
-      // Siden Sync API ikke eksponerer direkte _putRecord i public, vi setter serviceReports i cache via Sync.saveAddresses wrapper:
-      const prepared = addresses.map(a => ({ ...a }));
-      // Oppdater _cache raw via hack: hvis Sync has internal setRaw method - men i vår implementasjon Sync.saveAddresses oppdaterer raw og PUT.
-      // For enkelhet: vi utfører en "no-op" setStatusPatch for å trigge PUT med oppdatert raw (dersom Sync internt bruker raw). Hvis ikke, bruk alert og lokal lagring.
-      try {
-        // trygg fallback: lagre service i localStorage og informer bruker
-        localStorage.setItem('BRYT_LAST_SERVICE_'+roundId, JSON.stringify(data));
-      } catch(e){}
-      $('#sv_info').textContent = 'Service lagret lokalt.';
-
-      // spør om sende e-post
-      if (confirm('Service lagret. Vil du sende dagsrapport + service på e-post nå?')) {
-        // bygg CSV for denne roundId og åpne mailto eller last ned om for stor
-        const rpt = window.Sync.generateDailyReport({ roundId: run.roundId || undefined });
-        const csv = ['Dato;RoundId;Fører;Adresse;Type;Startet;Ferdig']
-          .concat(rpt.map(r => `${r.date};${r.roundId};${r.driver};"${(r.address||'').replace(/"/g,'""')}";${r.type};${r.started};${r.finished}`))
-          .join('\n');
-
-        const to = 'oysgjer@gmail.com';
-        const subj = encodeURIComponent(`Dagsrapport ${run.roundDate || ''} — runde`);
-        let body = encodeURIComponent('Se vedlagte rapport:\n\n' + csv);
-        if (body.length > 15000) {
-          alert('Rapporten er for stor for å sendes via epost-link. Fil lastes ned, send manuelt.');
-          const blob = new Blob([csv + '\n\nService-notat:\n' + JSON.stringify(data, null, 2)], {type:'text/csv;charset=utf-8;'});
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a'); a.href = url; a.download = `dagsrapport_${run.roundDate||'run'}.csv`; document.body.appendChild(a); a.click();
-          setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
-        } else {
-          window.open(`mailto:${to}?subject=${subj}&body=${body}`, '_blank');
-        }
-      }
-
-      // Ferdig: fjern run.roundId slik at neste runde starter uten dette
-      const newRun = { ...(run||{}) };
-      delete newRun.roundId; delete newRun.roundDate;
-      localStorage.setItem(LS_RUN, JSON.stringify(newRun));
-
-      alert('Service behandlet.');
+      // lagre i sky hvis mulig
+      await tryCloudSave(data);
+      msg && (msg.textContent = 'Lagret ✅');
     }catch(e){
-      console.error(e);
-      alert('Kunne ikke lagre service til sky: ' + e.message);
+      // fallback: lagre lokalt
+      saveLocal(data);
+      msg && (msg.textContent = 'Lagret lokalt (offline) ✅');
+      console.warn('Service sky-lagring feilet:', e);
     }
-  }
 
-  async function sendServiceEmail(){
-    // bruk samme flow som saveService etter at data finnes
-    await saveService();
+    // (Valgfritt) Tilbakestill feltene lett
+    // Behold gjerne tekstfelt, men ta vekk bukser:
+    ['svc_blade','svc_fres','svc_front','svc_oil_front','svc_oil_back','svc_oil_fill','svc_diesel'].forEach(id=>{
+      const el = $('#'+id); if (el) el.checked = false;
+    });
   }
 
   function boot(){
     ensureUI();
-    // load temp if any
-    const t = loadTemp();
-    if (t){
-      $('#sv_skjar').checked = !!t.skjar;
-      $('#sv_fres').checked = !!t.fres;
-      $('#sv_forstilling').checked = !!t.forstilling;
-      $('#sv_olje_for').checked = !!t.olje_for;
-      $('#sv_olje_bak').checked = !!t.olje_bak;
-      $('#sv_olje_fyll').checked = !!t.olje_fyll;
-      $('#sv_diesel').checked = !!t.diesel;
-      $('#sv_kasser').value = t.kasser||0;
-      $('#sv_other').value = t.other||'';
-    }
   }
 
-  document.addEventListener('DOMContentLoaded', boot);
-  window.addEventListener('hashchange', ()=>{ if (location.hash==='#service') boot(); });
+  // Vis når du kommer til #service
+  window.addEventListener('hashchange', ()=>{
+    if ((location.hash||'').toLowerCase() === '#service'){
+      boot();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    if ((location.hash||'').toLowerCase() === '#service'){
+      boot();
+    }
+  });
 })();

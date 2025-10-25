@@ -1,6 +1,6 @@
 /* js/sync.js
    JSONBin-klient + cache + normalisering + status/lagring
-   Oppdatert: setter _fetchedAt også etter PUT (status/lagring) slik at synk-tid vises riktig.
+   Støtter feltet "note" på adresser (merknad).
 */
 (() => {
   'use strict';
@@ -14,9 +14,9 @@
 
   // enkel event-bus
   const listeners = { change:[], error:[] };
-  function emit(type, payload){ (listeners[type]||[]).forEach(fn=>{ try{ fn(payload); }catch{} }); }
+  const emit = (type, payload)=> (listeners[type]||[]).forEach(fn=>{ try{ fn(payload); }catch{} });
 
-  // device-id for kollisjonsmerking
+  // device-id (kan brukes om ønsket)
   let DEVICE_ID = RJ(K_DEV, null);
   if (!DEVICE_ID) { DEVICE_ID = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36); WJ(K_DEV, DEVICE_ID); }
 
@@ -26,27 +26,15 @@
   function stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
 
   let cfg = RJ(K_CFG, { binId:'', apiKey:'' });
-
-  function setConfig({binId, apiKey}={}){
-    if (typeof binId === 'string') cfg.binId = binId.trim();
-    if (typeof apiKey === 'string') cfg.apiKey = apiKey.trim();
-    WJ(K_CFG, cfg);
-    return cfg;
-  }
+  function setConfig({binId, apiKey}={}){ if (typeof binId==='string') cfg.binId=binId.trim(); if (typeof apiKey==='string') cfg.apiKey=apiKey.trim(); WJ(K_CFG,cfg); return cfg; }
   function getConfig(){ return {...cfg}; }
 
-  function _headers(){
-    const h={'Content-Type':'application/json'};
-    if (cfg.apiKey) h['X-Master-Key']=cfg.apiKey;
-    return h;
-  }
+  function _headers(){ const h={'Content-Type':'application/json'}; if (cfg.apiKey) h['X-Master-Key']=cfg.apiKey; return h; }
 
   const _cache = RJ(K_CACHE, { addresses:[], status:{}, _fetchedAt:null, raw:null });
-  function getCache(){ return {..._cache}; }
+  const getCache = ()=> ({..._cache});
 
-  // --- hjelpe: bool fra alt mulig
-  const asBool = v => (v===true || v===1 || v==='1' || (typeof v==='string' && v.toLowerCase()==='true'));
-
+  // ------- normalisering -------
   function _normalizeAddresses(list){
     if (!Array.isArray(list)) return [];
     return list.map((a,ix)=>{
@@ -59,48 +47,38 @@
       const grit = (typeof tasks.grit==='boolean') ? tasks.grit :
                    (typeof flags.grit==='boolean') ? flags.grit : false;
 
-      // støtte for "coords" i format "lat,lon" eller egen lat/lon
-      let lat = null, lon = null;
-      if (a.lat != null && a.lon != null) { lat = Number(a.lat); lon = Number(a.lon); }
-      else if (a.coords && String(a.coords).includes(',')) {
-        const p = String(a.coords).split(',').map(s=>s.trim());
-        lat = Number(p[0]); lon = Number(p[1]);
-      } else if (a.coord && String(a.coord).includes(',')) {
-        const p = String(a.coord).split(',').map(s=>s.trim());
-        lat = Number(p[0]); lon = Number(p[1]);
-      }
-
+      const lat  = (a.lat!=null) ? Number(a.lat) : null;
+      const lon  = (a.lon!=null) ? Number(a.lon) : null;
       const pins = a.pins ?? a.stakes ?? '';
       const ord  = Number(a.ord ?? ix);
+      const note = typeof a.note === 'string' ? a.note : '';
 
       return {
         id, name,
         tasks: { snow: !!snow, grit: !!grit },
-        flags: { snow: !!snow, grit: !!grit },
+        flags: { snow: !!snow, grit: !!grit }, // bevar for kompatibilitet
         pins,
         lat: isNaN(lat)?null:lat,
         lon: isNaN(lon)?null:lon,
-        ord                         // behold rekkefølgefeltet
+        ord,
+        note
       };
-    }).sort((a,b)=>(a.ord??0)-(b.ord??0)); // sørg for sortering
+    }).sort((a,b)=>(a.ord??0)-(b.ord??0));
   }
 
   function _normalizeStatus(rec){
-    // Samle status i én pose: status[addrId] = { snow:{...}, grit:{...} }
     const stSnow = rec.statusSnow || rec.status || {};
     const stGrit = rec.statusGrit || {};
     const emptyLane = {state:'venter',by:null,rounds:[]};
     const out = {};
     const ensure = id => { if(!out[id]) out[id]={ snow:{...emptyLane}, grit:{...emptyLane} }; };
 
-    // primært fra snow/status
     for(const id in stSnow){
       ensure(id);
       if (stSnow[id].snow) out[id].snow = {...emptyLane, ...stSnow[id].snow};
       if (stSnow[id].grit) out[id].grit = {...emptyLane, ...stSnow[id].grit};
-      if (!stSnow[id].snow && stSnow[id].state) out[id].snow.state = stSnow[id].state; // gammel modell
+      if (!stSnow[id].snow && stSnow[id].state) out[id].snow.state = stSnow[id].state;
     }
-    // så evt. grit
     for(const id in stGrit){
       ensure(id);
       if (stGrit[id].grit) out[id].grit = {...emptyLane, ...stGrit[id].grit};
@@ -109,6 +87,7 @@
     return out;
   }
 
+  // ------- fetch / put -------
   async function _fetchLatest(){
     if (!cfg.binId) throw new Error('Mangler JSONBin ID.');
     const url = `https://api.jsonbin.io/v3/b/${encodeURIComponent(cfg.binId)}/latest`;
@@ -117,24 +96,15 @@
     const j = await res.json();
     const rec = j.record || j;
 
-    const addresses = _normalizeAddresses(rec.snapshot?.addresses || rec.addresses || []);
-    const status    = _normalizeStatus(rec);
-
-    _cache.addresses = addresses;
-    _cache.status    = status;
+    _cache.addresses = _normalizeAddresses(rec.snapshot?.addresses || rec.addresses || []);
+    _cache.status    = _normalizeStatus(rec);
     _cache.raw       = rec;
-    _cache._fetchedAt= Date.now();         // <- OPPDATERT VED GET
+    _cache._fetchedAt= Date.now();
     WJ(K_CACHE, _cache);
     emit('change', getCache());
     return getCache();
   }
-  async function reloadLatest(){ return _fetchLatest(); }
-
-  async function loadAddresses({force=false}={}){
-    if (!force && Array.isArray(_cache.addresses) && _cache.addresses.length){ return _cache.addresses; }
-    await _fetchLatest();
-    return _cache.addresses;
-  }
+  const reloadLatest = ()=>_fetchLatest();
 
   async function _putRecord(rec){
     if (!cfg.binId) throw new Error('Mangler JSONBin ID.');
@@ -144,21 +114,21 @@
     return true;
   }
 
+  async function loadAddresses({force=false}={}){
+    if (!force && Array.isArray(_cache.addresses) && _cache.addresses.length){ return _cache.addresses; }
+    await _fetchLatest();
+    return _cache.addresses;
+  }
+
   async function setStatusPatch(patch){
-    // patch: { status: { [addrId]: { snow:{...}, grit:{...} } } }
-    // Slå sammen i _cache og skriv tilbake i raw.statusSnow + statusGrit
     const st = _cache.status || {};
     for(const id in (patch.status||{})){
       const cur = st[id] || { snow:{state:'venter',by:null,rounds:[]}, grit:{state:'venter',by:null,rounds:[]}};
       const p   = patch.status[id];
-      st[id] = {
-        snow: {...cur.snow, ...(p.snow||{})},
-        grit: {...cur.grit, ...(p.grit||{})},
-      };
+      st[id] = { snow: {...cur.snow, ...(p.snow||{})}, grit: {...cur.grit, ...(p.grit||{})} };
     }
     _cache.status = st;
 
-    // Skriv tilbake i raw: pakk status til statusSnow/statusGrit
     const raw = _cache.raw || {};
     raw.statusSnow = raw.statusSnow || {};
     raw.statusGrit = raw.statusGrit || {};
@@ -169,18 +139,15 @@
 
     await _putRecord(raw);
 
-    // <- NYTT: oppdater synk-tid OGSÅ ETTER PUT
     _cache.raw        = raw;
     _cache._fetchedAt = Date.now();
     WJ(K_CACHE, _cache);
-
     emit('change', getCache());
     return true;
   }
 
   async function saveAddresses(prepared){
-    // prepared: [{id,name,tasks:{snow,grit},pins,lat,lon,...}]
-    // Oppdater cache + raw.snapshot.addresses
+    // skriver også "note"
     const list = (prepared||[]).map((a,ix)=>{
       const snow = !!(a.tasks?.snow ?? a.flags?.snow ?? true);
       const grit = !!(a.tasks?.grit ?? a.flags?.grit ?? false);
@@ -192,83 +159,24 @@
         pins: a.pins ?? '',
         lat:  a.lat ?? null,
         lon:  a.lon ?? null,
-        ord:  (a.ord==null ? ix : Number(a.ord))  // bevar/sett ord
+        ord:  (a.ord==null ? ix : Number(a.ord)),
+        note: typeof a.note==='string' ? a.note : ''
       };
-    }).sort((a,b)=>(a.ord??0)-(b.ord??0));        // skriv i riktig rekkefølge
+    }).sort((a,b)=>(a.ord??0)-(b.ord??0));
 
     _cache.addresses = _normalizeAddresses(list);
     WJ(K_CACHE, _cache);
 
     const raw = _cache.raw || {};
     raw.snapshot = raw.snapshot || {};
-    raw.snapshot.addresses = list; // inkluderer ord
+    raw.snapshot.addresses = list;
     await _putRecord(raw);
 
-    // oppdater synk tid etter PUT
     _cache.raw        = raw;
     _cache._fetchedAt = Date.now();
     WJ(K_CACHE, _cache);
-
     emit('change', getCache());
     return _cache.addresses;
-  }
-
-  // === Rapportgenerator ===
-  /**
-   * generateDailyReport(opts)
-   * opts = { driver?:string, roundId?:string, date?: 'YYYY-MM-DD' }
-   * returns array [{ driver, address, type, started, finished, roundId, date }]
-   */
-  function generateDailyReport(opts = {}) {
-    const { driver:filterDriver, roundId:filterRound, date:filterDate } = opts || {};
-    const cache = getCache();
-    const addrs = cache.addresses || [];
-    const status = cache.status || {};
-    const out = [];
-
-    for (const a of addrs) {
-      const st = status[a.id] || {};
-      const roundsFor = (laneObj, label) => {
-        const rounds = Array.isArray(laneObj?.rounds) ? laneObj.rounds : [];
-        if (!rounds.length) {
-          // kanskje enkelt "state" only — ignorér da
-          return;
-        }
-        for (const r of rounds) {
-          const started = r.start || null;
-          const finished = r.done || null;
-          const rid = r.roundId || (finished ? new Date(finished).toISOString() : (started ? new Date(started).toISOString() : null));
-          const day = (finished || started) ? (new Date(finished||started)).toISOString().slice(0,10) : '';
-
-          if (filterDriver && (r.by || '') !== filterDriver) continue;
-          if (filterRound && rid !== filterRound) continue;
-          if (filterDate && day !== filterDate) continue;
-
-          out.push({
-            driver: r.by || laneObj.by || '',
-            address: a.name || '',
-            type: label,
-            started: started || '',
-            finished: finished || '',
-            roundId: rid || '',
-            date: day || ''
-          });
-        }
-      };
-
-      roundsFor(st.snow || {}, 'Snøbrøyting');
-      roundsFor(st.grit || {}, 'Strøing / Grus');
-    }
-
-    out.sort((x,y)=>{
-      if (x.date < y.date) return -1;
-      if (x.date > y.date) return 1;
-      if ((x.finished||'') < (y.finished||'')) return -1;
-      if ((x.finished||'') > (y.finished||'')) return 1;
-      return (x.address||'').localeCompare(y.address||'');
-    });
-
-    return out;
   }
 
   function computeProgress(driver){
@@ -286,13 +194,9 @@
     return { total, mine, other, done };
   }
 
-  function on(type, fn){
-    if (!listeners[type]) listeners[type] = [];
-    listeners[type].push(fn);
-    return () => { listeners[type] = listeners[type].filter(f=>f!==fn); };
-  }
+  function on(type, fn){ if (!listeners[type]) listeners[type]=[]; listeners[type].push(fn); return ()=>{ listeners[type]=listeners[type].filter(f=>f!==fn); }; }
 
-  // Eksponer
+  // Eksponér
   window.Sync = {
     setConfig, getConfig,
     loadAddresses, reloadLatest,
@@ -300,7 +204,6 @@
     getCache, computeProgress,
     on,
     startPolling, stopPolling,
-    getDeviceId(){ return DEVICE_ID; },
-    generateDailyReport
+    getDeviceId(){ return DEVICE_ID; }
   };
 })();
