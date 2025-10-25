@@ -1,49 +1,108 @@
-<section id="work" hidden>
-  <div class="container work-wrap">
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Under arbeid</title>
+  <link rel="stylesheet" href="styles.css">
 
-    <!-- Statuslinje / fremdrift -->
-    <div class="work-statusbar">
-      <div class="ws-item">
-        <span class="ws-dot ws-me"></span>
-        <span class="ws-label">Mine</span>
-        <div class="ws-bar">
-          <div id="b_prog_me" class="ws-fill ws-fill-me" style="width:0%"></div>
-        </div>
-        <span id="b_prog_me_count" class="ws-count">0/0</span>
-      </div>
-      <div class="ws-item">
-        <span class="ws-dot ws-other"></span>
-        <span class="ws-label">Andre</span>
-        <div class="ws-bar">
-          <div id="b_prog_other" class="ws-fill ws-fill-other" style="width:0%"></div>
-        </div>
-        <span id="b_prog_other_count" class="ws-count">0/0</span>
-      </div>
-      <div id="b_prog_summary" class="ws-summary">0 av 0 adresser fullført</div>
-    </div>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f9fafb;
+      margin: 0;
+      padding: 0;
+    }
 
-    <!-- Adresser -->
-    <div class="addr-block">
-      <div class="addr-now" id="addr_now">Aktuell adresse</div>
-      <div class="addr-next">
-        <span class="muted">Neste: </span><span id="addr_next">—</span>
-      </div>
-    </div>
+    header {
+      background: #2563eb;
+      color: white;
+      padding: 14px;
+      font-size: 20px;
+      text-align: center;
+    }
 
-    <!-- Knapper – rad 1 -->
-    <div class="btn-row">
-      <button id="act_start"  class="btn btn-green">🟢 Start</button>
-      <button id="act_done"   class="btn btn-emerald">✅ Ferdig</button>
-    </div>
-    <!-- Knapper – rad 2 -->
-    <div class="btn-row">
-      <button id="act_skip"   class="btn btn-slate">↩️ Hopp over</button>
-      <button id="act_next"   class="btn btn-indigo">⏭️ Neste</button>
-      <button id="act_nav"    class="btn btn-blue">🧭 Naviger</button>
-      <button id="act_block"  class="btn btn-red">🚫 Ikke mulig</button>
-    </div>
+    .container {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
 
-    <!-- Logglinje -->
-    <div id="work_log" class="work-log muted">Klar.</div>
+    button {
+      width: 90%;
+      padding: 14px;
+      font-size: 18px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: 0.2s ease-in-out;
+    }
+
+    button:hover {
+      opacity: 0.9;
+      transform: scale(1.02);
+    }
+
+    .btn-start {
+      background-color: #22c55e; /* grønn */
+      color: white;
+      font-weight: bold;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-start:active {
+      background-color: #16a34a;
+    }
+
+    .btn-next {
+      background-color: #3b82f6;
+      color: white;
+    }
+
+    .btn-done {
+      background-color: #facc15;
+      color: black;
+    }
+
+    .btn-skip {
+      background-color: #f87171;
+      color: white;
+    }
+
+    .btn-map {
+      background-color: #6b7280;
+      color: white;
+    }
+
+    .btn-nav {
+      background-color: #6366f1;
+      color: white;
+    }
+
+    .btn-impossible {
+      background-color: #ef4444;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <header>Under arbeid</header>
+
+  <div class="container">
+    <button id="btnStart" class="btn btn-start">▶️ Start</button>
+    <button id="btnDone" class="btn btn-done">✅ Ferdig</button>
+    <button id="btnSkip" class="btn btn-skip">⏭️ Hopp over</button>
+    <button id="btnNext" class="btn btn-next">➡️ Neste</button>
+    <button id="btnNav" class="btn btn-nav">📍 Naviger</button>
+    <button id="btnImpossible" class="btn btn-impossible">🚫 Ikke mulig</button>
+
+    <!-- Ny knapp til brøytekart -->
+    <button id="btnMap" class="btn btn-map">🗺️ Brøytekart</button>
   </div>
-</section>
+
+  <script src="work.js"></script>
+</body>
+</html>
