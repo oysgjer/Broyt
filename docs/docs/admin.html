@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Rapporter</title>
+  <title>Admin</title>
   <link rel="stylesheet" href="css/styles.css">
   <style>
     :root{ --sep:#e3e5ea; --surface:#fff; --bg:#f6f7fb; --text:#111 }
@@ -12,8 +12,11 @@
     .icon-btn{background:transparent;border:0;font-size:1.3rem;line-height:1;padding:.4rem .6rem;border-radius:8px}
     .icon-btn:active{transform:scale(0.98)}
     .appbar-title{font-weight:600;font-size:1.05rem}
-    .rep{border:1px solid var(--sep);padding:8px;margin:8px;border-radius:8px;background:var(--surface)}
-    .filter{display:flex;gap:8px;align-items:center;padding:8px}
+    .wrap{padding:12px}
+    label{display:block;margin:.6rem 0 .2rem}
+    input{width:100%;padding:.6rem;border:1px solid var(--sep);border-radius:8px}
+    .row{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+    .btn{padding:.7rem 1rem;border-radius:10px;border:1px solid var(--sep);background:#3b82f6;color:#fff;font-weight:600}
     .drawer{position:fixed;inset:0 35% 0 0;max-width:320px;background:var(--surface);box-shadow:2px 0 16px rgba(0,0,0,.2);transform:translateX(-100%);transition:transform .2s ease;z-index:20}
     .drawer.open{transform:translateX(0)}
     .drawer-header{padding:12px;border-bottom:1px solid var(--sep);font-weight:600}
@@ -28,7 +31,7 @@
 <body>
   <header class="appbar">
     <button id="hdr_menu" class="icon-btn" aria-label="Meny">☰</button>
-    <div class="appbar-title">Rapporter</div>
+    <div class="appbar-title">Admin</div>
     <div style="margin-left:auto"></div>
     <span id="wl_dot" class="dot dot-off" title="Skjermlås"></span>
   </header>
@@ -47,60 +50,40 @@
   </aside>
   <div id="drawer_overlay" class="drawer-overlay" aria-hidden="true"></div>
 
-  <div class="filter">
-    <label>Vis:
-      <select id="flt">
-        <option value="all">Alle</option>
-        <option value="round">Runde-rapporter</option>
-        <option value="incident">Uhell</option>
-        <option value="service">Service</option>
-      </select>
-    </label>
-  </div>
+  <div class="wrap">
+    <h1>JSONBin-oppsett</h1>
+    <label for="cfg_bin_drift">JSONBin ID – Drift</label>
+    <input id="cfg_bin_drift" type="text" placeholder="f.eks. 68e7b4d2ae596e708f0bde7d">
 
-  <div id="container" style="padding-bottom:20vh">Laster…</div>
+    <label for="cfg_bin_report">JSONBin ID – Rapporter</label>
+    <input id="cfg_bin_report" type="text" placeholder="f.eks. 68e89e3443b1c97be9611c48">
+
+    <label for="cfg_master_key">JSONBin Master Key</label>
+    <input id="cfg_master_key" type="password" placeholder="lim inn master key">
+
+    <div class="row">
+      <button id="admin_save_bins" class="btn">Lagre</button>
+      <span id="admin_msg"></span>
+    </div>
+
+    <hr>
+    <h2>Adresse-register</h2>
+    <div id="addr_tools" class="row">
+      <button id="addr_reload" class="btn">Last fra sky</button>
+      <button id="addr_add" class="btn">Ny adresse</button>
+      <button id="addr_save_all" class="btn">Lagre alle</button>
+    </div>
+    <div id="addr_list"></div>
+  </div>
 
   <script>
     const drawer = document.getElementById('drawer');
     const overlay = document.getElementById('drawer_overlay');
-    document.getElementById('hdr_menu').addEventListener('click', (e)=>{ e.stopPropagation(); drawer.classList.add('open'); overlay.classList.add('show'); });
+    document.getElementById('hdr_menu').addEventListener('click', ()=>{ drawer.classList.add('open'); overlay.classList.add('show'); });
     overlay.addEventListener('click', ()=>{ drawer.classList.remove('open'); overlay.classList.remove('show'); });
-
-    function loadReports(){
-      const list = JSON.parse(localStorage.getItem('BRYT_REPORTS') || '[]');
-      const type = (new URL(location.href)).hash?.replace('#','') || 'all';
-      const sel = document.getElementById('flt'); sel.value = type || 'all';
-      const filtered = (type && type!=='all') ? list.filter(r=>r.type===type) : list;
-
-      const grouped = filtered.reduce((acc,r)=>{ const d=new Date(r.createdAt||r.startedAt).toLocaleDateString('nb-NO'); (acc[d]=acc[d]||[]).push(r); return acc; }, {});
-      const keys = Object.keys(grouped).sort((a,b)=> new Date(b)-new Date(a));
-
-      const el = document.getElementById('container'); el.innerHTML='';
-      if (!keys.length) { el.innerHTML = '<p style="padding:12px">Ingen rapporter.</p>'; return; }
-
-      keys.forEach(k=>{
-        const h = document.createElement('h2'); h.textContent = k; h.style.padding='0 12px'; el.appendChild(h);
-        grouped[k].forEach(r=>{
-          const d = document.createElement('div'); d.className='rep';
-          const when = new Date(r.createdAt || r.startedAt).toLocaleTimeString('nb-NO');
-          const title = (r.type==='round') ? ('Runde – ' + (r.lane||'')) : (r.type==='service'?'Service':'Uhell');
-          d.innerHTML = `<div><small>${when}</small> <b>${title}</b></div>`;
-          if (r.type==='round'){
-            d.insertAdjacentHTML('beforeend', `<div>Adresser: ${r.count||0}</div>`);
-          } else if (r.type==='incident'){
-            d.insertAdjacentHTML('beforeend', `<div>${(r.text||'')}</div>`);
-          } else if (r.type==='service'){
-            d.insertAdjacentHTML('beforeend', `<pre style="white-space:pre-wrap">${JSON.stringify(r.data||{},null,2)}</pre>`);
-          }
-          el.appendChild(d);
-        });
-      });
-
-      sel.onchange = ()=>{ location.hash = sel.value; loadReports(); };
-    }
-    document.addEventListener('DOMContentLoaded', loadReports);
   </script>
   <script src="js/menu-augment.js"></script>
+  <script src="js/Admin.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
