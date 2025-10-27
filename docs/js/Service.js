@@ -146,3 +146,14 @@
     }
   });
 })();
+
+/* ==== Rapport-spørsmål før nullstilling ==== */
+function confirmResetWithReport(lane, doResetFn){
+  const wantReport = confirm('Vil du lagre rapport for utført arbeid før du nullstiller?');
+  if (wantReport){
+    try { if (typeof maybeSaveRoundReport==='function') { maybeSaveRoundReport(lane); } } catch(e){ console.warn(e); }
+  }
+  const ok = confirm('Er du sikker på at du vil nullstille?');
+  if (!ok) return;
+  return doResetFn();
+}

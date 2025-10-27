@@ -187,6 +187,16 @@
   }
 
   document.addEventListener('DOMContentLoaded', boot);
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState==='visible'){
+    try { document.body.style.contain='size'; document.body.offsetHeight; document.body.style.contain=''; } catch(e){}
+    try { window.map && window.map.invalidateSize && window.map.invalidateSize(true); } catch(e){}
+  }
+});
+window.addEventListener('pageshow', ()=>{
+  try { window.map && window.map.invalidateSize && window.map.invalidateSize(true); } catch(e){}
+});
+
 
   // eksponér lite API hvis ønskelig
   window.App = { show: showSection, refreshSyncBadge, setTheme: applyTheme };
