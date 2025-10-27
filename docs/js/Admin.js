@@ -1,13 +1,13 @@
 (function(){
   'use strict';
-  // Scope guard: run only on Admin page (admin.html, /admin, or #admin)
-  (function(){
+  // Scope guard: only run on admin
+  function isAdminPage(){
     const p = (location.pathname || '').toLowerCase();
     const h = (location.hash || '').toLowerCase();
     const t = (document.title || '').toLowerCase();
-    const isAdmin = /(^|\/)admin(\.html)?$/.test(p) || h === '#admin' || /\badmin\b/.test(t);
-    if (!isAdmin) return; // do nothing on other pages
-  })();
+    return /(^|\/)admin(\.html)?$/.test(p) || h === '#admin' || /\badmin\b/.test(t);
+  }
+  if (!isAdminPage()) return;
 
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
@@ -21,17 +21,10 @@
   function getCfg(){ return RJ(LS_CFG, { binId:'', apiKey:'' }); }
   function setCfg(obj){ const next = { ...getCfg(), ...(obj||{}) }; WJ(LS_CFG, next); return next; }
 
+  // Inject admin blocks if page is empty
   function ensureMarkup(){
-    // Only inject if we are truly on admin context
-    const p = (location.pathname || '').toLowerCase();
-    const h = (location.hash || '').toLowerCase();
-    const t = (document.title || '').toLowerCase();
-    const isAdmin = /(^|\/)admin(\.html)?$/.test(p) || h === '#admin' || /\badmin\b/.test(t);
-    if (!isAdmin) return;
-
     const hasInputs = $('#cfg_bin_drift') || $('#cfg_master_key') || $('#cfg_bin_report');
     if (hasInputs) return;
-
     const main = document.querySelector('main') || document.body;
     const wrap = el('div', { className: 'wrap' });
     const css = document.createElement('style');
@@ -39,7 +32,8 @@
       .wrap{padding:12px}
       .card{background:#fff;border:1px solid #e3e5ea;border-radius:12px;padding:12px;margin:10px 0}
       label{display:block;margin:.5rem 0 .25rem;font-weight:600}
-      input[type=text],input[type=password],input[type=email],input[type=number]{width:100%;padding:10px;border:1px solid #e3e5ea;border-radius:10px;background:#fff}
+      input[type=text],input[type=password],input[type=email],input[type=number],textarea{width:100%;padding:10px;border:1px solid #e3e5ea;border-radius:10px;background:#fff}
+      textarea{min-height:70px;resize:vertical}
       .row{display:flex;gap:8px;flex-wrap:wrap}
       .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 14px;border-radius:12px;border:1px solid #e3e5ea;background:#fff;font-weight:700}
       .btn-primary{background:#3b82f6;color:#fff;border-color:transparent}
@@ -47,7 +41,6 @@
       .spacer{height:10px}
     `;
     document.head.appendChild(css);
-
     wrap.innerHTML = `
       <div class="card">
         <h1>Oppsett</h1>
@@ -71,8 +64,9 @@
         <label>Spørring</label><input id="ns_diesel_query" type="text" placeholder="f.eks. Esso Råholt, Norge">
         <div class="row">
           <input id="ns_diesel_lat" type="number" step="any" placeholder="lat">
-          <input id="ns_diesel_lon" type="number" step="any" placeholder "lon">
+          <input id="ns_diesel_lon" type="number" step="any" placeholder="lon">
         </div>
+
         <h3>🪨 Grus</h3>
         <label>Navn</label><input id="ns_grus_name" type="text" placeholder="f.eks. Sandtak Eidsvoll">
         <label>Spørring</label><input id="ns_grus_query" type="text" placeholder="f.eks. Sandtak Eidsvoll, Norge">
@@ -80,6 +74,7 @@
           <input id="ns_grus_lat" type="number" step="any" placeholder="lat">
           <input id="ns_grus_lon" type="number" step="any" placeholder="lon">
         </div>
+
         <h3>🏠 Base</h3>
         <label>Navn</label><input id="ns_base_name" type="text" placeholder="f.eks. Lager Hasler">
         <label>Spørring</label><input id="ns_base_query" type="text" placeholder="f.eks. Haslervegen 1, 2034 Holter">
@@ -125,12 +120,20 @@
     alert('Lagret ✅');
   }
 
+  // --- Address register helpers ---
   function cache(){ return (window.Sync?.getCache?.() || { addresses: RJ('BRYT_ADDR_LOCAL', []), status: RJ('BRYT_STATUS_LOCAL', {}) }); }
   function currentAddresses(){ return (cache().addresses || []).map(x=>({...x})); }
+
+  function fmtCoords(a){
+    if (a.lat==null || a.lon==null || isNaN(a.lat) || isNaN(a.lon)) return '';
+    return `${a.lat}, ${a.lon}`;
+  }
+
   function rowTemplate(a){
     const checked = a.active ? 'checked' : '';
     const tSnow = (a?.tasks?.snow ? 'checked' : '');
     const tGrit = (a?.tasks?.grit ? 'checked' : '');
+    const note  = (a?.note || '');
     return `
       <div class="addr_row" data-id="${a.id}" style="border:1px solid #e3e5ea;border-radius:10px;padding:10px;margin:8px 0">
         <label>Navn/adresse
@@ -141,19 +144,36 @@
           <label><input class="a_snow"   type="checkbox" ${tSnow}> Snø</label>
           <label><input class="a_grit"   type="checkbox" ${tGrit}> Grus</label>
         </div>
-        <div class="row">
-          <input class="a_lat" type="number" step="any" placeholder="lat" value="${a.lat??''}">
-          <input class="a_lon" type="number" step="any" placeholder="lon" value="${a.lon??''}">
-        </div>
+        <label>Koordinater (lat, lon eller lon, lat)</label>
+        <input class="a_coords" type="text" placeholder="f.eks. 60.25628, 11.19405" value="${fmtCoords(a)}">
+        <label>Merknad</label>
+        <textarea class="a_note" placeholder="valgfritt …">${(note||'').replace(/</g,'&lt;')}</textarea>
       </div>`;
   }
+
+  function parseCoordinates(text){
+    if (!text) return {lat:null, lon:null};
+    const s = String(text).trim().replace(/\s+/g,' ');
+    // accept "lat,lon" or "lon,lat"; also allow semicolon or space
+    const m = s.match(/(-?\d+(\.\d+)?)[,\s;]+(-?\d+(\.\d+)?)/);
+    if (!m) return {lat:null, lon:null};
+    let a = parseFloat(m[1]);
+    let b = parseFloat(m[3]);
+    if (isNaN(a) || isNaN(b)) return {lat:null, lon:null};
+    // Heuristic: latitude must be between -90..90. If first number out of range, swap.
+    if (Math.abs(a) > 90 && Math.abs(b) <= 90){ const tmp = a; a=b; b=tmp; }
+    return { lat: a, lon: b };
+  }
+
   function renderAddr(list){
     const el = document.getElementById('addr_list');
     if (!el) return;
     if (!Array.isArray(list) || !list.length){ el.innerHTML = `<div style="opacity:.7">Ingen adresser.</div>`; return; }
     el.innerHTML = list.map(rowTemplate).join('');
   }
+
   async function reloadAddr(){ try{ await window.Sync?.reload?.(); }catch(e){} renderAddr(currentAddresses()); }
+
   function collectAddr(){
     const out = [];
     document.querySelectorAll('#addr_list .addr_row').forEach(row=>{
@@ -162,12 +182,14 @@
       const active = row.querySelector('.a_active')?.checked || false;
       const snow = row.querySelector('.a_snow')?.checked || false;
       const grit = row.querySelector('.a_grit')?.checked || false;
-      const lat  = row.querySelector('.a_lat')?.value;
-      const lon  = row.querySelector('.a_lon')?.value;
-      out.push({ id, name, active, tasks:{snow,grit}, pins:{}, lat: lat===''?null:Number(lat), lon: lon===''?null:Number(lon) });
+      const coordsTxt = row.querySelector('.a_coords')?.value || '';
+      const note = row.querySelector('.a_note')?.value || '';
+      const {lat, lon} = parseCoordinates(coordsTxt);
+      out.push({ id, name, active, tasks:{snow,grit}, pins:{}, lat: lat==null?null:lat, lon: lon==null?null:lon, note });
     });
     return out;
   }
+
   async function saveAddr(){
     const list = collectAddr();
     if (window.Sync?.setAddresses){ await window.Sync.setAddresses(list); alert('Lagret (sky) ✅'); return; }
@@ -176,18 +198,11 @@
   }
   function addAddr(){
     const list = currentAddresses();
-    list.push({ id:String(Date.now()), name:'', active:true, tasks:{snow:true,grit:true}, pins:{}, lat:null, lon:null });
+    list.push({ id:String(Date.now()), name:'', active:true, tasks:{snow:true,grit:true}, pins:{}, lat:null, lon:null, note:'' });
     renderAddr(list);
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
-    // run only on admin
-    const p = (location.pathname || '').toLowerCase();
-    const h = (location.hash || '').toLowerCase();
-    const t = (document.title || '').toLowerCase();
-    const isAdmin = /(^|\/)admin(\.html)?$/.test(p) || h === '#admin' || /\badmin\b/.test(t);
-    if (!isAdmin) return;
-
     ensureMarkup();
     adminLoadBase();
     $('#admin_save_bins')?.addEventListener('click', adminSaveBase);
