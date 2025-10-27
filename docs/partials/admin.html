@@ -1,0 +1,48 @@
+
+<h1>Admin</h1>
+<div class="grid2">
+  <div class="col">
+    <label>Grusdepot (lat,lon)</label>
+    <input id="adm_grus" placeholder="60.xxxxxx,11.xxxxxx">
+    <label>Diesel (lat,lon)</label>
+    <input id="adm_diesel" placeholder="60.xxxxxx,11.xxxxxx">
+    <label>Base (lat,lon)</label>
+    <input id="adm_base" placeholder="60.xxxxxx,11.xxxxxx">
+  </div>
+  <div class="col">
+    <button id="adm_stakes_lock" class="btn">🔓 Lås stikker</button>
+  </div>
+</div>
+<h2>Adresse-register</h2>
+<div class="row" style="flex-wrap:wrap">
+  <button id="adm_addr_fetch" class="btn">Hent fra sky</button>
+  <button id="adm_addr_save" class="btn btn-primary">Lagre</button>
+  <span id="adm_addr_msg" class="badge"></span>
+</div>
+<table style="width:100%; border-collapse:collapse; margin-top:8px">
+  <thead><tr>
+    <th>Aktiv</th><th>Adresse</th><th>Gruppe</th><th>Snø</th><th>Grus</th><th>Stikker</th><th>Koordinater</th><th>Rekkefølge</th>
+  </tr></thead>
+  <tbody id="adm_addr_tbody"></tbody>
+</table>
+<h2>JSONBin</h2>
+<div class="grid2">
+  <div class="col">
+    <label>GET-URL</label><input id="adm_geturl" placeholder="https://.../latest">
+  </div>
+  <div class="col">
+    <label>PUT-URL</label><input id="adm_puturl" placeholder="https://...">
+  </div>
+</div>
+<div class="row">
+  <button id="adm_urls_save" class="btn">Lagre URL-er</button>
+  <button id="adm_urls_clear" class="btn">Fjern</button>
+  <span id="adm_urls_status" class="badge"></span>
+</div>
+<h2>JSONBin-nøkkel</h2>
+<div class="row">
+  <input id="adm_key" placeholder="X-Master-Key">
+  <button id="adm_key_save" class="btn">Lagre nøkkel</button>
+  <button id="adm_key_clear" class="btn">Fjern</button>
+  <span id="adm_key_status" class="badge"></span>
+</div>
