@@ -1,5 +1,4 @@
 // js/nav-shortcuts.js
-// Navigasjon for meny-snarveier (⛽/🪨/🏠) -> Google Maps
 (function(){
   'use strict';
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
@@ -22,7 +21,6 @@
     const key = a.dataset.shortcut; // 'diesel' | 'grus' | 'base'
     const sc  = (settings().navShortcuts || {})[key];
     const url = mapsUrlFromShortcut(sc);
-    // Åpne i samme fane for stabil PWA-oppførsel
     location.href = url;
     e.preventDefault();
     e.stopPropagation();

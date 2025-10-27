@@ -1,11 +1,9 @@
 // js/admin-navshortcuts.js
-// Små hjelpefunksjoner for å laste/lagre destinasjoner (Diesel/Grus/Base) i BRYT_SETTINGS.navShortcuts
 (function(root){
   'use strict';
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
   const LS_SETTINGS='BRYT_SETTINGS';
-
   function _settings(){ return RJ(LS_SETTINGS, {}); }
 
   function adminLoadNavShortcuts(){
@@ -44,13 +42,9 @@
     WJ(LS_SETTINGS, st);
   }
 
-  // Eksponer for din eksisterende Admin-kode
   root.AdminNavShortcuts = { load: adminLoadNavShortcuts, save: adminSaveNavShortcuts };
 
-  // Auto-hook: hvis feltene er på siden og en knapp med id=admin_save_bins finnes,
-  // laster vi verdier ved DOMContentLoaded, og pusher lagring når admin_save_bins trykkes.
   document.addEventListener('DOMContentLoaded', ()=>{
-    // Finn om feltene eksisterer (valgfri automatikk)
     const hasFields = ['diesel','grus','base'].some(k => document.getElementById('ns_'+k+'_name'));
     if (hasFields){
       try{ adminLoadNavShortcuts(); }catch(e){ console.warn('AdminNavShortcuts load:', e); }
