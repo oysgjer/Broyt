@@ -1,10 +1,10 @@
-// docs/js/kart-routes.js — Cloud sync for drawn routes (Maplayers JSONBin)
+// docs/js/kart-routes.js — Cloud sync for drawn routes (now supports `geojsonRoutes` FeatureCollection)
 (function(root){
   'use strict';
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
-  const LS_ROUTES     = 'KART_ROUTES';        // local store for routes array
-  const LS_ROUTES_SIG = 'KART_ROUTES_SIG';    // hash of last pushed
+  const LS_ROUTES     = 'KART_ROUTES';        // can store either array or GeoJSON FeatureCollection
+  const LS_ROUTES_SIG = 'KART_ROUTES_SIG';
   const LS_SETTINGS   = 'BRYT_SETTINGS';      // { routesBin }
   const LS_CFG        = 'BRYT_CFG';           // { apiKey }
 
@@ -17,15 +17,8 @@
     }); }catch(e){ return Promise.resolve(String(str.length)+'.fallback'); }
   }
 
-  function getLocalRoutes(){
-    const r = RJ(LS_ROUTES, []);
-    return Array.isArray(r) ? r : [];
-  }
-  function setLocalRoutes(arr){
-    const list = Array.isArray(arr) ? arr : [];
-    WJ(LS_ROUTES, list);
-    return list;
-  }
+  function getLocalRoutes(){ return RJ(LS_ROUTES, []); }
+  function setLocalRoutes(obj){ WJ(LS_ROUTES, obj); return obj; }
 
   function headers(){
     const h = { 'Content-Type': 'application/json' };
@@ -62,23 +55,44 @@
     putUrl(){ const id=JB.routesId(); return id ? JB.base+encodeURIComponent(id) : null; }
   };
 
+  // ----- Cloud I/O -----
+  function isFeatureCollection(x){
+    return x && typeof x==='object' && x.type==='FeatureCollection' && Array.isArray(x.features);
+  }
   async function pullFromCloud(){
     const url = JB.latestUrl();
     if (!url) return null;
     const js = await jget(url);
     if (!js || !js.record) return null;
-    // Accept either {routes: [...]} or bare array [...]
     const rec = js.record;
-    if (Array.isArray(rec)) return rec;
-    if (Array.isArray(rec.routes)) return rec.routes;
-    if (rec.kart && Array.isArray(rec.kart.routes)) return rec.kart.routes;
+    // Preferred: { geojsonRoutes: FeatureCollection }
+    if (isFeatureCollection(rec.geojsonRoutes)) return { kind:'geojson', data: rec.geojsonRoutes };
+    // Fallback legacy: { routes: [...] } or bare array [...]
+    if (Array.isArray(rec.routes)) return { kind:'array', data: rec.routes };
+    if (Array.isArray(rec))        return { kind:'array', data: rec };
+    // Also accept nested { kart:{ routes:[...] } }
+    if (rec.kart && Array.isArray(rec.kart.routes)) return { kind:'array', data: rec.kart.routes };
     return null;
   }
 
-  async function pushToCloud(routes){
+  async function pushToCloud(localObj){
     const url = JB.putUrl();
     if (!url) return false;
-    const body = { routes: Array.isArray(routes) ? routes : [] };
+    // Preserve format: if local is FeatureCollection, write { geojsonRoutes: <FC> }
+    // else write { routes: [...] }
+    let body;
+    if (isFeatureCollection(localObj)){
+      body = { geojsonRoutes: localObj };
+    } else if (Array.isArray(localObj)) {
+      body = { routes: localObj };
+    } else if (localObj && isFeatureCollection(localObj.geojsonRoutes)) {
+      body = { geojsonRoutes: localObj.geojsonRoutes };
+    } else if (localObj && Array.isArray(localObj.routes)) {
+      body = { routes: localObj.routes };
+    } else {
+      // Unknown shape: keep it as-is under geojsonRoutes if possible
+      body = { routes: [] };
+    }
     const ok = await jput(url, body);
     return !!ok;
   }
@@ -88,46 +102,51 @@
     if (pushing) return;
     const id = JB.routesId();
     if (!id) return; // no cloud configured
-    const routes = getLocalRoutes();
-    const payload = JSON.stringify({ routes });
+    const routesObj = getLocalRoutes();
+    const payload = JSON.stringify(routesObj);
     const sigPrev = localStorage.getItem(LS_ROUTES_SIG) || '';
     const sigNow = await sha1(payload);
     if (sigNow === sigPrev) return; // no change
     pushing = true;
-    const ok = await pushToCloud(routes);
+    const ok = await pushToCloud(routesObj);
     if (ok) localStorage.setItem(LS_ROUTES_SIG, sigNow);
     pushing = false;
   }
 
   async function init(){
-    // If local is empty, try import from cloud once
-    if (getLocalRoutes().length === 0){
+    // If local is empty or lacks data, try import from cloud once
+    const local = getLocalRoutes();
+    const hasLocal =
+      (Array.isArray(local) && local.length>0) ||
+      (isFeatureCollection(local) && local.features.length>0) ||
+      (local && isFeatureCollection(local.geojsonRoutes) && local.geojsonRoutes.features.length>0) ||
+      (local && Array.isArray(local.routes) && local.routes.length>0);
+    if (!hasLocal){
       const cloud = await pullFromCloud();
-      if (Array.isArray(cloud) && cloud.length){
-        setLocalRoutes(cloud);
-        console.info('Kart-routes: importerte ruter fra sky ✔️');
+      if (cloud && cloud.data){
+        // store exactly what we got so the map renderer can use it
+        setLocalRoutes(cloud.data);
+        console.info('Kart-routes: importerte ruter fra sky ✔️ (', cloud.kind, ')');
       }
     }
-    // Background push every 30s (throttled), and on page hide
     setInterval(maybePush, 30000);
     document.addEventListener('visibilitychange', ()=>{
       if (document.visibilityState === 'hidden') maybePush();
     });
   }
 
-  // Expose a tiny API for manual control
   root.KartRoutes = {
     getLocal: getLocalRoutes,
     setLocal: setLocalRoutes,
     syncNow: maybePush,
     pullNow: async ()=>{
       const cloud = await pullFromCloud();
-      if (Array.isArray(cloud)){ setLocalRoutes(cloud); return true; }
+      if (cloud && cloud.data){ setLocalRoutes(cloud.data); return true; }
       return false;
     }
   };
 
-  // Only run on the Kart page (tools/kart.html or hash includes 'kart')
+  // Only run on the Kart page
   const p = (location.pathname||'').toLowerCase();
   const h = (location.hash||'').toLowerCase();
   const isKart = /(^|\/)tools\/kart\.html$/.test(p) || h.includes('kart');
