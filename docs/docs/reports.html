@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Rapporter</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    :root{ --sep:#e3e5ea; --surface:#fff; --bg:#f6f7fb; --text:#111 }
+    .appbar{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--sep);background:var(--surface);position:sticky;top:0;z-index:2}
+    .appbar .btn{padding:.5rem .7rem}
+    .rep{border:1px solid var(--sep);padding:8px;margin:8px;border-radius:8px;background:var(--surface)}
+    .filter{display:flex;gap:8px;align-items:center;padding:8px}
+    body{background:var(--bg);color:var(--text);font-family:system-ui}
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <button class="btn" onclick="history.length>1 ? history.back() : location.href='index.html#work'">← Tilbake</button>
+    <div class="appbar-title">Rapporter</div>
+    <div style="margin-left:auto"></div>
+  </div>
+
+  <div class="filter">
+    <label>Vis:
+      <select id="flt">
+        <option value="all">Alle</option>
+        <option value="round">Runde-rapporter</option>
+        <option value="incident">Uhell</option>
+        <option value="service">Service</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="container">Laster…</div>
+
+  <script>
+    function loadReports(){
+      const list = JSON.parse(localStorage.getItem('BRYT_REPORTS') || '[]');
+      const type = (new URL(location.href)).hash?.replace('#','') || 'all';
+      const sel = document.getElementById('flt'); sel.value = type || 'all';
+      const filtered = (type && type!=='all') ? list.filter(r=>r.type===type) : list;
+
+      const grouped = filtered.reduce((acc,r)=>{ const d=new Date(r.createdAt||r.startedAt).toLocaleDateString('nb-NO'); (acc[d]=acc[d]||[]).push(r); return acc; }, {});
+      const keys = Object.keys(grouped).sort((a,b)=> new Date(b)-new Date(a));
+
+      const el = document.getElementById('container'); el.innerHTML='';
+      if (!keys.length) { el.innerHTML = '<p style="padding:12px">Ingen rapporter.</p>'; return; }
+
+      keys.forEach(k=>{
+        const h = document.createElement('h2'); h.textContent = k; h.style.padding='0 12px'; el.appendChild(h);
+        grouped[k].forEach(r=>{
+          const d = document.createElement('div'); d.className='rep';
+          const when = new Date(r.createdAt || r.startedAt).toLocaleTimeString('nb-NO');
+          const title = (r.type==='round') ? ('Runde – ' + (r.lane||'')) : (r.type==='service'?'Service':'Uhell');
+          d.innerHTML = `<div><small>${when}</small> <b>${title}</b></div>`;
+          if (r.type==='round'){
+            d.insertAdjacentHTML('beforeend', `<div>Adresser: ${r.count||0}</div>`);
+          } else if (r.type==='incident'){
+            d.insertAdjacentHTML('beforeend', `<div>${(r.text||'')}</div>`);
+          } else if (r.type==='service'){
+            d.insertAdjacentHTML('beforeend', `<pre style="white-space:pre-wrap">${JSON.stringify(r.data||{},null,2)}</pre>`);
+          }
+          el.appendChild(d);
+        });
+      });
+
+      sel.onchange = ()=>{ location.hash = sel.value; loadReports(); };
+    }
+    document.addEventListener('DOMContentLoaded', loadReports);
+  </script>
+</body>
+</html>

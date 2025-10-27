@@ -105,16 +105,14 @@
     WJ(K_SVC_LOCAL, bag);
   }
 
-  async function saveService(){
-    const msg = $('#svc_msg');
-    msg && (msg.textContent = 'Lagrer…');
+  async \1\2
+  // → Opprett service-rapport
+  try{
+    const rep = { id:'s-'+Date.now(), type:'service', createdAt:new Date().toISOString(), data };
+    repLocalAdd(rep);
+    repSync(rep);
+  }catch(e){ console.warn('Kunne ikke registrere service-rapport', e); }
 
-    const data = collect();
-
-    try{
-      // lagre i sky hvis mulig
-      await tryCloudSave(data);
-      msg && (msg.textContent = 'Lagret ✅');
     }catch(e){
       // fallback: lagre lokalt
       saveLocal(data);
@@ -146,3 +144,14 @@
     }
   });
 })();
+
+/* ==== Rapport-spørsmål før nullstilling ==== */
+function confirmResetWithReport(lane, doResetFn){
+  const wantReport = confirm('Vil du lagre rapport for utført arbeid før du nullstiller?');
+  if (wantReport){
+    try { if (typeof maybeSaveRoundReport==='function') { maybeSaveRoundReport(lane); } } catch(e){ console.warn(e); }
+  }
+  const ok = confirm('Er du sikker på at du vil nullstille?');
+  if (!ok) return;
+  return doResetFn();
+}

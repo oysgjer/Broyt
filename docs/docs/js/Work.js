@@ -19,7 +19,7 @@
   };
 
   function settings(){
-    return RJ(LS_SETTINGS, { driver:'', equipment:{plow:false,fres:false,sand:false}, dir:'Normal', autoNav:false });
+    return RJ(LS_SETTINGS, { driver:'', equipment:{plow:false,fres:false,sand:false}, dir:'Normal', autoNav:false, reportBin:'68e89e3443b1c97be9611c48', reportKey:'', reportEmail:'' });
   }
   function getRun(){ return RJ(LS_RUN, { lane:'snow', idx:null, dir:'Normal', driver:'' }); }
   function setRun(patch){ const cur=getRun(); const next={...cur,...patch}; WJ(LS_RUN,next); return next; }
@@ -197,6 +197,9 @@
     const my   = run.driver || settings().driver || '';
     if (!allDoneForLane(lane, my)) return;
 
+    const save = confirm('Alt i denne runden er markert som ferdig.\nVil du lagre rapport for utført arbeid?');
+    if (save) await maybeSaveRoundReport(lane);
+
     const res = await askChoice([
       {id:'repeat_snow',  label:'Ny runde snø'},
       {id:'switch_grit',  label:'Ny runde grus'},
@@ -225,6 +228,66 @@
       if (!n || n<1 || n>options.length) return resolve(null);
       resolve(options[n-1].id);
     });
+  }
+
+
+  // === Rapport: JSONBin helpers & queue ===
+  async function jsonbinGet(binId, key){
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, { headers: key ? { 'X-Master-Key': key } : {} });
+    if(!r.ok) throw new Error('JSONBin GET feilet');
+    return (await r.json()).record;
+  }
+  async function jsonbinPut(binId, key, record){
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+      method:'PUT', headers:{ 'Content-Type':'application/json', ...(key ? {'X-Master-Key': key} : {}) }, body: JSON.stringify(record)
+    });
+    if(!r.ok) throw new Error('JSONBin PUT feilet');
+    return r.json();
+  }
+  const LS_REPORTS='BRYT_REPORTS'; const LS_REPORT_QUEUE='BRYT_REPORT_QUEUE';
+  function saveLocalReport(rep){ try{ const all=RJ(LS_REPORTS,[]); all.push(rep); WJ(LS_REPORTS,all);}catch{} }
+  function enqueueReport(rep){ try{ const q=RJ(LS_REPORT_QUEUE,[]); q.push(rep); WJ(LS_REPORT_QUEUE,q);}catch{} }
+  async function pushReportToJsonbin(rep){
+    const st=settings(); if(!st.reportBin||!st.reportKey) throw new Error('Mangler reportBin/reportKey');
+    let remote={}; try{ remote=await jsonbinGet(st.reportBin, st.reportKey);}catch{ remote={}; }
+    const list=Array.isArray(remote.reports)?remote.reports.slice():[]; list.push(rep);
+    const record={...(remote||{}), reports:list, meta:{...(remote.meta||{}), updatedAt:new Date().toISOString()}};
+    await jsonbinPut(st.reportBin, st.reportKey, record);
+  }
+  async function tryFlushReportQueue(){
+    const q=RJ(LS_REPORT_QUEUE,[]); if(!q.length) return;
+    const left=[]; for(const rep of q){ try{ await pushReportToJsonbin(rep);}catch(e){ left.push(rep);} } WJ(LS_REPORT_QUEUE,left);
+  }
+  window.addEventListener('online', tryFlushReportQueue);
+
+
+  function lastDoneBy(laneObj){
+    if (!laneObj?.rounds?.length) return null;
+    for (let i=laneObj.rounds.length-1;i>=0;i--){ const r=laneObj.rounds[i]; if (r.done) return r.by||null; }
+    return null;
+  }
+  function firstStart(laneObj){
+    if (!laneObj?.rounds?.length) return null;
+    for (let i=0;i<laneObj.rounds.length;i++){ if (laneObj.rounds[i].start) return laneObj.rounds[i].start; }
+    return null;
+  }
+  function firstDone(laneObj){
+    if (!laneObj?.rounds?.length) return null;
+    for (let i=0;i<laneObj.rounds.length;i++){ if (laneObj.rounds[i].done) return laneObj.rounds[i].done; }
+    return null;
+  }
+  function buildRoundReport(lane){
+    const my=settings().driver||''; const list=filteredAddresses(lane); const st=window.Sync.getCache().status||{};
+    const items=[]; for(const a of list){ const laneObj=st[a.id]?.[lane]; if(!laneObj) continue;
+      if(laneObj.state==='ferdig' && lastDoneBy(laneObj)===my){ items.push({ id:a.id, name:a.name||a.id, start:firstStart(laneObj), done:firstDone(laneObj) }); } }
+    const starts=items.map(x=>x.start).filter(Boolean).sort();
+    const dones=items.map(x=>x.done).filter(Boolean).sort();
+    const startedAt=starts[0]||new Date().toISOString(); const finishedAt=dones[dones.length-1]||startedAt;
+    return { id:'round-'+Date.now(), type:'round', lane, driver:my, startedAt, finishedAt, count:items.length, items };
+  }
+  async function maybeSaveRoundReport(lane){
+    try{ const rep=buildRoundReport(lane); saveLocalReport(rep); enqueueReport(rep); try{ await pushReportToJsonbin(rep); await tryFlushReportQueue(); }catch{}; alert('Rapport for runden er lagret.'); }
+    catch{ alert('Kunne ikke lagre rapport nå.'); }
   }
 
   // ===== Actions =====
@@ -385,6 +448,7 @@
     $('#act_next') ?.addEventListener('click', actNext);
     $('#act_nav')  ?.addEventListener('click', actNav);
     $('#act_block')?.addEventListener('click', actBlock);
+    $('#act_incident')?.addEventListener('click', ()=> openIncidentModal());
 
     // 🔔 visuell/haptisk tilbakemelding på Start/Ferdig
     wireClickFeedback(['act_start','act_done']);
@@ -446,3 +510,49 @@
 
   document.addEventListener('DOMContentLoaded', wire);
 })();
+
+
+function openIncidentModal(){
+  const existing=document.getElementById('incidentModal');
+  if(existing){ existing.style.display='block'; return; }
+  const modal=document.createElement('div');
+  modal.id='incidentModal';
+  modal.style='position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:2000';
+  modal.innerHTML=`
+    <div style="background:#fff;color:#000;padding:12px;border-radius:10px;width:min(92vw,560px);">
+      <h3 style="margin:0 0 8px 0">Rapport: Uhell</h3>
+      <div style="font-size:.9rem;color:#333;margin-bottom:6px">
+        Ta bilde nedenfor (lagres på telefonen), og skriv en kort merknad. Rapporten sendes på e-post nå, bilder ettersendes.
+      </div>
+      <div style="display:grid;gap:8px">
+        <input id="inc_photo" type="file" accept="image/*" capture="environment" />
+        <textarea id="inc_text" placeholder="Beskrivelse / merknad..." style="width:100%;height:100px"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+        <button id="inc_cancel">Avbryt</button>
+        <button id="inc_send" style="background:#0ea5e9;color:#fff;border:0;padding:.5rem .8rem;border-radius:8px">Send rapport</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('inc_cancel').onclick=()=> modal.style.display='none';
+  document.getElementById('inc_send').onclick=async ()=>{
+    const text=(document.getElementById('inc_text').value||'').trim();
+    const loc=(typeof window.lastLatLng!=='undefined' && window.lastLatLng) ? { lat: window.lastLatLng[0], lon: window.lastLatLng[1] } : null;
+    const run=getRun(); const lane=run.lane||laneFromSettings(); const list=filteredAddresses(lane); const idx=run.idx;
+    const cur=(idx!=null && list[idx])?list[idx]:null;
+    const rep={ id:'u-'+Date.now(), type:'incident', text, createdAt:new Date().toISOString(), location:loc, address:(cur?(cur.name||cur.id):''), driver: settings().driver||'' };
+    saveLocalReport(rep); enqueueReport(rep); try{ await pushReportToJsonbin(rep); await tryFlushReportQueue(); }catch{}
+    let to=(settings().reportEmail||''); if(!to){ const e=prompt('E-post for uhell-rapporter:',''); if(e){ const s=settings(); s.reportEmail=e; WJ(LS_SETTINGS,s); to=e; } }
+    if(to){
+      const subject=encodeURIComponent('Uhell-rapport');
+      const bodyLines=['UHELL – RAPPORT','----------------','Tid: '+new Date(rep.createdAt).toLocaleString('nb-NO'), rep.location?('Posisjon: '+rep.location.lat.toFixed(6)+', '+rep.location.lon.toFixed(6)):'', rep.address?('Adresse: '+rep.address):'', rep.driver?('Sjåfør: '+rep.driver):'', '', 'Merknad:', (rep.text||'(ingen)'), '', 'BILDER:', 'Bildene er lagret på telefonen. Vennligst ettersend som vedlegg.'].filter(Boolean).join('
+');
+      const body=encodeURIComponent(bodyLines);
+      window.location.href=`mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}`;
+      alert('Uhell sendt! Bilder må ettersendes i egen e-post (ligger i Bilder/Galleri).');
+    } else {
+      alert('Rapport lagret lokalt. Sett e-postadresse i Admin for å sende inn.');
+    }
+    modal.style.display='none';
+  };
+}
