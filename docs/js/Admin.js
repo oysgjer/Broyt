@@ -1,11 +1,19 @@
 (function(){
   'use strict';
+  // Scope guard: run only on Admin page (admin.html, /admin, or #admin)
+  (function(){
+    const p = (location.pathname || '').toLowerCase();
+    const h = (location.hash || '').toLowerCase();
+    const t = (document.title || '').toLowerCase();
+    const isAdmin = /(^|\/)admin(\.html)?$/.test(p) || h === '#admin' || /\badmin\b/.test(t);
+    if (!isAdmin) return; // do nothing on other pages
+  })();
+
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
   const LS_SETTINGS='BRYT_SETTINGS';
   const LS_CFG='BRYT_CFG';
 
-  // ----- Helpers -----
   const $ = (sel, r=document)=> r.querySelector(sel);
   const el = (tag, props={})=> Object.assign(document.createElement(tag), props);
 
@@ -13,10 +21,16 @@
   function getCfg(){ return RJ(LS_CFG, { binId:'', apiKey:'' }); }
   function setCfg(obj){ const next = { ...getCfg(), ...(obj||{}) }; WJ(LS_CFG, next); return next; }
 
-  // Inject minimal admin UI if page lacks inputs
   function ensureMarkup(){
+    // Only inject if we are truly on admin context
+    const p = (location.pathname || '').toLowerCase();
+    const h = (location.hash || '').toLowerCase();
+    const t = (document.title || '').toLowerCase();
+    const isAdmin = /(^|\/)admin(\.html)?$/.test(p) || h === '#admin' || /\badmin\b/.test(t);
+    if (!isAdmin) return;
+
     const hasInputs = $('#cfg_bin_drift') || $('#cfg_master_key') || $('#cfg_bin_report');
-    if (hasInputs) return; // page already has markup
+    if (hasInputs) return;
 
     const main = document.querySelector('main') || document.body;
     const wrap = el('div', { className: 'wrap' });
@@ -57,7 +71,7 @@
         <label>Spørring</label><input id="ns_diesel_query" type="text" placeholder="f.eks. Esso Råholt, Norge">
         <div class="row">
           <input id="ns_diesel_lat" type="number" step="any" placeholder="lat">
-          <input id="ns_diesel_lon" type="number" step="any" placeholder="lon">
+          <input id="ns_diesel_lon" type="number" step="any" placeholder "lon">
         </div>
         <h3>🪨 Grus</h3>
         <label>Navn</label><input id="ns_grus_name" type="text" placeholder="f.eks. Sandtak Eidsvoll">
@@ -111,7 +125,6 @@
     alert('Lagret ✅');
   }
 
-  // Address register helpers (local-first; Sync optional)
   function cache(){ return (window.Sync?.getCache?.() || { addresses: RJ('BRYT_ADDR_LOCAL', []), status: RJ('BRYT_STATUS_LOCAL', {}) }); }
   function currentAddresses(){ return (cache().addresses || []).map(x=>({...x})); }
   function rowTemplate(a){
@@ -168,8 +181,15 @@
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
-    ensureMarkup();        // make sure UI exists even on empty admin.html
-    adminLoadBase();       // fill fields from local storage
+    // run only on admin
+    const p = (location.pathname || '').toLowerCase();
+    const h = (location.hash || '').toLowerCase();
+    const t = (document.title || '').toLowerCase();
+    const isAdmin = /(^|\/)admin(\.html)?$/.test(p) || h === '#admin' || /\badmin\b/.test(t);
+    if (!isAdmin) return;
+
+    ensureMarkup();
+    adminLoadBase();
     $('#admin_save_bins')?.addEventListener('click', adminSaveBase);
     $('#addr_reload')?.addEventListener('click', reloadAddr);
     $('#addr_add')?.addEventListener('click', addAddr);
