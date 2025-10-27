@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  // Scope guard: only run on admin
+  // Scope guard
   function isAdminPage(){
     const p = (location.pathname || '').toLowerCase();
     const h = (location.hash || '').toLowerCase();
@@ -15,75 +15,26 @@
   const LS_CFG='BRYT_CFG';
 
   const $ = (sel, r=document)=> r.querySelector(sel);
-  const el = (tag, props={})=> Object.assign(document.createElement(tag), props);
 
   function settings(){ return RJ(LS_SETTINGS, {}); }
   function getCfg(){ return RJ(LS_CFG, { binId:'', apiKey:'' }); }
   function setCfg(obj){ const next = { ...getCfg(), ...(obj||{}) }; WJ(LS_CFG, next); return next; }
 
-  // Inject admin blocks if page is empty
   function ensureMarkup(){
-    const hasInputs = $('#cfg_bin_drift') || $('#cfg_master_key') || $('#cfg_bin_report');
-    if (hasInputs) return;
+    if (document.getElementById('cfg_bin_drift')) return;
     const main = document.querySelector('main') || document.body;
-    const wrap = el('div', { className: 'wrap' });
-    const css = document.createElement('style');
-    css.textContent = `
-      .wrap{padding:12px}
-      .card{background:#fff;border:1px solid #e3e5ea;border-radius:12px;padding:12px;margin:10px 0}
-      label{display:block;margin:.5rem 0 .25rem;font-weight:600}
-      input[type=text],input[type=password],input[type=email],input[type=number],textarea{width:100%;padding:10px;border:1px solid #e3e5ea;border-radius:10px;background:#fff}
-      textarea{min-height:70px;resize:vertical}
-      .row{display:flex;gap:8px;flex-wrap:wrap}
-      .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 14px;border-radius:12px;border:1px solid #e3e5ea;background:#fff;font-weight:700}
-      .btn-primary{background:#3b82f6;color:#fff;border-color:transparent}
-      h1,h2,h3{margin:.6rem 0}
-      .spacer{height:10px}
-    `;
-    document.head.appendChild(css);
-    wrap.innerHTML = `
+    const box = document.createElement('div');
+    box.className='wrap';
+    box.innerHTML = `
       <div class="card">
         <h1>Oppsett</h1>
-        <label for="cfg_bin_drift">JSONBin ID – Drift</label>
-        <input id="cfg_bin_drift" type="text" placeholder="f.eks. 68ed425cae596e708f11d25f">
-        <label for="cfg_bin_report">JSONBin ID – Rapporter</label>
-        <input id="cfg_bin_report" type="text" placeholder="f.eks. 68e89e3443b1c97be9611c48">
-        <label for="cfg_master_key">JSONBin Master Key</label>
-        <input id="cfg_master_key" type="password" placeholder="skriv master key">
-        <label for="cfg_incident_email">Uhell e‑post (mottaker)</label>
-        <input id="cfg_incident_email" type="email" placeholder="f.eks. drift@firma.no">
-        <div class="spacer"></div>
-        <button id="admin_save_bins" class="btn btn-primary">Lagre</button>
+        <label>JSONBin ID – Drift</label><input id="cfg_bin_drift" type="text">
+        <label>JSONBin ID – Rapporter</label><input id="cfg_bin_report" type="text">
+        <label>JSONBin ID – Kartlag (ruter)</label><input id="cfg_routes_bin" type="text" placeholder="Maplayers BIN ID">
+        <label>JSONBin Master Key</label><input id="cfg_master_key" type="password">
+        <label>Uhell e‑post (mottaker)</label><input id="cfg_incident_email" type="email">
+        <div class="spacer"></div><button id="admin_save_bins" class="btn btn-primary">Lagre</button>
       </div>
-
-      <div class="card">
-        <h2>Destinasjoner (snarveier)</h2>
-        <p class="small">Fyll inn lat/lon for nøyaktig navigering. Hvis tomt, brukes «Spørring».</p>
-        <h3>⛽ Diesel</h3>
-        <label>Navn</label><input id="ns_diesel_name" type="text" placeholder="f.eks. Esso Råholt">
-        <label>Spørring</label><input id="ns_diesel_query" type="text" placeholder="f.eks. Esso Råholt, Norge">
-        <div class="row">
-          <input id="ns_diesel_lat" type="number" step="any" placeholder="lat">
-          <input id="ns_diesel_lon" type="number" step="any" placeholder="lon">
-        </div>
-
-        <h3>🪨 Grus</h3>
-        <label>Navn</label><input id="ns_grus_name" type="text" placeholder="f.eks. Sandtak Eidsvoll">
-        <label>Spørring</label><input id="ns_grus_query" type="text" placeholder="f.eks. Sandtak Eidsvoll, Norge">
-        <div class="row">
-          <input id="ns_grus_lat" type="number" step="any" placeholder="lat">
-          <input id="ns_grus_lon" type="number" step="any" placeholder="lon">
-        </div>
-
-        <h3>🏠 Base</h3>
-        <label>Navn</label><input id="ns_base_name" type="text" placeholder="f.eks. Lager Hasler">
-        <label>Spørring</label><input id="ns_base_query" type="text" placeholder="f.eks. Haslervegen 1, 2034 Holter">
-        <div class="row">
-          <input id="ns_base_lat" type="number" step="any" placeholder="lat">
-          <input id="ns_base_lon" type="number" step="any" placeholder="lon">
-        </div>
-      </div>
-
       <div class="card">
         <h2>Adresse‑register</h2>
         <div class="row">
@@ -92,41 +43,33 @@
           <button id="addr_save_all" class="btn btn-primary">Lagre alle</button>
         </div>
         <div id="addr_list" class="spacer"></div>
-      </div>
-    `;
-    main.appendChild(wrap);
+      </div>`;
+    main.appendChild(box);
   }
 
   function adminLoadBase(){
     const cfg = getCfg();
     const st  = settings();
-    const setVal = (id, val)=>{ const n=$(id); if (n) n.value = val ?? ''; };
-    setVal('#cfg_bin_drift', cfg.binId || '');
-    setVal('#cfg_bin_report', st.reportBin || '');
-    setVal('#cfg_master_key', cfg.apiKey || '');
-    setVal('#cfg_incident_email', st.incidentEmail || '');
+    $('#cfg_bin_drift')  && ($('#cfg_bin_drift').value  = (cfg.binId || ''));
+    $('#cfg_bin_report') && ($('#cfg_bin_report').value = (st.reportBin || ''));
+    $('#cfg_routes_bin') && ($('#cfg_routes_bin').value = (st.routesBin || ''));
+    $('#cfg_master_key') && ($('#cfg_master_key').value = (cfg.apiKey || ''));
+    $('#cfg_incident_email') && ($('#cfg_incident_email').value = (st.incidentEmail || ''));
   }
   function adminSaveBase(){
-    const v = (id)=> ($(id)?.value || '').trim();
+    const v = id => (document.querySelector(id)?.value || '').trim();
     const driftBin   = v('#cfg_bin_drift');
     const reportBin  = v('#cfg_bin_report');
+    const routesBin  = v('#cfg_routes_bin');
     const masterKey  = v('#cfg_master_key');
     const incidentTo = v('#cfg_incident_email');
     setCfg({ binId: driftBin, apiKey: masterKey });
     const st = settings();
     st.reportBin = reportBin;
+    st.routesBin = routesBin;
     st.incidentEmail = incidentTo;
     WJ(LS_SETTINGS, st);
     alert('Lagret ✅');
-  }
-
-  // --- Address register helpers ---
-  function cache(){ return (window.Sync?.getCache?.() || { addresses: RJ('BRYT_ADDR_LOCAL', []), status: RJ('BRYT_STATUS_LOCAL', {}) }); }
-  function currentAddresses(){ return (cache().addresses || []).map(x=>({...x})); }
-
-  function fmtCoords(a){
-    if (a.lat==null || a.lon==null || isNaN(a.lat) || isNaN(a.lon)) return '';
-    return `${a.lat}, ${a.lon}`;
   }
 
   function rowTemplate(a){
@@ -145,7 +88,7 @@
           <label><input class="a_grit"   type="checkbox" ${tGrit}> Grus</label>
         </div>
         <label>Koordinater (lat, lon eller lon, lat)</label>
-        <input class="a_coords" type="text" placeholder="f.eks. 60.25628, 11.19405" value="${fmtCoords(a)}">
+        <input class="a_coords" type="text" placeholder="f.eks. 60.25628, 11.19405" value="${(a.lat!=null&&a.lon!=null)?(a.lat+', '+a.lon):''}">
         <label>Merknad</label>
         <textarea class="a_note" placeholder="valgfritt …">${(note||'').replace(/</g,'&lt;')}</textarea>
       </div>`;
@@ -154,26 +97,23 @@
   function parseCoordinates(text){
     if (!text) return {lat:null, lon:null};
     const s = String(text).trim().replace(/\s+/g,' ');
-    // accept "lat,lon" or "lon,lat"; also allow semicolon or space
     const m = s.match(/(-?\d+(\.\d+)?)[,\s;]+(-?\d+(\.\d+)?)/);
     if (!m) return {lat:null, lon:null};
-    let a = parseFloat(m[1]);
-    let b = parseFloat(m[3]);
+    let a = parseFloat(m[1]), b = parseFloat(m[3]);
     if (isNaN(a) || isNaN(b)) return {lat:null, lon:null};
-    // Heuristic: latitude must be between -90..90. If first number out of range, swap.
-    if (Math.abs(a) > 90 && Math.abs(b) <= 90){ const tmp = a; a=b; b=tmp; }
-    return { lat: a, lon: b };
+    if (Math.abs(a) > 90 && Math.abs(b) <= 90){ const t=a; a=b; b=t; }
+    return { lat:a, lon:b };
   }
 
+  function cache(){ return (window.Sync?.getCache?.() || { addresses: RJ('BRYT_ADDR_LOCAL', []), status: RJ('BRYT_STATUS_LOCAL', {}) }); }
+  function currentAddresses(){ return (cache().addresses || []).map(x=>({...x})); }
   function renderAddr(list){
     const el = document.getElementById('addr_list');
     if (!el) return;
     if (!Array.isArray(list) || !list.length){ el.innerHTML = `<div style="opacity:.7">Ingen adresser.</div>`; return; }
     el.innerHTML = list.map(rowTemplate).join('');
   }
-
   async function reloadAddr(){ try{ await window.Sync?.reload?.(); }catch(e){} renderAddr(currentAddresses()); }
-
   function collectAddr(){
     const out = [];
     document.querySelectorAll('#addr_list .addr_row').forEach(row=>{
@@ -189,7 +129,6 @@
     });
     return out;
   }
-
   async function saveAddr(){
     const list = collectAddr();
     if (window.Sync?.setAddresses){ await window.Sync.setAddresses(list); alert('Lagret (sky) ✅'); return; }
@@ -205,10 +144,10 @@
   document.addEventListener('DOMContentLoaded', ()=>{
     ensureMarkup();
     adminLoadBase();
-    $('#admin_save_bins')?.addEventListener('click', adminSaveBase);
-    $('#addr_reload')?.addEventListener('click', reloadAddr);
-    $('#addr_add')?.addEventListener('click', addAddr);
-    $('#addr_save_all')?.addEventListener('click', saveAddr);
+    document.getElementById('admin_save_bins')?.addEventListener('click', adminSaveBase);
+    document.getElementById('addr_reload')?.addEventListener('click', reloadAddr);
+    document.getElementById('addr_add')?.addEventListener('click', addAddr);
+    document.getElementById('addr_save_all')?.addEventListener('click', saveAddr);
     renderAddr(currentAddresses());
   });
 })();
