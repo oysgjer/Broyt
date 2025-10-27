@@ -368,7 +368,27 @@
     });
   }
 
-  function wire(){
+  
+  function actUhell(){
+    // 1) be om bilde (valgfritt)
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = () => {
+      // 2) merknad
+      const note = prompt('Skriv merknad for uhell (valgfritt):','') || '';
+      // 3) bekreftelse
+      alert('Uhell registrert og sendt til e-postkladd. Bilder må ettersendes.');
+      // 4) epost (kan ikke sende automatisk fra web – åpner epostkladd)
+      const now = new Date().toLocaleString('nb-NO');
+      const subj = encodeURIComponent('Uhell rapport');
+      const body = encodeURIComponent(`Tidspunkt: ${now}\nMerknad: ${note}\n\nBilder må ettersendes fra kamerarullen.`);
+      location.href = `mailto:?subject=${subj}&body=${body}`;
+    };
+    input.click();
+  }
+function wire(){
     if (!$('#work')) return;
 
     // init lane/dir/driver

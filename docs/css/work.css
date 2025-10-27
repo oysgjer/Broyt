@@ -160,3 +160,8 @@
   50%  { box-shadow: 0 0 10px rgba(59,130,246,0.4); transform: scale(0.98); }
   100% { box-shadow: 0 0 0 rgba(0,0,0,0); transform: scale(1); }
 }
+
+/* Added for Start/Brøytekart/Uhell styling */
+.btn-ok{ background: var(--ok); color:#fff; }
+.btn-dark{ background: #111; color:#fff; }
+.btn-danger{ background: var(--err); color:#fff; }
