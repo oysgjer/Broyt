@@ -1,33 +1,108 @@
 (function(){
   'use strict';
-  const $  = (s,r=document)=> r.querySelector(s);
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
   const LS_SETTINGS='BRYT_SETTINGS';
+  const LS_CFG='BRYT_CFG';
 
-  // Menu open/close fallback (in case app.js didn't run yet)
-  function openMenu(){ document.getElementById('drawer')?.classList.add('open'); document.getElementById('drawer_overlay')?.classList.add('show'); }
-  function closeMenu(){ document.getElementById('drawer')?.classList.remove('open'); document.getElementById('drawer_overlay')?.classList.remove('show'); }
-  document.getElementById('hdr_menu')?.addEventListener('click', openMenu);
-  document.getElementById('drawer_overlay')?.addEventListener('click', closeMenu);
+  // ----- Helpers -----
+  const $ = (sel, r=document)=> r.querySelector(sel);
+  const el = (tag, props={})=> Object.assign(document.createElement(tag), props);
 
   function settings(){ return RJ(LS_SETTINGS, {}); }
-  function getCfg(){ if (window.Sync?.getConfig) return window.Sync.getConfig(); return RJ('BRYT_CFG', { binId:'', apiKey:'' }); }
-  function setCfg(obj){ if (window.Sync?.setConfig) return window.Sync.setConfig(obj); WJ('BRYT_CFG', obj); }
+  function getCfg(){ return RJ(LS_CFG, { binId:'', apiKey:'' }); }
+  function setCfg(obj){ const next = { ...getCfg(), ...(obj||{}) }; WJ(LS_CFG, next); return next; }
+
+  // Inject minimal admin UI if page lacks inputs
+  function ensureMarkup(){
+    const hasInputs = $('#cfg_bin_drift') || $('#cfg_master_key') || $('#cfg_bin_report');
+    if (hasInputs) return; // page already has markup
+
+    const main = document.querySelector('main') || document.body;
+    const wrap = el('div', { className: 'wrap' });
+    const css = document.createElement('style');
+    css.textContent = `
+      .wrap{padding:12px}
+      .card{background:#fff;border:1px solid #e3e5ea;border-radius:12px;padding:12px;margin:10px 0}
+      label{display:block;margin:.5rem 0 .25rem;font-weight:600}
+      input[type=text],input[type=password],input[type=email],input[type=number]{width:100%;padding:10px;border:1px solid #e3e5ea;border-radius:10px;background:#fff}
+      .row{display:flex;gap:8px;flex-wrap:wrap}
+      .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 14px;border-radius:12px;border:1px solid #e3e5ea;background:#fff;font-weight:700}
+      .btn-primary{background:#3b82f6;color:#fff;border-color:transparent}
+      h1,h2,h3{margin:.6rem 0}
+      .spacer{height:10px}
+    `;
+    document.head.appendChild(css);
+
+    wrap.innerHTML = `
+      <div class="card">
+        <h1>Oppsett</h1>
+        <label for="cfg_bin_drift">JSONBin ID – Drift</label>
+        <input id="cfg_bin_drift" type="text" placeholder="f.eks. 68ed425cae596e708f11d25f">
+        <label for="cfg_bin_report">JSONBin ID – Rapporter</label>
+        <input id="cfg_bin_report" type="text" placeholder="f.eks. 68e89e3443b1c97be9611c48">
+        <label for="cfg_master_key">JSONBin Master Key</label>
+        <input id="cfg_master_key" type="password" placeholder="skriv master key">
+        <label for="cfg_incident_email">Uhell e‑post (mottaker)</label>
+        <input id="cfg_incident_email" type="email" placeholder="f.eks. drift@firma.no">
+        <div class="spacer"></div>
+        <button id="admin_save_bins" class="btn btn-primary">Lagre</button>
+      </div>
+
+      <div class="card">
+        <h2>Destinasjoner (snarveier)</h2>
+        <p class="small">Fyll inn lat/lon for nøyaktig navigering. Hvis tomt, brukes «Spørring».</p>
+        <h3>⛽ Diesel</h3>
+        <label>Navn</label><input id="ns_diesel_name" type="text" placeholder="f.eks. Esso Råholt">
+        <label>Spørring</label><input id="ns_diesel_query" type="text" placeholder="f.eks. Esso Råholt, Norge">
+        <div class="row">
+          <input id="ns_diesel_lat" type="number" step="any" placeholder="lat">
+          <input id="ns_diesel_lon" type="number" step="any" placeholder="lon">
+        </div>
+        <h3>🪨 Grus</h3>
+        <label>Navn</label><input id="ns_grus_name" type="text" placeholder="f.eks. Sandtak Eidsvoll">
+        <label>Spørring</label><input id="ns_grus_query" type="text" placeholder="f.eks. Sandtak Eidsvoll, Norge">
+        <div class="row">
+          <input id="ns_grus_lat" type="number" step="any" placeholder="lat">
+          <input id="ns_grus_lon" type="number" step="any" placeholder="lon">
+        </div>
+        <h3>🏠 Base</h3>
+        <label>Navn</label><input id="ns_base_name" type="text" placeholder="f.eks. Lager Hasler">
+        <label>Spørring</label><input id="ns_base_query" type="text" placeholder="f.eks. Haslervegen 1, 2034 Holter">
+        <div class="row">
+          <input id="ns_base_lat" type="number" step="any" placeholder="lat">
+          <input id="ns_base_lon" type="number" step="any" placeholder="lon">
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Adresse‑register</h2>
+        <div class="row">
+          <button id="addr_reload" class="btn">Last fra sky</button>
+          <button id="addr_add" class="btn">Ny adresse</button>
+          <button id="addr_save_all" class="btn btn-primary">Lagre alle</button>
+        </div>
+        <div id="addr_list" class="spacer"></div>
+      </div>
+    `;
+    main.appendChild(wrap);
+  }
 
   function adminLoadBase(){
     const cfg = getCfg();
     const st  = settings();
-    $('#cfg_bin_drift')  && ($('#cfg_bin_drift').value  = (cfg.binId || ''));
-    $('#cfg_bin_report') && ($('#cfg_bin_report').value = (st.reportBin || ''));
-    $('#cfg_master_key') && ($('#cfg_master_key').value = (cfg.apiKey || ''));
-    $('#cfg_incident_email') && ($('#cfg_incident_email').value = (st.incidentEmail || ''));
+    const setVal = (id, val)=>{ const n=$(id); if (n) n.value = val ?? ''; };
+    setVal('#cfg_bin_drift', cfg.binId || '');
+    setVal('#cfg_bin_report', st.reportBin || '');
+    setVal('#cfg_master_key', cfg.apiKey || '');
+    setVal('#cfg_incident_email', st.incidentEmail || '');
   }
   function adminSaveBase(){
-    const driftBin   = ($('#cfg_bin_drift')?.value || '').trim();
-    const reportBin  = ($('#cfg_bin_report')?.value || '').trim();
-    const masterKey  = ($('#cfg_master_key')?.value || '').trim();
-    const incidentTo = ($('#cfg_incident_email')?.value || '').trim();
+    const v = (id)=> ($(id)?.value || '').trim();
+    const driftBin   = v('#cfg_bin_drift');
+    const reportBin  = v('#cfg_bin_report');
+    const masterKey  = v('#cfg_master_key');
+    const incidentTo = v('#cfg_incident_email');
     setCfg({ binId: driftBin, apiKey: masterKey });
     const st = settings();
     st.reportBin = reportBin;
@@ -36,12 +111,15 @@
     alert('Lagret ✅');
   }
 
+  // Address register helpers (local-first; Sync optional)
+  function cache(){ return (window.Sync?.getCache?.() || { addresses: RJ('BRYT_ADDR_LOCAL', []), status: RJ('BRYT_STATUS_LOCAL', {}) }); }
+  function currentAddresses(){ return (cache().addresses || []).map(x=>({...x})); }
   function rowTemplate(a){
     const checked = a.active ? 'checked' : '';
     const tSnow = (a?.tasks?.snow ? 'checked' : '');
     const tGrit = (a?.tasks?.grit ? 'checked' : '');
     return `
-      <div class="addr_row" data-id="${a.id}" style="border:1px solid var(--sep);border-radius:10px;padding:10px;margin:8px 0">
+      <div class="addr_row" data-id="${a.id}" style="border:1px solid #e3e5ea;border-radius:10px;padding:10px;margin:8px 0">
         <label>Navn/adresse
           <input class="a_name" type="text" value="${(a.name||'').replace(/"/g,'&quot;')}">
         </label>
@@ -56,22 +134,13 @@
         </div>
       </div>`;
   }
-
-  function currentAddresses(){
-    const cache = (window.Sync?.getCache?.() || {});
-    const arr = (cache.addresses || RJ('BRYT_ADDR_LOCAL', []));
-    return Array.isArray(arr) ? arr.map(x=>({...x})) : [];
-  }
   function renderAddr(list){
     const el = document.getElementById('addr_list');
     if (!el) return;
     if (!Array.isArray(list) || !list.length){ el.innerHTML = `<div style="opacity:.7">Ingen adresser.</div>`; return; }
     el.innerHTML = list.map(rowTemplate).join('');
   }
-  async function reloadAddr(){
-    try{ await window.Sync?.reload?.(); }catch{}
-    renderAddr(currentAddresses());
-  }
+  async function reloadAddr(){ try{ await window.Sync?.reload?.(); }catch(e){} renderAddr(currentAddresses()); }
   function collectAddr(){
     const out = [];
     document.querySelectorAll('#addr_list .addr_row').forEach(row=>{
@@ -88,10 +157,9 @@
   }
   async function saveAddr(){
     const list = collectAddr();
-    if (window.Sync?.setAddresses){ await window.Sync.setAddresses(list); alert('Lagret (setAddresses) ✅'); return; }
-    const patch = { snapshot:{ addresses: list } };
-    if (window.Sync?.setStatusPatch){ await window.Sync.setStatusPatch(patch); alert('Lagret (snapshot) ✅'); }
-    else { localStorage.setItem('BRYT_ADDR_LOCAL', JSON.stringify(list)); alert('Lagret lokalt (midlertidig)'); }
+    if (window.Sync?.setAddresses){ await window.Sync.setAddresses(list); alert('Lagret (sky) ✅'); return; }
+    localStorage.setItem('BRYT_ADDR_LOCAL', JSON.stringify(list));
+    alert('Lagret lokalt ✅');
   }
   function addAddr(){
     const list = currentAddresses();
@@ -100,11 +168,12 @@
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
-    adminLoadBase();
-    document.getElementById('admin_save_bins')?.addEventListener('click', adminSaveBase);
-    document.getElementById('addr_reload')?.addEventListener('click', reloadAddr);
-    document.getElementById('addr_add')?.addEventListener('click', addAddr);
-    document.getElementById('addr_save_all')?.addEventListener('click', saveAddr);
+    ensureMarkup();        // make sure UI exists even on empty admin.html
+    adminLoadBase();       // fill fields from local storage
+    $('#admin_save_bins')?.addEventListener('click', adminSaveBase);
+    $('#addr_reload')?.addEventListener('click', reloadAddr);
+    $('#addr_add')?.addEventListener('click', addAddr);
+    $('#addr_save_all')?.addEventListener('click', saveAddr);
     renderAddr(currentAddresses());
   });
 })();
