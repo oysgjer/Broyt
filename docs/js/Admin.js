@@ -5,6 +5,12 @@
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
   const LS_SETTINGS='BRYT_SETTINGS';
 
+  // Menu open/close fallback (in case app.js didn't run yet)
+  function openMenu(){ document.getElementById('drawer')?.classList.add('open'); document.getElementById('drawer_overlay')?.classList.add('show'); }
+  function closeMenu(){ document.getElementById('drawer')?.classList.remove('open'); document.getElementById('drawer_overlay')?.classList.remove('show'); }
+  document.getElementById('hdr_menu')?.addEventListener('click', openMenu);
+  document.getElementById('drawer_overlay')?.addEventListener('click', closeMenu);
+
   function settings(){ return RJ(LS_SETTINGS, {}); }
   function getCfg(){ if (window.Sync?.getConfig) return window.Sync.getConfig(); return RJ('BRYT_CFG', { binId:'', apiKey:'' }); }
   function setCfg(obj){ if (window.Sync?.setConfig) return window.Sync.setConfig(obj); WJ('BRYT_CFG', obj); }
@@ -35,31 +41,37 @@
     const tSnow = (a?.tasks?.snow ? 'checked' : '');
     const tGrit = (a?.tasks?.grit ? 'checked' : '');
     return `
-      <div class="addr_row" data-id="${a.id}" style="border:1px solid #e3e5ea;border-radius:8px;padding:8px;margin:6px 0">
-        <div style="display:grid;gap:6px">
-          <label>Navn/adresse
-            <input class="a_name" type="text" value="${(a.name||'').replace(/"/g,'&quot;')}" />
-          </label>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <label><input class="a_active" type="checkbox" ${checked}> Aktiv</label>
-            <label><input class="a_snow"   type="checkbox" ${tSnow}> Snø</label>
-            <label><input class="a_grit"   type="checkbox" ${tGrit}> Grus</label>
-          </div>
-          <div style="display:flex;gap:8px">
-            <input class="a_lat" type="number" step="any" placeholder="lat" value="${a.lat??''}">
-            <input class="a_lon" type="number" step="any" placeholder="lon" value="${a.lon??''}">
-          </div>
+      <div class="addr_row" data-id="${a.id}" style="border:1px solid var(--sep);border-radius:10px;padding:10px;margin:8px 0">
+        <label>Navn/adresse
+          <input class="a_name" type="text" value="${(a.name||'').replace(/"/g,'&quot;')}">
+        </label>
+        <div class="row" style="align-items:center">
+          <label><input class="a_active" type="checkbox" ${checked}> Aktiv</label>
+          <label><input class="a_snow"   type="checkbox" ${tSnow}> Snø</label>
+          <label><input class="a_grit"   type="checkbox" ${tGrit}> Grus</label>
+        </div>
+        <div class="row">
+          <input class="a_lat" type="number" step="any" placeholder="lat" value="${a.lat??''}">
+          <input class="a_lon" type="number" step="any" placeholder="lon" value="${a.lon??''}">
         </div>
       </div>`;
   }
-  function currentAddresses(){ const cache = (window.Sync?.getCache?.() || {}); return (cache.addresses || RJ('BRYT_ADDR_LOCAL', [])).map(x=>({...x})); }
+
+  function currentAddresses(){
+    const cache = (window.Sync?.getCache?.() || {});
+    const arr = (cache.addresses || RJ('BRYT_ADDR_LOCAL', []));
+    return Array.isArray(arr) ? arr.map(x=>({...x})) : [];
+  }
   function renderAddr(list){
     const el = document.getElementById('addr_list');
     if (!el) return;
     if (!Array.isArray(list) || !list.length){ el.innerHTML = `<div style="opacity:.7">Ingen adresser.</div>`; return; }
     el.innerHTML = list.map(rowTemplate).join('');
   }
-  async function reloadAddr(){ try{ await window.Sync?.reload?.(); }catch{} renderAddr(currentAddresses()); }
+  async function reloadAddr(){
+    try{ await window.Sync?.reload?.(); }catch{}
+    renderAddr(currentAddresses());
+  }
   function collectAddr(){
     const out = [];
     document.querySelectorAll('#addr_list .addr_row').forEach(row=>{
@@ -81,20 +93,15 @@
     if (window.Sync?.setStatusPatch){ await window.Sync.setStatusPatch(patch); alert('Lagret (snapshot) ✅'); }
     else { localStorage.setItem('BRYT_ADDR_LOCAL', JSON.stringify(list)); alert('Lagret lokalt (midlertidig)'); }
   }
-  function addAddr(){ const list = currentAddresses(); list.push({ id:String(Date.now()), name:'', active:true, tasks:{snow:true,grit:true}, pins:{}, lat:null, lon:null }); renderAddr(list); }
+  function addAddr(){
+    const list = currentAddresses();
+    list.push({ id:String(Date.now()), name:'', active:true, tasks:{snow:true,grit:true}, pins:{}, lat:null, lon:null });
+    renderAddr(list);
+  }
 
   document.addEventListener('DOMContentLoaded', ()=>{
-    // Drawer basic open/close (expects app.js to add listeners too)
-    const drawer = document.getElementById('drawer');
-    const overlay = document.getElementById('drawer_overlay');
-    document.getElementById('hdr_menu')?.addEventListener('click', ()=>{ drawer?.classList.add('open'); overlay?.classList.add('show'); });
-    overlay?.addEventListener('click', ()=>{ drawer?.classList.remove('open'); overlay?.classList.remove('show'); });
-
-    // Base cfg
     adminLoadBase();
-    document.getElementById('admin_save_bins')?.addEventListener('click', ()=>{
-      adminSaveBase();
-    });
+    document.getElementById('admin_save_bins')?.addEventListener('click', adminSaveBase);
     document.getElementById('addr_reload')?.addEventListener('click', reloadAddr);
     document.getElementById('addr_add')?.addEventListener('click', addAddr);
     document.getElementById('addr_save_all')?.addEventListener('click', saveAddr);
