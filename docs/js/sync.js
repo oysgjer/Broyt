@@ -1,209 +1,162 @@
-/* js/sync.js
-   JSONBin-klient + cache + normalisering + status/lagring
-   Støtter feltet "note" på adresser (merknad).
-*/
-(() => {
+// docs/js/sync.js – resilient dual-bin JSONBin sync (drift + reports)
+(function(root){
   'use strict';
-
   const RJ = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } };
   const WJ = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
-  const K_CFG   = 'BRYT_SYNC_CFG';    // {binId, apiKey}
-  const K_CACHE = 'BRYT_SYNC_CACHE';  // {addresses,status,_fetchedAt, raw}
-  const K_DEV   = 'BRYT_DEVICE_ID';
+  const LS_CFG          = 'BRYT_CFG';          // {binId, apiKey}
+  const LS_SETTINGS     = 'BRYT_SETTINGS';     // {reportBin, ...}
+  const LS_CACHE_LOCAL  = 'BRYT_CACHE_LOCAL';  // full cache mirror
+  const LS_STATUS_LOCAL = 'BRYT_STATUS_LOCAL'; // fallback status
+  const LS_ADDR_LOCAL   = 'BRYT_ADDR_LOCAL';   // fallback addresses
 
-  // enkel event-bus
-  const listeners = { change:[], error:[] };
-  const emit = (type, payload)=> (listeners[type]||[]).forEach(fn=>{ try{ fn(payload); }catch{} });
+  // ---- Internal state ----
+  let cache = RJ(LS_CACHE_LOCAL, { addresses: RJ(LS_ADDR_LOCAL, []), status: RJ(LS_STATUS_LOCAL, {}) });
+  const listeners = { change: [] };
 
-  // device-id (kan brukes om ønsket)
-  let DEVICE_ID = RJ(K_DEV, null);
-  if (!DEVICE_ID) { DEVICE_ID = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36); WJ(K_DEV, DEVICE_ID); }
+  function cfg(){ return RJ(LS_CFG, { binId:'', apiKey:'' }); }
+  function settings(){ return RJ(LS_SETTINGS, {}); }
 
-  // polling
-  let _pollTimer = null;
-  function startPolling(ms=15000){ stopPolling(); _pollTimer=setInterval(()=>{ _fetchLatest().catch(()=>{}); }, ms); }
-  function stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
-
-  let cfg = RJ(K_CFG, { binId:'', apiKey:'' });
-  function setConfig({binId, apiKey}={}){ if (typeof binId==='string') cfg.binId=binId.trim(); if (typeof apiKey==='string') cfg.apiKey=apiKey.trim(); WJ(K_CFG,cfg); return cfg; }
-  function getConfig(){ return {...cfg}; }
-
-  function _headers(){ const h={'Content-Type':'application/json'}; if (cfg.apiKey) h['X-Master-Key']=cfg.apiKey; return h; }
-
-  const _cache = RJ(K_CACHE, { addresses:[], status:{}, _fetchedAt:null, raw:null });
-  const getCache = ()=> ({..._cache});
-
-  // ------- normalisering -------
-  function _normalizeAddresses(list){
-    if (!Array.isArray(list)) return [];
-    return list.map((a,ix)=>{
-      const id    = String(a.id ?? a.name ?? ix);
-      const name  = String(a.name ?? '').trim();
-      const flags = a.flags || {};
-      const tasks = a.tasks || {};
-      const snow = (typeof tasks.snow==='boolean') ? tasks.snow :
-                   (typeof flags.snow==='boolean') ? flags.snow : true;
-      const grit = (typeof tasks.grit==='boolean') ? tasks.grit :
-                   (typeof flags.grit==='boolean') ? flags.grit : false;
-
-      const lat  = (a.lat!=null) ? Number(a.lat) : null;
-      const lon  = (a.lon!=null) ? Number(a.lon) : null;
-      const pins = a.pins ?? a.stakes ?? '';
-      const ord  = Number(a.ord ?? ix);
-      const note = typeof a.note === 'string' ? a.note : '';
-
-      return {
-        id, name,
-        tasks: { snow: !!snow, grit: !!grit },
-        flags: { snow: !!snow, grit: !!grit }, // bevar for kompatibilitet
-        pins,
-        lat: isNaN(lat)?null:lat,
-        lon: isNaN(lon)?null:lon,
-        ord,
-        note
-      };
-    }).sort((a,b)=>(a.ord??0)-(b.ord??0));
+  function headers(){
+    const h = { 'Content-Type': 'application/json' };
+    const k = (cfg().apiKey || '').trim();
+    if (k) h['X-Master-Key'] = k;
+    return h;
   }
 
-  function _normalizeStatus(rec){
-    const stSnow = rec.statusSnow || rec.status || {};
-    const stGrit = rec.statusGrit || {};
-    const emptyLane = {state:'venter',by:null,rounds:[]};
-    const out = {};
-    const ensure = id => { if(!out[id]) out[id]={ snow:{...emptyLane}, grit:{...emptyLane} }; };
+  const JB = {
+    driftId(){ return (cfg().binId || '').trim(); },
+    reportId(){ return (settings().reportBin || '').trim(); },
+    base: 'https://api.jsonbin.io/v3/b/'
+  };
 
-    for(const id in stSnow){
-      ensure(id);
-      if (stSnow[id].snow) out[id].snow = {...emptyLane, ...stSnow[id].snow};
-      if (stSnow[id].grit) out[id].grit = {...emptyLane, ...stSnow[id].grit};
-      if (!stSnow[id].snow && stSnow[id].state) out[id].snow.state = stSnow[id].state;
+  async function jFetch(url, opts){
+    try{
+      const res = await fetch(url, opts);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    }catch(e){
+      console.warn('Sync fetch fail:', url, e);
+      return null;
     }
-    for(const id in stGrit){
-      ensure(id);
-      if (stGrit[id].grit) out[id].grit = {...emptyLane, ...stGrit[id].grit};
-      if (!stGrit[id].grit && stGrit[id].state) out[id].grit.state = stGrit[id].state;
+  }
+
+  // ---- Public API ----
+  function getCache(){ return cache; }
+  function emitChange(){ listeners.change.forEach(fn=>{ try{ fn(cache); }catch(e){ console.warn('Sync change listener error', e); } }); }
+  function on(evt, fn){ if (!listeners[evt]) listeners[evt]=[]; listeners[evt].push(fn); }
+
+  async function reload(){
+    const id = JB.driftId();
+    if (!id){ console.warn('Sync.reload: no drift bin id configured'); return cache; }
+    const url = `${JB.base}${encodeURIComponent(id)}/latest`;
+    const data = await jFetch(url, { method:'GET', headers: headers() });
+    if (data && data.record){
+      // Expecting a payload with snapshot and status (your original shape)
+      const rec = data.record;
+      const next = {
+        addresses: (rec?.snapshot?.addresses ?? cache.addresses ?? []),
+        status:    (rec?.status        ?? cache.status    ?? {}),
+        snapshot:  (rec?.snapshot      ?? cache.snapshot  ?? {}),
+      };
+      cache = next;
+      WJ(LS_CACHE_LOCAL, cache);
+      // keep mirrors
+      if (Array.isArray(cache.addresses)) WJ(LS_ADDR_LOCAL, cache.addresses);
+      if (cache.status && typeof cache.status==='object') WJ(LS_STATUS_LOCAL, cache.status);
+      emitChange();
     }
+    return cache;
+  }
+
+  function deepMergeStatus(base, patch){
+    const out = JSON.parse(JSON.stringify(base||{}));
+    if (patch && patch.status){
+      out.status = out.status || {};
+      for (const id of Object.keys(patch.status)){
+        out.status[id] = out.status[id] || {};
+        for (const lane of Object.keys(patch.status[id])){
+          out.status[id][lane] = patch.status[id][lane];
+        }
+      }
+    }
+    if (patch && patch.snapshot){
+      out.snapshot = out.snapshot || {};
+      if (Array.isArray(patch.snapshot.addresses)){
+        out.snapshot.addresses = patch.snapshot.addresses;
+      }
+    }
+    // derive top-level mirrors
+    out.addresses = out.snapshot?.addresses || out.addresses || [];
     return out;
   }
 
-  // ------- fetch / put -------
-  async function _fetchLatest(){
-    if (!cfg.binId) throw new Error('Mangler JSONBin ID.');
-    const url = `https://api.jsonbin.io/v3/b/${encodeURIComponent(cfg.binId)}/latest`;
-    const res = await fetch(url, { headers:_headers() });
-    if (!res.ok) throw new Error('JSONBin GET feilet: '+res.status);
-    const j = await res.json();
-    const rec = j.record || j;
-
-    _cache.addresses = _normalizeAddresses(rec.snapshot?.addresses || rec.addresses || []);
-    _cache.status    = _normalizeStatus(rec);
-    _cache.raw       = rec;
-    _cache._fetchedAt= Date.now();
-    WJ(K_CACHE, _cache);
-    emit('change', getCache());
-    return getCache();
-  }
-  const reloadLatest = ()=>_fetchLatest();
-
-  async function _putRecord(rec){
-    if (!cfg.binId) throw new Error('Mangler JSONBin ID.');
-    const url = `https://api.jsonbin.io/v3/b/${encodeURIComponent(cfg.binId)}`;
-    const res = await fetch(url, { method:'PUT', headers:_headers(), body: JSON.stringify(rec) });
-    if (!res.ok) throw new Error('JSONBin PUT feilet: '+res.status);
-    return true;
-  }
-
-  async function loadAddresses({force=false}={}){
-    if (!force && Array.isArray(_cache.addresses) && _cache.addresses.length){ return _cache.addresses; }
-    await _fetchLatest();
-    return _cache.addresses;
-  }
-
   async function setStatusPatch(patch){
-    const st = _cache.status || {};
-    for(const id in (patch.status||{})){
-      const cur = st[id] || { snow:{state:'venter',by:null,rounds:[]}, grit:{state:'venter',by:null,rounds:[]}};
-      const p   = patch.status[id];
-      st[id] = { snow: {...cur.snow, ...(p.snow||{})}, grit: {...cur.grit, ...(p.grit||{})} };
-    }
-    _cache.status = st;
+    // Local first
+    cache = deepMergeStatus(cache, patch);
+    WJ(LS_CACHE_LOCAL, cache);
+    if (cache.status) WJ(LS_STATUS_LOCAL, cache.status);
+    if (Array.isArray(cache.addresses)) WJ(LS_ADDR_LOCAL, cache.addresses);
+    emitChange();
 
-    const raw = _cache.raw || {};
-    raw.statusSnow = raw.statusSnow || {};
-    raw.statusGrit = raw.statusGrit || {};
-    for(const id in st){
-      raw.statusSnow[id] = { snow: st[id].snow };
-      raw.statusGrit[id] = { grit: st[id].grit };
-    }
-
-    await _putRecord(raw);
-
-    _cache.raw        = raw;
-    _cache._fetchedAt = Date.now();
-    WJ(K_CACHE, _cache);
-    emit('change', getCache());
-    return true;
+    // Remote best-effort
+    const id = JB.driftId();
+    if (!id){ console.warn('Sync.setStatusPatch: no drift bin id'); return; }
+    const url = `${JB.base}${encodeURIComponent(id)}`;
+    const body = JSON.stringify(cache);
+    const res = await jFetch(url, { method:'PUT', headers: headers(), body });
+    if (!res){ console.warn('Sync remote PUT failed (kept local)'); }
   }
 
-  async function saveAddresses(prepared){
-    // skriver også "note"
-    const list = (prepared||[]).map((a,ix)=>{
-      const snow = !!(a.tasks?.snow ?? a.flags?.snow ?? true);
-      const grit = !!(a.tasks?.grit ?? a.flags?.grit ?? false);
-      return {
-        id: String(a.id ?? a.name ?? ix),
-        name: a.name || '',
-        flags: { snow, grit },
-        tasks: { snow, grit },
-        pins: a.pins ?? '',
-        lat:  a.lat ?? null,
-        lon:  a.lon ?? null,
-        ord:  (a.ord==null ? ix : Number(a.ord)),
-        note: typeof a.note==='string' ? a.note : ''
-      };
-    }).sort((a,b)=>(a.ord??0)-(b.ord??0));
-
-    _cache.addresses = _normalizeAddresses(list);
-    WJ(K_CACHE, _cache);
-
-    const raw = _cache.raw || {};
-    raw.snapshot = raw.snapshot || {};
-    raw.snapshot.addresses = list;
-    await _putRecord(raw);
-
-    _cache.raw        = raw;
-    _cache._fetchedAt = Date.now();
-    WJ(K_CACHE, _cache);
-    emit('change', getCache());
-    return _cache.addresses;
+  async function setAddresses(list){
+    const patch = { snapshot:{ addresses: Array.isArray(list) ? list : [] } };
+    await setStatusPatch(patch);
   }
 
-  function computeProgress(driver){
-    const addrs = _cache.addresses || [];
-    const st = _cache.status || {};
-    let total=addrs.length, mine=0, other=0, done=0;
-    for(const a of addrs){
-      const s = st[a.id] || {};
-      if (s.snow?.state==='ferdig' || s.grit?.state==='ferdig') done++;
-      if (s.snow?.state==='ferdig' && s.snow?.by===driver) mine++;
-      if (s.grit?.state==='ferdig' && s.grit?.by===driver) mine++;
-      if (s.snow?.state==='ferdig' && s.snow?.by && s.snow?.by!==driver) other++;
-      if (s.grit?.state==='ferdig' && s.grit?.by && s.grit?.by!==driver) other++;
+  function getConfig(){ return cfg(); }
+  function setConfig(obj){
+    const next = { ...cfg(), ...(obj||{}) };
+    WJ(LS_CFG, next);
+    return next;
+  }
+
+  async function saveReport(reportObj){
+    // Append-only to report bin; fallback to local
+    const id = JB.reportId();
+    const now = new Date().toISOString();
+    const rec = { ...(reportObj||{}), createdAt: reportObj?.createdAt || now };
+    if (!id){
+      console.warn('Sync.saveReport: no report bin id – saving locally to BRYT_REPORTS');
+      const local = RJ('BRYT_REPORTS', []);
+      local.push(rec);
+      WJ('BRYT_REPORTS', local);
+      return { ok:true, local:true };
     }
-    return { total, mine, other, done };
+    // Try load current list
+    const urlLatest = `${JB.base}${encodeURIComponent(id)}/latest`;
+    const data = await jFetch(urlLatest, { method:'GET', headers: headers() });
+    let list = [];
+    if (data && data.record && Array.isArray(data.record)){
+      list = data.record;
+    }else if (data && data.record && Array.isArray(data.record.items)){
+      list = data.record.items;
+    }
+    list.push(rec);
+    const urlPut = `${JB.base}${encodeURIComponent(id)}`;
+    const res = await jFetch(urlPut, { method:'PUT', headers: headers(), body: JSON.stringify(list) });
+    if (!res){
+      console.warn('Sync.saveReport PUT failed – keeping local backup');
+      const local = RJ('BRYT_REPORTS', []);
+      local.push(rec);
+      WJ('BRYT_REPORTS', local);
+      return { ok:false, local:true };
+    }
+    return { ok:true, local:false };
   }
 
-  function on(type, fn){ if (!listeners[type]) listeners[type]=[]; listeners[type].push(fn); return ()=>{ listeners[type]=listeners[type].filter(f=>f!==fn); }; }
+  // Expose API
+  root.Sync = { getCache, setStatusPatch, setAddresses, reload, getConfig, setConfig, on, saveReport };
 
-  // Eksponér
-  window.Sync = {
-    setConfig, getConfig,
-    loadAddresses, reloadLatest,
-    saveAddresses, setStatusPatch,
-    getCache, computeProgress,
-    on,
-    startPolling, stopPolling,
-    getDeviceId(){ return DEVICE_ID; }
-  };
-})();
+  // Try eager reload, but do not block UI
+  Promise.resolve().then(()=>{ reload().catch(()=>{}); });
+})(window);
