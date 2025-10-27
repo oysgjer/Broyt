@@ -10,7 +10,6 @@
 
   function settings(){ return RJ(LS_SETTINGS, {}); }
 
-  // Hent/fallback Sync-config
   function getCfg(){
     if (window.Sync && typeof window.Sync.getConfig === 'function') return window.Sync.getConfig();
     return RJ('BRYT_CFG', { binId:'', apiKey:'' });
@@ -21,8 +20,8 @@
   }
 
   function adminLoadBins(){
-    const cfg = getCfg();              // { binId, apiKey } for drift
-    const st  = settings();            // { reportBin, ... } for rapporter
+    const cfg = getCfg();
+    const st  = settings();
 
     $('#cfg_bin_drift')  && ($('#cfg_bin_drift').value  = (cfg.binId || ''));
     $('#cfg_bin_report') && ($('#cfg_bin_report').value = (st.reportBin || ''));
@@ -34,8 +33,8 @@
     const reportBin = ($('#cfg_bin_report')?.value || '').trim();
     const masterKey = ($('#cfg_master_key')?.value || '').trim();
 
-    setCfg({ binId: driftBin, apiKey: masterKey }); // drift
-    const st = settings(); st.reportBin = reportBin; WJ(LS_SETTINGS, st); // rapporter
+    setCfg({ binId: driftBin, apiKey: masterKey });
+    const st = settings(); st.reportBin = reportBin; WJ(LS_SETTINGS, st);
 
     alert('Lagret ✅');
   }
