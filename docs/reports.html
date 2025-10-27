@@ -1,34 +1,39 @@
 <!doctype html>
 <html lang="no">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rapporter</title>
-<style>body{font-family:system-ui;padding:12px;background:#f6f7fb;color:#111} .rep{border:1px solid #ddd;padding:8px;margin-bottom:8px;border-radius:8px;background:#fff}</style>
-</head><body>
-<h1>Rapporter</h1>
-<p>Viser lagrede rapporter (lokalt og synket til JSONBin når nøkkel er satt i Admin).</p>
-<div id="container">Laster…</div>
-<script>
-function loadReports(){
-  const key = 'BRYT_REPORTS';
-  const list = JSON.parse(localStorage.getItem(key) || '[]');
-  const grouped = list.reduce((acc,r)=>{ const d=new Date(r.createdAt||r.startedAt).toLocaleDateString('nb-NO'); (acc[d]=acc[d]||[]).push(r); return acc; }, {});
-  const keys = Object.keys(grouped).sort((a,b)=> new Date(b)-new Date(a));
-  const el = document.getElementById('container'); el.innerHTML='';
-  if (!keys.length) { el.innerHTML = '<p>Ingen rapporter.</p>'; return; }
-  keys.forEach(k=>{
-    const h = document.createElement('h2'); h.textContent = k; el.appendChild(h);
-    grouped[k].forEach(r=>{
-      const d = document.createElement('div'); d.className='rep';
-      const when = new Date(r.createdAt || r.startedAt).toLocaleTimeString('nb-NO');
-      const title = (r.type==='round') ? ('Runde – ' + (r.lane||'')) : 'Uhell';
-      d.innerHTML = `<div><small>${when}</small> <b>${title}</b></div>`;
-      if (r.type==='round'){
-        const span = document.createElement('div'); span.innerHTML = `Adresser: ${r.count||0}`; d.appendChild(span);
-      } else if (r.type==='incident'){
-        const t = document.createElement('div'); t.textContent = r.text || ''; d.appendChild(t);
-      }
-      el.appendChild(d);
-    });
-  });
-}
-document.addEventListener('DOMContentLoaded', loadReports);
-</script></body></html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Rapporter</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    :root{ --sep:#e3e5ea; --surface:#fff; --bg:#f6f7fb; --text:#111 }
+    .appbar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px;
+      border-bottom:1px solid var(--sep);
+      background:var(--surface);
+      position:sticky;
+      top:0;
+      z-index:2;
+    }
+    .appbar .btn{
+      padding:.5rem .7rem;
+      background:#3b82f6;
+      color:#fff;
+      border:none;
+      border-radius:8px;
+      font-weight:600;
+    }
+    .rep{border:1px solid var(--sep);padding:8px;margin:8px;border-radius:8px;background:var(--surface)}
+    .filter{display:flex;gap:8px;align-items:center;padding:8px}
+    body{background:var(--bg);color:var(--text);font-family:system-ui}
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <button class="btn" onclick="goBack()">← Tilbake</button>
+    <div class="appbar-title" style="font-weight:600;font-size:1.1rem;">Rapporter</div>
+    <div style="margin-left:auto"></div>
+  </div>
