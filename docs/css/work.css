@@ -248,3 +248,12 @@
 /* Behold farger på Start/Ferdig uansett klasser */
 #act_start { background: var(--ok) !important; color: #fff !important; }
 #act_done  { background: #111827 !important;   color: #fff !important; }
+
+#act_incident {
+  width: 100% !important;
+  grid-column: span 1 !important;
+}
+#btnBroytKart {
+  width: 100% !important;
+  grid-column: span 1 !important;
+}
