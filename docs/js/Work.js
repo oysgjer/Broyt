@@ -388,14 +388,7 @@
     };
     input.click();
   }
-let __clickLock=false;
-function safeClick(fn){ if(__clickLock) return; __clickLock=true; setTimeout(()=>__clickLock=false,600); try{ fn(); }catch(e){ console.warn(e);} }
-
 function wire(){
-    const host = document.querySelector('#work');
-    if (!host || host.dataset.wired) return;
-    host.dataset.wired = '1';
-
     if (!$('#work')) return;
 
     // init lane/dir/driver
@@ -406,12 +399,12 @@ function wire(){
     if (!run.lane)   setRun({ lane: laneFromSettings() });
 
     // knapper
-    $('#act_start')?.addEventListener('click', ()=>safeClick(actStart));
-    $('#act_done') ?.addEventListener('click', ()=>safeClick(actDone));
-    $('#act_skip') ?.addEventListener('click', ()=>safeClick(actSkip));
+    $('#act_start')?.addEventListener('click', actStart);
+    $('#act_done') ?.addEventListener('click', actDone);
+    $('#act_skip') ?.addEventListener('click', actSkip);
     $('#act_next') ?.addEventListener('click', actNext);
-    $('#act_nav')  ?.addEventListener('click', ()=>safeClick(actNav));
-    $('#act_block')?.addEventListener('click', ()=>safeClick(actBlock));
+    $('#act_nav')  ?.addEventListener('click', actNav);
+    $('#act_block')?.addEventListener('click', actBlock);
 
     // 🔔 visuell/haptisk tilbakemelding på Start/Ferdig
     wireClickFeedback(['act_start','act_done']);
@@ -419,46 +412,7 @@ function wire(){
     // initial UI
     uiUpdate();
 
-    // --- Brøytekart-knapp (full bredde, under de 6 knappene) ---
-    if (!document.getElementById('btnBroytKart')) {
-      const ids = ['act_start','act_done','act_skip','act_next','act_nav','act_block'];
-      const btns = ids.map(id => document.getElementById(id)).filter(Boolean);
-
-      // Finn containeren til de 6 knappene
-      // Først prøver vi parent til første knapp; fallback = #work
-      let container = btns[0]?.parentElement || document.querySelector('#work') || document.body;
-
-      // Lag wrapper for spacing på tvers av layout
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'margin-top:12px;';
-
-      // Selve knappen (full bredde)
-      const btn = document.createElement('button');
-      btn.id = 'btnBroytKart';
-      btn.textContent = 'Brøytekart';
-      btn.style.cssText = [
-        'display:block',
-        'width:100%',
-        'padding:14px 16px',
-        'font-size:16px',
-        'border-radius:10px',
-        'border:1px solid #d1d5db',
-        'background:#111827',
-        'color:#fff',
-        'touch-action:manipulation',
-        '-webkit-tap-highlight-color:transparent'
-      ].join(';');
-
-      // Klikk -> åpne kartet i ny fane (samme bin for adresser og ruter)
-      btn.addEventListener('click', () => {
-        const url = 'https://broyt.pages.dev/tools/kart.html'
-          + '#addrBin=68ed425cae596e708f11d25f'
-          + '&routeBin=68ed425cae596e708f11d25f'
-          + '&field=geojsonRoutes';
-        window.open(url, '_blank');
-      });
-
-      wrap.appendChild(btn);
+    
 
       // Plasser under de seks action-knappene:
       // Hvis knappene står i samme container, bare append wrapper til container.

@@ -166,5 +166,6 @@
 .btn-dark{ background: #111; color:#fff; }
 .btn-danger{ background: var(--err); color:#fff; }
 
-/* --- Halv høyde for midtre og verktøy-knapper --- */
-#act_skip, #act_next, #act_nav, #act_block, #act_map, #act_incident { min-height: 60px !important; padding: 12px 14px !important; font-size: 1.2rem !important; }
+/* Kill-switch: skjul enhver gammel "Brøytekart"-knapp hvis den fortsatt finnes i klientcache */
+#btnBroytKart, #btnMap, .btn-map { display: none !important; visibility: hidden !important; }
+
