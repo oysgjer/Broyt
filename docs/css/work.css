@@ -161,17 +161,16 @@
   100% { box-shadow: 0 0 0 rgba(0,0,0,0); transform: scale(1); }
 }
 
-/* Added for Start/Brøytekart/Uhell styling */
-.btn-ok{ background: var(--ok); color:#fff; }
-.btn-dark{ background: #111; color:#fff; }
-.btn-danger{ background: var(--err); color:#fff; }
-
-/* Kill-switch: skjul enhver gammel "Brøytekart"-knapp hvis den fortsatt finnes i klientcache */
-#btnBroytKart, #btnMap, .btn-map { display: none !important; visibility: hidden !important; }
-
-/* --- Halv høyde for Start og Ferdig, uten å endre stil --- */
-#act_start, #act_done {
+/* --- Halv høyde på alle unntatt Start og Ferdig --- */
+#act_skip, #act_next, #act_nav, #act_block, #act_map, #act_incident {
   min-height: 60px !important;
   padding: 12px 14px !important;
-  font-size: 1.4rem !important;
+  font-size: 1.2rem !important;
+}
+
+/* Sørg for at Start og Ferdig beholder full høyde */
+#act_start, #act_done {
+  min-height: 120px !important;
+  padding: 18px 20px !important;
+  font-size: 1.6rem !important;
 }
