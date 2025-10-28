@@ -127,17 +127,7 @@
     ['svc_blade','svc_fres','svc_front','svc_oil_front','svc_oil_back','svc_oil_fill','svc_diesel'].forEach(id=>{
       const el = $('#'+id); if (el) el.checked = false;
     });
-  
-
-    try {
-      window.Reports && window.Reports.logEvent({
-        action: 'service_event',
-        driver: driverName(),
-        service: { type: data.type || 'service', data }
-      });
-    } catch(e){ console.warn('logEvent service failed', e); }
-
-}
+  }
 
   function boot(){
     ensureUI();
@@ -154,5 +144,23 @@
     if ((location.hash||'').toLowerCase() === '#service'){
       boot();
     }
+  });
+})();
+
+// Preselect service type (e.g., incident) when navigated from Work
+(function(){
+  function applyServicePreselect(){
+    try{
+      const pre = JSON.parse(sessionStorage.getItem('SERVICE_PRESELECT') || 'null');
+      if (pre && pre.type){
+        const sel = document.querySelector('#service select[name="type"], #service [name="type"]');
+        if (sel) sel.value = pre.type;
+      }
+      sessionStorage.removeItem('SERVICE_PRESELECT');
+    }catch(_){}
+  }
+  document.addEventListener('DOMContentLoaded', applyServicePreselect);
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#service') applyServicePreselect();
   });
 })();
