@@ -260,7 +260,17 @@
     };
     await window.Sync.setStatusPatch(patch);
     uiUpdate();
-  }
+  
+
+    try { 
+      window.Reports && window.Reports.logEvent({
+        action: 'address_start',
+        driver: my, lane, 
+        addr_id: cur.id, addr_name: cur.name||'',
+      });
+    } catch(e){ console.warn('logEvent start failed', e); }
+
+}
 
   async function actDone(){
     const run  = getRun();
@@ -293,7 +303,25 @@
     setRun({ idx: nextIdx });
     uiUpdate();
     checkAllDoneDialog();
-  }
+  
+
+    try { 
+      const last = rounds && rounds.length ? rounds[rounds.length-1] : null;
+      const started = last && last.start ? last.start : null;
+      let dur = 0;
+      if (started){
+        try{ dur = (new Date(nowISO) - new Date(started)); }catch(_){ dur = 0; }
+      }
+      window.Reports && window.Reports.logEvent({
+        action: 'address_finish',
+        driver: my, lane, 
+        addr_id: cur.id, addr_name: cur.name||'',
+        started_at: started || null,
+        duration_ms: (dur>0?dur:undefined)
+      });
+    } catch(e){ console.warn('logEvent finish failed', e); }
+
+}
 
   async function actSkip(){
     const run  = getRun();
@@ -312,7 +340,17 @@
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
-  }
+  
+
+    try { 
+      window.Reports && window.Reports.logEvent({
+        action: 'address_skip',
+        driver: my, lane, 
+        addr_id: cur.id, addr_name: cur.name||''
+      });
+    } catch(e){ console.warn('logEvent skip failed', e); }
+
+}
 
   async function actBlock(){
     const run  = getRun();
@@ -331,7 +369,17 @@
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
-  }
+  
+
+    try { 
+      window.Reports && window.Reports.logEvent({
+        action: 'address_block',
+        driver: my, lane, 
+        addr_id: cur.id, addr_name: cur.name||''
+      });
+    } catch(e){ console.warn('logEvent block failed', e); }
+
+}
 
   function actNext(){
     const run  = getRun();
@@ -412,6 +460,54 @@ function wire(){
     // initial UI
     uiUpdate();
 
+    // --- Brøytekart-knapp (full bredde, under de 6 knappene) ---
+    if (!document.getElementById('btnBroytKart')) {
+      const ids = ['act_start','act_done','act_skip','act_next','act_nav','act_block'];
+      const btns = ids.map(id => document.getElementById(id)).filter(Boolean);
+
+      // Finn containeren til de 6 knappene
+      // Først prøver vi parent til første knapp; fallback = #work
+      let container = btns[0]?.parentElement || document.querySelector('#work') || document.body;
+
+      // Lag wrapper for spacing på tvers av layout
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'margin-top:12px;';
+
+      // Selve knappen (full bredde)
+      const btn = document.createElement('button');
+      btn.id = 'btnBroytKart';
+      btn.textContent = 'Brøytekart';
+      btn.style.cssText = [
+        'display:block',
+        'width:100%',
+        'padding:14px 16px',
+        'font-size:16px',
+        'border-radius:10px',
+        'border:1px solid #d1d5db',
+        'background:#111827',
+        'color:#fff',
+        'touch-action:manipulation',
+        '-webkit-tap-highlight-color:transparent'
+      ].join(';');
+
+      // Klikk -> åpne kartet i ny fane (samme bin for adresser og ruter)
+      btn.addEventListener('click', () => {
+        const url = 'https://broyt.pages.dev/tools/kart.html'
+          + '#addrBin=68ed425cae596e708f11d25f'
+          + '&routeBin=68ed425cae596e708f11d25f'
+          + '&field=geojsonRoutes';
+        window.open(url, '_blank');
+      });
+
+      wrap.appendChild(btn);
+
+      // Plasser under de seks action-knappene:
+      // Hvis knappene står i samme container, bare append wrapper til container.
+      // (Hvis du heller vil ha en hårfin strek over, legg til: wrap.style.borderTop = '1px solid #eee';)
+      container.appendChild(wrap);
+    }
+
+    
     // live oppdatering når status endres (andre sjåfører / admin / deg selv)
     window.Sync.on('change', () => uiUpdate());
   }

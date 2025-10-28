@@ -127,7 +127,17 @@
     ['svc_blade','svc_fres','svc_front','svc_oil_front','svc_oil_back','svc_oil_fill','svc_diesel'].forEach(id=>{
       const el = $('#'+id); if (el) el.checked = false;
     });
-  }
+  
+
+    try {
+      window.Reports && window.Reports.logEvent({
+        action: 'service_event',
+        driver: driverName(),
+        service: { type: data.type || 'service', data }
+      });
+    } catch(e){ console.warn('logEvent service failed', e); }
+
+}
 
   function boot(){
     ensureUI();
