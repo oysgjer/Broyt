@@ -78,7 +78,7 @@
     if (!key || !q.length) return {sent:0, pending:q.length};
     try{
       const latest = await fetchLatest();
-      const next = (Array.isArray(latest) ? latest : []).concat(q);
+      const next = (Array.isArray(latest) ? latest.filter(e => e && e.action) : []).concat(q);
       await putAll(next);
       WJ(K_QUEUE, []);
       return {sent:q.length, pending:0};
