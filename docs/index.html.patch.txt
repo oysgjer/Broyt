@@ -1,0 +1,8 @@
+Legg til denne script-taggen i `docs/index.html` (rett etter <script src="js/Work.js...">):
+
+    <script src="js/work_broytkart_integrated.js?v=1" defer></script>
+
+Tips:
+- Forsikre deg om at fila ligger i repo: docs/js/work_broytkart_integrated.js
+- Gjør en hard refresh (Ctrl+Shift+R), og om du bruker service worker:
+  DevTools → Application → Service Workers → Update → Skip waiting → Reload.
