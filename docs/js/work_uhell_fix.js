@@ -79,24 +79,28 @@
     const b = document.getElementById('btnBroytKart');
     if (!grid || !u || !b) return;
 
-    // Lag en rad med 2 kolonner
+    // Fjern eksisterende wrappere (bare knappene igjen)
+    const uBtn = u.tagName === 'BUTTON' ? u : u.querySelector('button');
+    const bBtn = b.tagName === 'BUTTON' ? b : b.querySelector('button');
+    if (!uBtn || !bBtn) return;
+
+    // Lag ny rad som skal ligge nederst i grid
     const row = document.createElement('div');
+    row.className = 'btn-pair-row';
     row.style.display = 'grid';
     row.style.gridTemplateColumns = '1fr 1fr';
     row.style.gap = '12px';
     row.style.marginTop = '12px';
 
-    // Flytt knappene inn i raden (bruk wrappere)
-    const wrapU = u.parentElement;
-    const wrapB = b.parentElement;
-    row.appendChild(wrapU);
-    row.appendChild(wrapB);
+    // Flytt knappene inn i raden
+    row.appendChild(uBtn);
+    row.appendChild(bBtn);
 
-    // Sett raden nederst i grid
+    // Legg raden helt nederst
     grid.appendChild(row);
 
-    // Juster knappene slik at de passer i cellene
-    [u, b].forEach(k => {
+    // Ensartet stil
+    [uBtn, bBtn].forEach(k => {
       k.style.width = '100%';
       k.style.display = 'block';
       k.style.minHeight = '60px';
@@ -105,4 +109,3 @@
       k.style.borderRadius = '10px';
     });
   }
-})();  // 🔚 viktig: lukk boot-IIFE
