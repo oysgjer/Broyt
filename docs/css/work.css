@@ -188,3 +188,20 @@
   background: #facc15 !important;   /* gul (samme som Tailwind yellow-400) */
   color: #111 !important;           /* mørk tekst for kontrast */
 }
+
+/* Skjul (nye) Kart-knappen helt */
+#act_map { display: none !important; }
+
+/* Brøytekart – bruk samme baseknapp-stil + vår farge og halv høyde */
+#btnBroytKart, #btnMap {
+  display: block !important;
+  visibility: visible !important;
+  background: #0d9488 !important;   /* turkis/grønnblå */
+  color: #fff !important;
+  min-height: 60px !important;      /* halv høyde */
+  padding: 12px 14px !important;
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;      /* samme “tyngde” som .btn */
+  border-radius: 10px !important;
+}
+
