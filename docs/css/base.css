@@ -1,0 +1,117 @@
+/* docs/css/base.css */
+
+/* Grunnfarger og variabler */
+:root {
+  --bg: #f3f4f6;
+  --surface: #fff;
+  --text: #111827;
+  --muted: #6b7280;
+  --sep: #e5e7eb;
+
+  --ok: #16a34a;
+  --ok-dark: #15803d;
+  --dark: #0f172a;
+  --blue: #2563eb;
+  --danger: #eab308;
+  --red: #ef4444;
+}
+
+/* Global layout */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3 {
+  font-weight: 700;
+  margin-top: 0;
+}
+
+/* Kort (paneler) */
+.card, .work-card {
+  background: var(--surface);
+  border: 1px solid var(--sep);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  margin-top: 12px;
+}
+
+/* Teksttyper */
+.label-muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.addr-now, .addr-next {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+/* Knapper */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: #e5e7eb;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 1.1rem;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  width: 100%;
+}
+
+.btn:hover { background: #d1d5db; }
+
+.btn-ok {
+  background: var(--ok);
+  color: #fff;
+}
+.btn-ok:hover {
+  background: var(--ok-dark);
+}
+
+.btn-dark {
+  background: var(--dark);
+  color: #fff;
+}
+.btn-dark:hover {
+  background: #1e293b;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #000;
+}
+.btn-danger:hover {
+  background: #facc15;
+}
+
+/* Grid for knapper */
+.btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Tabellenes utseende */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  border-bottom: 1px solid var(--sep);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.muted {
+  color: var(--muted);
+}
