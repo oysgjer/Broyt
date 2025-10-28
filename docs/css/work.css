@@ -205,3 +205,46 @@
   border-radius: 10px !important;
 }
 
+/* --- Under arbeid: konsistente knapper --- */
+
+/* Skjul (nye) Kart-knappen helt */
+#act_map { 
+  display: none !important;
+}
+
+/* Uhell – gul varselknapp */
+#act_incident {
+  background: #facc15 !important;   /* gul */
+  color: #111 !important;           /* mørk tekst for kontrast */
+}
+
+/* Brøytekart – turkis/grønnblå, samme stil som øvrige knapper */
+#btnBroytKart, #btnMap {
+  display: block !important;
+  visibility: visible !important;
+  background: #0d9488 !important;   /* turkis / grønnblå */
+  color: #fff !important;
+  min-height: 60px !important;      /* halv høyde */
+  padding: 12px 14px !important;
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+}
+
+/* Halv høyde på alle unntatt Start/Ferdig */
+#act_skip, #act_next, #act_nav, #act_block, #act_incident {
+  min-height: 60px !important;
+  padding: 12px 14px !important;
+  font-size: 1.2rem !important;
+}
+
+/* Full høyde på Start og Ferdig */
+#act_start, #act_done {
+  min-height: 120px !important;
+  padding: 18px 20px !important;
+  font-size: 1.6rem !important;
+}
+
+/* Behold farger på Start/Ferdig uansett klasser */
+#act_start { background: var(--ok) !important; color: #fff !important; }
+#act_done  { background: #111827 !important;   color: #fff !important; }
