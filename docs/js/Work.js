@@ -1,4 +1,4 @@
-// js/Work.js
+// docs/js/Work.js
 (() => {
   'use strict';
 
@@ -31,7 +31,9 @@
   function laneLabel(l){ return l==='grit' ? 'Grus' : 'Snø'; }
 
   function allAddresses(){
-    return (window.Sync.getCache().addresses || []);
+    // Støtt både array og objekt
+    const raw = (window.Sync.getCache().addresses || []);
+    return Array.isArray(raw) ? raw : Object.values(raw);
   }
   function laneFilter(a, lane){
     return !!(a?.tasks?.[lane]);
@@ -237,11 +239,9 @@
     if (idx==null || !list[idx]) return;
     const cur = list[idx];
 
-    // 👇 POPUP med merknad (fra Admin) hvis satt på adressen
+    // Merknad-popup om adressen har note
     const note = (cur.note || '').trim();
-    if (note) {
-      alert(`Merknad:\n\n${note}`);
-    }
+    if (note) alert(`Merknad:\n\n${note}`);
 
     const s = getStatus(cur.id, lane);
     const nowISO = new Date().toISOString();
@@ -352,7 +352,70 @@
     const idx  = run.idx;
     const cur  = (idx!=null) ? list[idx] : null;
     if (!cur) return;
-    window.open(mapsUrl(cur), '_blank'); // naviger til AKTUELL (ikke hopp)
+    window.open(mapsUrl(cur), '_blank');
+  }
+
+  // --- Uhell → åpne Service med forhåndsvalg 'incident'
+  function wireIncident(){
+    try{
+      const btn = document.querySelector('#act_incident');
+      if (!btn || btn.dataset.wired) return;
+      btn.dataset.wired = '1';
+      const go = () => {
+        try { sessionStorage.setItem('SERVICE_PRESELECT', JSON.stringify({ type: 'incident' })); } catch (_){}
+        location.hash = '#service';
+      };
+      btn.addEventListener('click', go);
+      // riktig label (ikon styres ikke av CSS)
+      btn.innerHTML = '⚠️ Uhell';
+    }catch(e){ console.warn('incident wire', e); }
+  }
+
+  // --- Brøytekart → behold/lag, flytt nederst i grid, sett 🚜 ikon
+  function ensureBroytKart(){
+    try{
+      // Fjern ny Kart-knapp helt
+      const newMap = document.getElementById('act_map');
+      if (newMap && newMap.parentElement) newMap.parentElement.remove();
+    }catch{}
+
+    try{
+      const grid = document.querySelector('#work .btn-grid');
+      if (!grid) return;
+
+      let bk = document.querySelector('#btnBroytKart, #btnMap');
+      if (!bk){
+        // Lag knapp om den ikke finnes
+        bk = document.createElement('button');
+        bk.id = 'btnBroytKart';
+        bk.className = 'btn';
+        bk.addEventListener('click', () => {
+          const url = 'https://broyt.pages.dev/tools/kart.html'
+            + '#addrBin=68ed425cae596e708f11d25f'
+            + '&routeBin=68ed425cae596e708f11d25f'
+            + '&field=geojsonRoutes';
+          window.open(url, '_blank');
+        });
+      }else{
+        // Sørg for at den bruker baseknapp-stil
+        bk.classList.add('btn');
+      }
+      // Sett label med ikon
+      bk.innerHTML = '🚜 Brøytekart';
+
+      // Hvis knappen står alene i en wrapper, flytt wrapperen. Ellers flytt knappen.
+      const nodeToMove = (bk.parentElement && bk.parentElement.childElementCount === 1)
+        ? bk.parentElement : bk;
+
+      // Rydd styles som kan gi overlapp
+      bk.style.removeProperty('position');
+      bk.style.width = '100%';
+      bk.style.setProperty('display','block','important');
+
+      // Legg nederst i grid
+      if (nodeToMove.parentElement !== grid) grid.appendChild(nodeToMove);
+      else grid.appendChild(nodeToMove);
+    }catch(e){ console.warn('broytkart ensure', e); }
   }
 
   // --- liten hjelpefunksjon for klikkanimasjon/haptics ---
@@ -368,27 +431,7 @@
     });
   }
 
-  
-  function actUhell(){
-    // 1) be om bilde (valgfritt)
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    input.onchange = () => {
-      // 2) merknad
-      const note = prompt('Skriv merknad for uhell (valgfritt):','') || '';
-      // 3) bekreftelse
-      alert('Uhell registrert og sendt til e-postkladd. Bilder må ettersendes.');
-      // 4) epost (kan ikke sende automatisk fra web – åpner epostkladd)
-      const now = new Date().toLocaleString('nb-NO');
-      const subj = encodeURIComponent('Uhell rapport');
-      const body = encodeURIComponent(`Tidspunkt: ${now}\nMerknad: ${note}\n\nBilder må ettersendes fra kamerarullen.`);
-      location.href = `mailto:?subject=${subj}&body=${body}`;
-    };
-    input.click();
-  }
-function wire(){
+  function wire(){
     if (!$('#work')) return;
 
     // init lane/dir/driver
@@ -405,77 +448,16 @@ function wire(){
     $('#act_next') ?.addEventListener('click', actNext);
     $('#act_nav')  ?.addEventListener('click', actNav);
     $('#act_block')?.addEventListener('click', actBlock);
-// Uhell -> gå til Service og forhåndsvelg type = incident
-try {
-  const _btnIncident = document.querySelector('#act_incident');
-  if (_btnIncident && !_btnIncident.dataset.wired) {
-    _btnIncident.dataset.wired = '1';
-    const _go = () => {
-      try { sessionStorage.setItem('SERVICE_PRESELECT', JSON.stringify({ type: 'incident' })); } catch (_) {}
-      location.hash = '#service';
-    };
-    if (typeof safeClick === 'function') {
-      _btnIncident.addEventListener('click', () => safeClick(_go));
-    } else {
-      _btnIncident.addEventListener('click', _go);
-    }
-  }
-} catch (e) { console.warn('incident handler bind failed', e); }
 
-    // 🔔 visuell/haptisk tilbakemelding på Start/Ferdig
+    wireIncident();         // ⚠️ Uhell → #service
+    ensureBroytKart();      // 🚜 Brøytekart nederst
+
+    // tilbakemelding på Start/Ferdig
     wireClickFeedback(['act_start','act_done']);
 
     // initial UI
     uiUpdate();
 
-    // --- Brøytekart-knapp (full bredde, under de 6 knappene) ---
-    if (!document.getElementById('btnBroytKart')) {
-      const ids = ['act_start','act_done','act_skip','act_next','act_nav','act_block'];
-      const btns = ids.map(id => document.getElementById(id)).filter(Boolean);
-
-      // Finn containeren til de 6 knappene
-      // Først prøver vi parent til første knapp; fallback = #work
-      let container = btns[0]?.parentElement || document.querySelector('#work') || document.body;
-
-      // Lag wrapper for spacing på tvers av layout
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'margin-top:12px;';
-
-      // Selve knappen (full bredde)
-      const btn = document.createElement('button');
-      btn.id = 'btnBroytKart';
-      btn.textContent = 'Brøytekart';
-      btn.style.cssText = [
-        'display:block',
-        'width:100%',
-        'padding:14px 16px',
-        'font-size:16px',
-        'border-radius:10px',
-        'border:1px solid #d1d5db',
-        'background:#111827',
-        'color:#fff',
-        'touch-action:manipulation',
-        '-webkit-tap-highlight-color:transparent'
-      ].join(';');
-
-      // Klikk -> åpne kartet i ny fane (samme bin for adresser og ruter)
-      btn.addEventListener('click', () => {
-        const url = 'https://broyt.pages.dev/tools/kart.html'
-          + '#addrBin=68ed425cae596e708f11d25f'
-          + '&routeBin=68ed425cae596e708f11d25f'
-          + '&field=geojsonRoutes';
-        window.open(url, '_blank');
-      });
-
-      wrap.appendChild(btn);
-
-      // Plasser under de seks action-knappene:
-      // Hvis knappene står i samme container, bare append wrapper til container.
-      // (Hvis du heller vil ha en hårfin strek over, legg til: wrap.style.borderTop = '1px solid #eee';)
-      container.appendChild(wrap);
-    }
-
-    
     // live oppdatering når status endres (andre sjåfører / admin / deg selv)
     window.Sync.on('change', () => uiUpdate());
   }
