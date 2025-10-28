@@ -72,40 +72,45 @@
     if (location.hash === '#work') run();
   });
 
-  // --- Flytt Uhell og Brøytekart ved siden av hverandre (50/50 layout)
-  function pairUhellBroyt(){
-    const grid = document.querySelector('#work .btn-grid');
-    const u = document.getElementById('act_incident');
-    const b = document.getElementById('btnBroytKart');
-    if (!grid || !u || !b) return;
+// --- Flytt Uhell og Brøytekart ved siden av hverandre (50/50 layout)
+function pairUhellBroyt(){
+  const grid = document.querySelector('#work .btn-grid');
+  const uWrap = document.getElementById('act_incident')?.closest('div');
+  const bWrap = document.getElementById('btnBroytKart')?.closest('div');
+  if (!grid || !uWrap || !bWrap) return;
 
-    // Fjern eksisterende wrappere (bare knappene igjen)
-    const uBtn = u.tagName === 'BUTTON' ? u : u.querySelector('button');
-    const bBtn = b.tagName === 'BUTTON' ? b : b.querySelector('button');
-    if (!uBtn || !bBtn) return;
+  // Finn selve knappene
+  const uBtn = uWrap.querySelector('button');
+  const bBtn = bWrap.querySelector('button');
+  if (!uBtn || !bBtn) return;
 
-    // Lag ny rad som skal ligge nederst i grid
-    const row = document.createElement('div');
-    row.className = 'btn-pair-row';
-    row.style.display = 'grid';
-    row.style.gridTemplateColumns = '1fr 1fr';
-    row.style.gap = '12px';
-    row.style.marginTop = '12px';
+  // Fjern gamle wrappere fra grid
+  if (uWrap.parentElement === grid) grid.removeChild(uWrap);
+  if (bWrap.parentElement === grid) grid.removeChild(bWrap);
 
-    // Flytt knappene inn i raden
-    row.appendChild(uBtn);
-    row.appendChild(bBtn);
+  // Lag ny rad for dem
+  const row = document.createElement('div');
+  row.className = 'btn-pair-row';
+  row.style.display = 'grid';
+  row.style.gridTemplateColumns = '1fr 1fr';
+  row.style.gap = '12px';
+  row.style.marginTop = '12px';
+  row.style.marginBottom = '6px';
 
-    // Legg raden helt nederst
-    grid.appendChild(row);
+  // Legg knappene inn i raden
+  row.appendChild(uBtn);
+  row.appendChild(bBtn);
 
-    // Ensartet stil
-    [uBtn, bBtn].forEach(k => {
-      k.style.width = '100%';
-      k.style.display = 'block';
-      k.style.minHeight = '60px';
-      k.style.fontSize = '1.2rem';
-      k.style.fontWeight = '600';
-      k.style.borderRadius = '10px';
-    });
-  }
+  // Legg raden nederst i grid
+  grid.appendChild(row);
+
+  // Sørg for felles stil
+  [uBtn, bBtn].forEach(k => {
+    k.style.width = '100%';
+    k.style.display = 'block';
+    k.style.minHeight = '60px';
+    k.style.fontSize = '1.2rem';
+    k.style.fontWeight = '600';
+    k.style.borderRadius = '10px';
+  });
+}
