@@ -86,7 +86,7 @@
     row.style.gap = '12px';
     row.style.marginTop = '12px';
 
-    // Flytt knappene inn i raden
+    // Flytt knappene inn i raden (bruk wrappere)
     const wrapU = u.parentElement;
     const wrapB = b.parentElement;
     row.appendChild(wrapU);
@@ -105,4 +105,4 @@
       k.style.borderRadius = '10px';
     });
   }
-})();
+})();  // 🔚 viktig: lukk boot-IIFE
