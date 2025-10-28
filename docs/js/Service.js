@@ -3,13 +3,14 @@
   'use strict';
   const $ = (s, r=document) => r.querySelector(s);
 
+  // --- helpers
   function settings(){
-    try{ return JSON.parse(localStorage.getItem('BRYT_SETTINGS')) || {}; }catch(e){ return {}; }
+    try{ return JSON.parse(localStorage.getItem('BRYT_SETTINGS')) || {}; }catch{ return {}; }
   }
   function lastRunCtx(){
-    try{ return JSON.parse(localStorage.getItem('BRYT_LAST_RUN_CTX')) || {}; }catch(e){ return {}; }
+    try{ return JSON.parse(localStorage.getItem('BRYT_LAST_RUN_CTX')) || {}; }catch{ return {}; }
   }
-  function addresses(){ 
+  function addresses(){
     const raw = (window.Sync?.getCache?.().addresses || []);
     return Array.isArray(raw) ? raw : Object.values(raw);
   }
@@ -47,7 +48,7 @@
   function computeReport(){
     const ctx = lastRunCtx();
     const driver = ctx.driver || settings().driver || 'Ukjent';
-    const lane = ctx.lane || 'snow';
+    const lane   = ctx.lane || 'snow';
     const tStart = ctx.start_at || sessionStorage.getItem('RUN_START') || new Date().toISOString();
     const tEnd   = ctx.end_at   || sessionStorage.getItem('RUN_END')   || new Date().toISOString();
 
@@ -108,6 +109,7 @@
     return rep;
   }
 
+  // --- downloads (kun ved knappetrykk)
   function downloadBlob(blob, filename){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -123,6 +125,13 @@
   }
 
   async function savePDF(rep){
+    // krever jsPDF + html2canvas lagt inn via CDN i index.html (ingen auto)
+    const JSPDF = window.jspdf?.jsPDF;
+    if (!JSPDF || !window.html2canvas){
+      alert('PDF-bibliotek mangler. Legg til jsPDF og html2canvas i index.html først.');
+      return;
+    }
+
     const safe = rep.round.label.replace(/\s+/g,'_').replace(/[()]/g,'');
     const wrap = document.createElement('div');
     wrap.id = 'pdf_wrap_tmp';
@@ -165,12 +174,6 @@
     `;
     document.body.appendChild(wrap);
 
-    const JSPDF = window.jspdf?.jsPDF;
-    if (!JSPDF || !window.html2canvas){
-      console.warn('jsPDF/html2canvas ikke tilgjengelig – hopper over PDF.');
-      document.body.removeChild(wrap);
-      return;
-    }
     const doc = new JSPDF({unit:'pt', format:'a4'});
     await doc.html(wrap, { callback: (d)=>{
       d.save(`rapport_${safe}.pdf`);
@@ -179,10 +182,11 @@
   }
 
   async function pushToJSONBin(rep){
+    const statusEl = $('#svc_status');
     try{
-      const binId = '68e89e3443b1c97be9611c48'; // Report-bin
+      const binId = '68e89e3443b1c97be9611c48'; // Report-bin (privat)
       const apiKey = (window.Sync?.getConfig?.() || {}).apiKey || localStorage.getItem('BRYT_REPORTS_MASTER_KEY') || '';
-      if (!apiKey) throw new Error('Mangler X-Master-Key (Admin → Master Key).');
+      if (!apiKey) throw new Error('Mangler Master Key (Admin).');
 
       const latest = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
         headers: {'X-Master-Key': apiKey, 'cache':'no-store'}
@@ -195,39 +199,73 @@
         body: JSON.stringify(arr)
       });
       if (!put.ok) throw new Error(`JSONBin PUT ${put.status}`);
-      $('#svc_status') && ($('#svc_status').textContent = `Lagret: ${rep.round.label}`);
+      if (statusEl) statusEl.textContent = `Lagret til JSONBin: ${rep.round.label}`;
     }catch(e){
-      console.warn('JSONBin push feilet:', e);
-      $('#svc_status') && ($('#svc_status').textContent = `Lokal fil lagret (${rep.round.label}). (JSONBin feilet)`);
+      console.warn('JSONBin lagring feilet:', e);
+      if (statusEl) statusEl.textContent = `Feil ved lagring til JSONBin: ${String(e.message||e)}`;
     }
   }
 
-  async function generateAndSave(){
-    const rep = computeReport();
-    await saveJSON(rep);
-    await savePDF(rep);
-    await pushToJSONBin(rep);
+  // --- UI wiring
+  function ensureToolsUI(){
+    // Ikke rør din eksisterende Service-HTML; vi bare legger til en liten verktøylinje under #svc_card
+    const card = $('#svc_card');
+    if (!card) return;
+
+    if (!$('#svc_tools')){
+      const box = document.createElement('div');
+      box.id = 'svc_tools';
+      box.style.marginTop = '12px';
+      box.innerHTML = `
+        <div class="btn-grid" style="margin-top:10px;">
+          <button id="svc_save_bin" class="btn">Lagre rapport til JSONBin</button>
+          <button id="svc_pdf" class="btn">Last ned PDF</button>
+          <button id="svc_json" class="btn">Last ned JSON</button>
+        </div>
+      `;
+      card.appendChild(box);
+    }
   }
 
   function wire(){
+    ensureToolsUI();
+
+    // Bruk din eksisterende knapp "Generer rapport nå" til å LAGRE TIL JSONBIN (kun ved trykk)
     const gen = $('#svc_generate');
-    const newr= $('#svc_new_round');
     if (gen && !gen.dataset.wired){
       gen.dataset.wired = '1';
-      gen.addEventListener('click', generateAndSave);
-    }
-    if (newr && !newr.dataset.wired){
-      newr.dataset.wired = '1';
-      newr.addEventListener('click', ()=>{
-        sessionStorage.removeItem('RUN_START');
-        sessionStorage.removeItem('RUN_END');
-        location.hash = '#work';
+      gen.addEventListener('click', async ()=>{
+        const rep = computeReport();
+        window.__BRYT_LAST_REPORT__ = rep; // gjør klar for nedlasting-knappene
+        await pushToJSONBin(rep);
       });
     }
-    const ctx = lastRunCtx();
-    if (ctx?.start_at && (ctx?.end_at || sessionStorage.getItem('RUN_END'))){
-      generateAndSave();
+
+    // Ekstra knapper (frivillig å bruke)
+    const k1 = $('#svc_save_bin'), k2 = $('#svc_pdf'), k3 = $('#svc_json');
+    if (k1 && !k1.dataset.wired){
+      k1.dataset.wired = '1';
+      k1.addEventListener('click', async ()=>{
+        const rep = window.__BRYT_LAST_REPORT__ || computeReport();
+        await pushToJSONBin(rep);
+      });
     }
+    if (k2 && !k2.dataset.wired){
+      k2.dataset.wired = '1';
+      k2.addEventListener('click', async ()=>{
+        const rep = window.__BRYT_LAST_REPORT__ || computeReport();
+        await savePDF(rep);
+      });
+    }
+    if (k3 && !k3.dataset.wired){
+      k3.dataset.wired = '1';
+      k3.addEventListener('click', async ()=>{
+        const rep = window.__BRYT_LAST_REPORT__ || computeReport();
+        await saveJSON(rep);
+      });
+    }
+
+    // Vi gjør INGENTING automatisk når man åpner Service.
   }
 
   document.addEventListener('DOMContentLoaded', wire);
