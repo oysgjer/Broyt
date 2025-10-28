@@ -1,4 +1,4 @@
-// docs/js/Work.js
+// docs/js/Work.js — single-file replacement
 (() => {
   'use strict';
 
@@ -31,7 +31,6 @@
   function laneLabel(l){ return l==='grit' ? 'Grus' : 'Snø'; }
 
   function allAddresses(){
-    // Støtt både array og objekt
     const raw = (window.Sync.getCache().addresses || []);
     return Array.isArray(raw) ? raw : Object.values(raw);
   }
@@ -47,7 +46,6 @@
     return st[addrId]?.[lane] || { state:'venter', by:null, rounds:[] };
   }
 
-  // Skip-regler: ferdig, eller pågår av annen sjåfør
   function isSkip(addr, lane, myDriver){
     const s = getStatus(addr.id, lane);
     if (s.state === 'ferdig') return true;
@@ -85,7 +83,6 @@
     }
   }
 
-  // ===== Progress (mine/andre ut fra siste "done"-runde) =====
   function lastDoneBy(laneObj){
     if (!laneObj?.rounds?.length) return null;
     for (let i=laneObj.rounds.length-1;i>=0;i--){
@@ -109,7 +106,7 @@
         const who = lastDoneBy(laneObj);
         if (who === my) mine++;
         else if (who) other++;
-        else other++; // ukjent krediteres "andre"
+        else other++;
       }
     }
     return { total, mine, other, done };
@@ -118,20 +115,15 @@
   function updateProgressBars(lane){
     const pr = computeProgressUI(lane);
     const total = Math.max(pr.total, 1);
-
-    // Prosent
     let mePct = Math.round(100 * pr.mine  / total);
     let otPct = Math.round(100 * pr.other / total);
-
-    // ✅ Ikke overlapp
     if (mePct + otPct > 100) otPct = Math.max(0, 100 - mePct);
-
     mePct = Math.max(0, Math.min(100, mePct));
     otPct = Math.max(0, Math.min(100, otPct));
 
     const bm = $('#b_prog_me'), bo = $('#b_prog_other');
-    if (bm) bm.style.width = mePct + '%';   // venstre (grønn)
-    if (bo) bo.style.width = otPct + '%';   // høyre  (lilla)
+    if (bm) bm.style.width = mePct + '%';
+    if (bo) bo.style.width = otPct + '%';
 
     $('#b_prog_me_count')    && ($('#b_prog_me_count').textContent = `${pr.mine}`);
     $('#b_prog_other_count') && ($('#b_prog_other_count').textContent = `${pr.other}`);
@@ -153,7 +145,6 @@
     const my   = run.driver || settings().driver || '';
     const list = filteredAddresses(lane);
 
-    // init idx hvis mangler/ugyldig/skip
     let idx = run.idx;
     if (idx == null || idx < 0 || idx >= list.length || (list[idx] && isSkip(list[idx], lane, my))){
       idx = initialIndex(list, run.dir || 'Normal', lane, my);
@@ -171,11 +162,9 @@
     const stNow = now ? getStatus(now.id, lane) : {state:'venter'};
     $('#b_status') && ($('#b_status').textContent = STATE_LABEL[stNow.state] || '—');
 
-    // Puls på riktig knapp
     $('#act_done')  ?.classList.toggle('pulse', stNow.state === 'pågår');
     $('#act_start') ?.classList.toggle('pulse', stNow.state !== 'pågår');
 
-    // progress
     updateProgressBars(lane);
 
     const hasAny = list.length>0 && idx!=null;
@@ -187,49 +176,6 @@
     $('#act_block')?.toggleAttribute('disabled', !hasAny);
   }
 
-  function allDoneForLane(lane, my){
-    const list = filteredAddresses(lane);
-    if (!list.length) return false;
-    return list.every(a => getStatus(a.id,lane).state==='ferdig' || isSkip(a,lane,my));
-  }
-
-  async function checkAllDoneDialog(){
-    const run  = getRun();
-    const lane = run.lane || laneFromSettings();
-    const my   = run.driver || settings().driver || '';
-    if (!allDoneForLane(lane, my)) return;
-
-    const res = await askChoice([
-      {id:'repeat_snow',  label:'Ny runde snø'},
-      {id:'switch_grit',  label:'Ny runde grus'},
-      {id:'finish',       label:'Ferdig → Service'}
-    ], 'Alt på denne runden er markert som ferdig. Hva vil du gjøre nå?');
-
-    if (!res) return;
-    if (res==='repeat_snow'){
-      setRun({ lane:'snow', idx:null });
-      location.hash = '#work';
-      uiUpdate();
-    } else if (res==='switch_grit'){
-      setRun({ lane:'grit', idx:null });
-      location.hash = '#work';
-      uiUpdate();
-    } else if (res==='finish'){
-      location.hash = '#service';
-    }
-  }
-
-  function askChoice(options, title='Velg'){
-    return new Promise(resolve=>{
-      const txt = [title, '', ...options.map((o,i)=>`${i+1}) ${o.label}`), '', 'Skriv nummer:'].join('\n');
-      const ans = prompt(txt,'');
-      const n   = parseInt(ans||'',10);
-      if (!n || n<1 || n>options.length) return resolve(null);
-      resolve(options[n-1].id);
-    });
-  }
-
-  // ===== Actions =====
   async function actStart(){
     const run  = getRun();
     const lane = run.lane || laneFromSettings();
@@ -239,25 +185,18 @@
     if (idx==null || !list[idx]) return;
     const cur = list[idx];
 
-    // Merknad-popup om adressen har note
     const note = (cur.note || '').trim();
     if (note) alert(`Merknad:\n\n${note}`);
 
     const s = getStatus(cur.id, lane);
     const nowISO = new Date().toISOString();
-
     let rounds = Array.isArray(s.rounds) ? [...s.rounds] : [];
     if (!rounds.length || rounds[rounds.length-1].done){
       rounds.push({ start: nowISO, by: my });
     }
-
     const patch = { status:{} };
     patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = {
-      state: 'pågår',
-      by: my,
-      rounds
-    };
+    patch.status[cur.id][lane] = { state:'pågår', by: my, rounds };
     await window.Sync.setStatusPatch(patch);
     uiUpdate();
   }
@@ -279,20 +218,14 @@
     } else {
       rounds.push({ start: nowISO, done: nowISO, by: my });
     }
-
     const patch = { status:{} };
     patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = {
-      state: 'ferdig',
-      by: my,
-      rounds
-    };
+    patch.status[cur.id][lane] = { state:'ferdig', by: my, rounds };
     await window.Sync.setStatusPatch(patch);
 
-    const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
+    const nextIdx = findNextIndex(list, idx, getRun().dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
-    checkAllDoneDialog();
   }
 
   async function actSkip(){
@@ -302,11 +235,11 @@
     const list = filteredAddresses(lane);
     const idx  = run.idx;
     if (idx==null || !list[idx]) return;
-
     const cur = list[idx];
+
     const patch = { status:{} };
     patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = { state:'hoppet', by: my, rounds: (getStatus(cur.id,lane).rounds||[]) };
+    patch.status[cur.id][lane] = { state:'hoppet', by: my, rounds:(getStatus(cur.id,lane).rounds||[]) };
     await window.Sync.setStatusPatch(patch);
 
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
@@ -321,11 +254,11 @@
     const list = filteredAddresses(lane);
     const idx  = run.idx;
     if (idx==null || !list[idx]) return;
-
     const cur = list[idx];
+
     const patch = { status:{} };
     patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = { state:'blokkert', by: my, rounds: (getStatus(cur.id,lane).rounds||[]) };
+    patch.status[cur.id][lane] = { state:'blokkert', by: my, rounds:(getStatus(cur.id,lane).rounds||[]) };
     await window.Sync.setStatusPatch(patch);
 
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
@@ -355,27 +288,10 @@
     window.open(mapsUrl(cur), '_blank');
   }
 
-  // --- Uhell → åpne Service med forhåndsvalg 'incident'
-  function wireIncident(){
-    try{
-      const btn = document.querySelector('#act_incident');
-      if (!btn || btn.dataset.wired) return;
-      btn.dataset.wired = '1';
-      const go = () => {
-        try { sessionStorage.setItem('SERVICE_PRESELECT', JSON.stringify({ type: 'incident' })); } catch (_){}
-        location.hash = '#service';
-      };
-      btn.addEventListener('click', go);
-      // riktig label (ikon styres ikke av CSS)
-      btn.innerHTML = '⚠️ Uhell';
-    }catch(e){ console.warn('incident wire', e); }
-  }
-
-  // Sørg for at Uhell-knapp finnes, har riktig label og ligger over Brøytekart
-function ensureUhellButton(){
-  try{
+  // --- Uhell-knapp: lag/vis/placer over Brøytekart (med fallback-timer)
+  function ensureUhellButton(){
     const grid = document.querySelector('#work .btn-grid');
-    if (!grid) return;
+    if (!grid) return false;
 
     let u = document.getElementById('act_incident');
     if (!u) {
@@ -392,57 +308,38 @@ function ensureUhellButton(){
     }
     u.innerHTML = '⚠️ Uhell';
     u.style.removeProperty('display');
-  }catch(e){ console.warn('ensureUhellButton', e); }
-}
-  
-  // --- Brøytekart → behold/lag, flytt nederst i grid, sett 🚜 ikon
-  function ensureBroytKart(){
-    try{
-      // Fjern ny Kart-knapp helt
-      const newMap = document.getElementById('act_map');
-      if (newMap && newMap.parentElement) newMap.parentElement.remove();
-    }catch{}
-
-    try{
-      const grid = document.querySelector('#work .btn-grid');
-      if (!grid) return;
-
-      let bk = document.querySelector('#btnBroytKart, #btnMap');
-      if (!bk){
-        // Lag knapp om den ikke finnes
-        bk = document.createElement('button');
-        bk.id = 'btnBroytKart';
-        bk.className = 'btn';
-        bk.addEventListener('click', () => {
-          const url = 'https://broyt.pages.dev/tools/kart.html'
-            + '#addrBin=68ed425cae596e708f11d25f'
-            + '&routeBin=68ed425cae596e708f11d25f'
-            + '&field=geojsonRoutes';
-          window.open(url, '_blank');
-        });
-      }else{
-        // Sørg for at den bruker baseknapp-stil
-        bk.classList.add('btn');
-      }
-      // Sett label med ikon
-      bk.innerHTML = '🚜 Brøytekart';
-
-      // Hvis knappen står alene i en wrapper, flytt wrapperen. Ellers flytt knappen.
-      const nodeToMove = (bk.parentElement && bk.parentElement.childElementCount === 1)
-        ? bk.parentElement : bk;
-
-      // Rydd styles som kan gi overlapp
-      bk.style.removeProperty('position');
-      bk.style.width = '100%';
-      bk.style.setProperty('display','block','important');
-
-      // Legg nederst i grid
-      if (nodeToMove.parentElement !== grid) grid.appendChild(nodeToMove);
-      else grid.appendChild(nodeToMove);
-    }catch(e){ console.warn('broytkart ensure', e); }
+    u.style.width = '100%';
+    return true;
   }
 
-  // --- liten hjelpefunksjon for klikkanimasjon/haptics ---
+  // --- Brøytekart: vis nederst med 🚜. Fjern bare #act_map (ikke wrapper)
+  function ensureBroytKart(){
+    const grid = document.querySelector('#work .btn-grid');
+    if (!grid) return false;
+
+    document.getElementById('act_map')?.remove();
+
+    let bk = document.querySelector('#btnBroytKart, #btnMap');
+    if (!bk){
+      bk = document.createElement('button');
+      bk.id = 'btnBroytKart';
+      bk.className = 'btn';
+      bk.addEventListener('click', () => {
+        const url = 'tools/kart.html'
+          + '#addrBin=68ed425cae596e708f11d25f'
+          + '&routeBin=68ed425cae596e708f11d25f'
+          + '&field=geojsonRoutes';
+        window.open(url, '_blank');
+      });
+      const wrap = document.createElement('div');
+      wrap.appendChild(bk);
+      grid.appendChild(wrap);
+    }
+    bk.innerHTML = '🚜 Brøytekart';
+    bk.style.width = '100%';
+    return true;
+  }
+
   function wireClickFeedback(ids){
     ids.forEach(id=>{
       const btn = document.getElementById(id);
@@ -458,14 +355,12 @@ function ensureUhellButton(){
   function wire(){
     if (!$('#work')) return;
 
-    // init lane/dir/driver
     const st  = settings();
     const run = getRun();
     if (!run.driver) setRun({ driver: st.driver||'' });
     if (!run.dir)    setRun({ dir: st.dir||'Normal' });
     if (!run.lane)   setRun({ lane: laneFromSettings() });
 
-    // knapper
     $('#act_start')?.addEventListener('click', actStart);
     $('#act_done') ?.addEventListener('click', actDone);
     $('#act_skip') ?.addEventListener('click', actSkip);
@@ -473,18 +368,36 @@ function ensureUhellButton(){
     $('#act_nav')  ?.addEventListener('click', actNav);
     $('#act_block')?.addEventListener('click', actBlock);
 
-    wireIncident();         // ⚠️ Uhell → #service
-    ensureUhellButton();
-    ensureBroytKart();      // 🚜 Brøytekart nederst
-
-    // tilbakemelding på Start/Ferdig
-    wireClickFeedback(['act_start','act_done']);
-
     // initial UI
     uiUpdate();
 
-    // live oppdatering når status endres (andre sjåfører / admin / deg selv)
+    // Sørg for spesialknappene nå...
+    let ok1 = ensureUhellButton();
+    let ok2 = ensureBroytKart();
+
+    // ...og hvis grid ikke var klart enda, prøv et lite øyeblikk til
+    if (!ok1 || !ok2){
+      let tries = 0;
+      const tick = setInterval(() => {
+        ok1 = ok1 || ensureUhellButton();
+        ok2 = ok2 || ensureBroytKart();
+        if ((ok1 && ok2) || (++tries > 30)) clearInterval(tick);
+      }, 100);
+    }
+
+    // feedback på store knapper
+    wireClickFeedback(['act_start','act_done']);
+
+    // oppdater ved endring
     window.Sync.on('change', () => uiUpdate());
+
+    // trygghet: re-apply når vi navigerer tilbake til #work
+    window.addEventListener('hashchange', () => {
+      if (location.hash === '#work') {
+        ensureUhellButton();
+        ensureBroytKart();
+      }
+    });
   }
 
   document.addEventListener('DOMContentLoaded', wire);
