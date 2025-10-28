@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rapporter</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/reports.css">
+</head>
+<body class="container" style="padding:16px;max-width:1100px;margin:auto;">
+  <h1>Rapporter</h1>
+  <p>Denne siden henter hendelser fra JSONBin og grupperer dem per sjåfør og adresse.</p>
+
+  <div class="card" style="padding:12px;margin-bottom:12px;">
+    <label>Master Key (hentes fra Admin hvis satt):</label>
+    <input id="key" type="password" placeholder="X-Master-Key" style="min-width:280px;">
+    <button id="load" class="btn" style="margin-left:8px;">Last data</button>
+  </div>
+
+  <div id="summary" class="card" style="padding:12px;margin-bottom:12px;"></div>
+  <div id="tableWrap" class="card" style="padding:0;overflow:auto;"></div>
+
+  <script src="js/Reports.js"></script>
+</body>
+</html>
