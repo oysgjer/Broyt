@@ -177,3 +177,14 @@
 /* Behold fargene på Start/Ferdig selv om klasser mangler */
 #act_start { background: var(--ok) !important; color: #fff !important; }
 #act_done  { background: #111827 !important; color: #fff !important; }
+
+/* Farger for Kart og Uhell */
+#act_map {
+  background: #0d9488 !important;   /* turkis / grønnblå – skiller seg fra blå */
+  color: #fff !important;
+}
+
+#act_incident {
+  background: #facc15 !important;   /* gul (samme som Tailwind yellow-400) */
+  color: #111 !important;           /* mørk tekst for kontrast */
+}
