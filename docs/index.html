@@ -137,20 +137,22 @@
         <div class="label-muted" style="margin-top:14px">Neste</div>
         <div id="b_next" class="addr-next">—</div>
 
-        <div class="btn-grid">
-          <button id="act_start" class="btn btn-ok">▶️ Start</button>
-          <button id="act_done"  class="btn btn-dark">✅ Ferdig</button>
+      <div class="btn-grid">
+  <!-- ... alle de vanlige knappene ... -->
+  <button id="act_start" class="btn btn-ok">Start</button>
+  <button id="act_done"  class="btn btn-dark">Ferdig</button>
+  <button id="act_skip"  class="btn">Hopp over</button>
+  <button id="act_next"  class="btn">Neste</button>
+  <button id="act_nav"   class="btn">Naviger</button>
+  <button id="act_block" class="btn">Ikke mulig</button>
+  <button id="btnBroytKart" class="btn"
+      onclick="window.open('tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes','_blank')">
+      🚜 Brøytekart
+    </button>
+  <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
+  </div>
+</div>
 
-          <button id="act_skip"  class="btn">⏭️ Hopp over</button>
-          <button id="act_next"  class="btn">➡️ Neste</button>
-
-          <button id="act_nav"   class="btn">🧭 Naviger</button>
-          <button id="act_block" class="btn">⛔ Ikke mulig</button>
-        </div>
-          <div class="btn-grid">
-            <a id="act_map" class="btn btn-dark" href="tools/kart.html">🗺️ Kart</a>
-            <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
-          </div>
 
 
         <div class="work-meta">
