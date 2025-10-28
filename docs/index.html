@@ -181,6 +181,14 @@
     <!-- SERVICE -->
     <section id="service" hidden>
       <h1>Service</h1>
+       <div class="card work-card" id="svc_card">
+    <div class="label-muted">Rapport</div>
+    <div id="svc_status" class="addr-next" style="margin-top:6px;">–</div>
+    <div class="btn-grid" style="margin-top:14px;">
+      <button id="svc_generate" class="btn">Generer rapport nå</button>
+      <button id="svc_new_round" class="btn">Start ny runde</button>
+    </div>
+  </div>
       <!-- Innhold fylles av Service.js -->
     </section>
 
@@ -227,6 +235,13 @@
 <!-- Sider (må komme etter sync.js) -->
 <script src="js/Home.js" defer></script>
 <script src="js/Work.js?v=6" defer></script>
+<!-- PDF/CDN libs -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<!-- Spor start/slutt av runder (uten å endre Work.js) -->
+<script src="js/run_track.js?v=1" defer></script>
+
 <script src="js/work_uhell_fix.js?v=1" defer></script>
 <script src="js/Status.js" defer></script>
 <script src="js/Service.js" defer></script>
