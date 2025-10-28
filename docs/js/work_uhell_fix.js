@@ -27,6 +27,7 @@
     const grid = document.querySelector('#work .btn-grid');
     if (!grid) return false;
 
+    // Fjern bare gamle "Kart"-knappen
     document.getElementById('act_map')?.remove();
 
     let bk = document.querySelector('#btnBroytKart, #btnMap');
@@ -58,7 +59,11 @@
     const tick = setInterval(() => {
       ok1 = ok1 || ensureUhell();
       ok2 = ok2 || ensureBroyt();
-      if ((ok1 && ok2) || (++tries > 30)) clearInterval(tick);
+      if ((ok1 && ok2) || (++tries > 30)) {
+        clearInterval(tick);
+        // Når begge finnes → plasser dem side om side
+        pairUhellBroyt();
+      }
     }, 100);
   }
 
@@ -66,4 +71,38 @@
   window.addEventListener('hashchange', () => {
     if (location.hash === '#work') run();
   });
+
+  // --- Flytt Uhell og Brøytekart ved siden av hverandre (50/50 layout)
+  function pairUhellBroyt(){
+    const grid = document.querySelector('#work .btn-grid');
+    const u = document.getElementById('act_incident');
+    const b = document.getElementById('btnBroytKart');
+    if (!grid || !u || !b) return;
+
+    // Lag en rad med 2 kolonner
+    const row = document.createElement('div');
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = '1fr 1fr';
+    row.style.gap = '12px';
+    row.style.marginTop = '12px';
+
+    // Flytt knappene inn i raden
+    const wrapU = u.parentElement;
+    const wrapB = b.parentElement;
+    row.appendChild(wrapU);
+    row.appendChild(wrapB);
+
+    // Sett raden nederst i grid
+    grid.appendChild(row);
+
+    // Juster knappene slik at de passer i cellene
+    [u, b].forEach(k => {
+      k.style.width = '100%';
+      k.style.display = 'block';
+      k.style.minHeight = '60px';
+      k.style.fontSize = '1.2rem';
+      k.style.fontWeight = '600';
+      k.style.borderRadius = '10px';
+    });
+  }
 })();
