@@ -174,3 +174,6 @@
   padding: 18px 20px !important;
   font-size: 1.6rem !important;
 }
+/* Behold fargene på Start/Ferdig selv om klasser mangler */
+#act_start { background: var(--ok) !important; color: #fff !important; }
+#act_done  { background: #111827 !important; color: #fff !important; }
