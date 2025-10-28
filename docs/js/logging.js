@@ -20,7 +20,17 @@
     return `${sgn}${hh}:${mm}`;
   }
 
-  function getKey(){ return localStorage.getItem(K_KEY) || ''; }
+  function getKey(){ 
+    try{
+      // Prefer Admin/Sync global API key if available
+      if (window.Sync && typeof window.Sync.getConfig === 'function'){
+        const cfg = window.Sync.getConfig();
+        if (cfg && cfg.apiKey) return cfg.apiKey;
+      }
+    }catch{}
+    // Fallback to local storage
+    return localStorage.getItem(K_KEY) || ''; 
+  }
   function setKey(v){ localStorage.setItem(K_KEY, v||''); }
 
   function enqueue(evt){
@@ -40,7 +50,13 @@
     if (!res.ok) throw new Error(`GET latest failed ${res.status}`);
     const j = await res.json();
     // v3 returns {record: <data>, metadata: {...}}
-    return j.record || [];
+    let rec = j && j.record !== undefined ? j.record : [];
+    // Normalize to array
+    if (!Array.isArray(rec)) {
+      // If existing content is an object or null, start with an array
+      rec = rec ? [rec] : [];
+    }
+    return rec;
   }
 
   async function putAll(arr){
@@ -62,7 +78,7 @@
     if (!key || !q.length) return {sent:0, pending:q.length};
     try{
       const latest = await fetchLatest();
-      const next = latest.concat(q);
+      const next = (Array.isArray(latest) ? latest : []).concat(q);
       await putAll(next);
       WJ(K_QUEUE, []);
       return {sent:q.length, pending:0};
