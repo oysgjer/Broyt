@@ -260,17 +260,7 @@
     };
     await window.Sync.setStatusPatch(patch);
     uiUpdate();
-  
-
-    try { 
-      window.Reports && window.Reports.logEvent({
-        action: 'address_start',
-        driver: my, lane, 
-        addr_id: cur.id, addr_name: cur.name||'',
-      });
-    } catch(e){ console.warn('logEvent start failed', e); }
-
-}
+  }
 
   async function actDone(){
     const run  = getRun();
@@ -303,25 +293,7 @@
     setRun({ idx: nextIdx });
     uiUpdate();
     checkAllDoneDialog();
-  
-
-    try { 
-      const last = rounds && rounds.length ? rounds[rounds.length-1] : null;
-      const started = last && last.start ? last.start : null;
-      let dur = 0;
-      if (started){
-        try{ dur = (new Date(nowISO) - new Date(started)); }catch(_){ dur = 0; }
-      }
-      window.Reports && window.Reports.logEvent({
-        action: 'address_finish',
-        driver: my, lane, 
-        addr_id: cur.id, addr_name: cur.name||'',
-        started_at: started || null,
-        duration_ms: (dur>0?dur:undefined)
-      });
-    } catch(e){ console.warn('logEvent finish failed', e); }
-
-}
+  }
 
   async function actSkip(){
     const run  = getRun();
@@ -340,17 +312,7 @@
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
-  
-
-    try { 
-      window.Reports && window.Reports.logEvent({
-        action: 'address_skip',
-        driver: my, lane, 
-        addr_id: cur.id, addr_name: cur.name||''
-      });
-    } catch(e){ console.warn('logEvent skip failed', e); }
-
-}
+  }
 
   async function actBlock(){
     const run  = getRun();
@@ -369,17 +331,7 @@
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
-  
-
-    try { 
-      window.Reports && window.Reports.logEvent({
-        action: 'address_block',
-        driver: my, lane, 
-        addr_id: cur.id, addr_name: cur.name||''
-      });
-    } catch(e){ console.warn('logEvent block failed', e); }
-
-}
+  }
 
   function actNext(){
     const run  = getRun();
@@ -436,7 +388,14 @@
     };
     input.click();
   }
+let __clickLock=false;
+function safeClick(fn){ if(__clickLock) return; __clickLock=true; setTimeout(()=>__clickLock=false,600); try{ fn(); }catch(e){ console.warn(e);} }
+
 function wire(){
+    const host = document.querySelector('#work');
+    if (!host || host.dataset.wired) return;
+    host.dataset.wired = '1';
+
     if (!$('#work')) return;
 
     // init lane/dir/driver
@@ -447,12 +406,12 @@ function wire(){
     if (!run.lane)   setRun({ lane: laneFromSettings() });
 
     // knapper
-    $('#act_start')?.addEventListener('click', actStart);
-    $('#act_done') ?.addEventListener('click', actDone);
-    $('#act_skip') ?.addEventListener('click', actSkip);
+    $('#act_start')?.addEventListener('click', ()=>safeClick(actStart));
+    $('#act_done') ?.addEventListener('click', ()=>safeClick(actDone));
+    $('#act_skip') ?.addEventListener('click', ()=>safeClick(actSkip));
     $('#act_next') ?.addEventListener('click', actNext);
-    $('#act_nav')  ?.addEventListener('click', actNav);
-    $('#act_block')?.addEventListener('click', actBlock);
+    $('#act_nav')  ?.addEventListener('click', ()=>safeClick(actNav));
+    $('#act_block')?.addEventListener('click', ()=>safeClick(actBlock));
 
     // 🔔 visuell/haptisk tilbakemelding på Start/Ferdig
     wireClickFeedback(['act_start','act_done']);
