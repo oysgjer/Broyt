@@ -371,6 +371,30 @@
     }catch(e){ console.warn('incident wire', e); }
   }
 
+  // Sørg for at Uhell-knapp finnes, har riktig label og ligger over Brøytekart
+function ensureUhellButton(){
+  try{
+    const grid = document.querySelector('#work .btn-grid');
+    if (!grid) return;
+
+    let u = document.getElementById('act_incident');
+    if (!u) {
+      u = document.createElement('button');
+      u.id = 'act_incident';
+      u.className = 'btn';
+      u.addEventListener('click', () => {
+        try { sessionStorage.setItem('SERVICE_PRESELECT', JSON.stringify({ type: 'incident' })); } catch(_){}
+        location.hash = '#service';
+      });
+      const wrap = document.createElement('div');
+      wrap.appendChild(u);
+      grid.insertBefore(wrap, grid.lastElementChild || null); // over Brøytekart
+    }
+    u.innerHTML = '⚠️ Uhell';
+    u.style.removeProperty('display');
+  }catch(e){ console.warn('ensureUhellButton', e); }
+}
+  
   // --- Brøytekart → behold/lag, flytt nederst i grid, sett 🚜 ikon
   function ensureBroytKart(){
     try{
@@ -450,6 +474,7 @@
     $('#act_block')?.addEventListener('click', actBlock);
 
     wireIncident();         // ⚠️ Uhell → #service
+    ensureUhellButton();
     ensureBroytKart();      // 🚜 Brøytekart nederst
 
     // tilbakemelding på Start/Ferdig
