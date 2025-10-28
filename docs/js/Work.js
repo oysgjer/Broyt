@@ -421,9 +421,8 @@ function wire(){
     }
 
     
-    // live oppdatering når status endres (andre sjåfører / admin / deg selv)
-    window.Sync.on('change', () => uiUpdate());
-  }
+// live oppdatering når status endres (andre sjåfører / admin / deg selv)
+window.Sync.on('change', () => uiUpdate());
 
-  document.addEventListener('DOMContentLoaded', wire);
+document.addEventListener('DOMContentLoaded', wire);
 })();
