@@ -287,3 +287,32 @@
   padding-bottom: 10px;
   line-height: 1.2;
 }
+
+/* 1) Knapperaden: tett og venstrejustert */
+#work .btn-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr)); /* Start/Ferdig på samme rad */
+  gap: 6px 8px;               /* mindre luft: 6px vertikalt, 8px horisontalt */
+  justify-items: start;       /* skyv elementene mot venstre i hver kolonne */
+}
+
+/* 2) Fjern default margin på elementer i grid’en */
+#work .btn-grid > *{
+  margin: 0 !important;
+}
+
+/* 3) Litt strammere knapper (behold god trykkflate) */
+#work .btn-grid button{
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.2;
+}
+
+/* 4) Sikre at "Nå / Neste"-teksten beholder layouten sin */
+#work .work-header-row,
+#work .work-meta-row{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
