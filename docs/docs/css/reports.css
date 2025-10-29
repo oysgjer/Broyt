@@ -1,1 +1,4 @@
-/* placeholder reports.css */
+table.rep{width:100%;border-collapse:collapse}
+table.rep th,table.rep td{border-bottom:1px solid #2d3748;padding:8px 10px;text-align:left}
+table.rep thead th{position:sticky;top:0;background:#111827;z-index:1}
+table.rep tr:nth-child(even){background:#0f1628}

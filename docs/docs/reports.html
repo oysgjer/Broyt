@@ -1,1 +1,70 @@
-<!doctype html><title>Rapporter</title>
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rapporter</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/reports.css">
+</head>
+<body class="container" style="padding:16px;max-width:1100px;margin:auto;">
+  <h1>Rapporter</h1>
+  <p>Denne siden henter hendelser fra JSONBin og grupperer dem per sjåfør og adresse.</p>
+
+  <div class="card" style="padding:12px;margin-bottom:12px;">
+    <label>Master Key (hentes fra Admin hvis satt):</label>
+    <input id="key" type="password" placeholder="X-Master-Key" style="min-width:280px;">
+    <button id="load" class="btn" style="margin-left:8px;">Last data</button>
+  </div>
+
+  
+  <div class="card" style="padding:12px;margin-bottom:12px;">
+    <h2 style="margin:0 0 8px 0">Ny rapport</h2>
+    <div id="rep_form" class="row" style="gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <label class="field">Dato/klokkeslett
+        <input id="r_date" type="datetime-local" class="input">
+      </label>
+      <label class="field">Sjåfør
+        <input id="r_driver" type="text" class="input" placeholder="Navn">
+      </label>
+      <label class="field">Runde
+        <input id="r_round" type="number" class="input" min="1" value="1" style="max-width:120px">
+      </label>
+      <label class="field">Oppgave
+        <select id="r_task" class="input">
+          <option>Brøyte</option>
+          <option>Frese</option>
+          <option>Strø</option>
+          <option>Brøyte og strø</option>
+          <option>Frese og strø</option>
+        </select>
+      </label>
+      <label class="field" style="flex:1 1 100%;">Notat
+        <input id="r_notes" type="text" class="input" placeholder="Kort beskrivelse…">
+      </label>
+      <button id="btnSaveReport" class="btn">💾 Lagre til JSONbin</button>
+      <button id="btnPdfReport" class="btn-ghost">🧾 Eksporter PDF</button>
+      <span id="offlineBadge" class="badge" style="display:none">Offline lagring</span>
+    </div>
+    <small class="muted">Funfacts (kun på denne siden, ikke i PDF):</small>
+    <ul id="funfacts" class="muted" style="margin-top:6px"></ul>
+  </div>
+
+  <section id="printSheet" class="card" style="display:none">
+    <h1>Brøyterapport</h1>
+    <div id="p_date"></div>
+    <div id="p_driver"></div>
+    <div id="p_round"></div>
+    <div id="p_task"></div>
+    <div id="p_notes"></div>
+    <div>Brøyting Romerike Trefelling</div>
+  </section>
+
+  <style>@media print{ #funfacts, #key, #load, .card>p, .card>label { display:none !important } #printSheet{display:block} }</style>
+
+  <div id="summary" class="card" style="padding:12px;margin-bottom:12px;"></div>
+  <div id="tableWrap" class="card" style="padding:0;overflow:auto;"></div>
+
+  <script src="js/Reports.js"></script>
+</body>
+</html>
