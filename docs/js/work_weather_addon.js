@@ -1,8 +1,23 @@
-// work_weather_addon.js — weather next to "Under arbeid" title (INLINE SVG version)
+// work_weather_addon.js — inline SVG weather w/ auto light/dark theme
 (function(){
   const $ = (s,root=document)=>root.querySelector(s);
 
-  // Inject a tiny style for layout + svg alignment
+  // ---- Theme-aware stroke ----
+  function themeStroke(){
+    try{
+      const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return dark ? '#f3f4f6' : '#111827'; // light ink on dark, dark ink on light
+    }catch{ return '#111827'; }
+  }
+
+  // Re-render icon on theme change
+  if (window.matchMedia){
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', ()=> setTimeout(loadWeather, 50));
+    else if (mq.addListener) mq.addListener(()=> setTimeout(loadWeather, 50));
+  }
+
+  // ---- Small layout CSS ----
   function injectStyles(){
     if (document.getElementById('wx_hdr_style')) return;
     const st = document.createElement('style');
@@ -31,7 +46,6 @@
     }
     title.classList.add('work-title');
 
-    // Build weather row (use <span id="wx_icon"> for inline SVG)
     let wx = sec.querySelector('#wx_row');
     if (!wx){
       wx = document.createElement('div');
@@ -43,13 +57,12 @@
         <span id="wx_desc" class="muted"></span>
       `;
     }else{
-      // If there is an <img id="wx_icon"> from an older build, replace with <span>
-      const img = wx.querySelector('#wx_icon');
-      if (img && img.tagName === 'IMG'){
+      const old = wx.querySelector('#wx_icon');
+      if (old && old.tagName === 'IMG'){
         const span = document.createElement('span');
         span.id = 'wx_icon';
         span.setAttribute('aria-hidden','true');
-        img.replaceWith(span);
+        old.replaceWith(span);
       }
     }
 
@@ -60,10 +73,10 @@
     sec.insertAdjacentElement('afterbegin', hdr);
   }
 
-  function strokeColor(){ return '#111827'; }
   function svgWrap(body){
+    const stroke = themeStroke();
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="${strokeColor()}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                 stroke="${stroke}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
                  role="img" aria-label="værikon">${body}</svg>`;
   }
   function iconSvg(type){
@@ -106,14 +119,14 @@
                        81:'Kraftige regnbyger',82:'Meget kraftige regnbyger',85:'Snøbyger',86:'Kraftige snøbyger',
                        95:'Torden',96:'Torden med hagl',99:'Torden med kraftig hagl'};
 
-      const iconSpan = document.getElementById('wx_icon');
-      const tempSpan = document.getElementById('wx_temp');
-      const descSpan = document.getElementById('wx_desc');
+      const iconSpan = $('#wx_icon');
+      const tempSpan = $('#wx_temp');
+      const descSpan = $('#wx_desc');
 
       if (iconSpan) iconSpan.innerHTML = iconSvg(pickType(code));
       if (tempSpan) tempSpan.textContent = t + '°';
       if (descSpan) descSpan.textContent = descMap[code] || 'Vær';
-    }catch(e){ /* keep placeholders */ }
+    }catch{ /* keep placeholders */ }
   }
 
   function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
