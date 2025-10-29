@@ -257,3 +257,14 @@
   width: 100% !important;
   grid-column: span 1 !important;
 }
+/* Skyv knappene mot venstre i "Under arbeid"-seksjonen */
+#work .work-card {
+  text-align: left;
+}
+
+/* Pass på at knappene beholder riktig spacing */
+#work button {
+  display: inline-block;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
