@@ -1,238 +1,130 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-
-  <!-- Tema (auto, lys, mørk) -->
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
-
-  <!-- iOS webapp -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
-  <title>Brøyterute</title>
-
-  <link rel="manifest" href="/manifest.json?v=3">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=3">
-  <meta name="apple-mobile-web-app-title" content="Brøyterute">
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="css/work.css" />
-  <link rel="stylesheet" href="css/service.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brøyting – Romerike Trefelling</title>
+  <link rel="stylesheet" href="./styles.css">
+  <meta name="theme-color" content="#0b0c10">
 </head>
-
 <body>
-  <!-- Appbar -->
-  <header class="appbar">
-    <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
-    <div class="appbar-title">Brøyterute</div>
-    <div class="appbar-right">
-      <!-- Synk-badge: app.js oppdaterer dot + tekst -->
-      <span id="sync_badge" class="badge">
-        <span id="sync_dot" class="dot dot-unknown"></span> Synk: ukjent
-      </span>
-      <!-- WakeLock-badge (liten prikk i toppen) -->
-      <span id="wl_badge" class="badge" title="Skjermlås-status">
-        <span id="wl_dot" class="dot dot-off"></span>
-      </span>
-    </div>
-  </header>
-
-  <!-- Scrim + Drawer -->
-  <div id="scrim"></div>
-  <aside id="drawer" class="drawer">
-    <div class="drawer-header">
-      <strong>Brøyterute</strong>
-      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
-    </div>
-
-    <div class="drawer-content">
+  <div class="app">
+    <header>
+      <div class="brand">Brøyting</div>
       <nav>
-        <div class="drawer-section">Navigasjon</div>
-        <ul class="drawer-list">
-          <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
-          <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
-          <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
-          <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
-          <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
-        </ul>
-
-        <div class="drawer-section">Skjerm</div>
-        <div class="card row" style="align-items:center; justify-content:space-between">
-          <button id="qk_wl" class="btn-ghost"><span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken</button>
-          <span id="qk_wl_status" class="muted">Status: av</span>
-        </div>
-
-        <div class="drawer-section">Tema</div>
-        <div class="card row" style="align-items:center; justify-content:space-between">
-          <button id="theme_toggle" class="btn-ghost">🌓 Bytt tema</button>
-          <span id="theme_label" class="muted">System</span>
-        </div>
+        <button id="tabWork" class="active">Under arbeid</button>
+        <button id="tabReports">Rapporter</button>
+        <button id="tabSettings">Innstillinger</button>
       </nav>
-    </div>
-  </aside>
-
-  <!-- Innhold -->
-  <main>
-    <!-- HJEM -->
-    <section id="home">
-      <h1>Hjem</h1>
-
-      <label class="field">
-        <span style="font-weight:700; font-size:1.05rem;">Fører</span>
-        <input id="a_driver" class="input" placeholder="Navn" />
-      </label>
-
-      <label class="field">
-        <span style="font-weight:700; font-size:1.05rem;">Utstyr</span>
-        <div class="input-like">
-          <div class="checkbox-col" style="gap:10px">
-            <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
-            <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
-            <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
+    </header>
+    <main>
+      <!-- UNDER ARBEID -->
+      <section id="viewWork" class="">
+        <div class="card">
+          <h3 class="section-title">Vær</h3>
+          <div class="kpi">
+            <img id="wxIcon" alt="vær" width="48" height="48" src="" />
+            <div class="temp" id="wxTemp">--°</div>
+            <div>
+              <div id="wxDesc">Henter vær…</div>
+              <div class="meta" id="wxMeta">-</div>
+            </div>
+            <span id="offlineBadge" class="badge hidden">Offline lagring</span>
           </div>
         </div>
-      </label>
 
-      <label class="field">
-        <span style="font-weight:700; font-size:1.05rem;">Rekkefølge</span>
-        <div class="row" style="gap:16px; align-items:center">
-          <select id="a_dir" class="input" style="flex:1; max-width:320px">
-            <option>Normal</option>
-            <option>Motsatt</option>
-          </select>
-          <label class="row" style="gap:8px; align-items:center">
-            <input id="a_autoNav" type="checkbox" />
-            <span class="muted-strong">Auto-naviger</span>
-          </label>
+        <div class="card">
+          <h3 class="section-title">Handlinger</h3>
+          <div class="grid-btns">
+            <button id="act_start">▶️ Start</button>
+            <button id="act_done">✅ Ferdig</button>
+            <button id="act_skip">⏭️ Hopp over</button>
+            <button id="act_next">➡️ Neste</button>
+            <button id="act_nav">🧭 Naviger</button>
+            <button id="act_block">🚧 Hindring</button>
+            <button id="btnBroytKart" class="fullwidth">🚜 Brøytekart</button>
+            <button id="btnUhell" class="fullwidth">⚠️ Uhell / Avvik</button>
+          </div>
         </div>
-      </label>
+      </section>
 
-      <button id="a_start" class="btn">Start runde</button>
-    </section>
-
-    <!-- UNDER ARBEID -->
-    <section id="work" hidden>
-      <h1>Under arbeid</h1>
-
-      <div class="work-top" id="wk_top">
-        <div class="work-prog">
-          <div class="other" id="b_prog_other"></div>
-          <div class="me" id="b_prog_me"></div>
+      <!-- RAPPORTER -->
+      <section id="viewReports" class="hidden">
+        <div class="card">
+          <h3 class="section-title">Ny rapport</h3>
+          <div class="row">
+            <div>
+              <label for="r_date">Dato og tid</label>
+              <input id="r_date" type="datetime-local">
+            </div>
+            <div>
+              <label for="r_driver">Sjåfør</label>
+              <input id="r_driver" placeholder="Navn">
+            </div>
+            <div>
+              <label for="r_round">Runde</label>
+              <input id="r_round" type="number" min="1" placeholder="1">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="r_task">Oppgave</label>
+              <select id="r_task">
+                <option>Brøyte</option>
+                <option>Frese</option>
+                <option>Strø</option>
+                <option>Brøyte og strø</option>
+                <option>Frese og strø</option>
+              </select>
+            </div>
+            <div>
+              <label for="r_notes">Notat</label>
+              <textarea id="r_notes" rows="3" placeholder="Kort beskrivelse…"></textarea>
+            </div>
+          </div>
+          <div class="flex">
+            <button id="btnSaveReport">💾 Lagre til JSONbin</button>
+            <button id="btnPdfReport">🧾 Eksporter PDF</button>
+          </div>
+          <hr>
+          <small class="muted">Funfacts (kun på denne siden, ikke i PDF):</small>
+          <div id="funfacts" class="funfacts"></div>
         </div>
-        <div class="work-caption">
-          <div><strong id="b_prog_me_count">0/0</strong> mine • <strong id="b_prog_other_count">0/0</strong> andre</div>
-          <div id="b_prog_summary">0 av 0 adresser fullført</div>
+
+        <div class="card">
+          <h3 class="section-title">Lagrede rapporter</h3>
+          <div id="reportList" class="row"></div>
         </div>
-      </div>
+      </section>
 
-      <div class="card work-card">
-        <div class="label-muted">Nå</div>
-        <div id="b_now" class="addr-now">—</div>
-
-        <div class="label-muted" style="margin-top:14px">Neste</div>
-        <div id="b_next" class="addr-next">—</div>
-
-      <div class="btn-grid">
-  <!-- ... alle de vanlige knappene ... -->
-  <button id="act_start" class="btn btn-ok">
-  <span class="ico">▶️</span> Start
-  </button>
-
-  <button id="act_done" class="btn btn-dark">
-  <span class="ico">✅</span> Ferdig
-  </button>
-
-  <button id="act_skip" class="btn">
-  <span class="ico">⏭️</span> Hopp over
-  </button>
-
-  <button id="act_next" class="btn">
-  <span class="ico">➜</span> Neste
-  </button>
-
-  <button id="act_nav" class="btn">
-  <span class="ico">🧭</span> Naviger
-  </button>
-
-  <button id="act_block" class="btn">
-  <span class="ico">⛔</span> Ikke mulig
-  </button>
-  <button id="btnBroytKart" class="btn"
-      onclick="window.open('tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes','_blank')">
-      🚜 Brøytekart
-    </button>
-  <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
+      <!-- INNSTILLINGER -->
+      <section id="viewSettings" class="hidden">
+        <div class="card">
+          <h3 class="section-title">JSONbin</h3>
+          <div class="row">
+            <div>
+              <label for="binId">BIN ID</label>
+              <input id="binId" placeholder="xxxxxxxxxxxxxxxxxx">
+            </div>
+            <div>
+              <label for="masterKey">X-Master-Key</label>
+              <input id="masterKey" placeholder="••••••">
+            </div>
+          </div>
+          <div class="flex">
+            <button id="btnSaveCfg">Lagre nøkler</button>
+            <button id="btnTestCfg">Test tilkobling</button>
+            <small id="cfgStatus" class="muted">Ikke testet enda.</small>
+          </div>
+          <hr>
+          <small class="muted">Data lagres sentralt. Ved feil på nett lagres det midlertidig lokalt, og sendes opp senere.</small>
+        </div>
+      </section>
+    </main>
+    <div class="footer">Brøyting Romerike Trefelling</div>
   </div>
-</div>
 
-
-
-        <div class="work-meta">
-          Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- SERVICE -->
-    <section id="service" hidden>
-      <h1>Service</h1>
-      <!-- Innhold fylles av Service.js -->
-    </section>
-
-    <!-- STATUS -->
-    <section id="status" hidden>
-      <h1>Status</h1>
-      <div class="card" style="margin-bottom:12px">
-        <div id="st_summary" class="muted">—</div>
-      </div>
-      <div class="row" style="gap:10px; margin-bottom:12px">
-        <button id="st_reset_mine" class="btn-ghost">Nullstill mine</button>
-        <button id="st_reset_all"  class="btn-ghost">Nullstill alle</button>
-      </div>
-      <div class="card" style="overflow:auto">
-        <table style="width:100%; border-collapse:collapse">
-          <thead>
-            <tr>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Adresse</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Startet snø</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Ferdig snø</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Startet grus</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Ferdig grus</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Sjåfør</th>
-            </tr>
-          </thead>
-          <tbody id="st_tbody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ADMIN -->
-    <section id="admin" hidden>
-      <!-- Admin.js bygger UI inne i denne seksjonen -->
-      <h1>Admin</h1>
-    </section>
-  </main>
-
-  <!-- JS – rekkefølge er viktig -->
-  <!-- Kjerne (router/meny/tema/wakelock/synk-badge) -->
-  <!-- Basis -->
-<script src="js/app.js" defer></script>
-<script src="js/sync.js" defer></script>
-
-<!-- Sider (må komme etter sync.js) -->
-<script src="js/Home.js" defer></script>
-<script src="js/Work.js?v=6" defer></script>
-<script src="js/work_uhell_fix.js?v=1" defer></script>
-<script src="js/Status.js" defer></script>
-<script src="js/Service.js" defer></script>
-<script src="js/Admin.js" defer></script>
-<script src="js/logging.js?v=1" defer></script>
-
-  
+  <script src="./vendor/jspdf/jspdf.umd.min.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
