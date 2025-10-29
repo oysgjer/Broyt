@@ -268,24 +268,22 @@
   margin-right: 6px;
   margin-bottom: 6px;
 }
-
-/* --- Justering av knapp-layout under arbeid --- */
-#work .work-btn-row,
-#work .work-card {
+/* Skyv bare knappene mot venstre og stram sammen høyden */
+#work .btn-grid {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-start;  /* skyv mot venstre */
-  align-items: flex-start;
-  gap: 8px 10px;  /* mindre vertikal og horisontal luft */
-  text-align: left;
-  margin-top: 4px;
+  justify-content: flex-start;   /* venstre-juster kun knapperaden */
+  gap: 6px 8px;                  /* vertikal 6px, horisontal 8px */
 }
 
-/* Selve knappene */
-#work button {
-  display: inline-block;
-  margin: 0;           /* fjern standard margin */
-  padding: 4px 8px;  /* behold klikkflate */
+/* Fjern ekstra margin rundt enkeltknapper inne i grid’en */
+#work .btn-grid > * {
+  margin: 0;
+}
+
+/* Valgfritt: litt tettere padding hvis du vil ha enda mindre høyde */
+#work .btn-grid button {
+  padding-top: 10px;
+  padding-bottom: 10px;
   line-height: 1.2;
-  flex-shrink: 0;
 }
