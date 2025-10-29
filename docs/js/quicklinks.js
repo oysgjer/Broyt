@@ -1,59 +1,78 @@
-/* quicklinks.js — åpner hurtigmål fra lagrede verdier eller spør */
-(function () {
-  function openUrl(u) {
-    if (!u) return;
-    try { window.open(u, '_blank'); } catch (_) { location.href = u; }
-  }
+/* quicklinks.js – Hurtigvalg + Admin-felt for faste posisjoner */
+(function(){
+  const KEYS = {
+    grus:   'QK_GRUS',
+    diesel: 'QK_DIESEL',
+    base:   'QK_BASE'
+  };
 
-  // Leser konfig fra localStorage (kan settes i Admin senere)
-  function readCfg() {
-    // Støtter enten full URL (Google Maps/Apple Maps) eller rene koordinater "lat,lon"
+  function read() {
     return {
-      grus:   localStorage.getItem('QK_GRUS')   || '',
-      diesel: localStorage.getItem('QK_DIESEL') || '',
-      base:   localStorage.getItem('QK_BASE')   || ''
+      grus:   localStorage.getItem(KEYS.grus)   || '',
+      diesel: localStorage.getItem(KEYS.diesel) || '',
+      base:   localStorage.getItem(KEYS.base)   || ''
     };
   }
+  function save(k,v){ if(v) localStorage.setItem(KEYS[k], v.trim()); }
 
-  function toMapsUrl(v) {
-    if (!v) return '';
-    const s = v.trim();
-    // Hvis dette allerede ser ut som en URL – bruk den direkte
-    if (/^https?:\/\//i.test(s)) return s;
-    // Hvis det ser ut som "lat,lon" – bygg Google Maps URL
-    if (/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(s)) {
-      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s);
-    }
-    // Som fallback: gjør et søk på teksten
-    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s);
+  function toMapsUrl(v){
+    if(!v) return '';
+    const s=v.trim();
+    if(/^https?:/i.test(s)) return s;
+    if(/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(s))
+      return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s);
+    return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(s);
   }
 
-  function bind(btnId, keyName) {
-    const btn = document.getElementById(btnId);
-    if (!btn || btn.dataset.bound) return;
-    btn.dataset.bound = '1';
-    btn.addEventListener('click', function () {
-      const cfg = readCfg();
-      const raw = cfg[keyName];
-      if (!raw) {
-        alert('Mangler mål for "' + btn.textContent.trim() + '".\n' +
-              'Legg inn i localStorage under nøkkel ' + '"QK_' + keyName.toUpperCase() + '"\n' +
-              'Eksempel verdi: "60.3251, 11.2623" eller en Google Maps-lenke.');
-        return;
-      }
-      openUrl(toMapsUrl(raw));
+  function openLoc(k){
+    const val = localStorage.getItem(KEYS[k]);
+    if(!val){ alert('Ingen lagret posisjon for '+k+'. Sett den i Admin.'); return; }
+    window.open(toMapsUrl(val),'_blank');
+  }
+
+  function bindMenu(){
+    const ids=['grus','diesel','base'];
+    ids.forEach(k=>{
+      const btn=document.getElementById('qk_'+k);
+      if(!btn||btn.dataset.bound)return;
+      btn.dataset.bound=1;
+      btn.addEventListener('click',()=>openLoc(k));
     });
   }
 
-  function init() {
-    bind('qk_grus',   'grus');
-    bind('qk_diesel', 'diesel');
-    bind('qk_base',   'base');
+  /* ---------- Admin integrasjon ---------- */
+  function addAdminFields(){
+    const admin=document.getElementById('admin');
+    if(!admin) return;
+    const box=document.createElement('div');
+    box.className='card';
+    box.innerHTML=`
+      <h2>Hurtigvalg-lokasjoner</h2>
+      <p>Angi koordinater (lat,lon) eller adresse/lenke.</p>
+      <label class="field">Hent grus<input id="adm_grus" class="input" placeholder="60.3251, 11.2623"></label>
+      <label class="field">Diesel<input id="adm_diesel" class="input" placeholder="60.315, 11.287"></label>
+      <label class="field">Base<input id="adm_base" class="input" placeholder="Eidsvoll verk"></label>
+      <button id="adm_saveQuick" class="btn">💾 Lagre hurtigvalg</button>
+    `;
+    admin.appendChild(box);
+
+    const vals=read();
+    ['grus','diesel','base'].forEach(k=>{
+      const el=document.getElementById('adm_'+k);
+      if(el) el.value=vals[k];
+    });
+
+    document.getElementById('adm_saveQuick').addEventListener('click',()=>{
+      ['grus','diesel','base'].forEach(k=>{
+        const v=document.getElementById('adm_'+k).value;
+        save(k,v);
+      });
+      alert('Lagret. Knapper i menyen bruker nå disse lokasjonene.');
+    });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  /* init */
+  function init(){ bindMenu(); addAdminFields(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
+  else init();
 })();
