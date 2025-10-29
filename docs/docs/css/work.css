@@ -261,3 +261,13 @@
 
 /* Værstrip under arbeid */
 .wx-row{display:flex;align-items:center;gap:8px;color:var(--muted)}
+
+
+/* Header-row with weather to the right of "Under arbeid" */
+.work-header-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+@media (max-width: 520px){
+  .work-header-row{flex-wrap:wrap}
+  .work-header-row .wx-row{order:2}
+}
+/* Weather row generic (if not present already) */
+.wx-row{display:flex;align-items:center;gap:8px;color:var(--muted)}
