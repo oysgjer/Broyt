@@ -235,5 +235,16 @@
 <script src="js/quicklinks.js?v=2"></script>
 <!-- legg denne helt før </body> -->
 <script src="./js/auto_logger.js?v=6"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const ret = sessionStorage.getItem('returnTo');
+  if (ret && window.location.href !== ret) {
+    console.log('Tilbake fra navigasjon – laster app på nytt...');
+    sessionStorage.removeItem('returnTo');
+    window.location.replace(ret);
+  }
+});
+</script>
 </body>
 </html>
