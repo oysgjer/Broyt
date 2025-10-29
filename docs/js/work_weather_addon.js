@@ -1,4 +1,4 @@
-// work_weather_addon.js — weather next to "Under arbeid" title
+// work_weather_addon.js — weather next to "Under arbeid" title (SVG fix)
 (function(){
   const $ = (s,root=document)=>root.querySelector(s);
 
@@ -19,11 +19,9 @@
   function ensureHeader(){
     const sec = document.getElementById('work');
     if (!sec) return;
-    // Already present?
     let hdr = sec.querySelector('.work-header-row');
     if (hdr) return;
 
-    // Find/ensure title
     let title = sec.querySelector('h1');
     if (!title){
       title = document.createElement('h1');
@@ -31,7 +29,6 @@
     }
     title.classList.add('work-title');
 
-    // Weather row
     let wx = sec.querySelector('#wx_row');
     if (!wx){
       wx = document.createElement('div');
@@ -44,34 +41,37 @@
       `;
     }
 
-    // Wrap title + weather in a header row at very top
     hdr = document.createElement('div');
     hdr.className = 'work-header-row';
     hdr.appendChild(title);
     hdr.appendChild(wx);
-
-    // Put header at top of the section
     sec.insertAdjacentElement('afterbegin', hdr);
   }
 
   function strokeColor(){ return '#111827'; }
   function iconSvg(type){
-    const c = `width="20" height="20" viewBox="0 0 24 24" fill="none"
+    // Important: include xmlns so data: SVG renders in all browsers
+    const attrs = `xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                stroke="${strokeColor()}" stroke-width="1.6"
                stroke-linecap="round" stroke-linejoin="round"`;
-    if(type==='sunny')  return `<svg ${c}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
-    if(type==='partly') return `<svg ${c}><path d="M4 15a4 4 0 0 1 4-4h.5"/><circle cx="16" cy="8" r="3"/><path d="M2 16h12"/></svg>`;
-    if(type==='rain')   return `<svg ${c}><path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M8 19v2M12 19v2M16 19v2"/></svg>`;
-    if(type==='snow')   return `<svg ${c}><path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M12 17l-1 1 1 1 1-1-1-1zM8 17l-1 1 1 1 1-1-1-1zM16 17l-1 1 1 1 1-1-1-1z"/></svg>`;
-    if(type==='storm')  return `<svg ${c}><path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M13 16l-3 5 5-4-2 5"/></svg>`;
-    return               `<svg ${c}><path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/></svg>`;
+    if(type==='sunny')  return `<svg ${attrs}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+    if(type==='partly') return `<svg ${attrs}><path d="M4 15a4 4 0 0 1 4-4h.5"/><circle cx="16" cy="8" r="3"/><path d="M2 16h12"/></svg>`;
+    if(type==='rain')   return `<svg ${attrs}><path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M8 19v2M12 19v2M16 19v2"/></svg>`;
+    if(type==='snow')   return `<svg ${attrs}><path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M12 17l-1 1 1 1 1-1-1-1zM8 17l-1 1 1 1 1-1-1-1zM16 17l-1 1 1 1 1-1-1-1z"/></svg>`;
+    if(type==='storm')  return `<svg ${attrs}><path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M13 16l-3 5 5-4-2 5"/></svg>`;
+    return               `<svg ${attrs}><path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/></svg>`;
+  }
+  function svgDataUri(svg){
+    // Remove newlines for maximum compatibility, then encode
+    const clean = svg.replace(/\s+/g,' ').trim();
+    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(clean);
   }
   function wxIcon(code){
     const map = {0:'sunny',1:'sunny',2:'partly',3:'cloud',45:'fog',48:'fog',51:'drizzle',53:'drizzle',55:'drizzle',
                  61:'rain',63:'rain',65:'rain',66:'rain',67:'rain',71:'snow',73:'snow',75:'snow',77:'snow',
                  80:'rain',81:'rain',82:'rain',85:'snow',86:'snow',95:'storm',96:'storm',99:'storm'};
     const t = map[code] || 'cloud';
-    return 'data:image/svg+xml;utf8,' + encodeURIComponent(iconSvg(t));
+    return svgDataUri(iconSvg(t));
   }
 
   async function loadWeather(){
