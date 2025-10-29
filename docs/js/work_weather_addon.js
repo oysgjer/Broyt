@@ -1,23 +1,19 @@
-// work_weather_addon.js — inline SVG weather w/ auto light/dark theme
+// work_weather_addon.js — robust icon handling (IMG or SPAN) + theme-aware
 (function(){
   const $ = (s,root=document)=>root.querySelector(s);
 
-  // ---- Theme-aware stroke ----
   function themeStroke(){
     try{
       const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      return dark ? '#f3f4f6' : '#111827'; // light ink on dark, dark ink on light
+      return dark ? '#f3f4f6' : '#111827';
     }catch{ return '#111827'; }
   }
-
-  // Re-render icon on theme change
   if (window.matchMedia){
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     if (mq.addEventListener) mq.addEventListener('change', ()=> setTimeout(loadWeather, 50));
     else if (mq.addListener) mq.addListener(()=> setTimeout(loadWeather, 50));
   }
 
-  // ---- Small layout CSS ----
   function injectStyles(){
     if (document.getElementById('wx_hdr_style')) return;
     const st = document.createElement('style');
@@ -33,44 +29,44 @@
     document.head.appendChild(st);
   }
 
+  // If header already exists, use it; otherwise create minimal version
   function ensureHeader(){
     const sec = document.getElementById('work');
     if (!sec) return;
     let hdr = sec.querySelector('.work-header-row');
-    if (hdr) return;
-
-    let title = sec.querySelector('h1');
-    if (!title){
-      title = document.createElement('h1');
+    if (!hdr){
+      hdr = document.createElement('div');
+      hdr.className = 'work-header-row';
+      const title = document.createElement('h1');
+      title.className = 'work-title';
       title.textContent = 'Under arbeid';
-    }
-    title.classList.add('work-title');
-
-    let wx = sec.querySelector('#wx_row');
-    if (!wx){
-      wx = document.createElement('div');
+      hdr.appendChild(title);
+      const wx = document.createElement('div');
       wx.id = 'wx_row';
       wx.className = 'wx-row';
-      wx.innerHTML = `
-        <span id="wx_icon" aria-hidden="true"></span>
-        <span id="wx_temp">--°</span>
-        <span id="wx_desc" class="muted"></span>
-      `;
+      wx.innerHTML = `<span id="wx_icon" aria-hidden="true"></span><span id="wx_temp">--°</span><span id="wx_desc" class="muted"></span>`;
+      hdr.appendChild(wx);
+      sec.insertAdjacentElement('afterbegin', hdr);
     }else{
-      const old = wx.querySelector('#wx_icon');
-      if (old && old.tagName === 'IMG'){
-        const span = document.createElement('span');
-        span.id = 'wx_icon';
-        span.setAttribute('aria-hidden','true');
-        old.replaceWith(span);
+      // Upgrade existing #wx_icon if it's an <img>, replace with <span> to allow inline SVG,
+      // but if you prefer <img>, we'll also support it in loadWeather()
+      const wx = hdr.querySelector('#wx_row');
+      if (wx){
+        const ico = wx.querySelector('#wx_icon');
+        if (!ico){
+          const span = document.createElement('span');
+          span.id = 'wx_icon';
+          span.setAttribute('aria-hidden','true');
+          wx.insertAdjacentElement('afterbegin', span);
+        }else if (ico.tagName === 'IMG'){
+          // Replace IMG with SPAN so we can inject inline SVG
+          const span = document.createElement('span');
+          span.id = 'wx_icon';
+          span.setAttribute('aria-hidden','true');
+          ico.replaceWith(span);
+        }
       }
     }
-
-    hdr = document.createElement('div');
-    hdr.className = 'work-header-row';
-    hdr.appendChild(title);
-    hdr.appendChild(wx);
-    sec.insertAdjacentElement('afterbegin', hdr);
   }
 
   function svgWrap(body){
@@ -119,14 +115,23 @@
                        81:'Kraftige regnbyger',82:'Meget kraftige regnbyger',85:'Snøbyger',86:'Kraftige snøbyger',
                        95:'Torden',96:'Torden med hagl',99:'Torden med kraftig hagl'};
 
-      const iconSpan = $('#wx_icon');
-      const tempSpan = $('#wx_temp');
-      const descSpan = $('#wx_desc');
+      const iconEl = document.getElementById('wx_icon');
+      const tempEl = document.getElementById('wx_temp');
+      const descEl = document.getElementById('wx_desc');
 
-      if (iconSpan) iconSpan.innerHTML = iconSvg(pickType(code));
-      if (tempSpan) tempSpan.textContent = t + '°';
-      if (descSpan) descSpan.textContent = descMap[code] || 'Vær';
-    }catch{ /* keep placeholders */ }
+      const svg = iconSvg(pickType(code));
+      if (iconEl){
+        if (iconEl.tagName === 'IMG'){
+          // As a fallback, set data URI for <img>
+          const dataUri = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+          iconEl.src = dataUri;
+        }else{
+          iconEl.innerHTML = svg; // preferred
+        }
+      }
+      if (tempEl) tempEl.textContent = t + '°';
+      if (descEl) descEl.textContent = (descMap[code] || 'Vær');
+    }catch(e){ /* keep placeholders */ }
   }
 
   function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
