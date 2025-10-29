@@ -1,125 +1,165 @@
-(() => {
-  'use strict';
+// Reports.js — auto-read X-Master-Key from Admin (no prompts), BIN fixed
+(function(){
+  const $ = s=>document.querySelector(s);
 
-  const BIN_ID = '68e89e3443b1c97be9611c48'; // Reports bin
-  const API_BASE = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+  // --- Config ---
+  const BIN_ID = '68e89e3443b1c97be9611c48';
+  const API_LATEST = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+  const API_PUT    = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-  function getAdminKey(){
+  // Try our best to read a master key that was saved in Admin
+  function getMasterKey(){
     try{
-      if (window.Sync && typeof window.Sync.getConfig === 'function'){
-        const cfg = window.Sync.getConfig();
-        if (cfg && cfg.apiKey) return cfg.apiKey;
+      // Common keys/shape used in earlier versions
+      const candidates = [
+        'BRYT_SYNC_CFG', 'SYNC_CFG', 'APP_CFG', 'CONFIG', 'BRØYT_CFG', 'BROYT_CFG',
+        'JSONBIN_CFG', 'JSONBIN'
+      ];
+      const fields = ['apiKey', 'reportsKey', 'masterKey', 'jsonbinKey', 'key'];
+      // Direct single-value keys first
+      for (const k of ['X_MASTER_KEY', 'JSONBIN_MASTER_KEY']) {
+        const v = localStorage.getItem(k) || sessionStorage.getItem(k);
+        if (v && v.length > 10) return v;
+      }
+      // JSON blobs
+      for (const k of candidates){
+        const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
+        if (!raw) continue;
+        try{
+          const obj = JSON.parse(raw);
+          // Exact fields
+          for (const f of fields){
+            if (typeof obj[f] === 'string' && obj[f].length > 10) return obj[f];
+          }
+          // Deep scan for any plausible key-looking string
+          const stack = [obj];
+          while (stack.length){
+            const it = stack.pop();
+            if (typeof it === 'string' && it.length > 20) return it;
+            if (it && typeof it === 'object'){
+              for (const v of Object.values(it)) stack.push(v);
+            }
+          }
+        }catch{}
       }
     }catch{}
-    return '';
+    return null;
   }
 
-  function $(s, r=document){ return r.querySelector(s); }
-  function fmtDate(s){
-    try{
-      const d = new Date(s);
-      return d.toLocaleString('nb-NO');
-    }catch{ return s; }
-  }
-  function ms(d1,d2){ return Math.max(0, new Date(d2)-new Date(d1)); }
-  function fmtDur(ms){
-    const sec = Math.round(ms/1000);
-    if (sec < 60) return sec+'s';
-    const m = Math.floor(sec/60), s = sec%60;
-    if (m < 60) return `${m}m ${s}s`;
-    const h = Math.floor(m/60), mm = m%60;
-    return `${h}t ${mm}m`;
+  function nowLocalISO(){
+    const d=new Date();
+    d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+    return d.toISOString().slice(0,16);
   }
 
-  async function fetchLatest(key){
-    const r = await fetch(API_BASE, { headers: { 'X-Master-Key': key, 'Cache-Control':'no-store' }});
-    if (!r.ok) throw new Error('HTTP '+r.status);
-    const j = await r.json();
-    const rec = j && j.record;
-    return Array.isArray(rec) ? rec : (rec ? [rec] : []);
+  function renderFunfacts(){
+    const ul = $('#funfacts'); if(!ul) return;
+    const facts = [
+      'Salt virker best rundt -5 °C til +5 °C.',
+      'Strøing før snøfall kan redusere behovet for fresing.',
+      'Lavere fart ved brøyting sparer skjær.',
+      'Loggfør uhell umiddelbart for rask oppfølging.',
+      'Sjekk vindretning – snø driver raskere i åpne felt.'
+    ];
+    ul.innerHTML = facts.map(f=>`<li>${f}</li>`).join('');
   }
 
-  function aggregate(events){
-    // Build map: driver -> addr_id -> {addr_name, started_at, finished_at, duration_ms, lane, actions[]}
-    const out = {};
-    for (const e of events){
-      const d = e.driver || 'Ukjent';
-      const a = e.addr_id || '-';
-      const name = e.addr_name || '-';
-      out[d] = out[d] || {};
-      out[d][a] = out[d][a] || { addr_id:a, addr_name:name, lane:e.lane||'', actions:[] };
-      out[d][a].actions.push(e);
-      // derive duration for address_finish if present
-      if (e.action === 'address_finish'){
-        const start = e.started_at || null;
-        const dur = (start && e.t) ? ms(start, e.t) : (typeof e.duration_ms==='number' ? e.duration_ms : null);
-        out[d][a].duration_ms = dur;
-        out[d][a].finished_at = e.t;
-        out[d][a].started_at = start;
-        out[d][a].lane = e.lane || out[d][a].lane;
-      }
-      if (e.action === 'address_start'){
-        out[d][a].started_at = e.t;
-        out[d][a].lane = e.lane || out[d][a].lane;
-      }
-      if (e.action === 'address_skip' || e.action === 'address_block'){
-        out[d][a].finished_at = e.t;
-        out[d][a].lane = e.lane || out[d][a].lane;
-      }
-    }
-    return out;
+  async function fetchRecord(key){
+    const r = await fetch(API_LATEST, { headers:{'X-Master-Key': key} });
+    if(!r.ok) throw new Error('JSONBin feil '+r.status);
+    return r.json();
   }
 
-  function renderTable(agg){
+  async function putRecord(key, body){
+    const r = await fetch(API_PUT, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key': key},
+      body: JSON.stringify(body)
+    });
+    if(!r.ok) throw new Error('JSONBin feil '+r.status);
+    return r.json();
+  }
+
+  function exportPdf(){
+    $('#p_date').textContent   = 'Dato/tid: ' + ($('#r_date').value || new Date().toISOString());
+    $('#p_driver').textContent = 'Sjåfør: '   + (($('#r_driver').value||'').trim() || 'Ukjent');
+    $('#p_round').textContent  = 'Runde: '    + ($('#r_round').value || '1');
+    $('#p_task').textContent   = 'Oppgave: '  + ($('#r_task').value);
+    $('#p_notes').textContent  = 'Notat: '    + (($('#r_notes').value||'').trim() || '-');
+    window.print();
+  }
+
+  function renderTable(list){
     const wrap = $('#tableWrap');
-    if (!agg || !Object.keys(agg).length){
-      wrap.innerHTML = '<div style="padding:12px;">Ingen data.</div>';
+    if (!Array.isArray(list) || !list.length){
+      wrap.innerHTML = '<div style="padding:12px" class="muted">Ingen data.</div>';
       return;
     }
-    const drivers = Object.keys(agg).sort();
-    let html = '';
-    for (const d of drivers){
-      html += `<h2 style="padding:12px 12px 0;">Sjåfør: ${d}</h2>`;
-      html += `<table class="rep"><thead><tr>
-        <th>Adresse</th><th>Fil</th><th>Start</th><th>Slutt</th><th>Varighet</th><th>Type</th>
-      </tr></thead><tbody>`;
-      const rows = Object.values(agg[d]).sort((a,b)=> (a.started_at||'').localeCompare(b.started_at||''));
-      for (const r of rows){
-        const doneType = (r.actions||[]).find(x=>x.action==='address_finish') ? 'Ferdig' :
-                         (r.actions||[]).find(x=>x.action==='address_block') ? 'Ikke mulig' :
-                         (r.actions||[]).find(x=>x.action==='address_skip') ? 'Hoppet over' : '';
-        html += `<tr>
-          <td>${r.addr_name||r.addr_id||''}</td>
-          <td>${r.addr_id||''}</td>
-          <td>${r.started_at? fmtDate(r.started_at): ''}</td>
-          <td>${r.finished_at? fmtDate(r.finished_at): ''}</td>
-          <td>${typeof r.duration_ms==='number'? fmtDur(r.duration_ms): ''}</td>
-          <td>${r.lane==='grit'?'Grus':(r.lane==='snow'?'Snø':'')}</td>
-        </tr>`;
-      }
-      html += `</tbody></table>`;
-    }
+    let html = '<table class="tbl"><thead><tr><th>Dato</th><th>Sjåfør</th><th>Runde</th><th>Oppgave</th><th>Notat</th></tr></thead><tbody>';
+    list.slice().reverse().forEach(r=>{
+      html += `<tr><td>${r.date||''}</td><td>${r.driver||''}</td><td>${r.round||''}</td><td>${r.task||''}</td><td>${r.notes||''}</td></tr>`;
+    });
+    html += '</tbody></table>';
     wrap.innerHTML = html;
   }
 
-  async function init(){
-    const keyInput = $('#key');
-    keyInput.value = getAdminKey();
-    $('#load').addEventListener('click', async ()=>{
-      const key = keyInput.value.trim();
-      if (!key) return alert('Legg inn Master Key først (Admin → Sync).');
-      $('#summary').textContent = 'Laster...';
-      try{
-        const events = await fetchLatest(key);
-        $('#summary').textContent = `Hendelser i JSONBin: ${events.length}`;
-        const agg = aggregate(events.filter(e => e && e.action));
-        renderTable(agg);
-      }catch(e){
-        $('#summary').textContent = 'Feil: '+e.message;
+  async function saveReport(key){
+    const rec = {
+      date: $('#r_date').value || new Date().toISOString(),
+      driver: ($('#r_driver').value||'').trim() || 'Ukjent',
+      round: parseInt($('#r_round').value||'1',10),
+      task: $('#r_task').value,
+      notes: ($('#r_notes').value||'').trim()
+    };
+    const cur = await fetchRecord(key);
+    const body = cur && cur.record ? cur.record : {};
+    body.reports = Array.isArray(body.reports) ? body.reports : [];
+    body.reports.push(rec);
+    await putRecord(key, body);
+    renderTable(body.reports);
+    alert('Lagret i JSONBin.');
+  }
+
+  async function loadExisting(key){
+    const cur = await fetchRecord(key);
+    const list = (cur && cur.record && Array.isArray(cur.record.reports)) ? cur.record.reports : [];
+    $('#summary').textContent = `Rapporter i JSONBin: ${list.length}`;
+    renderTable(list);
+  }
+
+  function init(){
+    const dt = $('#r_date');
+    if (dt){ dt.value = nowLocalISO(); }
+    renderFunfacts();
+
+    const key = getMasterKey();
+    const saveBtn = $('#btnSaveReport');
+
+    if (!key){
+      // Graceful UX if key is missing
+      const msg = 'Mangler X-Master-Key. Legg den inn én gang i Admin, åpne så Rapporter på nytt.';
+      const sum = $('#summary');
+      if (sum) sum.textContent = msg;
+      if (saveBtn){
+        saveBtn.disabled = true;
+        saveBtn.title = msg;
       }
+      return; // don’t bind anything else
+    }
+
+    // Bind actions with the discovered key
+    saveBtn?.addEventListener('click', () => {
+      saveReport(key).catch(e=>alert('Feil ved lagring: '+e.message));
+    });
+    $('#btnPdfReport')?.addEventListener('click', exportPdf);
+
+    // Load existing quietly
+    loadExisting(key).catch(e=>{
+      const sum = $('#summary');
+      if (sum) sum.textContent = 'Feil ved henting: ' + e.message;
     });
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
