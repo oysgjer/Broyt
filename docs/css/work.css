@@ -288,31 +288,33 @@
   line-height: 1.2;
 }
 
-/* 1) Knapperaden: tett og venstrejustert */
-#work .btn-grid{
+/* --- KNAPPEREKKE: 2 kolonner, faste størrelser --- */
+#work .btn-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(160px, 1fr)); /* Start/Ferdig på samme rad */
-  gap: 6px 8px;               /* mindre luft: 6px vertikalt, 8px horisontalt */
-  justify-items: start;       /* skyv elementene mot venstre i hver kolonne */
+  grid-template-columns: repeat(2, 1fr); /* 2 kolonner med lik bredde */
+  gap: 6px 8px;
+  justify-items: stretch; /* fyll hele bredden */
 }
 
-/* 2) Fjern default margin på elementer i grid’en */
-#work .btn-grid > *{
-  margin: 0 !important;
+/* Store knapper: Start + Ferdig */
+#work .btn-grid button:nth-child(-n+2) {
+  height: 90px;              /* stor høyde */
+  font-size: 1.2em;          /* større tekst */
+  font-weight: 600;
 }
 
-/* 3) Litt strammere knapper (behold god trykkflate) */
-#work .btn-grid button{
-  padding-top: 10px;
-  padding-bottom: 10px;
+/* Alle andre knapper: halv høyde, samme bredde */
+#work .btn-grid button:nth-child(n+3) {
+  height: 45px;              /* halvparten av store */
+  font-size: 1em;
+  font-weight: 500;
+}
+
+/* Fjern standard margin */
+#work .btn-grid button {
+  width: 100%;
+  margin: 0;
   line-height: 1.2;
-}
-
-/* 4) Sikre at "Nå / Neste"-teksten beholder layouten sin */
-#work .work-header-row,
-#work .work-meta-row{
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
+  padding: 0;
+  border-radius: 12px;
 }
