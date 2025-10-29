@@ -1,4 +1,3 @@
-
 <h1>Admin</h1>
 <div class="grid2">
   <div class="col">
@@ -13,18 +12,30 @@
     <button id="adm_stakes_lock" class="btn">🔓 Lås stikker</button>
   </div>
 </div>
+
 <h2>Adresse-register</h2>
 <div class="row" style="flex-wrap:wrap">
   <button id="adm_addr_fetch" class="btn">Hent fra sky</button>
   <button id="adm_addr_save" class="btn btn-primary">Lagre</button>
   <span id="adm_addr_msg" class="badge"></span>
 </div>
+
+<!-- ⬇️ NY SEKSJON: Rapporter / Logg -->
+<h2>Rapporter</h2>
+<div class="row" style="flex-wrap:wrap">
+  <button id="adm_open_logg" class="btn" onclick="location.href='./logg.html'">🧾 Åpne Logg (A4)</button>
+  <button id="adm_open_reports" class="btn btn-ghost" onclick="location.href='./reports.html'">📊 Åpne Rapporter</button>
+  <span class="badge">Les & skriv ut</span>
+</div>
+<!-- ⬆️ NY SEKSJON -->
+
 <table style="width:100%; border-collapse:collapse; margin-top:8px">
   <thead><tr>
     <th>Aktiv</th><th>Adresse</th><th>Gruppe</th><th>Snø</th><th>Grus</th><th>Stikker</th><th>Koordinater</th><th>Rekkefølge</th>
   </tr></thead>
   <tbody id="adm_addr_tbody"></tbody>
 </table>
+
 <h2>JSONBin</h2>
 <div class="grid2">
   <div class="col">
@@ -39,6 +50,7 @@
   <button id="adm_urls_clear" class="btn">Fjern</button>
   <span id="adm_urls_status" class="badge"></span>
 </div>
+
 <h2>JSONBin-nøkkel</h2>
 <div class="row">
   <input id="adm_key" placeholder="X-Master-Key">
