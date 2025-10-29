@@ -278,15 +278,29 @@
     uiUpdate();
   }
 
-  function actNav(){
-    const run  = getRun();
-    const lane = run.lane || laneFromSettings();
-    const list = filteredAddresses(lane);
-    const idx  = run.idx;
-    const cur  = (idx!=null) ? list[idx] : null;
-    if (!cur) return;
-    window.open(mapsUrl(cur), '_blank');
+  function actNav() {
+  const run  = getRun();
+  const lane = run.lane || laneFromSettings();
+  const list = filteredAddresses(lane);
+  const idx  = run.idx;
+  const cur  = (idx != null) ? list[idx] : null;
+  if (!cur) return;
+
+  const url = mapsUrl(cur);
+
+  try {
+    // lagre hvor vi var før vi navigerer
+    sessionStorage.setItem('returnTo', window.location.href);
+
+    // åpne navigasjon i samme fane – tryggere i PWA
+    window.location.href = url;
+
+    // rydde opp etter 1 minutt (hvis bruker ikke kommer tilbake)
+    setTimeout(() => sessionStorage.removeItem('returnTo'), 60000);
+  } catch (e) {
+    console.error('Navigasjonsfeil:', e);
   }
+}
 
   // --- Uhell-knapp: lag/vis/placer over Brøytekart (med fallback-timer)
   function ensureUhellButton(){
