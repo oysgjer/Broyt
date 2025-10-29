@@ -265,8 +265,8 @@
 /* Pass på at knappene beholder riktig spacing */
 #work button {
   display: inline-block;
-  margin-right: 8px;
-  margin-bottom: 8px;
+  margin-right: 6px;
+  margin-bottom: 6px;
 }
 
 /* --- Justering av knapp-layout under arbeid --- */
@@ -276,7 +276,7 @@
   flex-wrap: wrap;
   justify-content: flex-start;  /* skyv mot venstre */
   align-items: flex-start;
-  gap: 4px 6px;  /* mindre vertikal og horisontal luft */
+  gap: 8px 10px;  /* mindre vertikal og horisontal luft */
   text-align: left;
   margin-top: 4px;
 }
@@ -285,7 +285,7 @@
 #work button {
   display: inline-block;
   margin: 0;           /* fjern standard margin */
-  padding: 10px 14px;  /* behold klikkflate */
+  padding: 4px 8px;  /* behold klikkflate */
   line-height: 1.2;
   flex-shrink: 0;
 }
