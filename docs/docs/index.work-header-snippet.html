@@ -1,0 +1,19 @@
+<!-- PATCH NOTE:
+1) Replace the existing <h1>Under arbeid</h1> line inside <section id="work"> with the block below.
+2) Ensure this script tag is present before </body>:
+   <script src="js/work_weather_addon.js?v=20251029f"></script>
+-->
+<!-- UNDER ARBEID -->
+<section id="work" hidden>
+  <div class="work-header-row">
+    <h1 class="work-title">Under arbeid</h1>
+    <div id="wx_row" class="wx-row">
+      <img id="wx_icon" alt="vær" width="20" height="20" style="vertical-align:middle;margin-right:6px" />
+      <span id="wx_temp">--°</span>
+      <span id="wx_desc" class="muted"></span>
+    </div>
+  </div>
+
+<!-- Add before </body>:
+<script src="js/work_weather_addon.js?v=20251029f"></script>
+-->

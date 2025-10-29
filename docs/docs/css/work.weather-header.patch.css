@@ -1,0 +1,18 @@
+/* --- Weather in header row next to "Under arbeid" --- */
+.work-header-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 6px;
+}
+.work-title{ margin:0; }
+.wx-row{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+}
+@media (max-width:520px){
+  .work-header-row{ flex-wrap:wrap; }
+}
