@@ -1,0 +1,52 @@
+
+<!doctype html>
+<html lang="no">
+<meta charset="utf-8">
+<title>Rapport-test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../css/styles.css">
+<link rel="stylesheet" href="../css/work.css">
+<body style="padding:16px;">
+  <h1>Rapport-test</h1>
+  <p>Bin: <code>68e89e3443b1c97be9611c48</code></p>
+
+  <div class="card" style="max-width:700px;">
+    <div class="field">
+      <label for="key">X‑Master‑Key (JSONBin)</label>
+      <input id="key" type="password" placeholder="Lim inn nøkkelen din her" style="width:100%;padding:8px;">
+    </div>
+    <div class="row" style="gap:10px;">
+      <button id="save" class="btn">Lagre nøkkel</button>
+      <button id="ping" class="btn btn-dark">Send test‑event</button>
+      <button id="sync" class="btn btn-ghost">Synk kø → JSONBin</button>
+    </div>
+    <div id="status" class="muted" style="margin-top:10px;">—</div>
+  </div>
+
+  <script src="../js/logging.js"></script>
+  <script>
+    const $ = s => document.querySelector(s);
+    $('#save').addEventListener('click', async () => {
+      const v = $('#key').value.trim();
+      if (!v) return alert('Lim inn X‑Master‑Key først');
+      Reports.setKey(v);
+      const st = await Reports.testReady();
+      $('#status').textContent = `Lagret. Klar: ${st.hasKey}, kø: ${st.pending}`;
+    });
+    $('#ping').addEventListener('click', async () => {
+      const rec = await Reports.logEvent({
+        action:'test_event',
+        driver:'Test',
+        lane:'test',
+        addr_id:'TEST-1',
+        addr_name:'Testgate 1'
+      }, { dry:false });
+      $('#status').textContent = `La i kø: ${rec.id}. Forsøker synk i bakgrunnen…`;
+    });
+    $('#sync').addEventListener('click', async () => {
+      const st = await Reports.sync();
+      $('#status').textContent = `Synk: sendt=${st.sent||0}, pending=${st.pending||0}${st.error? ' — '+st.error:''}`;
+    });
+  </script>
+</body>
+</html>
