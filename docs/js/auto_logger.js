@@ -1,23 +1,32 @@
-// auto_logger.js — robust autologging + "✓ Logget / ⏳ Lagres …" ved knappen
+// auto_logger.js — robust autologging + flytende "✓ Logget / ⏳ Lagres …" ved knappen
 (function(){
   const BIN_ID = '68e89e3443b1c97be9611c48';
   const API_LATEST = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
   const API_PUT    = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
   const QKEY = 'AUTOLOG_QUEUE';
 
-  // --- små styles for indikator ---
+  // --- CSS for indikator (flytende, påvirker ikke layout) ---
   (function injectCSS(){
     if (document.getElementById('logMarkCSS')) return;
     const st = document.createElement('style'); st.id='logMarkCSS';
-    st.textContent = `.logMark{margin-left:8px;font-size:.85em;padding:2px 8px;border-radius:999px;border:1px solid transparent;vertical-align:middle}
+    st.textContent = `
+      .logMark{
+        position:absolute; top:-6px; right:-6px;
+        font-size:12px; line-height:1;
+        padding:2px 6px; border-radius:999px;
+        border:1px solid transparent; pointer-events:none;
+        box-shadow:0 1px 2px rgba(0,0,0,.08); z-index:5;
+      }
       .logMark.success{background:#e6f7ec;border-color:#b7e2c4;color:#0f7a2e}
-      .logMark.pending{background:#fff3e0;border-color:#f7d7a7;color:#9a5b00}`;
+      .logMark.pending{background:#fff3e0;border-color:#f7d7a7;color:#9a5b00}
+    `;
     document.head.appendChild(st);
   })();
 
   // --- helpers ---
   const $ = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const nowIso = () => new Date().toISOString();
 
   function getMasterKey(){
     try{
@@ -41,6 +50,7 @@
     }catch{}
     return null;
   }
+
   function getDriver(){
     const keys=['DRIVER','SJÅFØR','driver','bryter_driver','APP_CFG','DRIVER_NAME'];
     for (const k of keys){
@@ -51,18 +61,16 @@
     }
     return 'Ukjent';
   }
+
   function getAddress(){
-    // prøv flere "kilder" i UI – juster ved behov
     const el = $('#addr,#address,.current-address,[data-current-address]');
     if (el) return (el.getAttribute('data-current-address') || el.textContent || '').trim();
     const active = $('.job-item.active,.address.active,[data-addr]');
     if (active) return (active.getAttribute('data-addr') || active.textContent || '').trim();
-    // fallback: nå/”Neste” blokka i work-seksjonen
     const now = $('#work .work-card h2, #work .work-card .now, #work .work-card .title');
     if (now) return now.textContent.trim();
     return '';
   }
-  const nowIso = () => new Date().toISOString();
 
   function readQueue(){ try{ return JSON.parse(localStorage.getItem(QKEY) || '[]'); }catch{ return []; } }
   function writeQueue(a){ try{ localStorage.setItem(QKEY, JSON.stringify(a)); }catch{} }
@@ -74,7 +82,8 @@
   }
   async function putRecord(key, body){
     const r = await fetch(API_PUT, {
-      method:'PUT', headers:{'Content-Type':'application/json','X-Master-Key': key},
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key': key},
       body: JSON.stringify(body)
     });
     if(!r.ok) throw new Error('JSONBin feil '+r.status);
@@ -94,32 +103,33 @@
     }catch(e){ /* behold i kø */ }
   }
 
+  // --- vis indikator ---
   function showMark(btn, type){
-    // legg merket etter selve knappen
-    const parent = btn.parentElement || btn;
-    const exist = parent.querySelector('.logMark'); if (exist) exist.remove();
+    const host = btn.closest('.btn, .menu-item, button') || btn.parentElement || btn;
+    const cs = getComputedStyle(host);
+    if (cs.position === 'static') host.style.position = 'relative';
+    const exist = host.querySelector('.logMark'); if (exist) exist.remove();
     const m = document.createElement('span');
     m.className = 'logMark ' + type;
     m.textContent = (type==='success') ? '✓ Logget' : '⏳ Lagres …';
-    btn.insertAdjacentElement('afterend', m);
-    setTimeout(()=> m.remove(), 2000);
+    host.appendChild(m);
+    setTimeout(()=> m.remove(), 1600);
   }
 
   function enqueue(evt, btn){
     const q = readQueue();
     q.push(evt);
     writeQueue(q);
-    // Vis feedback umiddelbart
     if (navigator.onLine && getMasterKey()) showMark(btn, 'success');
     else showMark(btn, 'pending');
-    flushQueue(); // forsøk å sende
+    flushQueue();
   }
 
   function buildEvent(action){
     return { ts: nowIso(), driver: getDriver(), action, address: getAddress(), notes: '' };
   }
 
-  // binder bredt: id, data-action, og norsk knappetekst
+  // --- bind knapper ---
   const MAP = {
     start:      ['#btnStart','[data-action="start"]'],
     ferdig:     ['#btnFerdig','[data-action="done"]'],
@@ -139,11 +149,9 @@
   }
 
   function scanAndBind(){
-    // 1) kjente selektorer
     Object.entries(MAP).forEach(([action, sels])=>{
       sels.forEach(sel => $$(sel).forEach(el => bindOnce(el, action)));
     });
-    // 2) fallback: match norsk tekst på knapper
     $$('button').forEach(btn=>{
       if (btn.dataset.autologBound) return;
       const t = (btn.innerText || btn.textContent || '').toLowerCase().trim();
@@ -155,10 +163,8 @@
 
   function init(){
     scanAndBind();
-    // Knapper kan komme/endres dynamisk – observer DOM
     const mo = new MutationObserver(()=> scanAndBind());
     mo.observe(document.body, {childList:true, subtree:true});
-    // flusher periodisk og ved online
     setInterval(flushQueue, 5000);
     window.addEventListener('online', flushQueue);
   }
