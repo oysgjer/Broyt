@@ -1,45 +1,31 @@
+<ul class="drawer-list">
+  <li><a class="menu-item drawer-link" data-go="home">🏠 Hjem</a></li>
+  <li><a class="menu-item drawer-link" data-go="work">🧭 Under arbeid</a></li>
+  <li><a class="menu-item drawer-link" data-go="service">🛠️ Service</a></li>
+  <li><a class="menu-item drawer-link" data-go="status">📊 Status</a></li>
+  <li><a class="menu-item drawer-link" data-go="admin">⚙️ Admin</a></li>
 
-<div class="col">
-  <div class="menu-group">
-    <a class="menu-item drawer-link" data-go="home">🏠 Hjem</a>
-    <a class="menu-item drawer-link" data-go="work">🧭 Under arbeid</a>
-    <a class="menu-item drawer-link" data-go="service">🛠️ Service</a>
-    <a class="menu-item drawer-link" data-go="status">📊 Status</a>
-    <a class="menu-item drawer-link" data-go="admin">⚙️ Admin</a>
-    <li><a class="drawer-link" href="reports.html"><span class="emoji">🧾</span>Rapporter</a></li>
+  <!-- Rapporter (SPA – fungerer uansett om reports.html er 404) -->
+  <li>
+    <a class="menu-item drawer-link" href="#reports" data-go="reports">
+      <span class="emoji">🧾</span>Rapporter
+    </a>
+  </li>
+  <!-- Hvis/ når reports.html virker, kan du bytte den linja over til:
+  <li><a class="menu-item drawer-link" href="reports.html"><span class="emoji">🧾</span>Rapporter</a></li>
+  -->
 
-    <a class="menu-item drawer-link" data-go="/Broyt-main/reports.html">🧾 Rapporter</a>
-  </div>
+  <!-- Hurtigvalg -->
+  <li class="drawer-section-title">Hurtigvalg</li>
+  <li><button id="qk_grus"   class="menu-item btn-ghost">🏗️ Hent grus</button></li>
+  <li><button id="qk_diesel" class="menu-item btn-ghost">⛽ Diesel</button></li>
+  <li><button id="qk_base"   class="menu-item btn-ghost">🏠 Base</button></li>
 
-  <!-- ——— Rapporter ——— -->
-<li>
-  <a class="drawer-link" href="reports.html">
-    <span class="emoji">🧾</span>Rapporter
-  </a>
-</li>
+  <li><hr></li>
 
-<!-- ——— Hurtigvalg ——— -->
-<li class="drawer-section-title">Hurtigvalg</li>
-<li>
-  <button id="qk_grus"   class="menu-item btn-ghost">🏗️ Hent grus</button>
-</li>
-<li>
-  <button id="qk_diesel" class="menu-item btn-ghost">⛽ Diesel</button>
-</li>
-<li>
-  <button id="qk_base"   class="menu-item btn-ghost">🏠 Base</button>
-</li>
-  
-  <hr/>
-  <div class="menu-group">
-    <div style="font-weight:600; margin:6px 0;">Snarveier</div>
-    <button id="qk_grus" class="menu-item btn-ghost">🏗️ Hent grus</button>
-    <button id="qk_diesel" class="menu-item btn-ghost">⛽ Diesel</button>
-    <button id="qk_base" class="menu-item btn-ghost">🏠 Base</button>
-  </div>
-  <div class="menu-group">
-    <button id="qk_wl" class="btn">🟢/🔴 Hold skjerm våken</button>
-    <div id="qk_wl_status" class="badge">Status: av</div>
-  </div>
-  <button id="btnCloseDrawer" class="btn btn-ghost">Lukk</button>
-</div>
+  <li class="drawer-section-title">Snarveier</li>
+  <li><button id="qk_wl" class="btn">🟢/🔴 Hold skjerm våken</button></li>
+  <li><div id="qk_wl_status" class="badge">Status: av</div></li>
+
+  <li><button id="btnCloseDrawer" class="btn btn-ghost">Lukk</button></li>
+</ul>
