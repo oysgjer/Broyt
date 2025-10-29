@@ -1,51 +1,38 @@
-// work_weather_addon.js — drop-in weather next to "Under arbeid"
+// work_weather_addon.js — weather next to "Under arbeid" title
 (function(){
   const $ = (s,root=document)=>root.querySelector(s);
-  const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
 
-  // Inject minimal CSS (no need to edit work.css)
+  // Minimal CSS injection (avoid editing your CSS files)
   function injectStyles(){
     if (document.getElementById('wx_hdr_style')) return;
-    const css = `
+    const st = document.createElement('style');
+    st.id = 'wx_hdr_style';
+    st.textContent = `
       .work-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 6px}
       .work-title{margin:0}
       .wx-row{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
       @media (max-width:520px){.work-header-row{flex-wrap:wrap}}
-    `.trim();
-    const st = document.createElement('style');
-    st.id = 'wx_hdr_style';
-    st.textContent = css;
+    `;
     document.head.appendChild(st);
   }
 
-  // Ensure header row exists at the top of #work
   function ensureHeader(){
-    const sec = $('#work');
-    if (!sec) return null;
+    const sec = document.getElementById('work');
+    if (!sec) return;
+    // Already present?
+    let hdr = sec.querySelector('.work-header-row');
+    if (hdr) return;
 
-    // If already present, just return it
-    let hdr = $('.work-header-row', sec);
-    if (hdr) return hdr;
-
-    // Find an existing title
-    let title = $('h1', sec);
+    // Find/ensure title
+    let title = sec.querySelector('h1');
     if (!title){
       title = document.createElement('h1');
-      title.className = 'work-title';
       title.textContent = 'Under arbeid';
-      // Insert at top if no title exists
-      sec.insertAdjacentElement('afterbegin', title);
     }
-
-    // Wrap title + wx container into a flex row
-    hdr = document.createElement('div');
-    hdr.className = 'work-header-row';
-
-    // Ensure title has proper class
     title.classList.add('work-title');
 
-    // Create weather row (if missing)
-    let wx = $('#wx_row', sec);
+    // Weather row
+    let wx = sec.querySelector('#wx_row');
     if (!wx){
       wx = document.createElement('div');
       wx.id = 'wx_row';
@@ -57,14 +44,16 @@
       `;
     }
 
-    // Place the new header at the very top of the section
-    sec.insertAdjacentElement('afterbegin', hdr);
+    // Wrap title + weather in a header row at very top
+    hdr = document.createElement('div');
+    hdr.className = 'work-header-row';
     hdr.appendChild(title);
     hdr.appendChild(wx);
-    return hdr;
+
+    // Put header at top of the section
+    sec.insertAdjacentElement('afterbegin', hdr);
   }
 
-  // Icon rendering with explicit stroke color
   function strokeColor(){ return '#111827'; }
   function iconSvg(type){
     const c = `width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -96,7 +85,7 @@
       const pos = await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:5000}));
       lat = +pos.coords.latitude.toFixed(4);
       lon = +pos.coords.longitude.toFixed(4);
-    }catch{ /* ok, use fallback */ }
+    }catch{}
 
     try{
       const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`);
@@ -116,13 +105,11 @@
       if (ic) ic.src = wxIcon(code);
       if (tp) tp.textContent = t + '°';
       if (ds) ds.textContent = descMap[code] || 'Vær';
-    }catch(e){
-      // silent fail is fine; UI stays as --°
-    }
+    }catch(e){ /* leave placeholders */ }
   }
 
   function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
   ready(loadWeather);
-  window.addEventListener('hashchange', loadWeather); // SPA-friendly
-  setTimeout(loadWeather, 800); // small retry if DOM rendered late
+  window.addEventListener('hashchange', loadWeather);
+  setTimeout(loadWeather, 800);
 })();

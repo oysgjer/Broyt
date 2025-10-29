@@ -1,13 +1,10 @@
-// reports_spa_addon.js — Render Rapporter inside index.html to avoid 404
+// reports_spa_addon.js — FIX: Only show Rapporter on its own route
 (function(){
-  function ensureMenuLink(){
-    const menu = document.querySelector('[data-include="partials/menu.html"], aside.drawer, .drawer-list') || document.body;
-    // If menu HTML is already included, just rely on existing link. Otherwise, do nothing.
-    // This addon is safe even if you already have the link.
-  }
-  function injectSection(){
+  const $ = (s, root=document)=>root.querySelector(s);
+
+  function ensureSection(){
+    if (document.getElementById('reports')) return;
     const main = document.querySelector('main.container') || document.querySelector('main') || document.body;
-    if (document.getElementById('reports')) return; // already present
     const sec = document.createElement('section');
     sec.id = 'reports';
     sec.hidden = true;
@@ -57,27 +54,71 @@
       </section>
     `;
     main.appendChild(sec);
+  }
 
-    // If your app shell uses data-go navigation, add a link if missing
+  function ensureMenuItem(){
     const drawer = document.querySelector('.drawer-list');
-    if (drawer && !drawer.querySelector('[data-go="reports"]')){
+    if (!drawer) return;
+    if (!drawer.querySelector('[data-go="reports"]')){
       const li = document.createElement('li');
       li.innerHTML = '<a class="drawer-link" data-go="reports"><span class="emoji">🧾</span>Rapporter</a>';
       drawer.appendChild(li);
-      // Hook up navigation to show/hide sections
-      document.addEventListener('click', (e)=>{
-        const a = e.target.closest('[data-go="reports"]');
-        if (!a) return;
-        e.preventDefault();
-        // hide others
-        document.querySelectorAll('main section').forEach(s=> s.hidden = (s.id !== 'reports'));
-        history.replaceState(null, '', '#reports');
-        // close drawer if present
-        document.getElementById('drawer')?.classList.remove('open');
-        document.getElementById('scrim')?.classList.remove('show');
-      });
     }
   }
-  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
-  ready(()=>{ injectSection(); ensureMenuLink(); });
+
+  function showOnly(id){
+    // Hide every section inside main; show only requested id
+    const main = document.querySelector('main.container') || document.querySelector('main') || document.body;
+    main.querySelectorAll('section').forEach(sec => {
+      sec.hidden = (sec.id !== id);
+    });
+    // Close drawer if present
+    document.getElementById('drawer')?.classList.remove('open');
+    document.getElementById('scrim')?.classList.remove('show');
+  }
+
+  function hookNavigation(){
+    // Delegate clicks for data-go="reports"
+    document.addEventListener('click', (e)=>{
+      const a = e.target.closest('[data-go="reports"]');
+      if (!a) return;
+      e.preventDefault();
+      history.replaceState(null, '', '#reports');
+      showOnly('reports');
+      // Ensure Reports.js is loaded (if not already)
+      if (!window.__reports_loaded){
+        const s = document.createElement('script');
+        s.src = 'js/Reports.js?v=auto';
+        s.onload = ()=>{ window.__reports_loaded = true; };
+        document.body.appendChild(s);
+      }
+    });
+
+    // Respect hash on load + on change
+    function applyFromHash(){
+      const h = (location.hash||'').replace('#','');
+      if (h === 'reports'){
+        showOnly('reports');
+        if (!window.__reports_loaded){
+          const s = document.createElement('script');
+          s.src = 'js/Reports.js?v=auto';
+          s.onload = ()=>{ window.__reports_loaded = true; };
+          document.body.appendChild(s);
+        }
+      }
+    }
+    window.addEventListener('hashchange', applyFromHash);
+    applyFromHash(); // initial
+  }
+
+  function init(){
+    ensureSection();
+    ensureMenuItem();
+    // Always hide reports by default at startup (until clicked/hash)
+    const r = document.getElementById('reports'); if (r) r.hidden = true;
+    hookNavigation();
+  }
+
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
