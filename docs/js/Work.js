@@ -438,7 +438,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', wire);
-})
-  // init weather
-  try{ loadWeather(); }catch{}
+  // init weather (ok selv om funksjonen ikke finnes – try/catch svelger)
+  try { loadWeather(); } catch (e) {}
 })();
