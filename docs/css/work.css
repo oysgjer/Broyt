@@ -257,3 +257,7 @@
   width: 100% !important;
   grid-column: span 1 !important;
 }
+
+
+/* Værstrip under arbeid */
+.wx-row{display:flex;align-items:center;gap:8px;color:var(--muted)}
