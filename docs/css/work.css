@@ -268,3 +268,24 @@
   margin-right: 8px;
   margin-bottom: 8px;
 }
+
+/* --- Justering av knapp-layout under arbeid --- */
+#work .work-btn-row,
+#work .work-card {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;  /* skyv mot venstre */
+  align-items: flex-start;
+  gap: 4px 6px;  /* mindre vertikal og horisontal luft */
+  text-align: left;
+  margin-top: 4px;
+}
+
+/* Selve knappene */
+#work button {
+  display: inline-block;
+  margin: 0;           /* fjern standard margin */
+  padding: 10px 14px;  /* behold klikkflate */
+  line-height: 1.2;
+  flex-shrink: 0;
+}
