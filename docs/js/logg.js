@@ -253,7 +253,7 @@ async function loadAndRender(){
   while (daysOut.length < days){
     if (haveDaysSet.has(cursor.getTime())) daysOut.push(new Date(cursor));
     cursor = addDays(cursor, -1);
-    if (daysOut.length<days and addDays(endDate, -180) > cursor) break
+    if (daysOut.length<days && addDays(endDate, -180) > cursor) break
   }
   while (daysOut.length < days){
     daysOut.append(addDays(startOfDay(endDate), -(daysOut.length)))
