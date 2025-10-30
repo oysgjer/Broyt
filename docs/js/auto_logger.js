@@ -1,115 +1,218 @@
-// auto_logger.js — logger adresse/oppgave + multi-BIN skriving
+// auto_logger.js — robust autologging m/ adresse + sjåfør + oppgave og "✓ Logget" badge
 
-const QKEY = 'AUTOLOG_QUEUE';
+(function(){
+  const BIN_ID = '68e89e3443b1c97be9611c48';   // HENDELSER-bin
+  const API_LATEST = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+  const API_PUT    = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+  const QKEY = 'AUTOLOG_QUEUE';
 
-function readQueue(){ try{ return JSON.parse(localStorage.getItem(QKEY) || '[]'); }catch{ return []; } }
-function writeQueue(a){ try{ localStorage.setItem(QKEY, JSON.stringify(a)); }catch{} }
+  // —————————————— liten badge (på knappen) ——————————————
+  (function injectCSS(){
+    if (document.getElementById('logMarkCSS')) return;
+    const st = document.createElement('style'); st.id='logMarkCSS';
+    st.textContent = `
+      .logMark{
+        position:absolute; top:-6px; right:-6px; font-size:12px; line-height:1;
+        padding:2px 6px; border-radius:999px; border:1px solid transparent;
+        pointer-events:none; box-shadow:0 1px 2px rgba(0,0,0,.08); z-index:5;
+      }
+      .logMark.success{background:#e6f7ec;border-color:#b7e2c4;color:#0f7a2e}
+      .logMark.pending{background:#fff3e0;border-color:#f7d7a7;color:#9a5b00}
+    `;
+    document.head.appendChild(st);
+  })();
 
-// Hvilke BINs å skrive til (sett i localStorage om du vil endre)
-function getWriteBins(){
-  try{
-    const raw=localStorage.getItem('JSONBIN_BIN_IDS_WRITE');
-    const arr=raw?JSON.parse(raw):null;
-    if (Array.isArray(arr) && arr.length) return arr;
-  }catch{}
-  return ["68e7b4d2ae596e708f0bde7d"];
-}
-function getKeyForBin(binId){
-  try{
-    const map=JSON.parse(localStorage.getItem('JSONBIN_KEYS')||'{}');
-    if (map && typeof map[binId]==='string' && map[binId].length>10) return map[binId];
-  }catch{}
-  return localStorage.getItem('X_MASTER_KEY') || localStorage.getItem('JSONBIN_MASTER_KEY') || null;
-}
-async function fetchRecordForBin(binId,key){
-  const r=await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{headers:{'X-Master-Key':key}});
-  if(!r.ok) throw new Error(`fetch ${r.status}`); return r.json();
-}
-async function putRecordForBin(binId,key,body){
-  const r=await fetch(`https://api.jsonbin.io/v3/b/${binId}`,{
-    method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':key},body:JSON.stringify(body)
-  });
-  if(!r.ok) throw new Error(`put ${r.status}`); return r.json();
-}
+  // —————————————— helpers ——————————————
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const nowIso = () => new Date().toISOString();
 
-// Finn oppgave fra UI (tilpass etter dine id-er/labels)
-function detectTask(){
-  // Prøv eksplisitte felter/lagring
-  const stored = localStorage.getItem('OPPGAVE') || '';
-  if (stored) return stored;
+  function readQueue(){ try{ return JSON.parse(localStorage.getItem(QKEY) || '[]'); }catch{ return []; } }
+  function writeQueue(a){ try{ localStorage.setItem(QKEY, JSON.stringify(a)); }catch{} }
 
-  // Se etter checkboxer/labels i Hjem
-  const text = (sel)=> document.querySelector(sel)?.closest('label')?.textContent?.toLowerCase() || '';
-  const isChecked = (sel)=> !!document.querySelector(sel)?.checked;
+  function getMasterKey(){
+    try{
+      for (const k of ['X_MASTER_KEY','JSONBIN_MASTER_KEY']) {
+        const v = localStorage.getItem(k) || sessionStorage.getItem(k);
+        if (v && v.length > 10) return v;
+      }
+      const blobs=['BRYT_SYNC_CFG','SYNC_CFG','APP_CFG','CONFIG','BRØYT_CFG','BROYT_CFG','JSONBIN_CFG','JSONBIN'];
+      const fields=['apiKey','reportsKey','masterKey','jsonbinKey','key'];
+      for (const k of blobs){
+        const raw = localStorage.getItem(k) || sessionStorage.getItem(k); if (!raw) continue;
+        try{
+          const o = JSON.parse(raw);
+          for (const f of fields){ if (typeof o[f]==='string' && o[f].length>10) return o[f]; }
+          const st=[o]; while(st.length){ const it=st.pop();
+            if (typeof it==='string' && it.length>20) return it;
+            if (it && typeof it==='object') Object.values(it).forEach(v=>st.push(v));
+          }
+        }catch{}
+      }
+    }catch{}
+    return null;
+  }
 
-  if (isChecked('input[type="checkbox"][value="Skjær"]') || text('input[value="Skjær"]').includes('skjær')) return 'Snø';
-  if (isChecked('input[type="checkbox"][value="Fres"]') || text('input[value="Fres"]').includes('fres')) return 'Fres';
-  if (isChecked('input[type="checkbox"][value="Sand/Grus"]') || text('input[value="Sand/Grus"]').includes('grus')) return 'Grus';
-
-  // Fallback
-  return 'Snø';
-}
-
-// Vis «✓ Logget / ⏳ Lagres …» ved knappen uten å flytte layout
-function showMark(btn, type){
-  const host = btn.closest('button, .btn, .menu-item') || btn.parentElement || btn;
-  const cs = getComputedStyle(host); if (cs.position==='static') host.style.position='relative';
-  const exist=host.querySelector('.logMark'); if (exist) exist.remove();
-  const m=document.createElement('span'); m.className='logMark '+type;
-  m.textContent = type==='success' ? '✓ Logget' : '⏳ Lagres …';
-  m.style.cssText='position:absolute;top:-8px;right:-8px;font-size:12px;padding:4px 6px;border-radius:999px;pointer-events:none;z-index:5';
-  if (type==='success'){ m.style.background='#e6f7ec'; m.style.border='1px solid #b7e2c4'; m.style.color='#0f7a2e'; }
-  else{ m.style.background='#fff3e0'; m.style.border='1px solid #f7d7a7'; m.style.color='#9a5b00'; }
-  host.appendChild(m); setTimeout(()=>m.remove(),1600);
-}
-
-function buildEvent(action){
-  const addr = (document.querySelector('#addr,.current-address,[data-current-address]')?.textContent || '').trim();
-  const driver = localStorage.getItem('DRIVER_NAME') || localStorage.getItem('DRIVER') || 'Ukjent';
-  return {
-    ts: new Date().toISOString(),
-    driver,
-    action,                    // "start" | "ferdig" | ...
-    address: addr,
-    task: detectTask(),        // "Snø" | "Fres" | "Grus"
-    notes: '',
-    device: navigator.platform || '',
-    userAgent: navigator.userAgent || ''
-  };
-}
-
-function enqueue(evt, btn){
-  const q=readQueue(); q.push(evt); writeQueue(q);
-  if (navigator.onLine && getKeyForBin(getWriteBins()[0])) showMark(btn,'success'); else showMark(btn,'pending');
-  flushQueue();
-}
-
-async function flushQueue(){
-  const bins=getWriteBins(); const q=readQueue(); if (!q.length) return;
-  const primary=bins[0]; const pKey=getKeyForBin(primary); if(!pKey){ console.warn('missing primary key'); return; }
-
-  try{
-    const cur=await fetchRecordForBin(primary,pKey);
-    let body=cur && cur.record ? cur.record : [];
-    if (Array.isArray(body)) body.push(...q); else { body.reports=Array.isArray(body.reports)?body.reports:[]; body.reports.push(...q); }
-    await putRecordForBin(primary,pKey,body);
-
-    // sekundære BINs (best effort)
-    for (const b of bins.slice(1)){
-      try{
-        const k=getKeyForBin(b); if(!k){ console.warn('no key for',b); continue; }
-        const c=await fetchRecordForBin(b,k);
-        let bd=c && c.record ? c.record : [];
-        if (Array.isArray(bd)) bd.push(...q); else { bd.reports=Array.isArray(bd.reports)?bd.reports:[]; bd.reports.push(...q); }
-        await putRecordForBin(b,k,bd);
-      }catch(e){ console.warn('secondary put failed', b, e); }
+  // ——— Sjåfør (navn)
+  function sniffDriverFromDOM(){
+    const sels = [
+      '#driver', '#sjafor', '#sjåfør', '#inpDriver', 'input[name="driver"]',
+      'input[data-role="driver"]', '#home input[type="text"]'
+    ];
+    for (const s of sels){
+      const el = $(s);
+      if (el && el.value && el.value.trim()) return el.value.trim();
+      if (el && el.textContent && el.textContent.trim()) return el.textContent.trim();
     }
-    writeQueue([]);
-  }catch(e){ console.warn('primary put failed — will retry later', e); }
-}
+    return '';
+  }
+  function rememberDriver(name){ try{ if(name) sessionStorage.setItem('LAST_DRIVER', name); }catch{} }
+  function recallDriver(){ try{ return sessionStorage.getItem('LAST_DRIVER') || ''; }catch{ return ''; } }
 
-// Binder til knapper (id, data-action, norsk tekst)
-(function bindAuto(){
+  (function watchDriverChanges(){
+    const mo = new MutationObserver(()=> {
+      const d = sniffDriverFromDOM(); if (d) rememberDriver(d);
+    });
+    mo.observe(document.body, {childList:true, subtree:true, characterData:true});
+    const d = sniffDriverFromDOM(); if (d) rememberDriver(d);
+  })();
+
+  function getDriver(){
+    // DOM → sessionStorage → localStorage
+    const fromDom = sniffDriverFromDOM(); if (fromDom) return fromDom;
+    const cached  = recallDriver();       if (cached)  return cached;
+
+    const keys=['DRIVER','SJÅFØR','driver','bryter_driver','APP_CFG','DRIVER_NAME'];
+    for (const k of keys){
+      const v = localStorage.getItem(k) || sessionStorage.getItem(k);
+      if (!v) continue;
+      try { const o=JSON.parse(v); if (o && o.driver) return o.driver; } catch {}
+      if (typeof v === 'string') return v;
+    }
+    return 'Ukjent';
+  }
+
+  // ——— Adresse (nåværende)
+  function sniffAddressFromDOM() {
+    const sels = [
+      '#work .work-card h2',
+      '#work .work-card .title',
+      '#work [data-current-address]',
+      '#work .now + h2',
+      '.current-address',
+      '[data-addr-now]',
+      '[data-addr]'
+    ];
+    for (const s of sels) {
+      const el = $(s);
+      if (el) {
+        const txt = (el.getAttribute('data-current-address') || el.textContent || '').trim();
+        if (txt) return txt;
+      }
+    }
+    return '';
+  }
+  function rememberAddress(addr){ try{ if (addr) sessionStorage.setItem('LAST_ADDR', addr); }catch{} }
+  function recallAddress(){ try{ return sessionStorage.getItem('LAST_ADDR') || ''; }catch{ return ''; } }
+  (function watchAddressChanges(){
+    const mo = new MutationObserver(()=> {
+      const a = sniffAddressFromDOM(); if (a) rememberAddress(a);
+    });
+    mo.observe(document.body, {childList:true, subtree:true, characterData:true});
+    const a = sniffAddressFromDOM(); if (a) rememberAddress(a);
+  })();
+  function getAddress(){ return sniffAddressFromDOM() || recallAddress() || ''; }
+
+  // ——— Oppgave: Snø/Grus (fres = Snø)
+  function getTask(){
+    const grusSel = ['#utstyr_grus:checked','input[name="grus"]:checked','input[data-task="grus"]:checked'];
+    for (const s of grusSel) if (document.querySelector(s)) return 'Grus';
+    return 'Snø';
+  }
+
+  // ——— JSONBin helpers (med fallback via CORS-proxy for PUT)
+  async function fetchRecordForBin(key){
+    const r = await fetch(API_LATEST, { headers:{'X-Master-Key': key} });
+    if(!r.ok) throw new Error('JSONBin feil '+r.status);
+    return r.json();
+  }
+  async function putRecord(key, body){
+    // Prøv direkte først
+    try{
+      const r = await fetch(API_PUT, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key': key},
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) throw new Error('PUT:'+r.status);
+      return r.json();
+    }catch(_){
+      // Fallback via corsproxy.io (støtter headere & PUT)
+      const url = "https://corsproxy.io/?" + encodeURIComponent(API_PUT);
+      const r2 = await fetch(url, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key': key},
+        body: JSON.stringify(body)
+      });
+      if (!r2.ok) throw new Error('PUT proxy:'+r2.status);
+      return r2.json();
+    }
+  }
+
+  async function flushQueue(){
+    const key = getMasterKey(); if (!key) return;
+    const q = readQueue(); if (!q.length) return;
+    try{
+      const cur  = await fetchRecordForBin(key);
+      let body   = cur && cur.record ? cur.record : [];
+      // Støtt både {record:[...]} og {record:{reports:[]}}
+      if (Array.isArray(body)) {
+        body.push(...q);
+      } else {
+        body.reports = Array.isArray(body.reports) ? body.reports : [];
+        body.reports.push(...q);
+      }
+      await putRecord(key, body);
+      writeQueue([]); // tømt
+    }catch(e){
+      // Behold i kø – prøver igjen senere
+      console.warn('primary put failed — will retry later', e);
+    }
+  }
+
+  function showMark(btn, type){
+    const host = btn.closest('.btn, .menu-item, button') || btn.parentElement || btn;
+    const cs = getComputedStyle(host);
+    if (cs.position === 'static') host.style.position = 'relative';
+    const exist = host.querySelector('.logMark'); if (exist) exist.remove();
+    const m = document.createElement('span');
+    m.className = 'logMark ' + type;
+    m.textContent = (type==='success') ? '✓ Logget' : '⏳ Lagres …';
+    host.appendChild(m);
+    setTimeout(()=> m.remove(), 1600);
+  }
+
+  function buildEvent(action){
+    return {
+      ts: nowIso(),
+      driver: getDriver(),
+      address: getAddress(),
+      task: getTask(),
+      action,
+      notes: ''
+    };
+  }
+
+  function enqueue(evt, btn){
+    const q = readQueue();
+    q.push(evt);
+    writeQueue(q);
+    if (navigator.onLine && getMasterKey()) showMark(btn, 'success');
+    else showMark(btn, 'pending');
+    flushQueue();
+  }
+
+  // ——— Bind knapper (id + data-action + norsk tekst)
   const MAP = {
     start:      ['#btnStart','[data-action="start"]'],
     ferdig:     ['#btnFerdig','[data-action="done"]'],
@@ -117,23 +220,36 @@ async function flushQueue(){
     hopp_over:  ['#btnSkip','[data-action="skip"]'],
     ikke_mulig: ['#btnNotPossible','[data-action="na"]']
   };
-  const TEXT2 = {'start':'start','ferdig':'ferdig','neste':'neste','hopp over':'hopp_over','ikke mulig':'ikke_mulig'};
-  const $all=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const TEXT_TO_ACTION = {
+    'start':'start','ferdig':'ferdig','neste':'neste',
+    'hopp over':'hopp_over','ikke mulig':'ikke_mulig'
+  };
 
   function bindOnce(el, action){
     if (!el || el.dataset.autologBound) return;
-    el.dataset.autologBound='1';
+    el.dataset.autologBound = '1';
     el.addEventListener('click', ()=> enqueue(buildEvent(action), el));
   }
-  function scan(){
-    Object.entries(MAP).forEach(([a, sels])=> sels.forEach(sel=> $all(sel).forEach(el=>bindOnce(el,a))));
-    $all('button').forEach(btn=>{
+  function scanAndBind(){
+    Object.entries(MAP).forEach(([action, sels])=>{
+      sels.forEach(sel => $$(sel).forEach(el => bindOnce(el, action)));
+    });
+    $$('button').forEach(btn=>{
       if (btn.dataset.autologBound) return;
-      const t=(btn.innerText||btn.textContent||'').toLowerCase();
-      for (const [label, act] of Object.entries(TEXT2)){ if (t.includes(label)) { bindOnce(btn,act); break; } }
+      const t = (btn.innerText || btn.textContent || '').toLowerCase().trim();
+      for (const [label, act] of Object.entries(TEXT_TO_ACTION)){
+        if (t.includes(label)) { bindOnce(btn, act); break; }
+      }
     });
   }
-  if (document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded', ()=>{ scan(); const mo=new MutationObserver(scan); mo.observe(document.body,{childList:true,subtree:true}); setInterval(flushQueue,5000); window.addEventListener('online',flushQueue); });
-  } else { scan(); const mo=new MutationObserver(scan); mo.observe(document.body,{childList:true,subtree:true}); setInterval(flushQueue,5000); window.addEventListener('online',flushQueue); }
+
+  function init(){
+    scanAndBind();
+    const mo = new MutationObserver(()=> scanAndBind());
+    mo.observe(document.body, {childList:true, subtree:true});
+    setInterval(flushQueue, 5000);
+    window.addEventListener('online', flushQueue);
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
