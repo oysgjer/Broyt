@@ -65,3 +65,46 @@
   // Oppdater når vi bytter seksjon mellom home/work
   window.addEventListener('hashchange', update);
 })();
+// --- Patch: fanger opp fører fra hjem og speiler til work ---
+(function(){
+  function saveDriver(){
+    const el = document.querySelector(
+      '#home input[type="text"], #home [name="driver"], #home [placeholder*="fører" i]'
+    );
+    if (!el) return;
+    const val = (el.value || el.textContent || '').trim();
+    if (val.length > 0) {
+      localStorage.setItem('LAST_DRIVER', val);
+      console.log('💾 Lagret driver:', val);
+      mirrorDriver(val);
+    }
+  }
+
+  function mirrorDriver(name){
+    let el = document.querySelector('#work_driver_mirror');
+    if (!el) {
+      el = document.createElement('span');
+      el.id = 'work_driver_mirror';
+      el.hidden = true;
+      el.setAttribute('aria-hidden','true');
+      document.body.appendChild(el);
+    }
+    el.setAttribute('data-driver', name);
+    console.log('🔁 Speilet driver:', name);
+  }
+
+  // Oppdater hver gang du skriver
+  document.addEventListener('input', e => {
+    if (e.target.closest('#home')) saveDriver();
+  });
+
+  // Oppdater ved lasting/bytte
+  document.addEventListener('DOMContentLoaded', () => {
+    const cached = localStorage.getItem('LAST_DRIVER') || '';
+    if (cached) mirrorDriver(cached);
+  });
+  window.addEventListener('hashchange', () => {
+    const cached = localStorage.getItem('LAST_DRIVER') || '';
+    if (cached) mirrorDriver(cached);
+  });
+})();
