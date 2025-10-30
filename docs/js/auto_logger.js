@@ -78,8 +78,13 @@
     }
     return '';
   }
-  function rememberDriver(name){ try{ if(name) sessionStorage.setItem('LAST_DRIVER', name); }catch{} }
-  function recallDriver(){ try{ return sessionStorage.getItem('LAST_DRIVER') || ''; }catch{ return ''; } }
+  // ——— DRIVER: lagre i localStorage (overlever faner/sider)
+  function rememberDriver(name){
+  try { if (name) localStorage.setItem('LAST_DRIVER', name); } catch {}
+}
+  function recallDriver(){
+  try { return localStorage.getItem('LAST_DRIVER') || ''; } catch { return ''; }
+}
 
   (function watchDriverChanges(){
     // oppdag endringer og cache
@@ -115,25 +120,31 @@
 
   // ——— ADRESSE (Under arbeid) — bred sniff + caching
   function sniffAddressFromDOM() {
-    const sels = [
-      '#work [data-current-address]',
-      '#work .work-card h2',
-      '#work .work-card .title',
-      '#work .now + h2',
-      '.current-address',
-      '[data-addr-now]',
-      '[data-addr]'
-    ];
-    for (const s of sels) {
-      const el = $(s);
-      if (!el) continue;
-      const txt = (el.getAttribute('data-current-address') || el.textContent || '').trim();
-      if (txt) return txt;
-    }
-    return '';
+  const sels = [
+    '#work [data-current-address]',
+    '#work .work-card h2',
+    '#work .work-card .title',
+    '#work h2',               // <— nye, brede fallback
+    '#work h3',
+    '#work [class*="addr"]',
+    '[data-addr-now]',
+    '[data-addr]'
+  ];
+  for (const s of sels) {
+    const el = document.querySelector(s);
+    if (!el) continue;
+    const txt = (el.getAttribute('data-current-address') || el.textContent || '').trim();
+    if (txt && !/^nå$/i.test(txt)) return txt;  // filtrer bort en ren “Nå”-label
   }
-  function rememberAddress(addr){ try{ if (addr) sessionStorage.setItem('LAST_ADDR', addr); }catch{} }
-  function recallAddress(){ try{ return sessionStorage.getItem('LAST_ADDR') || ''; }catch{ return ''; } }
+  return '';
+}
+  // ——— ADRESSE: lagre i localStorage (overlever faner/sider)
+function rememberAddress(addr){
+  try { if (addr) localStorage.setItem('LAST_ADDR', addr); } catch {}
+}
+function recallAddress(){
+  try { return localStorage.getItem('LAST_ADDR') || ''; } catch { return ''; }
+}
 
   (function watchAddressChanges(){
     const mo = new MutationObserver(()=> {
