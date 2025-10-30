@@ -235,3 +235,34 @@
     addLoggButton();
   }
 })();
+// --- Sett inn "Logg (A4)"-knapp i Admin uansett partial/cache ---
+(function(){
+  function addLoggButton(){
+    const admin = document.querySelector('#admin');
+    if (!admin || admin.querySelector('#adm_open_logg')) return;
+
+    // Finn "Adresse-register"-knapperaden vi så i koden din
+    const addrRow = admin.querySelector('#adm_addr_msg')?.closest('.row');
+
+    const html = `
+      <h2>Rapporter</h2>
+      <div class="row" style="flex-wrap:wrap">
+        <a id="adm_open_logg" class="btn" href="./logg.html">🧾 Åpne Logg (A4)</a>
+        <span class="badge">Les &amp; skriv ut</span>
+      </div>
+    `;
+
+    if (addrRow && addrRow.parentNode) {
+      addrRow.insertAdjacentHTML('afterend', html);
+    } else {
+      // Fallback: legg den på slutten av admin-seksjonen
+      admin.insertAdjacentHTML('beforeend', html);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', addLoggButton);
+  } else {
+    addLoggButton();
+  }
+})();
