@@ -36,13 +36,23 @@ async function ensureKeyPrompt(){
   return true;
 }
 async function fetchLatestForBin(binId){
-  const key=getKeyForBin(binId); if(!key){ console.warn('Mangler key for',binId); return []; }
-  const url=`https://api.jsonbin.io/v3/b/${binId}/latest`;
-  const r=await fetch(url,{headers:{'X-Master-Key':key}});
-  if(!r.ok){ console.warn('BIN',binId,'ga',r.status); return []; }
-  const j=await r.json(); const rec=j && j.record;
-  return Array.isArray(rec)?rec:(rec && Array.isArray(rec.reports)?rec.reports:[]);
+  const key=getKeyForBin(binId);
+  if(!key){ console.warn('Mangler key for', binId); return []; }
+
+  // Bruk CORS-proxy for å omgå blokkering (gratis)
+  const proxy = "https://api.allorigins.win/raw?url=";
+  const target = encodeURIComponent(`https://api.jsonbin.io/v3/b/${binId}/latest`);
+
+  const r = await fetch(proxy + target, {
+    headers: { 'X-Master-Key': key }
+  });
+
+  if(!r.ok){ console.warn('BIN', binId, 'ga', r.status); return []; }
+  const j = await r.json();
+  const rec = j && j.record;
+  return Array.isArray(rec) ? rec : (rec && Array.isArray(rec.reports) ? rec.reports : []);
 }
+
 function mergeEvents(lists){
   const flat=lists.flat().filter(Boolean);
   flat.sort((a,b)=> new Date(a.ts||a.t||0)-new Date(b.ts||b.t||0));
