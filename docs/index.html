@@ -255,37 +255,55 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script>
-(function ensureLoggButton(){
-  function addLoggButton(){
-    const admin = document.querySelector('#admin');
-    if (!admin) return false;                       // admin ikke lastet enda
-    if (admin.querySelector('#adm_open_logg')) return true; // allerede lagt inn
+/* Logg-knapp: legg kun INNI #admin, én gang, når Admin er aktiv */
+(function(){
+  const BLOCK_ID = 'adm_logg_block';
 
-    // Finn "Adresse-register"-raden hvis mulig, ellers fallback
-    const anchor =
-      admin.querySelector('#adm_addr_msg')?.closest('.row') ||
-      admin.querySelector('h2:nth-of-type(2) + .row') ||
-      admin;
-
-    const html = `
-      <h2>Rapporter</h2>
-      <div class="row" style="flex-wrap:wrap">
-        <a id="adm_open_logg" class="btn" href="./logg.html">🧾 Åpne Logg (A4)</a>
-        <span class="badge">Les &amp; skriv ut</span>
-      </div>
-    `;
-    anchor.insertAdjacentHTML('afterend', html);
-    return true;
+  function isAdminVisible(admin){
+    // Admin er aktiv når hash peker dit, eller hidden-attributtet er fjernet
+    if (!admin) return false;
+    if (!admin.hasAttribute('hidden')) return true;
+    return (location.hash || '').replace('#','').toLowerCase() === 'admin';
   }
 
-  // Prøv jevnlig til knappen finnes (asynk partials/SPA)
-  const t = setInterval(() => {
-    if (addLoggButton()) {
-      const ok = document.querySelector('#admin #adm_open_logg');
-      if (ok) clearInterval(t);
+  function ensureButton(){
+    const admin = document.querySelector('#admin');
+    if (!admin) return;
+
+    // Rydd opp eventuelle “feilplasserte” blokker (skulle bare ligget inni #admin)
+    document.querySelectorAll('#' + BLOCK_ID).forEach(n => {
+      if (!admin.contains(n)) n.remove();
+    });
+
+    if (!isAdminVisible(admin)) return;           // vent til Admin vises
+    if (admin.querySelector('#' + BLOCK_ID)) return; // finnes allerede
+
+    // Anker rett under "Adresse-register"-raden hvis mulig
+    const anchor = admin.querySelector('#adm_addr_msg')?.closest('.row') || null;
+
+    const html = `
+      <section id="${BLOCK_ID}">
+        <h2>Rapporter</h2>
+        <div class="row" style="flex-wrap:wrap">
+          <a id="adm_open_logg" class="btn" href="./logg.html">🧾 Åpne Logg (A4)</a>
+          <span class="badge">Les &amp; skriv ut</span>
+        </div>
+      </section>
+    `;
+
+    if (anchor) {
+      anchor.insertAdjacentHTML('afterend', html);   // rett under Adresse-registeret
+    } else {
+      admin.insertAdjacentHTML('beforeend', html);   // ellers nederst i Admin
     }
-  }, 500);
+  }
+
+  // Kjør jevnlig (partials/SPA). Stopper naturlig når knappen er inne i Admin.
+  const iv = setInterval(ensureButton, 400);
+  window.addEventListener('hashchange', ensureButton);
+  document.addEventListener('visibilitychange', ensureButton);
 })();
 </script>
+
 </body>
 </html>
