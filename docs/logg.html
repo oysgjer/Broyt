@@ -1,100 +1,59 @@
 <!doctype html>
 <html lang="no">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Brøyterute – Logg (A4)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="./css/style.css">
   <style>
-    :root{
-      --border:#6b7280;
-      --muted:#6b7280;
-      --ink:#0b0b0c;
-      --bg:#f7f7fb;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
-
-    .wrap{max-width:1160px;margin:16px auto;padding:12px}
-    h1{margin:0 0 8px;font-size:20px}
-    .controls{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
-    .btn{padding:8px 10px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer}
-    .btn:hover{background:#f8fafc}
-    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
-    .row label{font-weight:600}
-    .row input,.row select{border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px}
-    .sp{flex:1}
-    .muted{color:var(--muted)}
-
-    .sheet{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px}
-    table{width:100%;border-collapse:separate;border-spacing:0}
-    thead th, tbody td{border:1px solid var(--border)}
-    thead th{background:#f3f4f6;font-weight:700;text-align:center}
-    tbody td{height:24px}
-    .meta-col{width:140px;min-width:140px}
-    .meta-col-2{width:200px;min-width:200px}
-    .addr-th{inline-size:28px;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;padding:6px 2px;font-size:12px;line-height:1.1}
-    .cell{height:24px}
-    .footer{margin-top:8px;font-size:12px;color:#374151;display:flex;justify-content:space-between;gap:12px}
-    .right{margin-left:auto}
-    .badge{display:inline-block;padding:2px 6px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;margin-left:6px}
-
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin:16px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .hdr{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin:10px 0 6px}
+    .hdr .cell{padding:6px 8px;border:1px solid #ddd;border-radius:8px;background:#fafafa}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #eee}
+    th{background:#f6f7f8;text-align:left}
     @media print{
-      @page{size:A4 landscape;margin:10mm}
-      body{background:#fff}
-      .wrap{max-width:none;margin:0;padding:0}
-      .controls{display:none !important}
-      .sheet{border:none;padding:0}
-      table{font-size:11px}
-      .addr-th{font-size:11px}
+      .controls{display:none}
+      body{margin:0.8cm}
+      th,td{padding:6px}
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Loggskjema</h1>
 
-    <div class="controls">
-      <label>Dato <input id="inpDato" type="date"></label>
-      <label>Sjåfør
-        <select id="selDriver"><option value="">Alle</option></select>
-      </label>
-      <button class="btn" id="btnReload">Last fra JSONBin</button>
-      <button class="btn" id="btnPrint">Skriv ut / PDF</button>
-    </div>
-
-    <div class="sheet">
-      <div class="row">
-        <label for="inpNavn">Navn</label>
-        <input id="inpNavn" class="sp" placeholder="Fører" />
-        <label for="inpDatoHdr">Dato</label>
-        <input id="inpDatoHdr" type="date" />
-        <label for="inpMnd">Måned og år</label>
-        <input id="inpMnd" placeholder="mm.åååå" />
-      </div>
-
-      <div style="overflow:auto">
-        <table id="logTable">
-          <thead id="thead">
-            <tr id="hdr1">
-              <th class="meta-col">Tid</th>
-              <th class="meta-col-2">Merknader / Bil</th>
-            </tr>
-            <tr id="hdr2">
-              <th></th><th></th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-
-      <div class="footer">
-        <div>Fylles ut og leveres etter hvert skift. Ta også bilde og send på SMS til Gorm.</div>
-        <div class="right">Brøyting Romerike Trefelling</div>
-      </div>
-    </div>
+  <div class="controls">
+    <label>Dato <input id="inpDato" type="date"></label>
+    <label>Sjåfør
+      <select id="selDriver"><option value="">Alle</option></select>
+    </label>
+    <button id="btnLoadLogg" class="btn">Last fra JSONBin</button>
+    <button onclick="window.print()">Skriv ut / PDF</button>
   </div>
 
-  <script src="js/Logg.js?v=1"></script>
+  <!-- Overskrift / nøkkelfelt -->
+  <div class="hdr">
+    <div class="cell"><b>Navn:</b> <span id="hdrName">—</span></div>
+    <div class="cell"><b>Måned og år:</b> <span id="hdrMonthYear">—</span></div>
+    <div class="cell"><b>Oppstart klokken:</b> <span id="hdrStart">—</span></div>
+    <div class="cell"><b>Avsluttet klokken:</b> <span id="hdrEnd">—</span></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Adresse</th>
+        <th>Oppgave</th>
+        <th>Tid startet</th>
+        <th>Tid ferdig</th>
+        <th>Benyttet tid</th>
+      </tr>
+    </thead>
+    <tbody id="logg_tbody"></tbody>
+  </table>
+
+  <div style="margin-top:10px;color:#6b7280">Brøyting Romerike Trefelling</div>
+
+  <script src="./js/logg.js" defer></script>
 </body>
 </html>
