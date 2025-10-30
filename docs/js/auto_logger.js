@@ -6,7 +6,7 @@
   const API_PUT    = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
   const QKEY = 'AUTOLOG_QUEUE';
 
-  // —————————————— liten badge (på knappen) ——————————————
+  // ——— liten badge (på knappen)
   (function injectCSS(){
     if (document.getElementById('logMarkCSS')) return;
     const st = document.createElement('style'); st.id='logMarkCSS';
@@ -22,7 +22,6 @@
     document.head.appendChild(st);
   })();
 
-  // —————————————— helpers ——————————————
   const $  = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
   const nowIso = () => new Date().toISOString();
@@ -30,6 +29,7 @@
   function readQueue(){ try{ return JSON.parse(localStorage.getItem(QKEY) || '[]'); }catch{ return []; } }
   function writeQueue(a){ try{ localStorage.setItem(QKEY, JSON.stringify(a)); }catch{} }
 
+  // ——— master key
   function getMasterKey(){
     try{
       for (const k of ['X_MASTER_KEY','JSONBIN_MASTER_KEY']) {
@@ -53,16 +53,28 @@
     return null;
   }
 
-  // ——— Sjåfør (navn)
+  // ——— DRIVER (navn) — bred sniff + caching
   function sniffDriverFromDOM(){
+    // typiske steder for “Fører”/navn
     const sels = [
-      '#driver', '#sjafor', '#sjåfør', '#inpDriver', 'input[name="driver"]',
-      'input[data-role="driver"]', '#home input[type="text"]'
+      '#home input[type="text"]',         // Hjem: ett tekstfelt m/ navn
+      '#home .grid2 input[type="text"]',
+      'input[name="driver"]',
+      'input[data-role="driver"]',
+      '#driver', '#sjafor', '#sjåfør', '#inpDriver'
     ];
     for (const s of sels){
       const el = $(s);
-      if (el && el.value && el.value.trim()) return el.value.trim();
-      if (el && el.textContent && el.textContent.trim()) return el.textContent.trim();
+      if (!el) continue;
+      if (el.value && el.value.trim()) return el.value.trim();
+      if (el.textContent && el.textContent.trim()) return el.textContent.trim();
+    }
+    // fallback: ta første tekst-input i “Fører”-seksjonen
+    const labelLike = Array.from(document.querySelectorAll('#home label, #home .label'))
+      .find(l => /før(er|ar)/i.test(l.textContent||''));
+    if (labelLike){
+      const input = labelLike.parentElement?.querySelector('input[type="text"]');
+      if (input && input.value.trim()) return input.value.trim();
     }
     return '';
   }
@@ -70,15 +82,24 @@
   function recallDriver(){ try{ return sessionStorage.getItem('LAST_DRIVER') || ''; }catch{ return ''; } }
 
   (function watchDriverChanges(){
+    // oppdag endringer og cache
     const mo = new MutationObserver(()=> {
       const d = sniffDriverFromDOM(); if (d) rememberDriver(d);
     });
     mo.observe(document.body, {childList:true, subtree:true, characterData:true});
     const d = sniffDriverFromDOM(); if (d) rememberDriver(d);
+
+    // og lagre ved input-typing
+    document.addEventListener('input', (e)=>{
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      if (t.type === 'text' && (t.closest('#home') || /driver|sjaf|sjåf/i.test(t.name||''))){
+        if (t.value.trim()) rememberDriver(t.value.trim());
+      }
+    }, true);
   })();
 
   function getDriver(){
-    // DOM → sessionStorage → localStorage
     const fromDom = sniffDriverFromDOM(); if (fromDom) return fromDom;
     const cached  = recallDriver();       if (cached)  return cached;
 
@@ -92,12 +113,12 @@
     return 'Ukjent';
   }
 
-  // ——— Adresse (nåværende)
+  // ——— ADRESSE (Under arbeid) — bred sniff + caching
   function sniffAddressFromDOM() {
     const sels = [
+      '#work [data-current-address]',
       '#work .work-card h2',
       '#work .work-card .title',
-      '#work [data-current-address]',
       '#work .now + h2',
       '.current-address',
       '[data-addr-now]',
@@ -105,15 +126,15 @@
     ];
     for (const s of sels) {
       const el = $(s);
-      if (el) {
-        const txt = (el.getAttribute('data-current-address') || el.textContent || '').trim();
-        if (txt) return txt;
-      }
+      if (!el) continue;
+      const txt = (el.getAttribute('data-current-address') || el.textContent || '').trim();
+      if (txt) return txt;
     }
     return '';
   }
   function rememberAddress(addr){ try{ if (addr) sessionStorage.setItem('LAST_ADDR', addr); }catch{} }
   function recallAddress(){ try{ return sessionStorage.getItem('LAST_ADDR') || ''; }catch{ return ''; } }
+
   (function watchAddressChanges(){
     const mo = new MutationObserver(()=> {
       const a = sniffAddressFromDOM(); if (a) rememberAddress(a);
@@ -121,23 +142,28 @@
     mo.observe(document.body, {childList:true, subtree:true, characterData:true});
     const a = sniffAddressFromDOM(); if (a) rememberAddress(a);
   })();
+
   function getAddress(){ return sniffAddressFromDOM() || recallAddress() || ''; }
 
-  // ——— Oppgave: Snø/Grus (fres = Snø)
+  // ——— OPPGAVE: Snø/Grus (fres regnes som Snø)
   function getTask(){
-    const grusSel = ['#utstyr_grus:checked','input[name="grus"]:checked','input[data-task="grus"]:checked'];
+    const grusSel = [
+      '#utstyr_grus:checked',
+      'input[name="grus"]:checked',
+      'input[data-task="grus"]:checked',
+      '#utstyr_sandgrus:checked'
+    ];
     for (const s of grusSel) if (document.querySelector(s)) return 'Grus';
     return 'Snø';
   }
 
-  // ——— JSONBin helpers (med fallback via CORS-proxy for PUT)
+  // ——— JSONBin helpers m/ CORS-fallback for PUT
   async function fetchRecordForBin(key){
     const r = await fetch(API_LATEST, { headers:{'X-Master-Key': key} });
     if(!r.ok) throw new Error('JSONBin feil '+r.status);
     return r.json();
   }
   async function putRecord(key, body){
-    // Prøv direkte først
     try{
       const r = await fetch(API_PUT, {
         method:'PUT',
@@ -147,7 +173,6 @@
       if (!r.ok) throw new Error('PUT:'+r.status);
       return r.json();
     }catch(_){
-      // Fallback via corsproxy.io (støtter headere & PUT)
       const url = "https://corsproxy.io/?" + encodeURIComponent(API_PUT);
       const r2 = await fetch(url, {
         method:'PUT',
@@ -165,17 +190,11 @@
     try{
       const cur  = await fetchRecordForBin(key);
       let body   = cur && cur.record ? cur.record : [];
-      // Støtt både {record:[...]} og {record:{reports:[]}}
-      if (Array.isArray(body)) {
-        body.push(...q);
-      } else {
-        body.reports = Array.isArray(body.reports) ? body.reports : [];
-        body.reports.push(...q);
-      }
+      if (Array.isArray(body)) { body.push(...q); }
+      else { body.reports = Array.isArray(body.reports) ? body.reports : []; body.reports.push(...q); }
       await putRecord(key, body);
       writeQueue([]); // tømt
     }catch(e){
-      // Behold i kø – prøver igjen senere
       console.warn('primary put failed — will retry later', e);
     }
   }
@@ -212,7 +231,6 @@
     flushQueue();
   }
 
-  // ——— Bind knapper (id + data-action + norsk tekst)
   const MAP = {
     start:      ['#btnStart','[data-action="start"]'],
     ferdig:     ['#btnFerdig','[data-action="done"]'],
