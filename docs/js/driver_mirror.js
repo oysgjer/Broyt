@@ -1,54 +1,67 @@
-/*! driver_mirror.js
- * Speiler sjåførnavn fra Hjem til Under arbeid uten å vise det i UI.
- * - Leser/lagrer LAST_DRIVER i localStorage
- * - Oppretter (om nødvendig) et skjult speil-element på Under arbeid: #work_driver_mirror[data-driver]
- * - Lytter på input-endringer i sjåførfeltet (Hjem) og oppdaterer speilet
- * Lastes trygt på alle sider (gjør ingenting om felt/områder ikke finnes).
+/*! driver_mirror.js (safe)
+ * Speiler sjåførnavn fra Hjem til Under arbeid – helt usynlig.
+ * - Lagrer LAST_DRIVER i localStorage
+ * - Oppretter #work_driver_mirror med data-driver, men INGEN synlig tekst
+ * - Elementet er både hidden & aria-hidden, og skjules også via CSS
  */
 (function(){
   'use strict';
 
+  function readDriverFromHome(){
+    try{
+      // Tekstinput eller felter som har driver/sjåfør
+      const el = document.querySelector('#home input[type="text"], input[name="driver"], #driver, #sjåfør, #sjafor');
+      const v = (el && (el.value || el.textContent || '') || '').trim();
+      return v || null;
+    }catch{ return null; }
+  }
+
   function ensureMirror(){
-    var mirror = document.getElementById('work_driver_mirror');
-    if (!mirror) {
-      var host = document.querySelector('#work') || document.body;
-      mirror = document.createElement('span');
-      mirror.id = 'work_driver_mirror';
-      mirror.hidden = true;
-      mirror.setAttribute('data-driver', '');
-      host.prepend(mirror);
+    let holder = document.querySelector('#work') || document.body;
+    let el = document.getElementById('work_driver_mirror');
+    if (!el){
+      el = document.createElement('span');
+      el.id = 'work_driver_mirror';
+      el.setAttribute('data-driver-mirror','');
+      el.hidden = true;
+      el.setAttribute('aria-hidden','true');
+      // viktig: IKKE tekst, kun data-attributt
+      el.textContent = '';
+      holder.appendChild(el);
     }
-    return mirror;
+    return el;
   }
 
-  function setDriverEverywhere(val){
-    var v = (val || '').trim();
-    try { localStorage.setItem('LAST_DRIVER', v); } catch {}
-    var mirror = ensureMirror();
-    mirror.setAttribute('data-driver', v);
+  function setDriverCache(name){
+    try{ if (name && name.length) localStorage.setItem('LAST_DRIVER', name); }catch{}
+  }
+  function getDriverCache(){
+    try{ return localStorage.getItem('LAST_DRIVER') || ''; }catch{ return ''; }
   }
 
-  function init(){
-    // 1) sett speilet fra localStorage ved oppstart
-    var cached = '';
-    try { cached = localStorage.getItem('LAST_DRIVER') || ''; } catch {}
-    setDriverEverywhere(cached);
+  function update(){
+    const name = readDriverFromHome() || getDriverCache() || '';
+    const mir = ensureMirror();
+    if (name) mir.setAttribute('data-driver', name);
+    // aldri vis tekst
+    mir.textContent = '';
+  }
 
-    // 2) hvis Hjem har sjåførfelt – synkroniser løpende
-    var drvInput = document.querySelector('#home input[type="text"], input[name="driver"], #driver, #sjafor, #sjåfør');
-    if (drvInput) {
-      if (!drvInput.value && cached) drvInput.value = cached;
-      setDriverEverywhere(drvInput.value);
-
-      ['input','change','blur'].forEach(function(evt){
-        drvInput.addEventListener(evt, function(){ setDriverEverywhere(drvInput.value); }, {passive:true});
-      });
+  document.addEventListener('input', function(e){
+    // Oppdater cache når man skriver i fører-felt
+    if (e.target && (e.target.id==='driver' || e.target.name==='driver' || e.target.closest('#home'))) {
+      const v = (e.target.value || '').trim();
+      if (v) setDriverCache(v);
+      update();
     }
-  }
+  });
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, {once:true});
+    document.addEventListener('DOMContentLoaded', update, {once:true});
   } else {
-    init();
+    update();
   }
+
+  // Oppdater når vi bytter seksjon mellom home/work
+  window.addEventListener('hashchange', update);
 })();

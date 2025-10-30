@@ -1,71 +1,51 @@
-/*! work_addr_tag.js
- * Setter/vedlikeholder data-current-address i #work når "Nå"-adressen endres.
- * - Leter etter typiske adressefelt (h2 i work-card, .current-address, etc.)
- * - Skriver attributtet på det samme elementet som viser teksten
- * - Kaller også en tilbakemelding dersom global hook finnes (window.onWorkAddressTag)
+/*! work_addr_tag.js (safe)
+ * Tagger elementet i #work som viser "Nå"-adressen, med data-current-address.
+ * - Leter kun i #work
+ * - Skriver KUN data-attributt, ikke tekst
+ * - Ingen nye synlige elementer
  */
 (function(){
   'use strict';
 
-  function extractText(el){
-    if (!el) return '';
-    var t = (el.getAttribute('data-current-address') || el.textContent || '').trim();
-    return t;
+  function getText(el){
+    return (el && (el.getAttribute('data-current-address') || el.textContent || '').trim()) || '';
+  }
+  function tag(el, txt){
+    if (el && txt) el.setAttribute('data-current-address', txt);
   }
 
-  function tagElement(el, txt){
-    if (!el) return;
-    if (txt) el.setAttribute('data-current-address', txt);
-    // kall hook hvis noen vil vite om oppdatering
-    try{
-      if (typeof window.onWorkAddressTag === 'function'){
-        window.onWorkAddressTag({ element: el, address: txt });
-      }
-    }catch{}
-  }
+  const selectors = [
+    '#work [data-current-address]',
+    '#work .work-card h2',
+    '#work .work-card .title',
+    '#work .current-address',
+    '#work .now + h2',
+    '#work .now + .title',
+    '#work [data-addr-now]'
+  ];
 
-  function scanOnce(){
-    var root = document.querySelector('#work');
-    if (!root) return;
-
-    var sels = [
-      '#work .work-card h2',
-      '#work .work-card .title',
-      '#work [data-current-address]',
-      '#work .current-address',
-      '#work .now + h2',
-      '#work .now + .title',
-      '#work [data-addr-now]'
-    ];
-
-    for (var i=0;i<sels.length;i++){
-      var el = document.querySelector(sels[i]);
+  function scan(){
+    for (let s of selectors){
+      const el = document.querySelector(s);
       if (!el) continue;
-      var txt = extractText(el);
-      if (txt && !/^nå$/i.test(txt)) {
-        tagElement(el, txt);
+      const txt = getText(el);
+      if (txt && !/^nå$/i.test(txt)){
+        tag(el, txt);
         return;
       }
     }
   }
 
   function init(){
-    // Først et skann etter DOMContentLoaded
-    scanOnce();
-
-    // Overvåk endringer i #work (knapper som navigerer mellom adresser etc.)
-    var root = document.querySelector('#work') || document.body;
-    var mo = new MutationObserver(function(muts){
-      // throttled scan
-      if (init._t) cancelAnimationFrame(init._t);
-      init._t = requestAnimationFrame(scanOnce);
+    scan();
+    const root = document.querySelector('#work') || document.body;
+    const mo = new MutationObserver(()=>{
+      if (init._raf) cancelAnimationFrame(init._raf);
+      init._raf = requestAnimationFrame(scan);
     });
-    mo.observe(root, { childList:true, subtree:true, characterData:true, attributes:true });
+    mo.observe(root, {childList:true, subtree:true, characterData:true, attributes:true});
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once:true });
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
+  else init();
 })();

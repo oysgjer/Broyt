@@ -1,0 +1,11 @@
+/* stealth.css – sørger for at speil aldri synes eller påvirker layout */
+#work_driver_mirror,
+[data-driver-mirror]{
+  position:absolute !important;
+  width:0 !important;
+  height:0 !important;
+  overflow:hidden !important;
+  clip-path: inset(50%) !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
