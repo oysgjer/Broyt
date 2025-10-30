@@ -108,6 +108,47 @@
     return rows;
   }
 
+  function buildTable(addrs, rows){
+    const hdr1 = byId('hdr1');
+    const hdr2 = byId('hdr2');
+    const tbody = byId('tbody');
+
+    hdr1.querySelectorAll('th.addr').forEach(n=>n.remove());
+    hdr2.querySelectorAll('th.addr').forEach(n=>n.remove());
+    tbody.innerHTML='';
+
+    addrs.forEach(a=>{
+      const th = document.createElement('th'); th.className='addr';
+      th.innerHTML = `<div class="addr-th">${a||''}</div>`;
+      hdr2.appendChild(th);
+      const th2 = document.createElement('th'); th2.className='addr'; th2.style.display='none';
+      hdr1.appendChild(th2);
+    });
+
+    const colIndex = new Map();
+    addrs.forEach((a,i)=> colIndex.set(a,i));
+
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      const timeStr = (r.start?fmtHm(r.start):'—') + '–' + (r.end?fmtHm(r.end):'—');
+      const td1 = document.createElement('td'); td1.textContent = timeStr; tr.appendChild(td1);
+      const td2 = document.createElement('td'); td2.textContent = r.note || ''; tr.appendChild(td2);
+      for (let i=0;i<addrs.length;i++){ const td=document.createElement('td'); tr.appendChild(td); }
+      const idx = colIndex.get(r.address);
+      if (idx!=null){
+        const cell = tr.children[2+idx];
+        if (r.note==='Hopp over' || r.note==='Ikke mulig'){
+          cell.textContent = r.note;
+        }else{
+          cell.textContent = (r.sg||'') + (r.sg? ' ' : '') + timeStr;
+        }
+      }else{
+        tr.children[1].textContent = (tr.children[1].textContent? tr.children[1].textContent + ' | ' : '') + (r.address||'');
+      }
+      tbody.appendChild(tr);
+    });
+  }
+
   async function loadAndRender(){
     const dateSel = byId('inpDato').value || fmtDateInput(new Date());
     const driverSel = byId('selDriver').value || '';
@@ -143,45 +184,7 @@
     const dt = parseLocalDate(dateSel);
     byId('inpMnd').value = String(dt.getMonth()+1).padStart(2,'0') + '.' + dt.getFullYear();
 
-    // Build table structure dynamically from addresses
-    const table = document.getElementById('logTable');
-    const thead = document.getElementById('thead');
-    const hdr1 = document.getElementById('hdr1');
-    const hdr2 = document.getElementById('hdr2');
-    const tbody = document.getElementById('tbody');
-    hdr1.querySelectorAll('th.addr').forEach(n=>n.remove());
-    hdr2.querySelectorAll('th.addr').forEach(n=>n.remove());
-    tbody.innerHTML='';
-    addrs.forEach(a=>{
-      const th = document.createElement('th'); th.className='addr';
-      th.innerHTML = `<div class="addr-th">${a||''}</div>`;
-      hdr2.appendChild(th);
-      const th2 = document.createElement('th'); th2.className='addr'; th2.style.display='none';
-      hdr1.appendChild(th2);
-    });
-
-    const colIndex = new Map();
-    addrs.forEach((a,i)=> colIndex.set(a,i));
-
-    rows.forEach(r=>{
-      const tr = document.createElement('tr');
-      const timeStr = (r.start?fmtHm(r.start):'—') + '–' + (r.end?fmtHm(r.end):'—');
-      const td1 = document.createElement('td'); td1.textContent = timeStr; tr.appendChild(td1);
-      const td2 = document.createElement('td'); td2.textContent = r.note || ''; tr.appendChild(td2);
-      for (let i=0;i<addrs.length;i++){ const td=document.createElement('td'); tr.appendChild(td); }
-      const idx = colIndex.get(r.address);
-      if (idx!=null){
-        const cell = tr.children[2+idx];
-        if (r.note==='Hopp over' || r.note==='Ikke mulig'){
-          cell.textContent = r.note;
-        }else{
-          cell.textContent = (r.sg||'') + (r.sg? ' ' : '') + timeStr;
-        }
-      }else{
-        tr.children[1].textContent = (tr.children[1].textContent? tr.children[1].textContent + ' | ' : '') + (r.address||'');
-      }
-      tbody.appendChild(tr);
-    });
+    buildTable(addrs, rows);
   }
 
   function init(){
