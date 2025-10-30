@@ -5,7 +5,6 @@
   const API_PUT    = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
   const QKEY = 'AUTOLOG_QUEUE';
 
-  // --- CSS for indikator (flytende, påvirker ikke layout) ---
   (function injectCSS(){
     if (document.getElementById('logMarkCSS')) return;
     const st = document.createElement('style'); st.id='logMarkCSS';
@@ -23,9 +22,6 @@
     document.head.appendChild(st);
   })();
 
-  // --- helpers ---
-  const $ = (s, r=document) => r.querySelector(s);
-  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
   const nowIso = () => new Date().toISOString();
 
   function getMasterKey(){
@@ -63,11 +59,11 @@
   }
 
   function getAddress(){
-    const el = $('#addr,#address,.current-address,[data-current-address]');
+    const el = document.querySelector('#addr,#address,.current-address,[data-current-address]');
     if (el) return (el.getAttribute('data-current-address') || el.textContent || '').trim();
-    const active = $('.job-item.active,.address.active,[data-addr]');
+    const active = document.querySelector('.job-item.active,.address.active,[data-addr]');
     if (active) return (active.getAttribute('data-addr') || active.textContent || '').trim();
-    const now = $('#work .work-card h2, #work .work-card .now, #work .work-card .title');
+    const now = document.querySelector('#work .work-card h2, #work .work-card .now, #work .work-card .title');
     if (now) return now.textContent.trim();
     return '';
   }
@@ -82,8 +78,7 @@
   }
   async function putRecord(key, body){
     const r = await fetch(API_PUT, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key': key},
+      method:'PUT', headers:{'Content-Type':'application/json','X-Master-Key': key},
       body: JSON.stringify(body)
     });
     if(!r.ok) throw new Error('JSONBin feil '+r.status);
@@ -99,11 +94,10 @@
       body.reports = Array.isArray(body.reports) ? body.reports : [];
       Array.prototype.push.apply(body.reports, q);
       await putRecord(key, body);
-      writeQueue([]); // tømt
-    }catch(e){ /* behold i kø */ }
+      writeQueue([]);
+    }catch(e){ /* keep queued */ }
   }
 
-  // --- vis indikator ---
   function showMark(btn, type){
     const host = btn.closest('.btn, .menu-item, button') || btn.parentElement || btn;
     const cs = getComputedStyle(host);
@@ -129,7 +123,6 @@
     return { ts: nowIso(), driver: getDriver(), action, address: getAddress(), notes: '' };
   }
 
-  // --- bind knapper ---
   const MAP = {
     start:      ['#btnStart','[data-action="start"]'],
     ferdig:     ['#btnFerdig','[data-action="done"]'],
@@ -150,9 +143,9 @@
 
   function scanAndBind(){
     Object.entries(MAP).forEach(([action, sels])=>{
-      sels.forEach(sel => $$(sel).forEach(el => bindOnce(el, action)));
+      sels.forEach(sel => (document.querySelectorAll(sel)).forEach(el => bindOnce(el, action)));
     });
-    $$('button').forEach(btn=>{
+    (document.querySelectorAll('button')).forEach(btn=>{
       if (btn.dataset.autologBound) return;
       const t = (btn.innerText || btn.textContent || '').toLowerCase().trim();
       for (const [label, act] of Object.entries(TEXT_TO_ACTION)){

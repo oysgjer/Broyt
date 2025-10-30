@@ -26,7 +26,6 @@
     .sp{flex:1}
     .muted{color:var(--muted)}
 
-    /* TABELL */
     .sheet{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px}
     table{width:100%;border-collapse:separate;border-spacing:0}
     thead th, tbody td{border:1px solid var(--border)}
@@ -40,7 +39,6 @@
     .right{margin-left:auto}
     .badge{display:inline-block;padding:2px 6px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;margin-left:6px}
 
-    /* PRINT */
     @media print{
       @page{size:A4 landscape;margin:10mm}
       body{background:#fff}
@@ -66,7 +64,6 @@
     </div>
 
     <div class="sheet">
-      <!-- Topp-info -->
       <div class="row">
         <label for="inpNavn">Navn</label>
         <input id="inpNavn" class="sp" placeholder="Fører" />
@@ -76,7 +73,6 @@
         <input id="inpMnd" placeholder="mm.åååå" />
       </div>
 
-      <!-- Tabellen -->
       <div style="overflow:auto">
         <table id="logTable">
           <thead id="thead">
