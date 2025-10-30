@@ -255,17 +255,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script>
-(function(){
+(function ensureLoggButton(){
   function addLoggButton(){
     const admin = document.querySelector('#admin');
-    if (!admin || admin.querySelector('#adm_open_logg')) return;
+    if (!admin) return false;                       // admin ikke lastet enda
+    if (admin.querySelector('#adm_open_logg')) return true; // allerede lagt inn
 
+    // Finn "Adresse-register"-raden hvis mulig, ellers fallback
     const anchor =
       admin.querySelector('#adm_addr_msg')?.closest('.row') ||
       admin.querySelector('h2:nth-of-type(2) + .row') ||
       admin;
 
-    // HTML-innholdet for logg-knappen
     const html = `
       <h2>Rapporter</h2>
       <div class="row" style="flex-wrap:wrap">
@@ -273,38 +274,18 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="badge">Les &amp; skriv ut</span>
       </div>
     `;
-
-    // ✅ Legg til riktig — bruk insertAdjacentHTML i stedet for insertAdjacentElement
     anchor.insertAdjacentHTML('afterend', html);
+    return true;
   }
 
-  // Kjør jevnlig til knappen finnes
-  const timer = setInterval(() => {
-    addLoggButton();
-    const admin = document.querySelector('#admin');
-    if (admin && admin.querySelector('#adm_open_logg')) clearInterval(timer);
-  }, 700);
+  // Prøv jevnlig til knappen finnes (asynk partials/SPA)
+  const t = setInterval(() => {
+    if (addLoggButton()) {
+      const ok = document.querySelector('#admin #adm_open_logg');
+      if (ok) clearInterval(t);
+    }
+  }, 500);
 })();
-<script>
-  (function waitForAdminSection(){
-  // Finn "Adresse-register" feltet når det lastes inn
-  const el = document.querySelector('#adm_addr_msg');
-  if (!el) {
-    // prøv igjen om 500ms
-    return setTimeout(waitForAdminSection, 500);
-  }
-
-  // Ikke legg til flere ganger
-  if (document.querySelector('#adm_open_logg')) return;
-
-  // Sett inn under adresse-registeret
-  el.closest('.row').insertAdjacentHTML('afterend', `
-    <h2>Rapporter</h2>
-    <div class="row" style="flex-wrap:wrap">
-      <a id="adm_open_logg" class="btn" href="./logg.html">🧾 Åpne Logg (A4)</a>
-      <span class="badge">Les &amp; skriv ut</span>
-    </div>
-  `);
 </script>
 </body>
 </html>
