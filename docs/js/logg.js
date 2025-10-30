@@ -50,8 +50,8 @@ async function fetchLatestForBin(binId){
   const key = getKeyForBin(binId);
   if (!key){ console.warn('Mangler key for', binId); return []; }
 
-  // Gratis CORS-proxy: https://allorigins.win
-  const proxy = "https://api.allorigins.win/raw?url=";
+    // Gratis proxy som støtter headere (JSONBin + CORS)
+  const proxy = "https://corsproxy.io/?";
   const target = encodeURIComponent(`https://api.jsonbin.io/v3/b/${binId}/latest`);
 
   const r = await fetch(proxy + target, { headers: { 'X-Master-Key': key } });
