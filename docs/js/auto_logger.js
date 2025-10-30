@@ -90,13 +90,21 @@
     const q = readQueue(); if (!q.length) return;
     try{
       const cur = await fetchRecord(key);
-      const body = cur && cur.record ? cur.record : {};
-      body.reports = Array.isArray(body.reports) ? body.reports : [];
-      Array.prototype.push.apply(body.reports, q);
-      await putRecord(key, body);
-      writeQueue([]);
-    }catch(e){ /* keep queued */ }
-  }
+// Etter "const cur = await fetchRecord(key);"
+      let body = cur && cur.record ? cur.record : [];
+
+// Hvis record er objekt, bruk/lag reports-array; hvis det er array, behold som array
+if (Array.isArray(body)) {
+  // record = [events]
+  body.push(...q);
+} else {
+  // record = { reports: [] }
+  body.reports = Array.isArray(body.reports) ? body.reports : [];
+  body.reports.push(...q);
+}
+
+// PUT body: enten en array med events, eller et objekt med .reports
+await putRecord(key, body);
 
   function showMark(btn, type){
     const host = btn.closest('.btn, .menu-item, button') || btn.parentElement || btn;
