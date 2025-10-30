@@ -1,54 +1,36 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="no">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Brøyterute – Logg</title>
-  <link rel="stylesheet" href="./css/style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Logg</title>
+  <link rel="stylesheet" href="css/style.css">
   <style>
-    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-    .controls label{display:flex;gap:6px;align-items:center}
-    .hdr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 6px}
-    .hdr .cell{padding:6px 8px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--bg-soft,#fafafa)}
-    table{width:100%;border-collapse:collapse;margin-bottom:18px}
-    th,td{padding:8px;border-bottom:1px solid var(--border,#eee)}
-    th{background:var(--bg-muted,#f6f7f8);text-align:left}
-    .section-title{margin:18px 0 6px;font-size:1.1rem;font-weight:600}
-    .muted{color:#6b7280}
-    @media print{
-      .controls{display:none}
-      body{margin:0.8cm}
-      th,td{padding:6px}
-      .section-title{margin:8px 0 4px}
-    }
+    body{font-family:system-ui,-apple-system,segoe ui,roboto,ubuntu; margin:14px;}
+    table{width:100%; border-collapse:collapse}
+    th,td{border-top:1px solid #e5e7eb; padding:6px 8px; text-align:left}
+    h3{font-size:16px}
+    .toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px}
+    .toolbar input, .toolbar select, .toolbar button{padding:4px 8px}
+    #status{margin-left:8px; color:#555}
   </style>
 </head>
 <body>
-
-  <div class="controls">
-    <label>Sjåfør
-      <select id="selDriver"><option value="">Alle</option></select>
-    </label>
+  <div class="toolbar">
+    <label>Sjåfør <select id="selDriver"><option value="">Alle</option></select></label>
     <label>Sluttdato <input id="inpDato" type="date"></label>
     <label>Antall dager
       <select id="selDays">
-        <option value="1">1</option>
-        <option value="3">3</option>
-        <option value="5" selected>5</option>
-        <option value="7">7</option>
-        <option value="14">14</option>
-        <option value="30">30</option>
+        <option>1</option><option>3</option><option selected>5</option><option>7</option><option>14</option>
       </select>
     </label>
-    <button id="btnLoadLogg" class="btn">Last fra JSONBin</button>
+    <button id="btnLoadLogg">Last fra JSONBin</button>
     <button onclick="window.print()">Skriv ut / PDF</button>
-    <span id="status" class="muted"></span>
+    <span id="status"></span>
   </div>
 
   <div id="logg_container"></div>
 
-  <div style="margin-top:10px;color:#6b7280">Brøyting Romerike Trefelling</div>
-
-  <script src="./js/logg.js" defer></script>
+  <script src="js/logg.js"></script>
 </body>
 </html>
