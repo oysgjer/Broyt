@@ -86,25 +86,40 @@
   }
 
   async function flushQueue(){
-    const key = getMasterKey(); if (!key) return;
-    const q = readQueue(); if (!q.length) return;
-    try{
-      const cur = await fetchRecord(key);
-// Etter "const cur = await fetchRecord(key);"
-      let body = cur && cur.record ? cur.record : [];
+  const key = getMasterKey(); 
+  if (!key) return;
 
-// Hvis record er objekt, bruk/lag reports-array; hvis det er array, behold som array
-if (Array.isArray(body)) {
-  // record = [events]
-  body.push(...q);
-} else {
-  // record = { reports: [] }
-  body.reports = Array.isArray(body.reports) ? body.reports : [];
-  body.reports.push(...q);
+  const q = readQueue(); 
+  if (!q.length) return;
+
+  try{
+    // Hent nåværende record
+    const cur = await fetchRecord(key);
+
+    // Støtt begge formater:
+    //  - record = [events]
+    //  - record = { reports: [events] }
+    let body = (cur && cur.record) ? cur.record : [];
+
+    if (Array.isArray(body)) {
+      // record = [events]
+      body.push(...q);
+    } else {
+      // record = { reports: [] }
+      body.reports = Array.isArray(body.reports) ? body.reports : [];
+      body.reports.push(...q);
+    }
+
+    // PUT tilbake i samme format som vi mottok
+    await putRecord(key, body);
+
+    // Tom kø lokalt når PUT ok
+    writeQueue([]);
+  }catch(err){
+    // Behold køen for nytt forsøk senere
+    console.warn('flushQueue: PUT feilet – beholder køen', err);
+  }
 }
-
-// PUT body: enten en array med events, eller et objekt med .reports
-await putRecord(key, body);
 
   function showMark(btn, type){
     const host = btn.closest('.btn, .menu-item, button') || btn.parentElement || btn;
