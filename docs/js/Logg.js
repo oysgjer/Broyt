@@ -149,30 +149,35 @@
     });
   }
 
-  async function loadAndRender(){
-    const dateSel = byId('inpDato').value || fmtDateInput(new Date());
-    const driverSel = byId('selDriver').value || '';
+async function loadAndRender(){
+  const dateSel   = byId('inpDato').value || fmtDateInput(new Date());
+  const driverSel = byId('selDriver').value || '';
 
-    const key = getMasterKey();
-    if (!key){ alert('Mangler X-Master-Key i localStorage (Admin).'); return; }
+  const key = getMasterKey();
+  if (!key){ alert('Mangler X-Master-Key i localStorage (Admin).'); return; }
 
-    const r = await fetch(API_LATEST, { headers:{'X-Master-Key': key} });
-    if (!r.ok){ alert('Feil fra JSONBin: '+r.status); return; }
-    const j = await r.json();
-    const all = (j && j.record && Array.isArray(j.record.reports)) ? j.record.reports : [];
+  const r = await fetch(API_LATEST, { headers:{'X-Master-Key': key} });
+  if (!r.ok){ alert('Feil fra JSONBin: '+r.status); return; }
+  const j = await r.json();
 
-    const drivers = Array.from(new Set(all.map(x=>x.driver).filter(Boolean))).sort();
-    const sel = byId('selDriver'); const cur = sel.value;
-    sel.innerHTML = '<option value="">Alle</option>' + drivers.map(d=>`<option value="${d}">${d}</option>`).join('');
-    sel.value = driverSel || cur || '';
+  // ⬇️ PATCH: støtt record som array ELLER {reports:[…]}
+  const rec = j && j.record;
+  const all = Array.isArray(rec)
+    ? rec
+    : (rec && Array.isArray(rec.reports) ? rec.reports : []);
 
-    const d0 = parseLocalDate(dateSel);
-    const filtered = all.filter(x=> sameDay(x.ts, d0) && (!sel.value || x.driver===sel.value));
+  const drivers = Array.from(new Set(all.map(x=>x.driver).filter(Boolean))).sort();
+  const sel = byId('selDriver'); const cur = sel.value;
+  sel.innerHTML = '<option value="">Alle</option>' + drivers.map(d=>`<option value="${d}">${d}</option>`).join('');
+  sel.value = driverSel || cur || '';
 
-    let addrs = getAddressesFromApp();
-    if (!addrs.length){
-      addrs = Array.from(new Set(filtered.map(x=>x.address).filter(Boolean)));
-    }
+  const d0 = parseLocalDate(dateSel);
+  const filtered = all.filter(x => sameDay(x.ts, d0) && (!sel.value || x.driver === sel.value));
+
+  let addrs = getAddressesFromApp();
+  if (!addrs.length){
+    addrs = Array.from(new Set(filtered.map(x=>x.address).filter(Boolean)));
+  }
 
     const rows = groupRows(filtered);
 
