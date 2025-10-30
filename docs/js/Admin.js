@@ -200,3 +200,38 @@
   window.addEventListener('hashchange', ()=>{ if (location.hash==='#admin') boot(); });
   document.addEventListener('DOMContentLoaded', boot);
 })();
+
+// --- Sett inn "Logg (A4)"-knapp i Admin, hvis den ikke finnes fra før ---
+(function(){
+  function addLoggButton(){
+    const admin = document.querySelector('#admin');
+    if (!admin || admin.querySelector('#adm_open_logg')) return;
+
+    // finn "Adresse-register"-raden, så vi legger oss rett under
+    const addrRow = admin.querySelector('h2:nth-of-type(2) + .row');
+
+    const frag = document.createRange().createContextualFragment(`
+      <h2>Rapporter</h2>
+      <div class="row" style="flex-wrap:wrap">
+        <button id="adm_open_logg" class="btn">🧾 Åpne Logg (A4)</button>
+        <span class="badge">Les &amp; skriv ut</span>
+      </div>
+    `);
+
+    (addrRow?.parentNode || admin).insertBefore(frag, addrRow?.nextSibling || null);
+
+    // naviger uten SPA-router-krøll
+    admin.addEventListener('click', (e)=>{
+      const t = e.target;
+      if (t && t.id === 'adm_open_logg') {
+        location.href = './logg.html';
+      }
+    }, { once:true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', addLoggButton);
+  } else {
+    addLoggButton();
+  }
+})();
