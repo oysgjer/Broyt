@@ -1,207 +1,178 @@
-// Logg.js – henter hendelser fra JSONBin, lager printbar logg pr dato/sjåfør
-(function(){
-  const BIN_ID = '68e89e3443b1c97be9611c48';
-  const API_LATEST = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+// logg.js — multi-BIN, pairing og A4-visning
 
-  function byId(id){ return document.getElementById(id); }
-  function fmtHm(d){ try{ return new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }catch{return '';} }
-  function fmtDateInput(d){ const dt = new Date(d); return dt.toISOString().slice(0,10); }
-  function parseLocalDate(str){ return new Date(str+'T00:00:00'); }
+// ——— Konfig via localStorage ———
+//  JSONBIN_BIN_IDS: '["bin1","bin2"]'   (hvilke bins loggen skal lese)
+//  JSONBIN_KEYS:    '{"bin1":"key1","bin2":"key2"}'  (valgfritt per-BIN keys)
+//  X_MASTER_KEY:    "..."  (felles key hvis JSONBIN_KEYS ikke satt)
 
-  function getMasterKey(){
-    try{
-      for (const k of ['X_MASTER_KEY','JSONBIN_MASTER_KEY']) {
-        const v = localStorage.getItem(k) || sessionStorage.getItem(k);
-        if (v && v.length > 10) return v;
-      }
-      const candidates = ['BRYT_SYNC_CFG','SYNC_CFG','APP_CFG','CONFIG','BRØYT_CFG','BROYT_CFG','JSONBIN_CFG','JSONBIN'];
-      const fields = ['apiKey','reportsKey','masterKey','jsonbinKey','key'];
-      for (const k of candidates){
-        const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
-        if (!raw) continue;
-        try{
-          const obj = JSON.parse(raw);
-          for (const f of fields){ if (typeof obj[f] === 'string' && obj[f].length > 10) return obj[f]; }
-          const stack=[obj];
-          while (stack.length){
-            const it = stack.pop();
-            if (typeof it === 'string' && it.length > 20) return it;
-            if (it && typeof it === 'object'){ for (const v of Object.values(it)) stack.push(v); }
-          }
-        }catch{}
-      }
-    }catch{}
-    return null;
+// Fallback hvis ingenting er satt:
+const DEFAULT_BINS = ["68e7b4d2ae596e708f0bde7d"];
+
+// ---------- HJELPERE ----------
+function byId(id){ return document.getElementById(id); }
+function pad(n){ return n<10?('0'+n):n; }
+function fmtTime(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function fmtDateInput(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function sameDayISO(iso, d0){
+  if(!iso) return false;
+  const d=new Date(iso);
+  return d.getFullYear()===d0.getFullYear() && d.getMonth()===d0.getMonth() && d.getDate()===d0.getDate();
+}
+function getBinIds(){
+  try{
+    const raw = localStorage.getItem('JSONBIN_BIN_IDS'); if (raw){ const a=JSON.parse(raw); if (Array.isArray(a)&&a.length) return a; }
+  }catch{}
+  return DEFAULT_BINS.slice();
+}
+function getKeyForBin(binId){
+  try{
+    const m = JSON.parse(localStorage.getItem('JSONBIN_KEYS')||'{}');
+    if (m && typeof m[binId]==='string' && m[binId].length>10) return m[binId];
+  }catch{}
+  return localStorage.getItem('X_MASTER_KEY') || localStorage.getItem('JSONBIN_MASTER_KEY') || null;
+}
+async function ensureKeyPrompt(){
+  const k = localStorage.getItem('X_MASTER_KEY') || localStorage.getItem('JSONBIN_MASTER_KEY');
+  if (!k){
+    const v = prompt('Lim inn JSONBin X-Master-Key (lagres i localStorage)');
+    if (v) { localStorage.setItem('X_MASTER_KEY', v.trim()); return true; }
+    return false;
   }
+  return true;
+}
+async function fetchLatestForBin(binId){
+  const key=getKeyForBin(binId); if(!key){ console.warn('Mangler key for',binId); return []; }
+  const url=`https://api.jsonbin.io/v3/b/${binId}/latest`;
+  const r=await fetch(url,{headers:{'X-Master-Key':key}});
+  if(!r.ok){ console.warn('BIN',binId,'ga',r.status); return []; }
+  const j=await r.json(); const rec=j && j.record;
+  return Array.isArray(rec)?rec:(rec && Array.isArray(rec.reports)?rec.reports:[]);
+}
+function mergeEvents(lists){
+  const flat=lists.flat().filter(Boolean);
+  flat.sort((a,b)=> new Date(a.ts||a.t||0)-new Date(b.ts||b.t||0));
+  return flat;
+}
 
-  function getAddressesFromApp(){
-    try{
-      if (typeof filteredAddresses === 'function' && typeof laneFromSettings === 'function'){
-        const lane = laneFromSettings();
-        const list = filteredAddresses(lane);
-        return list.map(x => (typeof x==='string') ? x : (x.name || x.adresse || x.address || ''));
+// ---------- PARING start/ferdig ----------
+function pairRuns(events, d0, driverFilter){
+  // filtrer først på dato/sjåfør
+  const filtered = events.filter(e => sameDayISO(e.ts||e.t, d0) && (!driverFilter || (e.driver===driverFilter)));
+  // grupper på address + task + driver
+  const groups = new Map();
+  const keyOf = e => [ (e.address||e.addr||'').trim(), (e.task||e.oppgave||'').trim(), e.driver||'' ].join('｜');
+  filtered.forEach(e=>{
+    const k=keyOf(e); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(e);
+  });
+
+  // paring: hver gang vi ser start → hold åpen; første 'ferdig' etterpå → par
+  const rows = [];
+  for (const [k, arr] of groups){
+    arr.sort((a,b)=> new Date(a.ts||a.t)-new Date(b.ts||b.t));
+    let open=null;
+    for (const e of arr){
+      const action=(e.action||e.a||'').toLowerCase();
+      if (action==='start' && !open){
+        open=e;
+      } else if (action==='ferdig' && open){
+        rows.push({
+          address: (e.address||open.address||'').trim(),
+          task: (e.task||open.task||e.oppgave||open.oppgave||'').trim(),
+          startTs: new Date(open.ts||open.t),
+          endTs: new Date(e.ts||e.t),
+          driver: e.driver || open.driver || ''
+        });
+        open=null;
       }
-    }catch{}
-    return [];
+    }
+    // hvis det ble stående en start uten slutt, vis den som ufullstendig
+    if (open){
+      rows.push({
+        address: (open.address||'').trim(),
+        task: (open.task||open.oppgave||'').trim(),
+        startTs: new Date(open.ts||open.t),
+        endTs: null,
+        driver: open.driver || ''
+      });
+    }
   }
+  // sorter rader etter starttid
+  rows.sort((a,b)=> a.startTs - b.startTs);
+  return rows;
+}
 
-  function inferSG(){
-    try{
-      const labels = Array.from(document.querySelectorAll('label'));
-      const g   = labels.some(l => /sand|grus/i.test(l.textContent) && l.querySelector('input[type=checkbox]')?.checked);
-      const s   = labels.some(l => /skjær|skjaer|fres/i.test(l.textContent) && l.querySelector('input[type=checkbox]')?.checked);
-      if (s && g) return 'S/G';
-      if (s) return 'S';
-      if (g) return 'G';
-    }catch{}
-    try{
-      const raw = localStorage.getItem('UTSTYR') || localStorage.getItem('EQUIPMENT');
-      if (raw){
-        const o = JSON.parse(raw);
-        const s = !!(o.skjær || o.skjaer || o.fres || o.S);
-        const g = !!(o.sand || o.grus || o.G);
-        if (s && g) return 'S/G';
-        if (s) return 'S';
-        if (g) return 'G';
-      }
-    }catch{}
-    return '';
+// ---------- RENDER ----------
+function renderHeader(rows, d0, driverSel){
+  byId('hdrName').textContent = driverSel ? driverSel : 'Alle';
+  byId('hdrMonthYear').textContent = `${pad(d0.getMonth()+1)}.${d0.getFullYear()}`;
+
+  if (rows.length){
+    const starts = rows.map(r=>r.startTs).filter(Boolean).sort((a,b)=>a-b);
+    const ends   = rows.map(r=>r.endTs).filter(Boolean).sort((a,b)=>a-b);
+    byId('hdrStart').textContent = starts.length ? fmtTime(starts[0]) : '—';
+    byId('hdrEnd').textContent   = ends.length   ? fmtTime(ends[ends.length-1]) : '—';
+  } else {
+    byId('hdrStart').textContent = '—';
+    byId('hdrEnd').textContent   = '—';
   }
+}
 
-  function sameDay(a,b){
-    const da = new Date(a), db = new Date(b);
-    return da.getFullYear()===db.getFullYear() && da.getMonth()===db.getMonth() && da.getDate()===db.getDate();
+function renderRows(rows){
+  const tbody = byId('logg_tbody'); tbody.innerHTML='';
+  if (!rows.length){
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td colspan="5" style="text-align:center;color:#777;padding:12px">Ingen registrerte intervaller for valgt dato.</td>`;
+    tbody.appendChild(tr); return;
   }
-
-  function groupRows(events){
-    const rows = [];
-    const byAddr = new Map();
-    events.forEach(e=>{
-      const key = e.address || '(ukjent)';
-      const arr = byAddr.get(key)||[]; arr.push(e); byAddr.set(key, arr);
-    });
-    byAddr.forEach((list, addr)=>{
-      list.sort((a,b)=> new Date(a.ts)-new Date(b.ts));
-      let pendingStart = null;
-      for (const e of list){
-        if (e.action==='start'){
-          if (pendingStart){
-            rows.push({address: addr, start: pendingStart.ts, end: null, sg: pendingStart.sg || inferSG(), note: pendingStart.notes||''});
-          }
-          pendingStart = e;
-        }else if (e.action==='ferdig'){
-          if (pendingStart){
-            rows.push({address: addr, start: pendingStart.ts, end: e.ts, sg: pendingStart.sg || inferSG(), note: pendingStart.notes||''});
-            pendingStart = null;
-          }else{
-            rows.push({address: addr, start: null, end: e.ts, sg: inferSG(), note:'(mangler start)'});
-          }
-        }else if (e.action==='hopp_over' || e.action==='ikke_mulig'){
-          rows.push({address: addr, start: e.ts, end: null, sg:'', note: e.action==='hopp_over'?'Hopp over':'Ikke mulig'});
-        }
-      }
-      if (pendingStart){
-        rows.push({address: addr, start: pendingStart.ts, end: null, sg: pendingStart.sg || inferSG(), note: pendingStart.notes||''});
-      }
-    });
-    rows.sort((a,b)=> new Date(a.start||a.end||0)-new Date(b.start||b.end||0));
-    return rows;
+  for (const r of rows){
+    const start = r.startTs ? fmtTime(r.startTs) : '—';
+    const end   = r.endTs ? fmtTime(r.endTs) : '—';
+    let dur = '—';
+    if (r.startTs && r.endTs){
+      const ms = r.endTs - r.startTs;
+      const m  = Math.round(ms/60000);
+      const hh = Math.floor(m/60), mm = m%60;
+      dur = hh ? `${hh}t ${mm}m` : `${mm}m`;
+    }
+    const tr=document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.address || ''}</td>
+      <td>${r.task || ''}</td>
+      <td>${start}</td>
+      <td>${end}</td>
+      <td>${dur}</td>
+    `;
+    tbody.appendChild(tr);
   }
+}
 
-  function buildTable(addrs, rows){
-    const hdr1 = byId('hdr1');
-    const hdr2 = byId('hdr2');
-    const tbody = byId('tbody');
-
-    hdr1.querySelectorAll('th.addr').forEach(n=>n.remove());
-    hdr2.querySelectorAll('th.addr').forEach(n=>n.remove());
-    tbody.innerHTML='';
-
-    addrs.forEach(a=>{
-      const th = document.createElement('th'); th.className='addr';
-      th.innerHTML = `<div class="addr-th">${a||''}</div>`;
-      hdr2.appendChild(th);
-      const th2 = document.createElement('th'); th2.className='addr'; th2.style.display='none';
-      hdr1.appendChild(th2);
-    });
-
-    const colIndex = new Map();
-    addrs.forEach((a,i)=> colIndex.set(a,i));
-
-    rows.forEach(r=>{
-      const tr = document.createElement('tr');
-      const timeStr = (r.start?fmtHm(r.start):'—') + '–' + (r.end?fmtHm(r.end):'—');
-      const td1 = document.createElement('td'); td1.textContent = timeStr; tr.appendChild(td1);
-      const td2 = document.createElement('td'); td2.textContent = r.note || ''; tr.appendChild(td2);
-      for (let i=0;i<addrs.length;i++){ const td=document.createElement('td'); tr.appendChild(td); }
-      const idx = colIndex.get(r.address);
-      if (idx!=null){
-        const cell = tr.children[2+idx];
-        if (r.note==='Hopp over' || r.note==='Ikke mulig'){
-          cell.textContent = r.note;
-        }else{
-          cell.textContent = (r.sg||'') + (r.sg? ' ' : '') + timeStr;
-        }
-      }else{
-        tr.children[1].textContent = (tr.children[1].textContent? tr.children[1].textContent + ' | ' : '') + (r.address||'');
-      }
-      tbody.appendChild(tr);
-    });
-  }
-
+// ---------- MAIN ----------
 async function loadAndRender(){
-  const dateSel   = byId('inpDato').value || fmtDateInput(new Date());
-  const driverSel = byId('selDriver').value || '';
+  const ok = await ensureKeyPrompt(); if (!ok) return;
+  const dStr = byId('inpDato').value || fmtDateInput(new Date());
+  const d0   = new Date(dStr);
+  const driverSel = byId('selDriver')?.value || '';
 
-  const key = getMasterKey();
-  if (!key){ alert('Mangler X-Master-Key i localStorage (Admin).'); return; }
+  const bins = getBinIds();
+  const lists = await Promise.all(bins.map(id=>fetchLatestForBin(id)));
+  const all = mergeEvents(lists);
 
-  const r = await fetch(API_LATEST, { headers:{'X-Master-Key': key} });
-  if (!r.ok){ alert('Feil fra JSONBin: '+r.status); return; }
-  const j = await r.json();
-
-  // ⬇️ PATCH: støtt record som array ELLER {reports:[…]}
-  const rec = j && j.record;
-  const all = Array.isArray(rec)
-    ? rec
-    : (rec && Array.isArray(rec.reports) ? rec.reports : []);
-
+  // bygg sjåfør-lista (filtrering)
   const drivers = Array.from(new Set(all.map(x=>x.driver).filter(Boolean))).sort();
-  const sel = byId('selDriver'); const cur = sel.value;
-  sel.innerHTML = '<option value="">Alle</option>' + drivers.map(d=>`<option value="${d}">${d}</option>`).join('');
-  sel.value = driverSel || cur || '';
-
-  const d0 = parseLocalDate(dateSel);
-  const filtered = all.filter(x => sameDay(x.ts, d0) && (!sel.value || x.driver === sel.value));
-
-  let addrs = getAddressesFromApp();
-  if (!addrs.length){
-    addrs = Array.from(new Set(filtered.map(x=>x.address).filter(Boolean)));
+  const sel = byId('selDriver');
+  const keep = sel?.value || driverSel;
+  if (sel){
+    sel.innerHTML = '<option value="">Alle</option>' + drivers.map(d=>`<option value="${d}">${d}</option>`).join('');
+    sel.value = keep || '';
   }
 
-    const rows = groupRows(filtered);
+  const rows = pairRuns(all, d0, sel?.value || '');
+  renderHeader(rows, d0, sel?.value || '');
+  renderRows(rows);
+}
 
-    try{
-      const name = localStorage.getItem('DRIVER_NAME') || sel.value || '';
-      byId('inpNavn').value = name;
-    }catch{}
-    byId('inpDatoHdr').value = dateSel;
-    const dt = parseLocalDate(dateSel);
-    byId('inpMnd').value = String(dt.getMonth()+1).padStart(2,'0') + '.' + dt.getFullYear();
-
-    buildTable(addrs, rows);
-  }
-
-  function init(){
-    byId('inpDato').value = fmtDateInput(new Date());
-    byId('inpDatoHdr').value = byId('inpDato').value;
-    document.getElementById('btnReload').addEventListener('click', loadAndRender);
-    document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
-    document.getElementById('inpDato').addEventListener('change', loadAndRender);
-    document.getElementById('selDriver').addEventListener('change', loadAndRender);
-    loadAndRender();
-  }
-
-  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-})();
+document.addEventListener('DOMContentLoaded', ()=>{
+  const d = new Date(); byId('inpDato').value = fmtDateInput(d);
+  byId('btnLoadLogg')?.addEventListener('click', loadAndRender);
+  setTimeout(loadAndRender, 150);
+});
