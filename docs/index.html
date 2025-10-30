@@ -255,50 +255,36 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script>
-/* FORCE Logg-knapp på Admin – uavhengig av partials og timing */
+<script>
 (function(){
-  const H =  setInterval(() => {
-    // 1) Finn admin-seksjonen (ble den lastet nå?)
+  function addLoggButton(){
     const admin = document.querySelector('#admin');
-    if (!admin) return;
+    if (!admin || admin.querySelector('#adm_open_logg')) return;
 
-    // 2) Har vi allerede laget knappen? (unngå duplikat)
-    if (admin.querySelector('#adm_open_logg')) return;
-
-    // 3) Prøv å plassere rett under "Adresse-register"-knapperaden
     const anchor =
-      admin.querySelector('#adm_addr_msg')?.closest('.row') ||            // din rad m/ badge
-      admin.querySelector('h2:nth-of-type(2) + .row') ||                  // fallback: 2. h2s .row
-      admin;                                                              // siste utvei: i slutten
+      admin.querySelector('#adm_addr_msg')?.closest('.row') ||
+      admin.querySelector('h2:nth-of-type(2) + .row') ||
+      admin;
 
-    // 4) Sett inn HTML
-    const frag = document.createRange().createContextualFragment(`
+    // HTML-innholdet for logg-knappen
+    const html = `
       <h2>Rapporter</h2>
       <div class="row" style="flex-wrap:wrap">
         <a id="adm_open_logg" class="btn" href="./logg.html">🧾 Åpne Logg (A4)</a>
         <span class="badge">Les &amp; skriv ut</span>
       </div>
-    `);
-    anchor.insertAdjacentElement ? anchor.insertAdjacentElement('afterend', frag.firstChild) : anchor.appendChild(frag);
-    // Hvis frag.firstChild ble satt inn, sett inn resten:
-    if (!admin.querySelector('#adm_open_logg')) {
-      // Sett hele blokken rett i admin som fallback
-      admin.insertAdjacentHTML('beforeend', `
-        <h2>Rapporter</h2>
-        <div class="row" style="flex-wrap:wrap">
-          <a id="adm_open_logg" class="btn" href="./logg.html">🧾 Åpne Logg (A4)</a>
-          <span class="badge">Les &amp; skriv ut</span>
-        </div>
-      `);
-    }
-  }, 500);
+    `;
 
-  // Stopp intervallet når vi har knappen (eller etter 30s)
-  const S = setInterval(() => {
+    // ✅ Legg til riktig — bruk insertAdjacentHTML i stedet for insertAdjacentElement
+    anchor.insertAdjacentHTML('afterend', html);
+  }
+
+  // Kjør jevnlig til knappen finnes
+  const timer = setInterval(() => {
+    addLoggButton();
     const admin = document.querySelector('#admin');
-    if (admin && admin.querySelector('#adm_open_logg')) { clearInterval(H); clearInterval(S); }
-  }, 500);
-  setTimeout(() => { clearInterval(H); clearInterval(S); }, 30000);
+    if (admin && admin.querySelector('#adm_open_logg')) clearInterval(timer);
+  }, 700);
 })();
 </script>
 </body>
