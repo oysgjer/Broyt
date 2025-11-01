@@ -73,7 +73,25 @@
                80:'rain',81:'rain',82:'rain',85:'snow',86:'snow',95:'storm',96:'storm',99:'storm'};
     return map[code]||'cloud';
   }
+// --- SPEIL vær til Hjem (dashboard) ---
+function mirrorWeatherToHome(tempC, descText) {
+  // lag skjulte "speil"-noder om de ikke finnes
+  let t = document.getElementById('wx_temp');
+  if (!t) { t = document.createElement('span'); t.id = 'wx_temp'; t.hidden = true; document.body.appendChild(t); }
 
+  let d = document.getElementById('wx_desc');
+  if (!d) { d = document.createElement('span'); d.id = 'wx_desc'; d.hidden = true; document.body.appendChild(d); }
+
+  // sett innhold
+  const txtTemp = (typeof tempC === 'number') ? `${Math.round(tempC)}°` : (tempC || '');
+  t.textContent = txtTemp;
+  d.textContent = descText || '';
+
+  // si fra til dashboardet at vi er klare
+  try {
+    window.dispatchEvent(new CustomEvent('wx:updated', { detail: { temp: txtTemp, desc: d.textContent }}));
+  } catch {}
+}
   async function loadWeather(){
     const sec = document.getElementById('work'); if (!sec) return;
     injectStyles(); ensureHeader(); applyWxColor();
