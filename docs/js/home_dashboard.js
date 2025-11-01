@@ -41,24 +41,36 @@
     if (box) box.innerHTML = `<strong>❄️ Dagens brøytefakta:</strong><br>${FUNFACTS[i]}`;
   }
 
-  // ——— 2) HENT HENDELSER ———
-  async function fetchLatestForBin(binId){
-    const key = getKeyForBin(binId); if (!key) return [];
-    const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
-    const r = await fetch(url, { headers: {'X-Master-Key': key} });
-    if (!r.ok) return [];
-    const j = await r.json();
-    const rec = j && j.record;
-    // støtt både {reports:[]} og []
-    return Array.isArray(rec) ? rec : (rec && Array.isArray(rec.reports) ? rec.reports : []);
-  }
-  async function getAllEvents(){
+// ——— 2) HENT HENDELSER ———
+async function fetchLatestForBin(binId){
+  const key = getKeyForBin(binId); if (!key) return [];
+  const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
+  const r = await fetch(url, { headers: {'X-Master-Key': key} }).catch(()=>null);
+  if (!r || !r.ok) return [];
+  const j = await r.json().catch(()=>({}));
+  const rec = j && j.record;
+  return Array.isArray(rec) ? rec : (rec && Array.isArray(rec.reports) ? rec.reports : []);
+}
+
+async function getAllEvents(){
+  // 1) Prøv å hente fra sky (alle BINS du har konfigurert)
+  let remote = [];
+  try {
     const lists = await Promise.all(BINS.map(fetchLatestForBin));
-    const all = lists.flat().filter(Boolean);
-    // sortér stigende på tid
-    all.sort((a,b)=> new Date(a.ts||a.t||0) - new Date(b.ts||b.t||0));
-    return all;
-  }
+    remote = lists.flat().filter(Boolean);
+  } catch {}
+
+  // 2) Fallback/merge: lokal kø fra auto_logger (om noe ikke er lastet opp ennå)
+  let local = [];
+  try {
+    const q = JSON.parse(localStorage.getItem('AUTOLOG_QUEUE') || '[]');
+    if (Array.isArray(q)) local = q;
+  } catch {}
+
+  const all = [...remote, ...local].filter(Boolean);
+  all.sort((a,b)=> new Date(a.ts||a.t||0) - new Date(b.ts||b.t||0));
+  return all;
+}
 
   // ——— 3) PAR “start/ferdig” til intervaller ———
   function pairIntervals(events){
@@ -143,7 +155,7 @@
   function renderRecent(rows){
     const box = $('#recent'); if (!box) return;
     const done = rows.filter(r => r.start && r.end);
-    const latest = done.slice(0, 3);
+    const latest = done.slice(0, 5);
     if (!latest.length){
       box.innerHTML = `<strong>🧭 Siste oppdrag</strong><br><em>Ingen fullførte oppdrag enda.</em>`;
       return;
@@ -159,25 +171,30 @@
     box.innerHTML = `<strong>🧭 Siste oppdrag</strong><ul>${li}</ul>`;
   }
 
-  // ——— MAIN ———
-  async function init(){
-    renderFunfact();
-    renderWeather();
+ // ——— MAIN ———
+function homeVisible(){
+  const el = document.getElementById('home');
+  return el && !el.hasAttribute('hidden');
+}
 
-    // hent og bygg
-    try{
-      const all = await getAllEvents();
-      const rows = pairIntervals(all);
-      renderStats(rows);
-      renderRecent(rows);
-    }catch(e){
-      console.warn('Dashboard feilet:', e);
-      $('#stats')  && ($('#stats').textContent = 'Kunne ikke hente data.');
-      $('#recent') && ($('#recent').textContent= 'Kunne ikke hente data.');
-    }
+async function boot(){
+  if (!homeVisible()) return;         // kjør bare når Hjem vises
+  renderFunfact();
+  renderWeather();
+  try{
+    const all = await getAllEvents();
+    const rows = pairIntervals(all);
+    renderStats(rows);
+    renderRecent(rows);               // viser 3 siste (øk til 5 under hvis ønskelig)
+  }catch(e){
+    console.warn('Dashboard feilet:', e);
+    $('#stats')  && ($('#stats').textContent  = 'Kunne ikke hente data.');
+    $('#recent') && ($('#recent').textContent = 'Kunne ikke hente data.');
   }
+}
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
-  else init();
-
-})();
+document.addEventListener('DOMContentLoaded', boot);
+window.addEventListener('hashchange', boot);
+// Reager når seksjoner vises/skjules i SPA
+new MutationObserver(()=> homeVisible() && boot())
+  .observe(document.body, { attributes:true, subtree:true, attributeFilter:['hidden'] });
