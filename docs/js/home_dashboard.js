@@ -171,30 +171,27 @@ async function getAllEvents(){
     box.innerHTML = `<strong>🧭 Siste oppdrag</strong><ul>${li}</ul>`;
   }
 
- // ——— MAIN ———
-function homeVisible(){
-  const el = document.getElementById('home');
-  return el && !el.hasAttribute('hidden');
-}
+  // ——— MAIN ———
+  async function init(){
+    renderFunfact();
+    renderWeather();
 
-async function boot(){
-  if (!homeVisible()) return;         // kjør bare når Hjem vises
-  renderFunfact();
-  renderWeather();
-  try{
-    const all = await getAllEvents();
-    const rows = pairIntervals(all);
-    renderStats(rows);
-    renderRecent(rows);               // viser 3 siste (øk til 5 under hvis ønskelig)
-  }catch(e){
-    console.warn('Dashboard feilet:', e);
-    $('#stats')  && ($('#stats').textContent  = 'Kunne ikke hente data.');
-    $('#recent') && ($('#recent').textContent = 'Kunne ikke hente data.');
+    // hent og bygg
+    try{
+      const all = await getAllEvents();
+      const rows = pairIntervals(all);
+      renderStats(rows);
+      renderRecent(rows);
+    }catch(e){
+      console.warn('Dashboard feilet:', e);
+      $('#stats')  && ($('#stats').textContent = 'Kunne ikke hente data.');
+      $('#recent') && ($('#recent').textContent= 'Kunne ikke hente data.');
+    }
   }
-}
 
-document.addEventListener('DOMContentLoaded', boot);
-window.addEventListener('hashchange', boot);
-// Reager når seksjoner vises/skjules i SPA
-new MutationObserver(()=> homeVisible() && boot())
-  .observe(document.body, { attributes:true, subtree:true, attributeFilter:['hidden'] });
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', init, {once:true});
+  else
+    init();
+
+})(); // 
