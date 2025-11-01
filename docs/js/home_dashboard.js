@@ -1,9 +1,10 @@
-// home_dashboard.js — fyller #funfact, #stats, #weather, #recent på Hjem
+// home_dashboard.js — Hjem-dashboard med brøytetid (total / måned / uke / dag),
+// vær-speiling og "Siste oppdrag" m/dato. Leser JSONBin + fallback til AUTOLOG_QUEUE.
 
 (function(){
   // ——— KONFIG ———
   const BIN_IDS = JSON.parse(localStorage.getItem('JSONBIN_BIN_IDS') || '[]');
-  const DEFAULT_BINS = ["68e89e3443b1c97be9611c48"]; // hendelser
+  const DEFAULT_BINS = ["68e89e3443b1c97be9611c48"]; // fallback hvis ingen er satt
   const BINS = BIN_IDS.length ? BIN_IDS : DEFAULT_BINS;
 
   function getKeyForBin(binId){
@@ -17,13 +18,42 @@
   // ——— HJELPERE ———
   const $ = sel => document.querySelector(sel);
   const pad = n => n<10 ? ('0'+n) : n;
+
   const asDate = v => v ? new Date(v) : null;
-  const sameDay = (d1,d2) => d1 && d2 && d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
+  const sameDay = (a,b) => a && b &&
+    a.getFullYear()===b.getFullYear() &&
+    a.getMonth()===b.getMonth() &&
+    a.getDate()===b.getDate();
+
+  // Start av måned
+  function startOfMonth(d){
+    const x = new Date(d.getFullYear(), d.getMonth(), 1);
+    x.setHours(0,0,0,0);
+    return x;
+  }
+  // ISO-uke (mandag–søndag)
+  function startOfISOWeek(d){
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const day = x.getDay() || 7; // søndag=7
+    x.setHours(0,0,0,0);
+    x.setDate(x.getDate() - (day - 1)); // tilbake til mandag
+    return x;
+  }
+  function isSameISOWeek(a, b){
+    if (!a || !b) return false;
+    const sa = startOfISOWeek(a);
+    const sb = startOfISOWeek(b);
+    return sa.getFullYear()===sb.getFullYear() &&
+           sa.getMonth()===sb.getMonth() &&
+           sa.getDate()===sb.getDate();
+  }
   const fmtHhMm = mins => {
     const h = Math.floor(mins/60), m = Math.round(mins%60);
     return h ? `${h}t ${m}m` : `${m}m`;
   };
   const fmtClock = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const monthNames = ['jan','feb','mars','apr','mai','juni','juli','aug','sep','okt','nov','des'];
+  const fmtDayMon = d => `${d.getDate()}. ${monthNames[d.getMonth()]}`;
 
   // ——— 1) FUNFACT ———
   const FUNFACTS = [
@@ -36,7 +66,8 @@
     "Smør fresen før du smører deg selv 😉"
   ];
   function renderFunfact(){
-    const i = (new Date().getDate()) % FUNFACTS.length;
+    const d = new Date();
+    const i = (d.getFullYear()*100 + (d.getMonth()+1)*10 + d.getDate()) % FUNFACTS.length;
     const box = $('#funfact');
     if (box) box.innerHTML = `<strong>❄️ Dagens brøytefakta:</strong><br>${FUNFACTS[i]}`;
   }
@@ -45,17 +76,28 @@
   async function fetchLatestForBin(binId){
     const key = getKeyForBin(binId); if (!key) return [];
     const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
-    const r = await fetch(url, { headers: {'X-Master-Key': key} });
-    if (!r.ok) return [];
-    const j = await r.json();
-    const rec = j && j.record;
-    // støtt både {reports:[]} og []
-    return Array.isArray(rec) ? rec : (rec && Array.isArray(rec.reports) ? rec.reports : []);
+    try{
+      const r = await fetch(url, { headers: {'X-Master-Key': key} });
+      if (!r.ok) return [];
+      const j = await r.json();
+      const rec = j && j.record;
+      return Array.isArray(rec) ? rec : (rec && Array.isArray(rec.reports) ? rec.reports : []);
+    }catch{ return []; }
   }
   async function getAllEvents(){
-    const lists = await Promise.all(BINS.map(fetchLatestForBin));
-    const all = lists.flat().filter(Boolean);
-    // sortér stigende på tid
+    // 1) Forsøk sky
+    let remote = [];
+    try{
+      const lists = await Promise.all(BINS.map(fetchLatestForBin));
+      remote = lists.flat().filter(Boolean);
+    }catch{}
+    // 2) Merge lokal kø (ting som enda ikke er synket)
+    let local = [];
+    try{
+      const q = JSON.parse(localStorage.getItem('AUTOLOG_QUEUE') || '[]');
+      if (Array.isArray(q)) local = q;
+    }catch{}
+    const all = [...remote, ...local].filter(Boolean);
     all.sort((a,b)=> new Date(a.ts||a.t||0) - new Date(b.ts||b.t||0));
     return all;
   }
@@ -94,33 +136,50 @@
           open = null;
         }
       }
-      // uparret "start" ignoreres i stats
+      // uparret "start" ignoreres i brøytetids-summering
     }
     // sortér synkende på sluttid (for "Siste oppdrag")
     rows.sort((a,b)=> (b.end?.getTime()||0) - (a.end?.getTime()||0));
     return rows;
   }
 
-  // ——— 4) STATISTIKK ———
+  // ——— 4) BRØYTETID ———
+  function minutesBetween(a,b){
+    if (!a || !b) return 0;
+    const ms = b - a;
+    return ms > 0 ? Math.round(ms/60000) : 0;
+  }
   function renderStats(rows){
     const box = $('#stats'); if (!box) return;
-    const today = new Date();
 
     const done = rows.filter(r => r.start && r.end);
-    const minsTotal = done.reduce((s,r)=> s + Math.max(0, (r.end - r.start)/60000), 0);
-    const minsToday = done
-      .filter(r => sameDay(r.start, today) || sameDay(r.end, today))
-      .reduce((s,r)=> s + Math.max(0, (r.end - r.start)/60000), 0);
+    const today = new Date();
+    const monthStart = startOfMonth(today);
+    const weekStart  = startOfISOWeek(today);
 
-    const jobsTotal = done.length;
-    const uniqueAddresses = new Set(done.map(r=>r.address).filter(Boolean)).size;
+    let totalMin = 0, monthMin = 0, weekMin = 0, todayMin = 0;
+
+    for (const r of done){
+      const m = minutesBetween(r.start, r.end);
+      totalMin += m;
+
+      // referansetid for sortering/tilhørighet
+      const ref = r.end || r.start;
+
+      // måned
+      if (ref >= monthStart) monthMin += m;
+      // uke
+      if (ref >= weekStart) weekMin += m;
+      // dag
+      if (sameDay(ref, today)) todayMin += m;
+    }
 
     box.innerHTML = `
-      <strong>📊 Samlet innsats</strong><br>
-      Totalt brøytetid: <b>${fmtHhMm(minsTotal)}</b><br>
-      I dag: <b>${fmtHhMm(minsToday)}</b><br>
-      Fullførte oppdrag: <b>${jobsTotal}</b><br>
-      Adresser ryddet: <b>${uniqueAddresses}</b>
+      <strong>📊 Samlet brøytetid</strong><br>
+      Totalt: <b>${fmtHhMm(totalMin)}</b><br>
+      Denne måneden: <b>${fmtHhMm(monthMin)}</b><br>
+      Denne uken: <b>${fmtHhMm(weekMin)}</b><br>
+      I dag: <b>${fmtHhMm(todayMin)}</b>
     `;
   }
 
@@ -141,37 +200,38 @@
   function renderRecent(rows){
     const box = $('#recent'); if (!box) return;
     const done = rows.filter(r => r.start && r.end);
-    const latest = done.slice(0, 3);
+    const latest = done.slice(0, 5); // vis 5 siste
     if (!latest.length){
       box.innerHTML = `<strong>🧭 Siste oppdrag</strong><br><em>Ingen fullførte oppdrag enda.</em>`;
       return;
     }
     const li = latest.map(r => {
-      const when  = r.end ? fmtClock(r.end) : '–';
-      const mins  = Math.max(0, (r.end - r.start)/60000);
+      const whenDate = r.end ? fmtDayMon(r.end) : '';
+      const whenTime = r.end ? fmtClock(r.end) : '–';
+      const when  = `${whenDate} ${whenTime}`.trim();
+      const mins  = minutesBetween(r.start, r.end);
       const took  = fmtHhMm(mins);
       const task  = r.task || 'Snø';
       const addr  = r.address || '';
       return `<li><b>${when}</b> — ${addr} <span class="muted">(${task}, ${took})</span></li>`;
     }).join('');
-    box.innerHTML = `<strong>🧭 Siste oppdrag</strong><ul>${li}</ul>`;
+    box.innerHTML = `<strong>🧭 Siste oppdrag</strong><ul style="margin:6px 0 0 18px">${li}</ul>`;
   }
 
   // ——— MAIN ———
   async function init(){
+    // Kjør uansett hvilken side – men vi viser bare innhold hvis #home finnes
     renderFunfact();
     renderWeather();
 
-    // lytt på “wx:updated” fra værmodulen
+    // Oppdater vær når værmodulen melder seg ferdig
     window.addEventListener('wx:updated', () => {
       try { renderWeather(); } catch {}
     });
-
-    // liten “poll” for tilfeller der værdata kommer like etter load
+    // liten poll ved første last
     setTimeout(renderWeather, 1000);
     setTimeout(renderWeather, 4000);
 
-    // hent og bygg brukertall/logg
     try{
       const all = await getAllEvents();
       const rows = pairIntervals(all);
@@ -179,12 +239,11 @@
       renderRecent(rows);
     }catch(e){
       console.warn('Dashboard feilet:', e);
-      $('#stats')  && ($('#stats').textContent = 'Kunne ikke hente data.');
-      $('#recent') && ($('#recent').textContent= 'Kunne ikke hente data.');
+      $('#stats')  && ($('#stats').textContent  = 'Kunne ikke hente data.');
+      $('#recent') && ($('#recent').textContent = 'Kunne ikke hente data.');
     }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
   else init();
-
 })();
