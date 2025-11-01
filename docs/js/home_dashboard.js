@@ -41,36 +41,24 @@
     if (box) box.innerHTML = `<strong>❄️ Dagens brøytefakta:</strong><br>${FUNFACTS[i]}`;
   }
 
-// ——— 2) HENT HENDELSER ———
-async function fetchLatestForBin(binId){
-  const key = getKeyForBin(binId); if (!key) return [];
-  const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
-  const r = await fetch(url, { headers: {'X-Master-Key': key} }).catch(()=>null);
-  if (!r || !r.ok) return [];
-  const j = await r.json().catch(()=>({}));
-  const rec = j && j.record;
-  return Array.isArray(rec) ? rec : (rec && Array.isArray(rec.reports) ? rec.reports : []);
-}
-
-async function getAllEvents(){
-  // 1) Prøv å hente fra sky (alle BINS du har konfigurert)
-  let remote = [];
-  try {
+  // ——— 2) HENT HENDELSER ———
+  async function fetchLatestForBin(binId){
+    const key = getKeyForBin(binId); if (!key) return [];
+    const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
+    const r = await fetch(url, { headers: {'X-Master-Key': key} });
+    if (!r.ok) return [];
+    const j = await r.json();
+    const rec = j && j.record;
+    // støtt både {reports:[]} og []
+    return Array.isArray(rec) ? rec : (rec && Array.isArray(rec.reports) ? rec.reports : []);
+  }
+  async function getAllEvents(){
     const lists = await Promise.all(BINS.map(fetchLatestForBin));
-    remote = lists.flat().filter(Boolean);
-  } catch {}
-
-  // 2) Fallback/merge: lokal kø fra auto_logger (om noe ikke er lastet opp ennå)
-  let local = [];
-  try {
-    const q = JSON.parse(localStorage.getItem('AUTOLOG_QUEUE') || '[]');
-    if (Array.isArray(q)) local = q;
-  } catch {}
-
-  const all = [...remote, ...local].filter(Boolean);
-  all.sort((a,b)=> new Date(a.ts||a.t||0) - new Date(b.ts||b.t||0));
-  return all;
-}
+    const all = lists.flat().filter(Boolean);
+    // sortér stigende på tid
+    all.sort((a,b)=> new Date(a.ts||a.t||0) - new Date(b.ts||b.t||0));
+    return all;
+  }
 
   // ——— 3) PAR “start/ferdig” til intervaller ———
   function pairIntervals(events){
@@ -106,7 +94,7 @@ async function getAllEvents(){
           open = null;
         }
       }
-      // uparret "start" kan ignoreres i stats (mangler slutt)
+      // uparret "start" ignoreres i stats
     }
     // sortér synkende på sluttid (for "Siste oppdrag")
     rows.sort((a,b)=> (b.end?.getTime()||0) - (a.end?.getTime()||0));
@@ -138,16 +126,14 @@ async function getAllEvents(){
 
   // ——— 5) VÆR ———
   function renderWeather(){
-    // Gjenbruker det du allerede har i headeren (ikon/temperatur/beskrivelse)
+    const box = $('#weather'); if (!box) return;
     const temp = document.getElementById('wx_temp')?.textContent || '';
     const desc = document.getElementById('wx_desc')?.textContent || '';
-    // Alternativt: kall din loadWeather() hvis du har den globalt
-    const box = $('#weather'); if (!box) return;
-    if (temp || desc){
-      box.innerHTML = `<strong>🌦️ Vær nå:</strong><br>${temp} ${desc}`.trim();
+    if (temp || desc) {
+      box.innerHTML = `<strong>🌦️ Vær nå:</strong><br>${[temp, desc].filter(Boolean).join(' ')}`;
     } else {
       box.innerHTML = `<strong>🌦️ Vær nå:</strong><br>Henter…`;
-      try{ if (typeof window.loadWeather === 'function') window.loadWeather(); }catch{}
+      try { if (typeof window.loadWeather === 'function') window.loadWeather(); } catch {}
     }
   }
 
@@ -155,7 +141,7 @@ async function getAllEvents(){
   function renderRecent(rows){
     const box = $('#recent'); if (!box) return;
     const done = rows.filter(r => r.start && r.end);
-    const latest = done.slice(0, 5);
+    const latest = done.slice(0, 3);
     if (!latest.length){
       box.innerHTML = `<strong>🧭 Siste oppdrag</strong><br><em>Ingen fullførte oppdrag enda.</em>`;
       return;
@@ -176,7 +162,16 @@ async function getAllEvents(){
     renderFunfact();
     renderWeather();
 
-    // hent og bygg
+    // lytt på “wx:updated” fra værmodulen
+    window.addEventListener('wx:updated', () => {
+      try { renderWeather(); } catch {}
+    });
+
+    // liten “poll” for tilfeller der værdata kommer like etter load
+    setTimeout(renderWeather, 1000);
+    setTimeout(renderWeather, 4000);
+
+    // hent og bygg brukertall/logg
     try{
       const all = await getAllEvents();
       const rows = pairIntervals(all);
@@ -189,9 +184,7 @@ async function getAllEvents(){
     }
   }
 
-  if (document.readyState === 'loading')
-    document.addEventListener('DOMContentLoaded', init, {once:true});
-  else
-    init();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
+  else init();
 
-})(); // 
+})();
