@@ -9,10 +9,6 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
 
-  <!-- iOS webapp -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
   <title>Brøyterute</title>
 
   <link rel="manifest" href="/manifest.json?v=3">
@@ -83,6 +79,14 @@
     <section id="home">
       <h1>Hjem</h1>
 
+      <!-- ——— Dashboard (fylles av home_dashboard.js) ——— -->
+      <section id="dashboard" style="margin-top:12px">
+        <div id="funfact"></div>
+        <div id="stats" style="margin-top:10px"></div>
+        <div id="weather" style="margin-top:10px"></div>
+        <div id="recent" style="margin-top:10px"></div>
+      </section>
+
       <label class="field">
         <span style="font-weight:700; font-size:1.05rem;">Fører</span>
         <input id="a_driver" class="input" placeholder="Navn" />
@@ -118,7 +122,7 @@
 
     <!-- UNDER ARBEID -->
     <section id="work">
-  <div id="wx_row" class="wx-row"></div>
+      <div id="wx_row" class="wx-row"></div>
 
       <div class="work-top" id="wk_top">
         <div class="work-prog">
@@ -138,40 +142,20 @@
         <div class="label-muted" style="margin-top:14px">Neste</div>
         <div id="b_next" class="addr-next">—</div>
 
-      <div class="btn-grid">
-  <!-- ... alle de vanlige knappene ... -->
-  <button id="act_start" class="btn btn-ok">
-  <span class="ico">▶️</span> Start
-  </button>
+        <div class="btn-grid">
+          <button id="act_start" class="btn btn-ok"><span class="ico">▶️</span> Start</button>
+          <button id="act_done" class="btn btn-dark"><span class="ico">✅</span> Ferdig</button>
+          <button id="act_skip" class="btn"><span class="ico">⏭️</span> Hopp over</button>
+          <button id="act_next" class="btn"><span class="ico">➜</span> Neste</button>
+          <button id="act_nav" class="btn"><span class="ico">🧭</span> Naviger</button>
+          <button id="act_block" class="btn"><span class="ico">⛔</span> Ikke mulig</button>
 
-  <button id="act_done" class="btn btn-dark">
-  <span class="ico">✅</span> Ferdig
-  </button>
-
-  <button id="act_skip" class="btn">
-  <span class="ico">⏭️</span> Hopp over
-  </button>
-
-  <button id="act_next" class="btn">
-  <span class="ico">➜</span> Neste
-  </button>
-
-  <button id="act_nav" class="btn">
-  <span class="ico">🧭</span> Naviger
-  </button>
-
-  <button id="act_block" class="btn">
-  <span class="ico">⛔</span> Ikke mulig
-  </button>
-  <button id="btnBroytKart" class="btn"
-      onclick="window.open('tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes','_blank')">
-      🚜 Brøytekart
-    </button>
-  <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
-  </div>
-</div>
-
-
+          <button id="btnBroytKart" class="btn"
+            onclick="window.open('tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes','_blank')">
+            🚜 Brøytekart
+          </button>
+          <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
+        </div>
 
         <div class="work-meta">
           Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
@@ -182,7 +166,6 @@
     <!-- SERVICE -->
     <section id="service" hidden>
       <h1>Service</h1>
-      <!-- Innhold fylles av Service.js -->
     </section>
 
     <!-- STATUS -->
@@ -214,101 +197,50 @@
 
     <!-- ADMIN -->
     <section id="admin" hidden>
-      <!-- Admin.js bygger UI inne i denne seksjonen -->
       <h1>Admin</h1>
-      <!-- ——— Logg (A4) på Admin ——— -->
-<div class="card" style="margin-top:12px">
-  <h2 style="margin:0 0 8px">Rapporter & Logg</h2>
-  <p class="muted" style="margin:0 0 8px">Åpner printvennlig logg med auto-fyll av adresser, S/G og tider.</p>
-  <button class="btn" onclick="location.href='./logg.html'">🧾 Åpne Logg (A4)</button>
-</div>
+      <div class="card" style="margin-top:12px">
+        <h2 style="margin:0 0 8px">Rapporter & Logg</h2>
+        <p class="muted" style="margin:0 0 8px">Åpner printvennlig logg med auto-fyll av adresser, S/G og tider.</p>
+        <button class="btn" onclick="location.href='./logg.html'">🧾 Åpne Logg (A4)</button>
+      </div>
     </section>
   </main>
 
   <!-- JS – rekkefølge er viktig -->
-  <!-- Kjerne (router/meny/tema/wakelock/synk-badge) -->
-  <!-- Basis -->
-<script src="js/app.js" defer></script>
-<script src="js/sync.js" defer></script>
+  <!-- Kjerne -->
+  <script src="js/app.js" defer></script>
+  <script src="js/sync.js" defer></script>
 
-<!-- Sider (må komme etter sync.js) -->
-<script src="js/Home.js" defer></script>
-<script src="js/home_dashboard.js" defer></script>
-<script src="js/Work.js?v=6" defer></script>
-<script src="js/work_uhell_fix.js?v=2"></script>
-<script src="js/Status.js" defer></script>
-<script src="js/Service.js" defer></script>
-<script src="js/Admin.js" defer></script>
-<script src="js/work_weather_addon.js?v=wx2"></script>
-<script src="js/quicklinks.js?v=2"></script>
-<!-- legg denne helt før </body> -->
-<script src="./js/auto_logger.js?v=6"></script>
-<script src="js/admin_logg_inject.js?v=3" defer></script>
-<!-- Speil sjåførnavn fra Hjem til Under arbeid -->
-<script src="js/driver_mirror.js" defer></script>
-<!-- Tagg “Nå”-adressen automatisk i Work -->
-<script src="js/work_addr_tag.js" defer></script>
+  <!-- Sider -->
+  <script src="js/Home.js" defer></script>
+  <script src="js/home_dashboard.js" defer></script>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const ret = sessionStorage.getItem('returnTo');
-  if (ret && window.location.href !== ret) {
-    console.log('Tilbake fra navigasjon – laster app på nytt...');
-    sessionStorage.removeItem('returnTo');
-    window.location.replace(ret);
-  }
-});
-</script>
-<script>
-/* Logg-knapp: legg kun INNI #admin, én gang, når Admin er aktiv */
-(function(){
-  const BLOCK_ID = 'adm_logg_block';
+  <!-- Work-relatert -->
+  <script src="js/Work.js?v=6" defer></script>
+  <script src="js/work_uhell_fix.js?v=2" defer></script>
+  <script src="js/Status.js" defer></script>
+  <script src="js/Service.js" defer></script>
+  <script src="js/Admin.js" defer></script>
+  <script src="js/work_weather_addon.js?v=wx2" defer></script>
+  <script src="js/quicklinks.js?v=2" defer></script>
 
-  function isAdminVisible(admin){
-    // Admin er aktiv når hash peker dit, eller hidden-attributtet er fjernet
-    if (!admin) return false;
-    if (!admin.hasAttribute('hidden')) return true;
-    return (location.hash || '').replace('#','').toLowerCase() === 'admin';
-  }
+  <!-- Speil navn/adresse før autologger -->
+  <script src="js/driver_mirror.js" defer></script>
+  <script src="js/work_addr_tag.js" defer></script>
 
-  function ensureButton(){
-    const admin = document.querySelector('#admin');
-    if (!admin) return;
+  <!-- Autologger til slutt -->
+  <script src="js/auto_logger.js?v=6" defer></script>
 
-    // Rydd opp eventuelle “feilplasserte” blokker (skulle bare ligget inni #admin)
-    document.querySelectorAll('#' + BLOCK_ID).forEach(n => {
-      if (!admin.contains(n)) n.remove();
-    });
-
-    if (!isAdminVisible(admin)) return;           // vent til Admin vises
-    if (admin.querySelector('#' + BLOCK_ID)) return; // finnes allerede
-
-    // Anker rett under "Adresse-register"-raden hvis mulig
-    const anchor = admin.querySelector('#adm_addr_msg')?.closest('.row') || null;
-
-    const html = `
-      <section id="${BLOCK_ID}">
-        <h2>Rapporter</h2>
-        <div class="row" style="flex-wrap:wrap">
-          <a id="adm_open_logg" class="btn" href="./logg.html">🧾 Åpne Logg (A4)</a>
-          <span class="badge">Les &amp; skriv ut</span>
-        </div>
-      </section>
-    `;
-
-    if (anchor) {
-      anchor.insertAdjacentHTML('afterend', html);   // rett under Adresse-registeret
-    } else {
-      admin.insertAdjacentHTML('beforeend', html);   // ellers nederst i Admin
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const ret = sessionStorage.getItem('returnTo');
+    if (ret && window.location.href !== ret) {
+      sessionStorage.removeItem('returnTo');
+      window.location.replace(ret);
     }
-  }
+  });
+  </script>
 
-  // Kjør jevnlig (partials/SPA). Stopper naturlig når knappen er inne i Admin.
-  const iv = setInterval(ensureButton, 400);
-  window.addEventListener('hashchange', ensureButton);
-  document.addEventListener('visibilitychange', ensureButton);
-})();
-</script>
-
+  <script src="js/admin_logg_inject.js?v=3" defer></script>
 </body>
 </html>
