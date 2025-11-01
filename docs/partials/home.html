@@ -3,14 +3,23 @@
     <h1>Hjem</h1>
   </header>
 
-  <div class="card">
-    <!-- 1) Fører først -->
+  <!-- ——— Dashboard ——— -->
+  <section id="dashboard" style="margin-top:12px">
+    <div id="funfact"></div>
+    <div id="stats" style="margin-top:10px"></div>
+    <div id="weather" style="margin-top:10px"></div>
+    <div id="recent" style="margin-top:10px"></div>
+  </section>
+
+  <!-- ——— Innstillinger for fører / utstyr / runde ——— -->
+  <div class="card" style="margin-top:16px">
+    <!-- 1) Fører -->
     <div class="field">
       <label for="a_driver">Fører:</label>
       <input id="a_driver" class="input" type="text" placeholder="Navn" autocomplete="name">
     </div>
 
-    <!-- 2) Utstyr (vertikalt) -->
+    <!-- 2) Utstyr -->
     <div class="field">
       <label>Utstyr:</label>
       <div class="equip-list">
@@ -29,7 +38,7 @@
       </select>
     </div>
 
-    <!-- 4) (valgfritt) Auto-naviger -->
+    <!-- 4) Auto-naviger -->
     <div class="field">
       <label class="chk">
         <input id="a_autoNav" type="checkbox"> Auto-naviger
