@@ -1,70 +1,72 @@
-// wx_bridge_autodetect.js — gjør værdata tilgjengelig for home_dashboard.js
+// wx_bridge_autodetect.js — samler vær fra globals, DOM eller skjult JSON, og pusher wx:update
 (function(){
-  const CACHE_KEY = "WX_CACHE";
+  const CACHE_KEY = 'WX_CACHE';
 
-  function toCacheShape(src) {
+  function toCacheShape(src){
     if (!src) return null;
-    const out = { current: { temp: "", desc: "" }, hourly: [] };
+    const out = { current:{ temp:'', desc:'' }, hourly:[] };
 
-    // "Nå"
-    // Prøv ulike navngivninger
+    // nå
     const nowTemp = src.now?.temp ?? src.current?.temp ?? src.temp ?? null;
-    const nowDesc = src.now?.desc ?? src.current?.desc ?? src.description ?? src.desc ?? "";
-
-    if (nowTemp != null) out.current.temp = String(nowTemp).includes("°") ? String(nowTemp) : `${nowTemp}°`;
+    const nowDesc = src.now?.desc ?? src.current?.desc ?? src.description ?? src.desc ?? '';
+    if (nowTemp != null) out.current.temp = String(nowTemp).includes('°') ? String(nowTemp) : `${nowTemp}°`;
     if (nowDesc) out.current.desc = String(nowDesc);
 
-    // Timesvarsel (valgfritt)
+    // timeserie
     const hourly = src.hourly || src.next || src.hours || [];
-    if (Array.isArray(hourly)) {
-      out.hourly = hourly.map(h => ({
+    if (Array.isArray(hourly)){
+      out.hourly = hourly.map(h=>({
         t:    h.t ?? h.time ?? h.dt ?? h.ts ?? null,
         temp: Math.round(h.temp ?? h.temperature ?? 0),
-        desc: h.desc ?? h.description ?? ""
+        desc: h.desc ?? h.description ?? ''
       }));
     }
     return out;
   }
 
+  function readJsonBlock(){
+    try{
+      const el = document.getElementById('wx_hourly_json');
+      if (!el) return null;
+      const txt = el.textContent?.trim(); if (!txt) return null;
+      const obj = JSON.parse(txt);
+      return toCacheShape(obj);
+    }catch{ return null; }
+  }
+
   function fromDomFallback(){
-    const temp = document.getElementById("wx_temp")?.textContent || "";
-    const desc = document.getElementById("wx_desc")?.textContent || "";
+    const temp = document.getElementById('wx_temp')?.textContent || '';
+    const desc = document.getElementById('wx_desc')?.textContent || '';
     if (!temp && !desc) return null;
-    return {
-      current: { temp: temp.trim(), desc: desc.trim() },
-      hourly: [] // ukjent via DOM
-    };
+    return { current:{ temp:temp.trim(), desc:desc.trim() }, hourly:[] };
   }
 
   function publish(cache){
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch {}
+    try{ localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); }catch{}
     window.__WX__ = cache;
-    window.dispatchEvent(new CustomEvent("wx:update", { detail: cache }));
+    window.dispatchEvent(new CustomEvent('wx:update', { detail: cache }));
   }
 
   function tryBuildAndPublish(){
-    // 1) Global(e) kilder som et annet værskript kan ha laget
-    const globals = [window.wx, window.WX, window.__WX__];
-    for (const g of globals){
+    // 1) Globals fra værscript
+    for (const g of [window.wx, window.WX, window.__WX__]){
       const c = toCacheShape(g);
       if (c && (c.current.temp || c.current.desc || (c.hourly && c.hourly.length))) { publish(c); return true; }
     }
-    // 2) Fallback fra DOM
+    // 2) Skjult JSON-blokk
+    const jb = readJsonBlock();
+    if (jb && (jb.current.temp || jb.current.desc || (jb.hourly && jb.hourly.length))) { publish(jb); return true; }
+    // 3) Ren DOM
     const dom = fromDomFallback();
     if (dom && (dom.current.temp || dom.current.desc)) { publish(dom); return true; }
     return false;
   }
 
-  // Først forsøk umiddelbart…
   if (!tryBuildAndPublish()){
-    // …så poll kortvarig (inntil værscriptet ditt rekker å fylle globals/DOM)
-    let tries = 0;
-    const iv = setInterval(() => {
+    let tries=0;
+    const iv=setInterval(()=>{
       tries++;
-      if (tryBuildAndPublish() || tries > 20) clearInterval(iv); // ~10s
+      if (tryBuildAndPublish() || tries>20) clearInterval(iv); // ~10s
     }, 500);
   }
-
-  // Hvis værskriptet ditt senere selv kaller window.dispatchEvent(new CustomEvent('wx:update',...))
-  // så fanges det av home_dashboard.js og re-rendres automatisk.
 })();
