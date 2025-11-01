@@ -76,3 +76,16 @@
 @media (max-width:420px){
   #a_start.btn{ width:100%; }
 }
+#dashboard { display: grid; gap: 12px; margin: 12px 0; }
+#dashboard > div {
+  background: #f7f9fc; border: 1px solid #e3e7ee; border-radius: 10px;
+  padding: 12px;
+}
+#funfact { background: #eef6ff; }
+#stats { background: #f5fff2; }
+#weather { background: #f7f7ff; }
+#recent { background: #fff7f0; }
+
+#recent ul { list-style: none; padding: 0; margin: 0; }
+#recent li { padding: 6px 0; border-top: 1px dashed #ddd; }
+#recent li:first-child { border-top: 0; }
