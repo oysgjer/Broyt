@@ -36,20 +36,44 @@
   const monthNO = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
   const fmtDateShort = d => `${d.getDate()}. ${monthNO[d.getMonth()]}`;
 
-  // ——— 1) FUNFACT ———
+    // ——— 1) FUNFACTS ———
   const FUNFACTS = [
     "En plog på 3 meter i 10 km/t flytter nær 30 tonn snø i minuttet.",
     "Snøkrystaller kan være sekskantede og hule – derfor pakker de seg rart.",
     "Litt silikon på skjæret gjør at snøen slipper lettere.",
-    "Våt 5 cm snø ≈ over 50 liter vann pr. m².",
+    "Våt 5 cm snø tilsvarer over 50 liter vann per kvadratmeter.",
     "Hydraulikk liker det varmt – gi den et minutt før første løft.",
     "En Ariens 28” kan flytte over 75 tonn snø i timen.",
-    "Smør fresen før du smører deg selv 😉"
+    "Smør fresen før du smører deg selv 😉",
+    "Et tonn snø tar omtrent 2,5 kubikkmeter plass.",
+    "En traktor på tomgang bruker 2–3 liter diesel i timen.",
+    "Første snøplog i Norge ble tatt i bruk i 1922.",
+    "Salt virker dårlig under –6 °C, men sand funker alltid.",
+    "Vind gjør mer for snøfokk enn selve snømengden.",
+    "Is tåler 12 tonn pr. kvadratmeter hvis den er 20 cm tykk.",
+    "Brøytestikker ble først laget av bambus før plast tok over.",
+    "Snø reflekterer opptil 90 % av sollyset – derfor blir man brun på nesa.",
+    "En traktor på 5 tonn med kjetting gir over 25 000 N grep i bakken.",
+    "Snøfnugg kan være 0,01 mm til over 10 mm store.",
+    "En vanlig brøyterute på 10 km kan inneholde 200 tonn snø etter ett snøfall.",
+    "Kald diesel kan miste opptil 30 % effekt ved –20 °C.",
+    "Snø smelter raskest når den er våt, ikke når det er varmest ute.",
+    "Godt lys på traktoren øker reaksjonstiden med 25 % i mørke forhold.",
+    "Hydraulikkolje skal helst være over 30 °C før full belastning.",
+    "Når du kjører 8 km/t, bruker du omtrent 30 sekunder per 70 meter vei.",
+    "Et godt vedlikeholdt skjær kan redusere drivstoff-forbruket med 10 %.",
+    "En brøyterute på 40 min betyr ofte over 500 girendringer!",
+    "Når du hører knirk under føttene, er det kaldere enn –7 °C.",
+    "Et snøfnugg kan veie under 0,01 milligram.",
+    "Snø brøytes mest effektivt når farten ligger mellom 8 og 15 km/t.",
+    "Den første traktorfresen ble patentert i 1927 i Canada.",
+    "Et 2 cm lag med våt snø kan veie mer enn 5 cm tørrsnø."
   ];
+
   function renderFunfact(){
     const i = (new Date().getDate()) % FUNFACTS.length;
     const box = $('#funfact');
-    if (box) box.innerHTML = `<strong>❄️ Dagens brøytefakta:</strong><br>${FUNFACTS[i]}`;
+    if (box) box.innerHTML = `<strong>💡 Funfacts:</strong><br>${FUNFACTS[i]}`;
   }
 
   // ——— 2) HENT HENDELSER ———
