@@ -247,5 +247,18 @@
   </script>
 
   <script src="js/admin_logg_inject.js?v=3" defer></script>
+  <!-- ... alle dine <script> ... -->
+
+<!-- Skjult værdata for nå + neste 3 timer -->
+<script id="wx_hourly_json" type="application/json" hidden>
+{
+  "now": { "temp": "2°", "desc": "Lett snø" },
+  "hourly": [
+    { "t": "2025-11-01T13:00:00Z", "temp": 2, "desc": "Lett snø" },
+    { "t": "2025-11-01T14:00:00Z", "temp": 1, "desc": "Skyet" },
+    { "t": "2025-11-01T15:00:00Z", "temp": 0, "desc": "Opphold" }
+  ]
+}
+</script>
 </body>
 </html>
