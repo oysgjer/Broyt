@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-
   <!-- Tema (auto, lys, mørk) -->
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
@@ -24,66 +23,81 @@
 </head>
 
 <body>
-  <!-- Appbar -->
-<aside id="drawer" class="drawer">
-  <div class="drawer-header">
-    <strong>Brøyterute</strong>
-    <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
-  </div>
+  <!-- Appbar (meny-knapp tilbake) -->
+  <header class="appbar">
+    <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
+    <div class="appbar-title">Brøyterute Romerike Trefelling</div>
+    <div class="appbar-right">
+      <span id="sync_badge" class="badge">
+        <span id="sync_dot" class="dot dot-unknown"></span> Synk: ukjent
+      </span>
+      <span id="wl_badge" class="badge" title="Skjermlås-status">
+        <span id="wl_dot" class="dot dot-off"></span>
+      </span>
+    </div>
+  </header>
 
-  <div class="drawer-content">
-    <nav>
-      <div class="drawer-section">Navigasjon</div>
-      <ul class="drawer-list">
-        <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
-        <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
-        <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
-        <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
-        <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
-      </ul>
+  <!-- Scrim + Drawer -->
+  <div id="scrim"></div>
+  <aside id="drawer" class="drawer">
+    <div class="drawer-header">
+      <strong>Brøyte meny</strong>
+      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
+    </div>
 
-      <div class="drawer-section">Skjerm</div>
-      <div class="card row" style="align-items:center; justify-content:space-between">
-        <button id="qk_wl" class="btn-ghost">
-          <span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken
-        </button>
-        <span id="qk_wl_status" class="muted">Status: av</span>
-      </div>
+    <div class="drawer-content">
+      <nav>
+        <div class="drawer-section">Navigasjon</div>
+        <ul class="drawer-list">
+          <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
+          <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
+          <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
+          <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
+          <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
+        </ul>
 
-      <div class="drawer-section">Tema</div>
-      <div class="card row" style="align-items:center; justify-content:space-between">
-        <button id="theme_toggle" class="btn-ghost">🌓 Bytt tema</button>
-        <span id="theme_label" class="muted">System</span>
-      </div>
+        <div class="drawer-section">Skjerm</div>
+        <div class="card row" style="align-items:center; justify-content:space-between">
+          <button id="qk_wl" class="btn-ghost">
+            <span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken
+          </button>
+          <span id="qk_wl_status" class="muted">Status: av</span>
+        </div>
 
-      <!-- 🧭 Rask navigasjon -->
-      <div class="drawer-section">Rask navigasjon</div>
-      <ul class="drawer-list">
-        <li>
-          <a class="drawer-link"
-             href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2523222,11.1899728"
-             target="_blank">
-            <span class="emoji">⛽</span> Fyll diesel
-          </a>
-        </li>
-        <li>
-          <a class="drawer-link"
-             href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2527612,11.1687113"
-             target="_blank">
-            <span class="emoji">🪨</span> Hent grus
-          </a>
-        </li>
-        <li>
-          <a class="drawer-link"
-             href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2664605,11.2209567"
-             target="_blank">
-            <span class="emoji">🏠</span> Til base
-          </a>
-        </li>
-      </ul>
-    </nav>
-  </div>
-</aside>
+        <div class="drawer-section">Tema</div>
+        <div class="card row" style="align-items:center; justify-content:space-between">
+          <button id="theme_toggle" class="btn-ghost">🌓 Bytt tema</button>
+          <span id="theme_label" class="muted">System</span>
+        </div>
+
+        <!-- 🧭 Rask navigasjon -->
+        <div class="drawer-section">Rask navigasjon</div>
+        <ul class="drawer-list">
+          <li>
+            <a class="drawer-link"
+               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2523222,11.1899728"
+               target="_blank">
+              <span class="emoji">⛽</span> Fyll diesel
+            </a>
+          </li>
+          <li>
+            <a class="drawer-link"
+               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2527612,11.1687113"
+               target="_blank">
+              <span class="emoji">🪨</span> Hent grus
+            </a>
+          </li>
+          <li>
+            <a class="drawer-link"
+               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2664605,11.2209567"
+               target="_blank">
+              <span class="emoji">🏠</span> Til base
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </aside>
 
   <!-- Innhold -->
   <main>
@@ -95,17 +109,19 @@
       <section id="dashboard" style="margin-top:12px">
         <div id="funfact"></div>
         <div id="stats" style="margin-top:10px"></div>
-        <!-- I WORK, rett under overskriften, inni #wx_row: -->
-<div id="wx_row" class="wx-row" style="margin-bottom:12px; padding:0; overflow:hidden; border-radius:12px">
-  <iframe
-    class="yr-card"
-    src="https://www.yr.no/nb/innhold/1-103366/card.html"
-    title="Vær fra Yr"
-    loading="lazy"
-    referrerpolicy="no-referrer"
-    style="border:0; width:100%; height:180px; display:block;">
-  </iframe>
-</div>
+
+        <!-- Værkort (Yr) – egen id for Hjem -->
+        <div id="wx_home" class="wx-row" style="margin:10px 0 12px; padding:0; overflow:hidden; border-radius:12px">
+          <iframe
+            class="yr-card"
+            src="https://www.yr.no/nb/innhold/103366/card.html"
+            title="Vær fra Yr"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            style="border:0; width:100%; height:220px; display:block;">
+          </iframe>
+        </div>
+
         <div id="recent" style="margin-top:10px"></div>
       </section>
 
@@ -142,52 +158,54 @@
       <button id="a_start" class="btn">Start runde</button>
     </section>
 
-  <section id="work">
-  <h1>Under arbeid</h1>
+    <!-- UNDER ARBEID -->
+    <section id="work">
+      <h1>Under arbeid</h1>
 
+      <!-- Værkort (Yr) – egen id for Work -->
+      <div id="wx_row" class="wx-row" style="margin:0 0 12px; padding:0; overflow:hidden; border-radius:12px">
+        <iframe
+          class="yr-card"
+          src="https://www.yr.no/nb/innhold/103366/card.html"
+          title="Vær fra Yr"
+          loading="lazy"
+          referrerpolicy="no-referrer"
+          style="border:0; width:100%; height:180px; display:block;">
+        </iframe>
+      </div>
 
-  <div class="card work-card">
-    <div class="label-muted">Nå</div>
-    <div id="b_now" class="addr-now">—</div>
+      <div class="card work-card">
+        <div class="label-muted">Nå</div>
+        <div id="b_now" class="addr-now">—</div>
 
-    <div class="label-muted" style="margin-top:14px">Neste</div>
-    <div id="b_next" class="addr-next">—</div>
+        <div class="label-muted" style="margin-top:14px">Neste</div>
+        <div id="b_next" class="addr-next">—</div>
 
-    <div class="btn-grid">
-      <button id="act_start" class="btn btn-ok"><span class="ico">▶️</span> Start</button>
-      <button id="act_done"  class="btn btn-dark"><span class="ico">✅</span> Ferdig</button>
-      <button id="act_skip"  class="btn"><span class="ico">⏭️</span> Hopp over</button>
-      <button id="act_next"  class="btn"><span class="ico">➜</span> Neste</button>
-      <button id="act_nav"   class="btn"><span class="ico">🧭</span> Naviger</button>
-      <button id="act_block" class="btn"><span class="ico">⛔</span> Ikke mulig</button>
+        <div class="btn-grid">
+          <button id="act_start" class="btn btn-ok"><span class="ico">▶️</span> Start</button>
+          <button id="act_done"  class="btn btn-dark"><span class="ico">✅</span> Ferdig</button>
+          <button id="act_skip"  class="btn"><span class="ico">⏭️</span> Hopp over</button>
+          <button id="act_next"  class="btn"><span class="ico">➜</span> Neste</button>
+          <button id="act_nav"   class="btn"><span class="ico">🧭</span> Naviger</button>
+          <button id="act_block" class="btn"><span class="ico">⛔</span> Ikke mulig</button>
 
-      <button id="btnBroytKart" class="btn"
-        onclick="window.open('tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes','_blank')">
-        🚜 Brøytekart
-      </button>
-      <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
-    </div>
+          <button id="btnBroytKart" class="btn"
+            onclick="window.open('tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes','_blank')">
+            🚜 Brøytekart
+          </button>
+          <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
+        </div>
 
-    <div class="work-meta">
-      Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
-    </div>
-  </div>
-  <!-- I WORK, rett under overskriften, inni #wx_row: -->
-<div id="wx_row" class="wx-row" style="margin-bottom:12px; padding:0; overflow:hidden; border-radius:12px">
-  <iframe
-    class="yr-card"
-    src="https://www.yr.no/nb/innhold/1-103366/card.html"
-    title="Vær fra Yr"
-    loading="lazy"
-    referrerpolicy="no-referrer"
-    style="border:0; width:100%; height:180px; display:block;">
-  </iframe>
-</div>
-</section>
+        <div class="work-meta">
+          Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
+        </div>
+      </div>
+    </section>
 
     <!-- SERVICE -->
     <section id="service" hidden>
       <h1>Service</h1>
+      <!-- Service-UI fylles av Service.js / service-ui-inject.js -->
     </section>
 
     <!-- STATUS -->
@@ -221,10 +239,10 @@
     <section id="admin" hidden>
       <h1>Admin</h1>
       <div class="card" style="margin-top:12px">
-        <h2 style="margin:0 0 8px">Rapporter & Logg</h2>
+        <h2 style="margin:0 0 8px">Rapporter &amp; Logg</h2>
         <p class="muted" style="margin:0 0 8px">Åpner printvennlig logg med auto-fyll av adresser, S/G og tider.</p>
-        <button class="btn" onclick="location.href='./logg.html'">🧾 Åpne Logg (A4)</button>
-        <a href="./logg.html" target="_blank" class="btn">🧾 Åpne Logg (A4)</a>
+        <button class="btn" onclick="location.href='./logg.html'">🧾 Åpne Logg</button>
+        <a href="./logg.html" target="_blank" class="btn">🧾 Åpne Logg (ny fane)</a>
       </div>
     </section>
   </main>
@@ -247,9 +265,6 @@
   <script src="js/Service.js" defer></script>
   <script src="js/Admin.js" defer></script>
 
-  <!-- (Fjernet work_weather_addon.js for å unngå to ulike værkilder) -->
-  <!-- <script src="js/work_weather_addon.js?v=wx2" defer></script> -->
-
   <!-- Diverse -->
   <script src="js/quicklinks.js?v=2" defer></script>
   <script src="js/autonav_settings.js" defer></script>
@@ -265,10 +280,10 @@
   <!-- Autologger til slutt -->
   <script src="js/auto_logger.js?v=6" defer></script>
 
-  <!-- Admin: injiser logg-knapp -->
+  <!-- Admin: injiser logg-knapp (valgfritt hvis ikke hardkodet) -->
   <script src="js/admin_logg_inject.js?v=3" defer></script>
 
-  <!-- Gå tilbake fra Maps: -->
+  <!-- Gå tilbake fra Maps -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const ret = sessionStorage.getItem('returnTo');
@@ -278,6 +293,5 @@
       }
     });
   </script>
-
 </body>
 </html>
