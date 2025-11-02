@@ -25,75 +25,65 @@
 
 <body>
   <!-- Appbar -->
-  <header class="appbar">
-    <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
-    <div class="appbar-title">Brøyterute</div>
-    <div class="appbar-right">
-      <span id="sync_badge" class="badge">
-        <span id="sync_dot" class="dot dot-unknown"></span> Synk: ukjent
-      </span>
-      <span id="wl_badge" class="badge" title="Skjermlås-status">
-        <span id="wl_dot" class="dot dot-off"></span>
-      </span>
-    </div>
-  </header>
+<aside id="drawer" class="drawer">
+  <div class="drawer-header">
+    <strong>Brøyterute</strong>
+    <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
+  </div>
 
-  <!-- Scrim + Drawer -->
-  <div id="scrim"></div>
-  <aside id="drawer" class="drawer">
-    <div class="drawer-header">
-      <strong>Brøyterute</strong>
-      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
-    </div>
+  <div class="drawer-content">
+    <nav>
+      <div class="drawer-section">Navigasjon</div>
+      <ul class="drawer-list">
+        <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
+        <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
+        <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
+        <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
+        <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
+      </ul>
 
-    <div class="drawer-content">
-      <nav>
-        <div class="drawer-section">Navigasjon</div>
-        <ul class="drawer-list">
-          <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
-          <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
-          <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
-          <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
-          <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
-        </ul>
+      <div class="drawer-section">Skjerm</div>
+      <div class="card row" style="align-items:center; justify-content:space-between">
+        <button id="qk_wl" class="btn-ghost">
+          <span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken
+        </button>
+        <span id="qk_wl_status" class="muted">Status: av</span>
+      </div>
 
-        <div class="drawer-section">Skjerm</div>
-        <div class="card row" style="align-items:center; justify-content:space-between">
-          <button id="qk_wl" class="btn-ghost"><span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken</button>
-          <span id="qk_wl_status" class="muted">Status: av</span>
-        </div>
+      <div class="drawer-section">Tema</div>
+      <div class="card row" style="align-items:center; justify-content:space-between">
+        <button id="theme_toggle" class="btn-ghost">🌓 Bytt tema</button>
+        <span id="theme_label" class="muted">System</span>
+      </div>
 
-        <div class="drawer-section">Tema</div>
-        <div class="card row" style="align-items:center; justify-content:space-between">
-          <button id="theme_toggle" class="btn-ghost">🌓 Bytt tema</button>
-          <span id="theme_label" class="muted">System</span>
-        </div>
-      
+      <!-- 🧭 Rask navigasjon -->
       <div class="drawer-section">Rask navigasjon</div>
-<ul class="drawer-list">
-  <li>
-    <a class="drawer-link"
-       href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2523222,11.1899728"
-       target="_blank">
-      <span class="emoji">⛽</span> Fyll diesel
-    </a>
-  </li>
-  <li>
-    <a class="drawer-link"
-       href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2527612,11.1687113"
-       target="_blank">
-      <span class="emoji">🪨</span> Hent grus
-    </a>
-  </li>
-  <li>
-    <a class="drawer-link"
-       href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2664605,11.2209567"
-       target="_blank">
-      <span class="emoji">🏠</span> Til base
-    </a>
-  </li>
-</ul>
-</div>
+      <ul class="drawer-list">
+        <li>
+          <a class="drawer-link"
+             href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2523222,11.1899728"
+             target="_blank">
+            <span class="emoji">⛽</span> Fyll diesel
+          </a>
+        </li>
+        <li>
+          <a class="drawer-link"
+             href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2527612,11.1687113"
+             target="_blank">
+            <span class="emoji">🪨</span> Hent grus
+          </a>
+        </li>
+        <li>
+          <a class="drawer-link"
+             href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2664605,11.2209567"
+             target="_blank">
+            <span class="emoji">🏠</span> Til base
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</aside>
 
   <!-- Innhold -->
   <main>
