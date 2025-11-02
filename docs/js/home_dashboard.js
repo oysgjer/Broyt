@@ -223,7 +223,7 @@
     const box = $('#recent'); if (!box) return;
 
     const done = rows.filter(r => r.start && r.end);
-    const latest = done.slice(0,4);
+    const latest = done.slice(0,5);
     if (!latest.length){
       box.innerHTML = `<strong>🧭 Siste oppdrag</strong><br><em>Ingen fullførte oppdrag enda.</em>`;
       return;
