@@ -28,11 +28,9 @@
     <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
     <div class="appbar-title">Brøyterute</div>
     <div class="appbar-right">
-      <!-- Synk-badge: app.js oppdaterer dot + tekst -->
       <span id="sync_badge" class="badge">
         <span id="sync_dot" class="dot dot-unknown"></span> Synk: ukjent
       </span>
-      <!-- WakeLock-badge (liten prikk i toppen) -->
       <span id="wl_badge" class="badge" title="Skjermlås-status">
         <span id="wl_dot" class="dot dot-off"></span>
       </span>
@@ -79,7 +77,7 @@
     <section id="home">
       <h1>Hjem</h1>
 
-      <!-- ——— Dashboard (fylles av home_dashboard.js) ——— -->
+      <!-- Dashboard -->
       <section id="dashboard" style="margin-top:12px">
         <div id="funfact"></div>
         <div id="stats" style="margin-top:10px"></div>
@@ -211,7 +209,10 @@
   <script src="js/app.js" defer></script>
   <script src="js/sync.js" defer></script>
 
-  <!-- Sider -->
+  <!-- Felles vær-modul (må komme før home_dashboard og Work) -->
+  <script src="js/weather_unified.js" defer></script>
+
+  <!-- Sider / dashbord -->
   <script src="js/Home.js" defer></script>
   <script src="js/home_dashboard.js" defer></script>
 
@@ -219,16 +220,23 @@
   <script src="js/Work.js?v=6" defer></script>
   <script src="js/wx_bridge_autodetect.js" defer></script>
   <script src="js/work_uhell_fix.js?v=2" defer></script>
+
+  <!-- Øvrige sider -->
   <script src="js/Status.js" defer></script>
   <script src="js/Service.js" defer></script>
   <script src="js/Admin.js" defer></script>
-  <script src="js/work_weather_addon.js?v=wx2" defer></script>
+
+  <!-- (Fjernet work_weather_addon.js for å unngå to ulike værkilder) -->
+  <!-- <script src="js/work_weather_addon.js?v=wx2" defer></script> -->
+
+  <!-- Diverse -->
   <script src="js/quicklinks.js?v=2" defer></script>
   <script src="js/autonav_settings.js" defer></script>
   <script src="js/work_autonav_patch.js" defer></script>
-  <script src="js/driver_to_service_mirror" defer></script>
+  <script src="js/driver_to_service_mirror.js" defer></script>
   <script src="js/service-ui-inject.js" defer></script>
   <script src="js/service_capture_emails.js" defer></script>
+
   <!-- Speil navn/adresse før autologger -->
   <script src="js/driver_mirror.js" defer></script>
   <script src="js/work_addr_tag.js" defer></script>
@@ -236,29 +244,30 @@
   <!-- Autologger til slutt -->
   <script src="js/auto_logger.js?v=6" defer></script>
 
+  <!-- Admin: injiser logg-knapp -->
+  <script src="js/admin_logg_inject.js?v=3" defer></script>
+
+  <!-- Gå tilbake fra Maps: -->
   <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const ret = sessionStorage.getItem('returnTo');
-    if (ret && window.location.href !== ret) {
-      sessionStorage.removeItem('returnTo');
-      window.location.replace(ret);
-    }
-  });
+    document.addEventListener('DOMContentLoaded', () => {
+      const ret = sessionStorage.getItem('returnTo');
+      if (ret && window.location.href !== ret) {
+        sessionStorage.removeItem('returnTo');
+        window.location.replace(ret);
+      }
+    });
   </script>
 
-  <script src="js/admin_logg_inject.js?v=3" defer></script>
-  <!-- ... alle dine <script> ... -->
-
-<!-- Skjult værdata for nå + neste 3 timer -->
-<script id="wx_hourly_json" type="application/json" hidden>
-{
-  "now": { "temp": "2°", "desc": "Lett snø" },
-  "hourly": [
-    { "t": "2025-11-01T13:00:00Z", "temp": 2, "desc": "Lett snø" },
-    { "t": "2025-11-01T14:00:00Z", "temp": 1, "desc": "Skyet" },
-    { "t": "2025-11-01T15:00:00Z", "temp": 0, "desc": "Opphold" }
-  ]
-}
-</script>
+  <!-- Skjult værdata (valgfritt, brukes som test/fallback av weather_unified.js) -->
+  <script id="wx_hourly_json" type="application/json" hidden>
+  {
+    "now": { "temp": "2°", "desc": "Lett snø" },
+    "hourly": [
+      { "t": "2025-11-01T13:00:00Z", "temp": 2, "desc": "Lett snø" },
+      { "t": "2025-11-01T14:00:00Z", "temp": 1, "desc": "Skyet" },
+      { "t": "2025-11-01T15:00:00Z", "temp": 0, "desc": "Opphold" }
+    ]
+  }
+  </script>
 </body>
 </html>
