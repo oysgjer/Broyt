@@ -82,7 +82,17 @@
       <section id="dashboard" style="margin-top:12px">
         <div id="funfact"></div>
         <div id="stats" style="margin-top:10px"></div>
-        <div id="weather" style="margin-top:10px"></div>
+        <!-- I WORK, rett under overskriften, inni #wx_row: -->
+<div id="wx_row" class="wx-row" style="margin-bottom:12px; padding:0; overflow:hidden; border-radius:12px">
+  <iframe
+    class="yr-card"
+    src="https://www.yr.no/nb/innhold/1-103366/card.html"
+    title="Vær fra Yr"
+    loading="lazy"
+    referrerpolicy="no-referrer"
+    style="border:0; width:100%; height:180px; display:block;">
+  </iframe>
+</div>
         <div id="recent" style="margin-top:10px"></div>
       </section>
 
@@ -122,19 +132,17 @@
   <section id="work">
   <h1>Under arbeid</h1>
 
-  <!-- Vær-rad (Work er fasit) -->
-  <div id="wx_row" class="wx-row"></div>
-
-  <div class="work-top" id="wk_top">
-    <div class="work-prog">
-      <div class="other" id="b_prog_other"></div>
-      <div class="me" id="b_prog_me"></div>
-    </div>
-    <div class="work-caption">
-      <div><strong id="b_prog_me_count">0/0</strong> mine • <strong id="b_prog_other_count">0/0</strong> andre</div>
-      <div id="b_prog_summary">0 av 0 adresser fullført</div>
-    </div>
-  </div>
+<!-- I WORK, rett under overskriften, inni #wx_row: -->
+<div id="wx_row" class="wx-row" style="margin-bottom:12px; padding:0; overflow:hidden; border-radius:12px">
+  <iframe
+    class="yr-card"
+    src="https://www.yr.no/nb/innhold/1-103366/card.html"
+    title="Vær fra Yr"
+    loading="lazy"
+    referrerpolicy="no-referrer"
+    style="border:0; width:100%; height:180px; display:block;">
+  </iframe>
+</div>
 
   <div class="card work-card">
     <div class="label-muted">Nå</div>
@@ -212,17 +220,12 @@
   <script src="js/app.js" defer></script>
   <script src="js/sync.js" defer></script>
 
-  <!-- Felles vær-modul (må komme før home_dashboard og Work) -->
-  <script src="js/weather_unified.js" defer></script>
-  <script src="js/wx_bridge_autodetect.js" defer></script>
-
   <!-- Sider / dashbord -->
   <script src="js/Home.js" defer></script>
   <script src="js/home_dashboard.js" defer></script>
 
   <!-- Work-relatert -->
   <script src="js/Work.js?v=6" defer></script>
-  <script src="js/work_weather_live.js" defer></script>
   <script src="js/work_uhell_fix.js?v=2" defer></script>
 
   <!-- Øvrige sider -->
@@ -262,16 +265,5 @@
     });
   </script>
 
-  <!-- Skjult værdata (valgfritt, brukes som test/fallback av weather_unified.js) -->
-  <script id="wx_hourly_json" type="application/json" hidden>
-  {
-    "now": { "temp": "2°", "desc": "Lett snø" },
-    "hourly": [
-      { "t": "2025-11-01T13:00:00Z", "temp": 2, "desc": "Lett snø" },
-      { "t": "2025-11-01T14:00:00Z", "temp": 1, "desc": "Skyet" },
-      { "t": "2025-11-01T15:00:00Z", "temp": 0, "desc": "Opphold" }
-    ]
-  }
-  </script>
 </body>
 </html>
