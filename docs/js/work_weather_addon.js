@@ -1,142 +1,90 @@
-// work_weather_addon.js — inline SVG weather, theme-aware, stronger stroke + fallback
+// js/work_weather_addon.js
+// Work er fasit for vær. Vi speiler "nå + neste 3 timer" til localStorage,
+// slik at Home kan vise nøyaktig det samme.
+
 (function(){
-  const $ = (s,root=document)=>root.querySelector(s);
+  const row = document.getElementById('wx_row');
+  if (!row) return;
 
-  function prefersDark(){
-    try{ return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
-    catch{ return false; }
-  }
-
-  function applyWxColor() {
-    const el = document.getElementById('wx_icon');
-    if (!el) return;
-    // Bruk currentColor i SVG — sett farge her:
-    el.style.color = prefersDark() ? '#f3f4f6' : '#111827';
-  }
-
-  function injectStyles(){
-    if (document.getElementById('wx_hdr_style')) return;
-    const st = document.createElement('style');
-    st.id = 'wx_hdr_style';
-    st.textContent = `
-      .work-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 6px}
-      .work-title{margin:0}
-      .wx-row{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-      #wx_icon{display:inline-flex;width:22px;height:22px;line-height:0;vertical-align:middle;z-index:1}
-      #wx_icon svg{width:22px;height:22px;display:block}
-      @media (max-width:520px){.work-header-row{flex-wrap:wrap}}
-    `;
-    document.head.appendChild(st);
-  }
-
-  function ensureHeader(){
-    const sec = document.getElementById('work'); if(!sec) return;
-    let hdr = sec.querySelector('.work-header-row');
-    if(!hdr){
-      hdr = document.createElement('div'); hdr.className='work-header-row';
-      const h1 = document.createElement('h1'); h1.className='work-title'; h1.textContent='Under arbeid';
-      const wx = document.createElement('div'); wx.id='wx_row'; wx.className='wx-row';
-      wx.innerHTML = `<span id="wx_icon" aria-hidden="true"></span><span id="wx_temp">--°</span><span id="wx_desc" class="muted"></span>`;
-      hdr.appendChild(h1); hdr.appendChild(wx);
-      sec.insertAdjacentElement('afterbegin', hdr);
-    } else {
-      // oppgrader evt. gammel <img id="wx_icon">
-      const wx = hdr.querySelector('#wx_row') || hdr;
-      const ico = wx.querySelector('#wx_icon');
-      if(!ico){
-        const span = document.createElement('span'); span.id='wx_icon'; span.setAttribute('aria-hidden','true');
-        wx.insertAdjacentElement('afterbegin', span);
-      } else if (ico.tagName === 'IMG') {
-        const span = document.createElement('span'); span.id='wx_icon'; span.setAttribute('aria-hidden','true');
-        ico.replaceWith(span);
-      }
+  function saveSnapshot(snap){
+    try {
+      localStorage.setItem('WX_LATEST', JSON.stringify(snap));
+      window.dispatchEvent(new CustomEvent('wx:update', { detail: snap }));
+    } catch(e){
+      console.warn('WX_LATEST: klarte ikke lagre', e);
     }
   }
 
-  // Bygg SVG med stroke=currentColor og litt kraftigere strek
-  function svgWrap(body){
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-                 role="img" aria-label="værikon">${body}</svg>`;
+  function ds(key){ return row?.dataset ? row.dataset[key] : undefined; }
+
+  function parseH(s){
+    if (!s) return null;
+    const [t, temp, desc] = String(s).split('|');
+    if (!t) return null;
+    return { t, temp: Number(temp), desc };
   }
-  function iconSvg(kind){
-    if(kind==='sunny')  return svgWrap(`<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>`);
-    if(kind==='partly') return svgWrap(`<path d="M4 15a4 4 0 0 1 4-4h.5"/><circle cx="16" cy="8" r="3"/><path d="M2 16h12"/>`);
-    if(kind==='rain')   return svgWrap(`<path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M8 19v2M12 19v2M16 19v2"/>`);
-    if(kind==='snow')   return svgWrap(`<path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M12 17l-1 1 1 1 1-1-1-1zM8 17l-1 1 1 1 1-1-1-1zM16 17l-1 1 1 1 1-1-1-1z"/>`);
-    if(kind==='storm')  return svgWrap(`<path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/><path d="M13 16l-3 5 5-4-2 5"/>`);
-    return               svgWrap(`<path d="M4 15a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4"/>`);
-  }
-  function pickType(code){
-    const map={0:'sunny',1:'sunny',2:'partly',3:'cloud',45:'fog',48:'fog',51:'drizzle',53:'drizzle',55:'drizzle',
-               61:'rain',63:'rain',65:'rain',66:'rain',67:'rain',71:'snow',73:'snow',75:'snow',77:'snow',
-               80:'rain',81:'rain',82:'rain',85:'snow',86:'snow',95:'storm',96:'storm',99:'storm'};
-    return map[code]||'cloud';
-  }
-// --- SPEIL vær til Hjem (dashboard) ---
-function mirrorWeatherToHome(tempC, descText) {
-  // lag skjulte "speil"-noder om de ikke finnes
-  let t = document.getElementById('wx_temp');
-  if (!t) { t = document.createElement('span'); t.id = 'wx_temp'; t.hidden = true; document.body.appendChild(t); }
 
-  let d = document.getElementById('wx_desc');
-  if (!d) { d = document.createElement('span'); d.id = 'wx_desc'; d.hidden = true; document.body.appendChild(d); }
+  // Prøv å bygge snapshot fra data-attributter eller fra tekst i wx_row
+  function snapshotFromDom(){
+    const nowTemp = ds('temp') || '';
+    const nowDesc = ds('desc') || '';
 
-  // sett innhold
-  const txtTemp = (typeof tempC === 'number') ? `${Math.round(tempC)}°` : (tempC || '');
-  t.textContent = txtTemp;
-  d.textContent = descText || '';
+    const h1 = parseH(ds('h1'));
+    const h2 = parseH(ds('h2'));
+    const h3 = parseH(ds('h3'));
+    const hourly = [h1, h2, h3].filter(Boolean);
 
-  // si fra til dashboardet at vi er klare
-  try {
-    window.dispatchEvent(new CustomEvent('wx:updated', { detail: { temp: txtTemp, desc: d.textContent }}));
-  } catch {}
-}
-  async function loadWeather(){
-    const sec = document.getElementById('work'); if (!sec) return;
-    injectStyles(); ensureHeader(); applyWxColor();
-
-    let lat=60.33, lon=11.26;
-    try{
-      const pos = await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:5000}));
-      lat=+pos.coords.latitude.toFixed(4); lon=+pos.coords.longitude.toFixed(4);
-    }catch{}
-
-    try{
-      const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`);
-      const j = await r.json();
-      const t = Math.round(j.current.temperature_2m);
-      const code = j.current.weather_code;
-
-      const descMap = {0:'Klar himmel',1:'Hovedsakelig klar',2:'Delvis skyet',3:'Overskyet',45:'Tåke',48:'Ise-tåke',
-                       51:'Lett yr',53:'Yr',55:'Kraftig yr',61:'Lett regn',63:'Regn',65:'Kraftig regn',66:'Underkjølt regn',
-                       67:'Kraftig underkjølt regn',71:'Lett snø',73:'Snø',75:'Kraftig snø',77:'Snøfnugg',80:'Regnbyger',
-                       81:'Kraftige regnbyger',82:'Meget kraftige regnbyger',85:'Snøbyger',86:'Kraftige snøbyger',
-                       95:'Torden',96:'Torden med hagl',99:'Torden med kraftig hagl'};
-
-      const icon = document.getElementById('wx_icon');
-      const temp = document.getElementById('wx_temp');
-      const desc = document.getElementById('wx_desc');
-
-      if (icon) icon.innerHTML = iconSvg(pickType(code));
-      if (temp) temp.textContent = t + '°';
-      if (desc) desc.textContent = descMap[code] || 'Vær';
-    }catch{
-      // Fallback: enkel emoji så bruker ser noe
-      const icon = document.getElementById('wx_icon'); if (icon && !icon.innerHTML) icon.textContent = '⛅';
+    // Dersom dataset ikke finnes, prøv å tolke enkel tekst: "2° Lett snø" + "14:00 • 2° …"
+    // (holder det veldig konservativt – dataset er anbefalt)
+    let now = { temp: nowTemp, desc: nowDesc };
+    if (!nowTemp && !nowDesc){
+      const txt = row.textContent.trim();
+      // veldig enkel heuristikk – dataset gir bedre resultat
+      const m = txt.match(/(-?\d+)\s*°\s*([^\n•]+)/);
+      if (m) now = { temp: `${m[1]}°`, desc: m[2].trim() };
     }
+
+    return {
+      at: Date.now(),
+      source: 'work_weather_addon',
+      now,
+      hourly
+    };
   }
 
-  // re-render ved temabytte
-  if (window.matchMedia){
-    const mq=window.matchMedia('(prefers-color-scheme: dark)');
-    const onchg=()=>{ applyWxColor(); const ico=$('#wx_icon svg'); if(ico){ ico.style.stroke='currentColor'; } };
-    if (mq.addEventListener) mq.addEventListener('change', onchg);
-    else if (mq.addListener) mq.addListener(onchg);
+  // Kalles av Work.js når vær hentes (anbefalt)
+  //   now = { temp:"2°", desc:"Lett snø" }
+  //   hourly = [{t:"ISO", temp:2, desc:"..."}, ...] (0..3)
+  function setFromWork(now, hourly){
+    if (row){
+      row.dataset.temp = now?.temp || '';
+      row.dataset.desc = now?.desc || '';
+      ['h1','h2','h3'].forEach((k,i)=>{
+        const h = hourly?.[i];
+        row.dataset[k] = h ? `${h.t}|${h.temp}|${h.desc}` : '';
+      });
+    }
+    saveSnapshot({
+      at: Date.now(),
+      source: 'work_weather_addon',
+      now: now || { temp:'', desc:'' },
+      hourly: (hourly || []).slice(0,3)
+    });
   }
 
-  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
-  ready(loadWeather);
-  window.addEventListener('hashchange', loadWeather);
-  setTimeout(loadWeather, 800);
+  // Eksponer for Work.js
+  window.WX = Object.assign({}, window.WX, { set: setFromWork });
+
+  // Lag et første snapshot fra DOM (fallback om WX.set ikke kalles)
+  saveSnapshot(snapshotFromDom());
+
+  // Hold øye med endringer på #wx_row (tekst eller dataset)
+  const mo = new MutationObserver(() => {
+    saveSnapshot(snapshotFromDom());
+  });
+  mo.observe(row, {
+    childList: true, subtree: true,
+    attributes: true,
+    attributeFilter: ['data-temp','data-desc','data-h1','data-h2','data-h3']
+  });
 })();
