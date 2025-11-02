@@ -1,90 +1,108 @@
-// js/work_weather_addon.js
-// Work er fasit for vær. Vi speiler "nå + neste 3 timer" til localStorage,
-// slik at Home kan vise nøyaktig det samme.
+// work_weather_addon.js — single source of truth for weather
+// Makes a fresh snapshot on the Work page and notifies the rest of the app.
 
 (function(){
-  const row = document.getElementById('wx_row');
-  if (!row) return;
+  // ------- helpers -------
+  const $ = sel => document.querySelector(sel);
+  const pad = n => (n < 10 ? "0"+n : ""+n);
+  const dfHour = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+  const toLocalDate = iso => new Date(iso);
 
-  function saveSnapshot(snap){
-    try {
-      localStorage.setItem('WX_LATEST', JSON.stringify(snap));
-      window.dispatchEvent(new CustomEvent('wx:update', { detail: snap }));
-    } catch(e){
-      console.warn('WX_LATEST: klarte ikke lagre', e);
+  // pick next 3 future hours (no past), formatted
+  function pickNext3(hourly){
+    const now = Date.now() + 60 * 1000; // 1 min grace so :00 just passed doesn’t show
+    const future = hourly
+      .map(h => ({ t: toLocalDate(h.t).getTime(), temp: h.temp, desc: h.desc }))
+      .filter(h => h.t >= now)
+      .sort((a,b) => a.t - b.t)
+      .slice(0,3);
+
+    return future.map(h => ({
+      label: dfHour.format(h.t),
+      temp: Math.round(h.temp),
+      desc: h.desc || ""
+    }));
+  }
+
+  function writeSnapshot(snap){
+    // Keep a JSON script tag updated for consumers (Home, etc.)
+    let el = $("#wx_hourly_json");
+    const txt = JSON.stringify(snap);
+    if (!el) {
+      el = document.createElement("script");
+      el.id = "wx_hourly_json";
+      el.type = "application/json";
+      el.hidden = true;
+      document.body.appendChild(el);
     }
+    el.textContent = txt;
+
+    // also expose on window (very small)
+    window.__WX = snap;
+    // tell listeners that fresh data exists
+    window.dispatchEvent(new Event("wx:update"));
   }
 
-  function ds(key){ return row?.dataset ? row.dataset[key] : undefined; }
+  function renderWorkRow(snap){
+    // Header row on Work: "2° Lett snø" + "14:00 • 2° • 15:00 • 1° • 16:00 • 0°"
+    const host = $("#wx_row");
+    if (!host) return;
 
-  function parseH(s){
-    if (!s) return null;
-    const [t, temp, desc] = String(s).split('|');
-    if (!t) return null;
-    return { t, temp: Number(temp), desc };
+    const nowLine = `${snap.now.temp} ${snap.now.desc}`.trim();
+    const h3 = pickNext3(snap.hourly);
+    const trail = h3.length
+      ? h3.map(h => `${h.label} \u00A0•\u00A0 ${h.temp}°`).join(" \u00A0\u00A0 ")
+      : "";
+
+    host.innerHTML = `
+      <div class="wx-now">${nowLine}</div>
+      ${trail ? `<div class="wx-3h">${trail}</div>` : ""}
+    `;
   }
 
-  // Prøv å bygge snapshot fra data-attributter eller fra tekst i wx_row
-  function snapshotFromDom(){
-    const nowTemp = ds('temp') || '';
-    const nowDesc = ds('desc') || '';
-
-    const h1 = parseH(ds('h1'));
-    const h2 = parseH(ds('h2'));
-    const h3 = parseH(ds('h3'));
-    const hourly = [h1, h2, h3].filter(Boolean);
-
-    // Dersom dataset ikke finnes, prøv å tolke enkel tekst: "2° Lett snø" + "14:00 • 2° …"
-    // (holder det veldig konservativt – dataset er anbefalt)
-    let now = { temp: nowTemp, desc: nowDesc };
-    if (!nowTemp && !nowDesc){
-      const txt = row.textContent.trim();
-      // veldig enkel heuristikk – dataset gir bedre resultat
-      const m = txt.match(/(-?\d+)\s*°\s*([^\n•]+)/);
-      if (m) now = { temp: `${m[1]}°`, desc: m[2].trim() };
-    }
-
-    return {
-      at: Date.now(),
-      source: 'work_weather_addon',
-      now,
-      hourly
-    };
+  // ------- MAIN fetch/bridge -------
+  async function buildFromBridge(){
+    // If you already have a bridge (e.g. MET/yr fetch elsewhere), read it here.
+    // Expecting window.loadWeatherBridge?.() to return { now: {temp, desc}, hourly:[{t,temp,desc}...] }
+    try{
+      if (typeof window.loadWeatherBridge === "function"){
+        const data = await window.loadWeatherBridge();
+        if (data && data.now && Array.isArray(data.hourly)){
+          writeSnapshot(data);
+          renderWorkRow(data);
+          return true;
+        }
+      }
+    }catch(e){ console.warn("Weather bridge failed:", e); }
+    return false;
   }
 
-  // Kalles av Work.js når vær hentes (anbefalt)
-  //   now = { temp:"2°", desc:"Lett snø" }
-  //   hourly = [{t:"ISO", temp:2, desc:"..."}, ...] (0..3)
-  function setFromWork(now, hourly){
-    if (row){
-      row.dataset.temp = now?.temp || '';
-      row.dataset.desc = now?.desc || '';
-      ['h1','h2','h3'].forEach((k,i)=>{
-        const h = hourly?.[i];
-        row.dataset[k] = h ? `${h.t}|${h.temp}|${h.desc}` : '';
-      });
-    }
-    saveSnapshot({
-      at: Date.now(),
-      source: 'work_weather_addon',
-      now: now || { temp:'', desc:'' },
-      hourly: (hourly || []).slice(0,3)
-    });
+  // Fallback: try to read any existing JSON snapshot (keeps UI showing something)
+  function useExistingIfAny(){
+    try{
+      const el = document.getElementById("wx_hourly_json");
+      if (el && el.textContent.trim()){
+        const data = JSON.parse(el.textContent);
+        if (data && data.now && Array.isArray(data.hourly)){
+          writeSnapshot(data); // re-emit to normalise format
+          renderWorkRow(data);
+          return true;
+        }
+      }
+    }catch{}
+    return false;
   }
 
-  // Eksponer for Work.js
-  window.WX = Object.assign({}, window.WX, { set: setFromWork });
+  async function init(){
+    // Always try bridge first (fresh), then fallback to any existing JSON
+    const ok = await buildFromBridge();
+    if (!ok) useExistingIfAny();
+  }
 
-  // Lag et første snapshot fra DOM (fallback om WX.set ikke kalles)
-  saveSnapshot(snapshotFromDom());
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
 
-  // Hold øye med endringer på #wx_row (tekst eller dataset)
-  const mo = new MutationObserver(() => {
-    saveSnapshot(snapshotFromDom());
-  });
-  mo.observe(row, {
-    childList: true, subtree: true,
-    attributes: true,
-    attributeFilter: ['data-temp','data-desc','data-h1','data-h2','data-h3']
-  });
 })();
