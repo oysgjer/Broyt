@@ -394,7 +394,7 @@
                 ${pos ? `<li><b>Posisjon:</b> ${pos.lat.toFixed(6)}, ${pos.lon.toFixed(6)} (±${Math.round(pos.acc || 0)} m)</li>` : `<li><b>Posisjon:</b> ikke tilgjengelig</li>`}
               </ul>
               <p><b>Beskrivelse:</b><br>${note ? note.replace(/\n/g,'<br>') : '(ingen tekst)'}</p>
-              <p style="font-size:12px;opacity:.7">Bilder vedlegges hvis e-posttjenesten tillater det. Ved fallback via mailto må bilder sendes manuelt.</p>
+              <p style="font-size:12px;opacity:.7">Bilder legges ved manuelt.</p>
             </div>
           `.trim();
 
