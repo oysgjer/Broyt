@@ -162,7 +162,6 @@
     <section id="work">
       <h1>Under arbeid</h1>
 
-
       <div class="card work-card">
         <div class="label-muted">Nå</div>
         <div id="b_now" class="addr-now">—</div>
@@ -188,19 +187,19 @@
         <div class="work-meta">
           Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
         </div>
-        
-              <!-- Værkort (Yr) – egen id for Work -->
-      <div id="wx_row" class="wx-row" style="margin:0 0 12px; padding:0; overflow:hidden; border-radius:12px">
-        <iframe
-          class="yr-card"
-          src="https://www.yr.no/nb/innhold/1-103366/card.html"
-          title="Vær fra Yr"
-          loading="lazy"
-          referrerpolicy="no-referrer"
-          style="border:0; width:100%; height:180px; display:block;">
-        </iframe>
-      </div>
-        
+
+        <!-- Værkort (Yr) – egen id for Work -->
+        <div id="wx_row" class="wx-row" style="margin:0 0 12px; padding:0; overflow:hidden; border-radius:12px">
+          <iframe
+            class="yr-card"
+            src="https://www.yr.no/nb/innhold/1-103366/card.html"
+            title="Vær fra Yr"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            style="border:0; width:100%; height:180px; display:block;">
+          </iframe>
+        </div>
+
       </div>
     </section>
 
@@ -249,6 +248,26 @@
     </section>
   </main>
 
+  <!-- Uhell-modal (PLASSERT RETT FØR </body>) -->
+  <!-- Uhell-modal -->
+  <div id="incidentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#111827;color:#e5e7eb; padding:16px; border-radius:12px; width:min(680px, 92vw); box-shadow:0 10px 30px rgba(0,0,0,.4);">
+      <h2 style="margin:0 0 8px 0; font-size:20px;">Uhell – beskrivelse og bilder</h2>
+      <p id="incidentContext" style="margin:0 0 10px 0; font-size:13px; opacity:.8;">Adresse/posisjon hentes automatisk…</p>
+      <label for="incidentText" style="display:block; font-weight:600; margin:8px 0 6px;">Hva skjedde?</label>
+      <textarea id="incidentText" rows="4" placeholder="Kort beskrivelse…" style="width:100%; padding:10px; border-radius:10px; border:1px solid #374151; background:#0b1320; color:#e5e7eb;"></textarea>
+
+      <label for="incidentPhotos" style="display:block; font-weight:600; margin:14px 0 6px;">Bilder</label>
+      <input id="incidentPhotos" type="file" accept="image/*" capture="environment" multiple
+             style="display:block; width:100%; padding:8px; border-radius:10px; border:1px solid #374151; background:#0b1320; color:#e5e7eb;" />
+
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
+        <button id="incidentCancel" style="padding:10px 14px; border-radius:10px; border:1px solid #4b5563; background:#1f2937; color:#e5e7eb;">Avbryt</button>
+        <button id="incidentSend" style="padding:10px 14px; border-radius:10px; border:1px solid #2563eb; background:#2563eb; color:white;">Send uhell</button>
+      </div>
+    </div>
+  </div>
+
   <!-- JS – rekkefølge er viktig -->
   <!-- Kjerne -->
   <script src="js/app.js" defer></script>
@@ -293,6 +312,112 @@
         sessionStorage.removeItem('returnTo');
         window.location.replace(ret);
       }
+    });
+  </script>
+
+  <!-- Uhell: enkel kobling (åpne/close + send) -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const emailTo = "post@romeriketrefelling.no";
+
+      // Elements
+      const btnIncident = document.getElementById('act_incident');
+      const modal = document.getElementById('incidentModal');
+      const ctx = document.getElementById('incidentContext');
+      const txt = document.getElementById('incidentText');
+      const photos = document.getElementById('incidentPhotos');
+      const btnSend = document.getElementById('incidentSend');
+      const btnCancel = document.getElementById('incidentCancel');
+
+      function show() { modal.style.display = 'flex'; }
+      function hide() { modal.style.display = 'none'; }
+
+      function activeAddressName() {
+        const el = document.getElementById('b_now');
+        const t = (el?.textContent || '').trim();
+        return t && t !== '—' ? t : null;
+      }
+
+      function nowISO() { return new Date().toISOString(); }
+
+      async function getPosition(timeoutMs = 8000) {
+        return new Promise((resolve) => {
+          if (!navigator.geolocation) return resolve(null);
+          let done = false;
+          const t = setTimeout(() => { if (!done) resolve(null); }, timeoutMs);
+          navigator.geolocation.getCurrentPosition(
+            pos => { done = true; clearTimeout(t); resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy }); },
+            _ => { done = true; clearTimeout(t); resolve(null); },
+            { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 20000 }
+          );
+        });
+      }
+
+      function plainText(str) { return String(str || '').replace(/<[^>]+>/g, ''); }
+
+      async function sendEmail(subject, html, attachments) {
+        // Bruk eksisterende app-funksjoner hvis de finnes
+        if (typeof window.sendAutoEmail === 'function') {
+          return window.sendAutoEmail(emailTo, subject, html, attachments || []);
+        }
+        if (typeof window.sendViaEmailService === 'function') {
+          return window.sendViaEmailService(emailTo, subject, html, attachments || []);
+        }
+        // Fallback: mailto (uten vedlegg)
+        const mailto = `mailto:${encodeURIComponent(emailTo)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(plainText(html))}`;
+        window.location.href = mailto;
+        return null;
+      }
+
+      async function onOpen() {
+        const addr = activeAddressName();
+        ctx.textContent = `Aktiv adresse: ${addr || '(ukjent)'} – posisjon logges automatisk.`;
+        show();
+        setTimeout(() => txt.focus(), 50);
+      }
+
+      async function onSend() {
+        btnSend.disabled = true;
+        try {
+          const ts = nowISO();
+          const pos = await getPosition();
+          const addr = activeAddressName();
+          const note = (txt.value || '').trim();
+
+          // Enkelt HTML-innhold til e-post
+          const html = `
+            <div style="font-family:ui-sans-serif,system-ui;">
+              <h2>Uhell-rapport</h2>
+              <ul>
+                <li><b>Tid:</b> ${ts}</li>
+                <li><b>Adresse:</b> ${addr || '-'}</li>
+                ${pos ? `<li><b>Posisjon:</b> ${pos.lat.toFixed(6)}, ${pos.lon.toFixed(6)} (±${Math.round(pos.acc || 0)} m)</li>` : `<li><b>Posisjon:</b> ikke tilgjengelig</li>`}
+              </ul>
+              <p><b>Beskrivelse:</b><br>${note ? note.replace(/\n/g,'<br>') : '(ingen tekst)'}</p>
+              <p style="font-size:12px;opacity:.7">Bilder vedlegges hvis e-posttjenesten tillater det. Ved fallback via mailto må bilder sendes manuelt.</p>
+            </div>
+          `.trim();
+
+          // Forsøk å sende (vedlegg håndteres av appens e-posttjeneste hvis tilgjengelig)
+          // Vi sender ikke binære vedlegg her for å unngå konflikt; service_capture_emails.js kan fange feltene/bildene.
+          const subject = `Uhell – ${addr || 'Ukjent adresse'} – ${ts.replace('T',' ').slice(0,19)}`;
+          await sendEmail(subject, html, null);
+
+          alert('Uhell registrert og sendt/klargjort for sending.');
+          txt.value = '';
+          photos.value = '';
+          hide();
+        } catch (e) {
+          console.error(e);
+          alert('Klarte ikke å sende uhell. Se konsoll for detaljer.');
+        } finally {
+          btnSend.disabled = false;
+        }
+      }
+
+      if (btnIncident) btnIncident.addEventListener('click', onOpen);
+      if (btnCancel) btnCancel.addEventListener('click', hide);
+      if (btnSend) btnSend.addEventListener('click', onSend);
     });
   </script>
 </body>
