@@ -27,6 +27,7 @@
       --accent: #16a34a;
       --danger: #ef4444;
       --info: #3b82f6;
+      --others: #8b5cf6; /* lilla */
     }
     [data-theme="light"] {
       --status-bg: #f8fafc;
@@ -118,6 +119,7 @@
     .swatch.route{ background:var(--danger) }
     .swatch.covered{ background:var(--accent) }
     .swatch.gps{ background:var(--info) }
+    .swatch.others{ background:var(--others) }
 
     /* Toasts */
     #toasts { position: fixed; left: 50%; bottom: calc(12px + var(--safe-bottom)); transform: translateX(-50%);
@@ -202,20 +204,25 @@
       <button class="btn" id="btnEditOff">✔️ Avslutt redigering</button>
       <button class="btn" id="btnRouteList">📄 Ruteliste</button>
       <button class="btn" id="btnClearGPS">🗑️ Nullstill GPS</button>
+
+      <!-- NYE knapper -->
+      <button class="btn" id="btnClearMine">🧹 Nullstill mine (grønn+blå)</button>
+      <button class="btn" id="btnClearAll">🧨 Nullstill alle</button>
     </div>
     <div class="note" style="margin-top:.4rem">Alt lagres automatisk (lokalt + JSONBin når mulig).</div>
   </div>
 
   <div class="group">
     <h3>Om</h3>
-    <div class="note" id="metaInfo">v3.4 • ruteliste + redigering + nullstill GPS • kompass fjernet</div>
+    <div class="note" id="metaInfo">v3.5 • andres dekning (lilla) • nullstill mine/alle</div>
   </div>
 </aside>
 
 <div class="legend">
   <h3>Tegnforklaring</h3>
   <div class="row"><span class="swatch route"></span> Rute(r)</div>
-  <div class="row"><span class="swatch covered"></span> Dekket del</div>
+  <div class="row"><span class="swatch covered"></span> Dekket (deg)</div>
+  <div class="row"><span class="swatch others"></span> Dekket (andre)</div>
   <div class="row"><span class="swatch gps"></span> GPS-spor</div>
 </div>
 
@@ -248,6 +255,7 @@
     if (navigator.vibrate) navigator.vibrate(10);
   }
 
+  // --- URL params og config
   const params = new URLSearchParams(location.hash.replace(/^#/, ''));
   const ADDR_BIN = params.get('addrBin') || params.get('bin') || '';
   const ADDR_KEY = params.get('addrKey') || params.get('key') || '';
@@ -257,6 +265,19 @@
   const BACK_URL = params.get('backUrl') || 'https://broyt.pages.dev/#work';
   const LS_DRAFT = 'KARTTEGNER_DRAFT';
   const LS_THEME = 'KART_THEME_MODE';
+
+  // --- Identitet (for "andres dekning")
+  const LS_USER = 'KARTTEGNER_USER';
+  let USER_ID = localStorage.getItem(LS_USER) || params.get('user') || null;
+  if (!USER_ID) {
+    USER_ID = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random())).slice(0,8);
+    localStorage.setItem(LS_USER, USER_ID);
+  }
+
+  // --- Clear-broadcast versjon
+  const LS_CLEAR_VER = 'KARTTEGNER_CLEAR_VER';
+  let seenClearVersion = parseInt(localStorage.getItem(LS_CLEAR_VER) || '0', 10);
+
   let remoteVersion = 0;
 
   const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap contributors' });
@@ -281,10 +302,12 @@
   if (prefersDark && prefersDark.addEventListener){ prefersDark.addEventListener('change', applyThemeToMap); }
   document.getElementById('btnTheme').onclick = () => { themeMode = themeMode==='auto' ? 'dark' : (themeMode==='dark' ? 'light' : 'auto'); localStorage.setItem(LS_THEME, themeMode); applyThemeToMap(); };
 
-  const drawnLayer   = new L.FeatureGroup().addTo(map);
-  const coveredLayer = new L.FeatureGroup().addTo(map);
-  const gpsLayer     = new L.FeatureGroup().addTo(map);
-  const addressLayer = new L.FeatureGroup().addTo(map);
+  // --- Lag
+  const drawnLayer   = new L.FeatureGroup().addTo(map);   // røde ruter
+  const coveredLayer = new L.FeatureGroup().addTo(map);   // grønn (deg)
+  const othersLayer  = new L.FeatureGroup().addTo(map);   // lilla (andre)
+  const gpsLayer     = new L.FeatureGroup().addTo(map);   // blå GPS
+  const addressLayer = new L.FeatureGroup().addTo(map);   // adresser
 
   const drawControl = new L.Control.Draw({
     draw: { polygon:false, rectangle:false, circle:false, circlemarker:false, marker:false,
@@ -356,12 +379,14 @@
     layer.addTo(drawnLayer);
     map.fitBounds(layer.getBounds(), { padding:[20,20] });
     recalcRouteStats();
+    othersLayer.clearLayers(); // ruteendring => tøm lilla
+    pollOthersCoverage();
     markDirtyAndScheduleSave();
   });
 
-  map.on(L.Draw.Event.EDITED, () => { recalcRouteStats(); markDirtyAndScheduleSave(); });
+  map.on(L.Draw.Event.EDITED, () => { recalcRouteStats(); othersLayer.clearLayers(); pollOthersCoverage(); markDirtyAndScheduleSave(); });
 
-  // Ruteliste (vis/gi nytt navn/slett)
+  // Ruteliste
   const routeModal = document.getElementById('routeModal');
   const routeShade = document.getElementById('routeShade');
   const btnCloseRouteModal = document.getElementById('btnCloseRouteModal');
@@ -407,7 +432,7 @@
       bDelete.onclick = () => {
         if(confirm('Slette denne ruten?')){
           drawnLayer.removeLayer(layer);
-          recalcRouteStats(); markDirtyAndScheduleSave(); buildRouteList();
+          recalcRouteStats(); othersLayer.clearLayers(); pollOthersCoverage(); markDirtyAndScheduleSave(); buildRouteList();
         }
       };
       actions.appendChild(bFocus); actions.appendChild(bRename); actions.appendChild(bDelete);
@@ -467,11 +492,14 @@
     if(coveredPts.length>0){
       coveredLayer.clearLayers();
       const coords = coveredPts.map(pt => pt.geometry.coordinates).map(c=>[c[1], c[0]]);
-      L.polyline(coords, {color:'#16a34a', weight:6, opacity:0.6}).addTo(coveredLayer);
+      L.polyline(coords, {color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#16a34a', weight:6, opacity:0.6}).addTo(coveredLayer);
     }
     const pct = samples.length? Math.min(100, (covered.size / samples.length) * 100) : 0;
     const meters = totalMeters();
     updateUI(pct, meters);
+
+    // Publiser min dekning (debounced)
+    schedulePublishMyCoverage();
   }
 
   // GPS + heading + course-up
@@ -557,7 +585,7 @@
   document.getElementById('btnStartGPS').onclick = startGPS;
   document.getElementById('btnStopGPS').onclick = stopGPS;
 
-  // Nullstill GPS
+  // Nullstill GPS (eksisterende knapp)
   document.getElementById('btnClearGPS').onclick = () => {
     gpsLayer.clearLayers();
     gpsPolyline = null;
@@ -568,7 +596,7 @@
     toast('GPS-spor nullstilt');
   };
 
-  // Course-up rotation (uten kompass)
+  // Kurs-opp
   let courseUp = false;
   const mapEl = document.getElementById('map');
   document.getElementById('btnCourseUp').onclick = () => {
@@ -582,7 +610,6 @@
   setInterval(()=>{ updateRotation(); }, 500);
 
   // Autosave (local + JSONBin)
-  function toGeoJSONMulti(){ const layers = drawnLayer.getLayers(); if(layers.length===0) return []; return layers.map(l => l.toGeoJSON()).filter(f => f.geometry?.type==='LineString'); }
   function currentFC(){ const feats = toGeoJSONMulti(); return { type:'FeatureCollection', features: feats }; }
   function saveLocalDraft(){ try { localStorage.setItem(LS_DRAFT, JSON.stringify(currentFC())); } catch {} }
   let saveTimer = null;
@@ -599,6 +626,132 @@
     return res.json();
   }
 
+  // --- Deknings-signatur
+  function coverageSignature(){
+    return `${samples.length || 0}:${remoteVersion || 0}`;
+  }
+
+  // --- Publisering av min dekning (indekser) til JSONBin
+  let publishTimer = null;
+  function schedulePublishMyCoverage(){
+    if (!ROUTE_BIN) return;
+    if (publishTimer) clearTimeout(publishTimer);
+    publishTimer = setTimeout(publishMyCoverage, 1500);
+  }
+  async function publishMyCoverage(){
+    try {
+      const latest = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
+      const record = { ...(latest || {}) };
+      const meta = record.meta || {};
+      const sig = coverageSignature();
+      const myIndices = Array.from(covered).sort((a,b)=>a-b);
+      const coveredBy = { ...(meta.coveredBy || {}) };
+      coveredBy[USER_ID] = {
+        sig,
+        indices: myIndices,
+        updatedAt: new Date().toISOString()
+      };
+      record.meta = { ...meta, coveredBy };
+      await jsonbinPut(ROUTE_BIN, ROUTE_KEY, record);
+    } catch(e) {
+      console.warn('publishMyCoverage feilet', e);
+    }
+  }
+
+  // --- Hent og tegn andres dekning
+  function indicesToLatLngs(indices){
+    return indices.map(i => samples[i]).filter(Boolean).map(pt => {
+      const c = pt.geometry.coordinates; return [c[1], c[0]];
+    });
+  }
+  function renderOthersCoverage(coveredBy){
+    othersLayer.clearLayers();
+    const sig = coverageSignature();
+    Object.entries(coveredBy || {}).forEach(([uid, entry]) => {
+      if (uid === USER_ID) return;
+      if (!entry || entry.sig !== sig) return;
+      const arr = Array.isArray(entry.indices) ? entry.indices : [];
+      if (!arr.length) return;
+      const latlngs = indicesToLatLngs(arr);
+      if (latlngs.length > 1){
+        L.polyline(latlngs, { color:getComputedStyle(document.documentElement).getPropertyValue('--others').trim() || '#8b5cf6', weight:5, opacity:0.6 }).addTo(othersLayer);
+      }
+    });
+  }
+
+  async function pollOthersCoverage(){
+    if (!ROUTE_BIN) return;
+    try {
+      const latest = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
+      const meta = latest?.meta || {};
+      // Oppdater lilla
+      renderOthersCoverage(meta.coveredBy);
+      // Fang opp "Nullstill alle"
+      const v = parseInt(meta.clearVersion || 0, 10);
+      if (v && v > seenClearVersion){
+        seenClearVersion = v;
+        localStorage.setItem(LS_CLEAR_VER, String(v));
+        clearCoverageAndGPSLocal(true); // true => stille toast tilpasset
+        // publiser tom dekning
+        schedulePublishMyCoverage();
+        toast('Felles nullstilling mottatt');
+      }
+    } catch(e){
+      console.warn('pollOthersCoverage feilet', e);
+    }
+  }
+  setInterval(pollOthersCoverage, 5000);
+
+  // --- Nullstilling (mine / alle)
+  function clearCoverageAndGPSLocal(silent=false) {
+    covered.clear();
+    coveredLayer.clearLayers();
+    othersLayer.clearLayers();
+    gpsLayer.clearLayers();
+    gpsPolyline = null;
+    gpsCoords.length = 0;
+    myDot = null;
+    myAccuracy = null;
+    headingMarker = null;
+    updateUI(0, totalMeters());
+    if (!silent) toast('Nullstilte dekning + GPS lokalt');
+  }
+
+  document.getElementById('btnClearMine').onclick = () => {
+    clearCoverageAndGPSLocal();
+    // publiser tom dekning for meg
+    schedulePublishMyCoverage();
+  };
+
+  document.getElementById('btnClearAll').onclick = async () => {
+    if (!ROUTE_BIN) { clearCoverageAndGPSLocal(); toast('Nullstilte lokalt (ingen felles lagring satt)'); return; }
+    try {
+      const latest = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
+      const record = { ...(latest || {}) };
+      const meta = record.meta || {};
+      const nextVer = (meta.clearVersion || 0) + 1;
+      record.meta = { ...meta, clearVersion: nextVer, clearAt: new Date().toISOString(), clearBy: USER_ID };
+      await jsonbinPut(ROUTE_BIN, ROUTE_KEY, record);
+      seenClearVersion = nextVer;
+      localStorage.setItem(LS_CLEAR_VER, String(nextVer));
+      clearCoverageAndGPSLocal();
+      schedulePublishMyCoverage(); // publiser tom dekning
+      toast('Nullstilte for alle');
+    } catch (e) {
+      console.warn('Broadcast clear feilet', e);
+      clearCoverageAndGPSLocal();
+      toast('Nullstilte lokalt (nettfeil)');
+    }
+  };
+
+  // Wake Lock
+  let wakeLock = null;
+  async function acquireWake(){ try{ if ('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); document.getElementById('btnWake').textContent = '📱 Skjerm på (på)'; wakeLock.addEventListener('release', ()=>{ document.getElementById('btnWake').textContent = '📱 Skjerm på'; }); } else { toast('Wake Lock støttes ikke'); } }catch(e){ console.warn('WakeLock:', e); } }
+  async function releaseWake(){ try{ await wakeLock?.release(); wakeLock=null; }catch{} document.getElementById('btnWake').textContent = '📱 Skjerm på'; }
+  document.getElementById('btnWake').onclick = async () => { if (wakeLock) releaseWake(); else acquireWake(); };
+  document.addEventListener('visibilitychange', () => { if (wakeLock && document.visibilityState === 'visible') { acquireWake(); } });
+
+  // Lasting / synk
   async function syncRemote(){
     if (!ROUTE_BIN) return;
     try {
@@ -629,6 +782,8 @@
 
   async function safeLoad(){
     let loaded = false;
+
+    // Adresser (valgfritt)
     try {
       if (ADDR_BIN){
         const dataAddr = await jsonbinGet(ADDR_BIN, ADDR_KEY);
@@ -638,10 +793,13 @@
       }
     } catch (e) {}
 
+    // Ruter
     try {
       if (ROUTE_BIN){
         const dataRoute = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
         remoteVersion = (dataRoute?.meta?.routesVersion) || 0;
+        seenClearVersion = parseInt((dataRoute?.meta?.clearVersion)||0,10) || seenClearVersion;
+        localStorage.setItem(LS_CLEAR_VER, String(seenClearVersion));
         const stored = dataRoute?.[FIELD];
         if(stored?.type==='FeatureCollection'){
           (stored.features||[]).forEach(feat => {
@@ -655,9 +813,12 @@
           recalcRouteStats();
           loaded = true;
         }
+        // tegn andres dekning ved oppstart
+        renderOthersCoverage((dataRoute?.meta || {}).coveredBy);
       }
     } catch (e) { console.warn('Fikk ikke ruter fra JSONBin', e); }
 
+    // Lokalt fallback
     if (!loaded){
       try {
         const txt = localStorage.getItem(LS_DRAFT);
@@ -678,15 +839,8 @@
     }
   }
 
-  // Wake Lock
-  let wakeLock = null;
-  async function acquireWake(){ try{ if ('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); document.getElementById('btnWake').textContent = '📱 Skjerm på (på)'; wakeLock.addEventListener('release', ()=>{ document.getElementById('btnWake').textContent = '📱 Skjerm på'; }); } else { toast('Wake Lock støttes ikke'); } }catch(e){ console.warn('WakeLock:', e); } }
-  async function releaseWake(){ try{ await wakeLock?.release(); wakeLock=null; }catch{} document.getElementById('btnWake').textContent = '📱 Skjerm på'; }
-  document.getElementById('btnWake').onclick = async () => { if (wakeLock) releaseWake(); else acquireWake(); };
-  document.addEventListener('visibilitychange', () => { if (wakeLock && document.visibilityState === 'visible') { acquireWake(); } });
-
   // Init
-  safeLoad().then(()=> toast('Klar'));
+  safeLoad().then(()=> { toast('Klar'); pollOthersCoverage(); });
   if (navigator.onLine === false) toast('Offline-modus');
   window.addEventListener('online', ()=> toast('Online'));
   window.addEventListener('offline', ()=> toast('Offline'));
