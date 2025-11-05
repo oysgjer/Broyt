@@ -3,19 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-
-  <!-- Tema (auto, lys, mørk) -->
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
-
+  <meta name="theme-color" content="#0b1320">
   <title>Brøyterute<br>Romerike Trefelling</title>
 
   <link rel="manifest" href="/manifest.json?v=3">
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=3">
   <meta name="apple-mobile-web-app-title" content="Brøyterute">
 
-  <!-- CSS -->
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/work.css" />
   <link rel="stylesheet" href="css/service.css" />
@@ -23,585 +18,209 @@
 </head>
 
 <body>
-  <!-- Appbar (meny-knapp tilbake) -->
-  <header class="appbar">
-    <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
-    <div class="appbar-title">Brøyterute<br>Romerike&nbsp;Trefelling</div>
-    <div class="appbar-right">
-      <span id="sync_badge" class="badge">
-        <span id="sync_dot" class="dot dot-unknown"></span> Synk: ukjent
-      </span>
-      <span id="wl_badge" class="badge" title="Skjermlås-status">
-        <span id="wl_dot" class="dot dot-off"></span>
-      </span>
-    </div>
-  </header>
+<header class="appbar">
+  <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
+  <div class="appbar-title">Brøyterute<br>Romerike&nbsp;Trefelling</div>
+  <div class="appbar-right">
+    <span id="sync_badge" class="badge">
+      <span id="sync_dot" class="dot dot-unknown"></span> Synk: ukjent
+    </span>
+  </div>
+</header>
 
-  <!-- Scrim + Drawer -->
-  <div id="scrim"></div>
-  <aside id="drawer" class="drawer">
-    <div class="drawer-header">
-      <strong>Brøyte meny</strong>
-      <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
-    </div>
-
-    <div class="drawer-content">
-      <nav>
-        <div class="drawer-section">Navigasjon</div>
-        <ul class="drawer-list">
-          <li><a class="drawer-link" data-go="home"><span class="emoji">🏠</span>Hjem</a></li>
-          <li><a class="drawer-link" data-go="work"><span class="emoji">🧭</span>Under arbeid</a></li>
-          <li><a class="drawer-link" data-go="service"><span class="emoji">🛠️</span>Service</a></li>
-          <li><a class="drawer-link" data-go="status"><span class="emoji">📊</span>Status</a></li>
-          <li><a class="drawer-link" data-go="admin"><span class="emoji">⚙️</span>Admin</a></li>
-        </ul>
-
-        <div class="drawer-section">Skjerm</div>
-        <div class="card row" style="align-items:center; justify-content:space-between">
-          <button id="qk_wl" class="btn-ghost">
-            <span id="qk_wl_dot" class="dot dot-off"></span> Hold skjerm våken
-          </button>
-          <span id="qk_wl_status" class="muted">Status: av</span>
-        </div>
-
-        <div class="drawer-section">Tema</div>
-        <div class="card row" style="align-items:center; justify-content:space-between">
-          <button id="theme_toggle" class="btn-ghost">🌓 Bytt tema</button>
-          <span id="theme_label" class="muted">System</span>
-        </div>
-
-        <!-- 🧭 Rask navigasjon -->
-        <div class="drawer-section">Rask navigasjon</div>
-        <ul class="drawer-list">
-          <li>
-            <a class="drawer-link"
-               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2523222,11.1899728"
-               target="_blank">
-              <span class="emoji">⛽</span> Fyll diesel
-            </a>
-          </li>
-          <li>
-            <a class="drawer-link"
-               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2527612,11.1687113"
-               target="_blank">
-              <span class="emoji">🪨</span> Hent grus
-            </a>
-          </li>
-          <li>
-            <a class="drawer-link"
-               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2664605,11.2209567"
-               target="_blank">
-              <span class="emoji">🏠</span> Til base
-            </a>
-          </li>
-        </ul>
-      </nav>
-    </div>
-  </aside>
-
-  <!-- Innhold -->
-  <main>
-    <!-- HJEM -->
-    <section id="home">
-      <h1 hidden>Hjem</h1>
-
-      <!-- Dashboard -->
-      <section id="dashboard" style="margin-top:12px">
-        <div id="funfact"></div>
-        <div id="stats" style="margin-top:10px"></div>
-
-        <!-- Værkort (Yr) – egen id for Hjem -->
-        <div id="wx_home" class="wx-row" style="margin:10px 0 12px; padding:0; overflow:hidden; border-radius:12px">
-          <iframe
-            class="yr-card"
-            src="https://www.yr.no/nb/innhold/1-103366/card.html"
-            title="Vær fra Yr"
-            loading="lazy"
-            referrerpolicy="no-referrer"
-            style="border:0; width:100%; height:220px; display:block;">
-          </iframe>
-        </div>
-
-        <div id="recent" style="margin-top:10px"></div>
-      </section>
-
-      <label class="field">
-        <span style="font-weight:700; font-size:1.05rem;">Fører</span>
-        <input id="a_driver" class="input" placeholder="Navn" />
-      </label>
-
-      <label class="field">
-        <span style="font-weight:700; font-size:1.05rem;">Utstyr</span>
-        <div class="input-like">
-          <div class="checkbox-col" style="gap:10px">
-            <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
-            <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
-            <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
-          </div>
-        </div>
-      </label>
-
-      <label class="field">
-        <span style="font-weight:700; font-size:1.05rem;">Rekkefølge</span>
-        <div class="row" style="gap:16px; align-items:center">
-          <select id="a_dir" class="input" style="flex:1; max-width:320px">
-            <option>Normal</option>
-            <option>Motsatt</option>
-          </select>
-          <label class="row" style="gap:8px; align-items:center">
-            <input id="a_autoNav" type="checkbox" />
-            <span class="muted-strong">Auto-naviger</span>
-          </label>
-        </div>
-      </label>
-
-      <button id="a_start" class="btn">Start runde</button>
-    </section>
-
-    <!-- UNDER ARBEID -->
-    <section id="work">
-      <h1 hidden>Under arbeid</h1>
-
-      <div class="card work-card">
-        <div class="label-muted">Nå</div>
-        <div id="b_now" class="addr-now">—</div>
-
-        <div class="label-muted" style="margin-top:14px">Neste</div>
-        <div id="b_next" class="addr-next">—</div>
-
-        <div class="btn-grid">
-          <button id="act_start" class="btn btn-ok"><span class="ico">▶️</span> Start</button>
-          <button id="act_done"  class="btn btn-dark"><span class="ico">✅</span> Ferdig</button>
-          <button id="act_skip"  class="btn"><span class="ico">⏭️</span> Hopp over</button>
-          <button id="act_next"  class="btn"><span class="ico">➜</span> Neste</button>
-          <button id="act_nav"   class="btn"><span class="ico">🧭</span> Naviger</button>
-          <button id="act_block" class="btn"><span class="ico">⛔</span> Ikke mulig</button>
-
-          <button id="btnBroytKart" class="btn"
-            onclick="window.open('tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes','_blank')">
-            🚜 Brøytekart
-          </button>
-          <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
-        </div>
-
-        <div class="work-meta">
-          Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
-        </div>
-
-        <!-- Værkort (Yr) – egen id for Work -->
-        <div id="wx_row" class="wx-row" style="margin:0 0 12px; padding:0; overflow:hidden; border-radius:12px">
-          <iframe
-            class="yr-card"
-            src="https://www.yr.no/nb/innhold/1-103366/card.html"
-            title="Vær fra Yr"
-            loading="lazy"
-            referrerpolicy="no-referrer"
-            style="border:0; width:100%; height:180px; display:block;">
-          </iframe>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- SERVICE -->
-    <section id="service" hidden>
-      <h1>Service</h1>
-      <!-- Service-UI fylles av Service.js / service-ui-inject.js -->
-    </section>
-
-    <!-- STATUS -->
-    <section id="status" hidden>
-      <h1>Status</h1>
-      <div class="card" style="margin-bottom:12px">
-        <div id="st_summary" class="muted">—</div>
-      </div>
-      <div class="row" style="gap:10px; margin-bottom:12px">
-        <button id="st_reset_mine" class="btn-ghost">Nullstill mine</button>
-        <button id="st_reset_all"  class="btn-ghost">Nullstill alle</button>
-      </div>
-      <div class="card" style="overflow:auto">
-        <table style="width:100%; border-collapse:collapse">
-          <thead>
-            <tr>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Adresse</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Startet snø</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Ferdig snø</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Startet grus</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Ferdig grus</th>
-              <th style="text-align:left; padding:8px; border-bottom:1px solid var(--sep)">Sjåfør</th>
-            </tr>
-          </thead>
-          <tbody id="st_tbody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ADMIN -->
-    <section id="admin" hidden>
-      <h1>Admin</h1>
-      <div class="card" style="margin-top:12px">
-        <h2 style="margin:0 0 8px">Rapporter &amp; Logg</h2>
-        <p class="muted" style="margin:0 0 8px">Åpner printvennlig logg med auto-fyll av adresser, S/G og tider.</p>
-        <button class="btn" onclick="location.href='./logg.html'">🧾 Åpne Logg</button>
-        <a href="./logg.html" target="_blank" class="btn">🧾 Åpne Logg (ny fane)</a>
-      </div>
-    </section>
-  </main>
-
-  <!-- Uhell-modal (PLASSERT RETT FØR </body>) -->
-  <div id="incidentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background:#111827;color:#e5e7eb; padding:16px; border-radius:12px; width:min(680px, 92vw); box-shadow:0 10px 30px rgba(0,0,0,.4);">
-      <h2 style="margin:0 0 8px 0; font-size:20px;">Uhell – beskrivelse og bilder</h2>
-      <p id="incidentContext" style="margin:0 0 10px 0; font-size:13px; opacity:.8;">Adresse/posisjon hentes automatisk…</p>
-      <label for="incidentText" style="display:block; font-weight:600; margin:8px 0 6px;">Hva skjedde?</label>
-      <textarea id="incidentText" rows="4" placeholder="Kort beskrivelse…" style="width:100%; padding:10px; border-radius:10px; border:1px solid #374151; background:#0b1320; color:#e5e7eb;"></textarea>
-
-      <label for="incidentPhotos" style="display:block; font-weight:600; margin:14px 0 6px;">Bilder</label>
-      <input id="incidentPhotos" type="file" accept="image/*" capture="environment" multiple
-             style="display:block; width:100%; padding:8px; border-radius:10px; border:1px solid #374151; background:#0b1320; color:#e5e7eb;" />
-
-      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
-        <button id="incidentCancel" style="padding:10px 14px; border-radius:10px; border:1px solid #4b5563; background:#1f2937; color:#e5e7eb;">Avbryt</button>
-        <button id="incidentSend" style="padding:10px 14px; border-radius:10px; border:1px solid #2563eb; background:#2563eb; color:white;">Send uhell</button>
-      </div>
-    </div>
+<!-- Drawer -->
+<aside id="drawer" class="drawer">
+  <div class="drawer-header">
+    <strong>Brøyte meny</strong>
+    <button id="btnCloseDrawer" class="icon-btn" aria-label="Lukk">×</button>
   </div>
 
-  <!-- JS – rekkefølge er viktig -->
-  <!-- Kjerne -->
-  <script src="js/app.js" defer></script>
-  <script src="js/sync.js" defer></script>
+  <div class="drawer-content">
+    <ul class="drawer-list">
+      <li><a class="drawer-link" data-go="home">🏠 Hjem</a></li>
+      <li><a class="drawer-link" data-go="work">🧭 Under arbeid</a></li>
+      <li><a class="drawer-link" data-go="service">🛠️ Service</a></li>
+      <li><a class="drawer-link" data-go="status">📊 Status</a></li>
+      <li><a class="drawer-link" data-go="admin">⚙️ Admin</a></li>
+    </ul>
+  </div>
+</aside>
 
-  <!-- Sider / dashbord -->
-  <script src="js/Home.js" defer></script>
-  <script src="js/home_dashboard.js" defer></script>
+<main>
+  <!-- HJEM -->
+  <section id="home">
+    <h1 hidden>Hjem</h1>
+    <label class="field">
+      <span>Fører</span>
+      <input id="a_driver" class="input" placeholder="Navn" />
+    </label>
 
-  <!-- Work-relatert -->
-  <script src="js/Work.js?v=6" defer></script>
-  <script src="js/work_uhell_fix.js?v=2" defer></script>
+    <label class="field">
+      <span>Utstyr</span>
+      <div class="checkbox-col">
+        <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
+        <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
+        <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
+      </div>
+    </label>
 
-  <!-- Øvrige sider -->
-  <script src="js/Status.js" defer></script>
-  <script src="js/Service.js" defer></script>
-  <script src="js/Admin.js" defer></script>
+    <button id="a_start" class="btn">Start runde</button>
+  </section>
 
-  <!-- Diverse -->
-  <script src="js/quicklinks.js?v=2" defer></script>
-  <script src="js/autonav_settings.js" defer></script>
-  <script src="js/work_autonav_patch.js" defer></script>
-  <script src="js/driver_to_service_mirror.js" defer></script>
-  <script src="js/service-ui-inject.js" defer></script>
-  <script src="js/service_capture_emails.js" defer></script>
+  <!-- UNDER ARBEID -->
+  <section id="work">
+    <h1 hidden>Under arbeid</h1>
 
-  <!-- Speil navn/adresse før autologger -->
-  <script src="js/driver_mirror.js" defer></script>
-  <script src="js/work_addr_tag.js" defer></script>
-
-  <!-- Autologger til slutt -->
-  <script src="js/auto_logger.js?v=6" defer></script>
-
-  <!-- Admin: injiser logg-knapp (valgfritt hvis ikke hardkodet) -->
-  <script src="js/admin_logg_inject.js?v=3" defer></script>
-
-  <!-- Gå tilbake fra Maps -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const ret = sessionStorage.getItem('returnTo');
-      if (ret && window.location.href !== ret) {
-        sessionStorage.removeItem('returnTo');
-        window.location.replace(ret);
-      }
-    });
-  </script>
-
-  <!-- Uhell: enkel kobling (åpne/close + send) -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const emailTo = "post@romeriketrefelling.no";
-
-      const btnIncident = document.getElementById('act_incident');
-      const modal = document.getElementById('incidentModal');
-      const ctx = document.getElementById('incidentContext');
-      const txt = document.getElementById('incidentText');
-      const photos = document.getElementById('incidentPhotos');
-      const btnSend = document.getElementById('incidentSend');
-      const btnCancel = document.getElementById('incidentCancel');
-
-      function show() { modal.style.display = 'flex'; }
-      function hide() { modal.style.display = 'none'; }
-
-      function activeAddressName() {
-        const el = document.getElementById('b_now');
-        const t = (el?.textContent || '').trim();
-        return t && t !== '—' ? t : null;
-        }
-
-      function nowISO() { return new Date().toISOString(); }
-
-      async function getPosition(timeoutMs = 8000) {
-        return new Promise((resolve) => {
-          if (!navigator.geolocation) return resolve(null);
-          let done = false;
-          const t = setTimeout(() => { if (!done) resolve(null); }, timeoutMs);
-          navigator.geolocation.getCurrentPosition(
-            pos => { done = true; clearTimeout(t); resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy }); },
-            _ => { done = true; clearTimeout(t); resolve(null); },
-            { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 20000 }
-          );
-        });
-      }
-
-      function plainText(str) { return String(str || '').replace(/<[^>]+>/g, ''); }
-
-      async function sendEmail(subject, html, attachments) {
-        if (typeof window.sendAutoEmail === 'function') {
-          return window.sendAutoEmail(emailTo, subject, html, attachments || []);
-        }
-        if (typeof window.sendViaEmailService === 'function') {
-          return window.sendViaEmailService(emailTo, subject, html, attachments || []);
-        }
-        const mailto = `mailto:${encodeURIComponent(emailTo)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(plainText(html))}`;
-        window.location.href = mailto;
-        return null;
-      }
-
-      async function onOpen() {
-        const addr = activeAddressName();
-        ctx.textContent = `Aktiv adresse: ${addr || '(ukjent)'} – posisjon logges automatisk.`;
-        show();
-        setTimeout(() => txt.focus(), 50);
-      }
-
-      async function onSend() {
-        btnSend.disabled = true;
-        try {
-          const ts = nowISO();
-          const pos = await getPosition();
-          const addr = activeAddressName();
-          const note = (txt.value || '').trim();
-
-          const html = `
-            <div style="font-family:ui-sans-serif,system-ui;">
-              <h2>Uhell-rapport</h2>
-              <ul>
-                <li><b>Tid:</b> ${ts}</li>
-                <li><b>Adresse:</b> ${addr || '-'}</li>
-                ${pos ? `<li><b>Posisjon:</b> ${pos.lat.toFixed(6)}, ${pos.lon.toFixed(6)} (±${Math.round(pos.acc || 0)} m)</li>` : `<li><b>Posisjon:</b> ikke tilgjengelig</li>`}
-              </ul>
-              <p><b>Beskrivelse:</b><br>${note ? note.replace(/\n/g,'<br>') : '(ingen tekst)'}</p>
-              <p style="font-size:12px;opacity:.7">Bilder legges ved manuelt.</p>
-            </div>
-          `.trim();
-
-          const subject = `Uhell – ${addr || 'Ukjent adresse'} – ${ts.replace('T',' ').slice(0,19)}`;
-          await sendEmail(subject, html, null);
-
-          alert('Uhell registrert og sendt/klargjort for sending.');
-          txt.value = '';
-          photos.value = '';
-          hide();
-        } catch (e) {
-          console.error(e);
-          alert('Klarte ikke å sende uhell. Se konsoll for detaljer.');
-        } finally {
-          btnSend.disabled = false;
-        }
-      }
-
-      if (btnIncident) btnIncident.addEventListener('click', onOpen);
-      if (btnCancel) btnCancel.addEventListener('click', hide);
-      if (btnSend) btnSend.addEventListener('click', onSend);
-    });
-  </script>
-
-<script>
-  // ---- Robust statusbar som oppdaterer når du trykker Start/Ferdig ----
-
-  // Hvem er "meg"?
-  function getCurrentDriverId(){
-    // Fallback til fører-feltet på Hjem hvis ingen lagret ID
-    const byStorage = (window.currentDriverId || window.driverId ||
-      localStorage.getItem('driverId') || localStorage.getItem('driverName') || '').toString().trim();
-    const byInput = (document.getElementById('a_driver')?.value || '').toString().trim();
-    return byStorage || byInput;
-  }
-
-  // Utstyrsvalg styrer modus
-  function getTaskMode(){
-    const sand = document.getElementById('a_eq_sand');
-    return sand && sand.checked ? 'grus' : 'sno';
-  }
-
-  // Normaliser tekst (for navn-matching når id mangler)
-  function norm(s){ return (s||'').toString().toLowerCase().replace(/\s+/g,' ').trim(); }
-
-  // Adresse matcher modus (snø/grus)?
-  function addressHasTask(addr, mode){
-    if (!addr) return false;
-    const flags = [];
-    for (const k of Object.keys(addr)) {
-      const v = addr[k];
-      if (v === true) flags.push(k.toLowerCase());
-      else if (v != null) flags.push(String(v).toLowerCase());
-    }
-    const isSnow = flags.some(s => s.includes('snø')||s.includes('sno')||s.includes('snow')||s.includes('brøy')||s.includes('plow')||s==='s');
-    const isGrit = flags.some(s => s.includes('grus')||s.includes('sand')||s.includes('strø')||s.includes('stro')||s.includes('salt')||s==='g');
-    const both   = flags.some(s => s.includes('s/g')||s.includes('sg')||s.includes('snø og grus')||s.includes('sno og grus'));
-    return mode === 'sno' ? (isSnow||both) : (isGrit||both);
-  }
-
-  // Rapport matcher modus?
-  function reportMatchesMode(r, mode, addr){
-    if (!r) return false;
-    const t = (r.task ?? r.type ?? r.job ?? '').toString().toLowerCase();
-    if (t) {
-      const ts = t.includes('snø')||t.includes('sno')||t.includes('snow')||t.includes('brøy')||t.includes('plow');
-      const tg = t.includes('grus')||t.includes('sand')||t.includes('strø')||t.includes('stro')||t.includes('salt');
-      if (mode === 'sno'  && ts && !tg) return true;
-      if (mode === 'grus' && tg && !ts) return true;
-      if (ts && tg) return true; // dekker begge
-    }
-    return addressHasTask(addr, mode);
-  }
-
-  // Er denne rapporten "ferdig"? — støtter flere varianter
-  function isDoneStatus(s){
-    const v = (s||'').toString().toLowerCase();
-    return /done|ferdig|completed/.test(v); // tar også done_snow, done-grus, etc.
-  }
-
-  // Finn/lag statusbar
-  function ensureUAStatusBar() {
-    const host = document.querySelector('#work .work-card') || document.querySelector('#work') || document.body;
-    if (!document.getElementById('uaWrap')) {
-      const wrap = document.createElement('div');
-      wrap.id = 'uaWrap';
-      wrap.innerHTML = `
+    <div class="card work-card">
+      <div id="uaWrap">
         <div id="uaBar">
-          <div id="uaMine"  style="width:0%"></div>
-          <div id="uaRest"  style="width:100%"></div>
-          <div id="uaOthers" style="width:0%"></div>
+          <div id="uaMine"></div>
+          <div id="uaRest"></div>
+          <div id="uaOthers"></div>
         </div>
         <div id="uaCounts">
           <span class="left">0 mine • 0 andre</span>
           <span class="right">0 av 0 adresser fullført</span>
         </div>
-      `;
-      host.prepend(wrap);
+      </div>
+
+      <div class="label-muted">Nå</div>
+      <div id="b_now" class="addr-now">—</div>
+
+      <div class="label-muted" style="margin-top:14px">Neste</div>
+      <div id="b_next" class="addr-next">—</div>
+
+      <div class="btn-grid">
+        <button id="act_start" class="btn btn-ok">▶️ Start</button>
+        <button id="act_done"  class="btn btn-dark">✅ Ferdig</button>
+        <button id="act_skip"  class="btn">⏭️ Hopp over</button>
+        <button id="act_next"  class="btn">➜ Neste</button>
+        <button id="act_nav"   class="btn">🧭 Naviger</button>
+        <button id="act_block" class="btn">⛔ Ikke mulig</button>
+        <button id="btnBroytKart" class="btn">🚜 Brøytekart</button>
+        <button id="act_incident" class="btn btn-danger">⚠️ Uhell</button>
+      </div>
+
+      <div class="work-meta">
+        Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
+      </div>
+
+      <iframe
+        src="https://www.yr.no/nb/innhold/1-103366/card.html"
+        title="Vær fra Yr"
+        loading="lazy"
+        style="border:0; width:100%; height:180px; border-radius:12px;">
+      </iframe>
+    </div>
+  </section>
+
+  <!-- STATUS / SERVICE / ADMIN -->
+  <section id="status" hidden><h1>Status</h1></section>
+  <section id="service" hidden><h1>Service</h1></section>
+  <section id="admin" hidden><h1>Admin</h1></section>
+</main>
+
+<!-- ===== STATUSBAR CSS ===== -->
+<style>
+  #uaWrap{margin:12px 0 14px}
+  #uaBar{
+    display:flex; height:14px; border-radius:999px; overflow:hidden;
+    border:1px solid var(--sep,#e5e7eb); background:#eef1f5;
+  }
+  #uaMine{background:#16a34a}
+  #uaOthers{background:#7c3aed}
+  #uaRest{background:transparent}
+  #uaCounts{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; margin-top:6px; opacity:.9;
+  }
+</style>
+
+<!-- ===== STATUSBAR JS ===== -->
+<script>
+function getCurrentDriverId(){
+  return (
+    window.currentDriverId || window.driverId ||
+    localStorage.getItem('driverId') ||
+    localStorage.getItem('driverName') ||
+    document.getElementById('a_driver')?.value || ''
+  ).toString().trim();
+}
+function getTaskMode(){
+  const sand=document.getElementById('a_eq_sand');
+  return sand && sand.checked?'grus':'sno';
+}
+function isDone(v){return !!v && v!=='—' && v!=='0' && v.trim()!=='';}
+
+function computeUAProgress(){
+  const mode=getTaskMode();
+  const driver=getCurrentDriverId();
+  const addresses=window.addresses||[];
+  const reports=window.reports||[];
+  const total=addresses.length;
+  if(!total)return{mine:0,others:0,rest:0,total:0};
+
+  const mineSet=new Set(),otherSet=new Set();
+
+  // 1) Les ut fra Status-data dersom tilgjengelig
+  const tbody=document.getElementById('st_tbody');
+  if(tbody){
+    const rows=tbody.querySelectorAll('tr');
+    rows.forEach(r=>{
+      const tds=r.querySelectorAll('td');
+      const addrName=(tds[0]?.textContent||'').trim();
+      const ferdigSno =(tds[2]?.textContent||'').trim();
+      const ferdigGrus=(tds[4]?.textContent||'').trim();
+      const ferdig = (mode==='sno'?isDone(ferdigSno):isDone(ferdigGrus));
+      if(!ferdig)return;
+      // Finn hvem (fra rapportene)
+      const rep=reports.find(x=>x.addrName===addrName||x.address===addrName);
+      const id=(rep?.driverId||rep?.driver||'').toString();
+      if(id===driver)mineSet.add(addrName); else otherSet.add(addrName);
+    });
+  }
+
+  // 2) fallback hvis status ikke lastet ennå – se i rapporter
+  if(!mineSet.size && !otherSet.size){
+    for(const r of reports){
+      const done=isDone(r.ferdigSno)||isDone(r.ferdigGrus)||/(done|ferdig|completed)/i.test(r.status||'');
+      if(!done)continue;
+      const t=(r.task||r.type||'').toLowerCase();
+      if(mode==='sno' && !t.includes('snø') && !t.includes('sno') && !t.includes('plow'))continue;
+      if(mode==='grus' && !(t.includes('grus')||t.includes('sand')||t.includes('strø')))continue;
+      const addr=(r.addrName||r.address||r.addr||'').trim();
+      if(!addr)continue;
+      const id=(r.driverId||r.driver||'').toString();
+      if(id===driver)mineSet.add(addr); else otherSet.add(addr);
     }
   }
 
-  function computeUAProgress(){
-    const mode = getTaskMode();
-    const driverId = getCurrentDriverId();
+  const mine=mineSet.size,others=otherSet.size;
+  const done=mine+others,rest=Math.max(0,total-done);
+  const minePct=Math.round(100*(mine/total));
+  const otherPct=Math.round(100*(others/total));
+  const restPct=Math.max(0,100-minePct-otherPct);
+  return{mine,others,rest,total,minePct,otherPct,restPct};
+}
 
-    // 1) Adresser i valgt modus
-    const allAddrs = (window.addresses || []).filter(a => !a?.archived && !a?.hidden);
-    const scoped = allAddrs.filter(a => addressHasTask(a, mode));
-    const total = scoped.length;
+function renderUAStatus(){
+  const {mine,others,rest,total,minePct,otherPct,restPct}=computeUAProgress();
+  const elMine=document.getElementById('uaMine');
+  const elOthers=document.getElementById('uaOthers');
+  const elRest=document.getElementById('uaRest');
+  const left=document.querySelector('#uaCounts .left');
+  const right=document.querySelector('#uaCounts .right');
+  if(!elMine||!elOthers||!elRest)return;
+  elMine.style.width=minePct+'%';
+  elOthers.style.width=otherPct+'%';
+  elRest.style.width=restPct+'%';
+  if(left)left.textContent=`${mine} mine • ${others} andre`;
+  if(right)right.textContent=`${mine+others} av ${total} adresser fullført`;
+}
 
-    if (!total) return { total:0, mine:0, others:0, rest:0, minePct:0, otherPct:0, restPct:100, mode };
-
-    // Oppslag på id og (fallback) navn
-    const addrById = new Map();
-    const idByName = new Map();
-    for (const a of scoped) {
-      const aid = (a.addrId ?? a.addressId ?? a.id ?? a.addr ?? '').toString();
-      if (aid) addrById.set(aid, a);
-      const name = norm(a.name ?? a.title ?? a.adresse ?? a.address ?? a.addrName ?? '');
-      if (name) idByName.set(name, aid);
-    }
-
-    // 2) Ferdige i valgt modus (inkluder lokale, usynkede hvis du har en outbox)
-    const reps = []
-      .concat(window.reports || [])
-      .concat(window._pendingReports || [])
-      .concat((window.outbox && window.outbox.reports) || []);
-
-    const mineSet = new Set(), otherSet = new Set();
-
-    for (const r of reps) {
-      if (!r || !isDoneStatus(r.status)) continue;
-
-      // Prøv id først
-      let aid = (r.addrId ?? r.addressId ?? r.id ?? '').toString();
-      let addr = aid && addrById.get(aid);
-
-      // Fallback: match på navn hvis id mangler/ukjent
-      if (!addr) {
-        const rName = norm(r.addrName ?? r.addressName ?? r.name ?? r.address ?? r.addr ?? '');
-        if (rName && idByName.has(rName)) {
-          aid = idByName.get(rName);
-          addr = addrById.get(aid);
-        }
-      }
-      if (!addr) continue;        // ikke i denne kategorien
-      if (!reportMatchesMode(r, mode, addr)) continue;
-
-      const isMine = ((r.driverId ?? r.driver ?? r.user ?? '').toString() === driverId);
-      (isMine ? mineSet : otherSet).add(aid);
-    }
-
-    const mine = mineSet.size;
-    const others = otherSet.size;
-    const capped = Math.min(total, mine + others);
-    const rest = Math.max(0, total - capped);
-
-    const minePct  = Math.round(100*(mine/total));
-    const otherPct = Math.round(100*(others/total));
-    let restPct    = 100 - minePct - otherPct; if (restPct<0) restPct=0;
-
-    return { total, mine, others, rest, minePct, otherPct, restPct, mode };
-  }
-
-  function renderUAStatus(){
-    ensureUAStatusBar();
-    const { total, mine, others, rest, minePct, otherPct, restPct, mode } = computeUAProgress();
-
-    const elMine   = document.getElementById('uaMine');
-    const elOther  = document.getElementById('uaOthers');
-    const elRest   = document.getElementById('uaRest');
-    const left     = document.querySelector('#uaCounts .left');
-    const right    = document.querySelector('#uaCounts .right');
-
-    if (!elMine || !elOther || !elRest || !left || !right) return;
-
-    elMine.style.width  = (minePct  || 0) + '%';
-    elOther.style.width = (otherPct || 0) + '%';
-    elRest.style.width  = (restPct  || 0) + '%';
-
-    left.textContent  = `${mine} mine • ${others} andre`;
-    right.textContent = `${mine+others} av ${total} adresser fullført`;
-  }
-
-  // --- Triggere: oppdater når det faktisk skjer noe ---
-  window.addEventListener('load', renderUAStatus);
-  document.addEventListener('app:data-ready', renderUAStatus);
-  document.addEventListener('app:sync', renderUAStatus);
-  document.addEventListener('reports:updated', renderUAStatus);
-  document.addEventListener('work:updated', renderUAStatus);
-
-  // Knappetrykk i Work: oppdater etter at logger er skrevet
-  ['act_start','act_done','act_skip','act_block','act_next'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('click', () => setTimeout(renderUAStatus, 300));
-  });
-
-  // Reager når "Nå"-adressen skifter (som tegn på at UI oppdateres)
-  const nowEl = document.getElementById('b_now');
-  if (nowEl && window.MutationObserver) {
-    const mo = new MutationObserver(() => setTimeout(renderUAStatus, 100));
-    mo.observe(nowEl, { childList: true, characterData: true, subtree: true });
-  }
-
-  // Utstyrsvalg (Snø/Grus)
-  ['a_eq_plow','a_eq_fres','a_eq_sand','a_driver'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('change', renderUAStatus);
-    if (el && el.tagName === 'INPUT') el.addEventListener('input', renderUAStatus);
-  });
-
-  // Litt hyppigere intervall for å fange opp usynkede endringer
-  setInterval(renderUAStatus, 1500);
+window.addEventListener('load',()=>setTimeout(renderUAStatus,1000));
+document.addEventListener('app:sync',renderUAStatus);
+setInterval(renderUAStatus,3000);
 </script>
+</body>
 </html>
