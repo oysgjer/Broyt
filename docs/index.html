@@ -399,8 +399,6 @@
             </div>
           `.trim();
 
-          // Forsøk å sende (vedlegg håndteres av appens e-posttjeneste hvis tilgjengelig)
-          // Vi sender ikke binære vedlegg her for å unngå konflikt; service_capture_emails.js kan fange feltene/bildene.
           const subject = `Uhell – ${addr || 'Ukjent adresse'} – ${ts.replace('T',' ').slice(0,19)}`;
           await sendEmail(subject, html, null);
 
@@ -420,6 +418,174 @@
       if (btnCancel) btnCancel.addEventListener('click', hide);
       if (btnSend) btnSend.addEventListener('click', onSend);
     });
+  </script>
+
+  <!-- ===== Statusbar CSS (kan flyttes til css/work.css om ønskelig) ===== -->
+  <style>
+    #uaWrap{margin:8px 0 12px}
+    #uaBar{display:flex;height:10px;border-radius:6px;overflow:hidden;border:1px solid var(--sep,#e5e7eb)}
+    #uaMine{background:#16a34a}
+    #uaOthers{background:#7c3aed}
+    #uaRest{background:#e5e7eb}
+    #uaCounts{font-size:12px;margin-top:6px;opacity:.8}
+  </style>
+
+  <!-- ===== Statusbar JS (follower utstyrsvalg: Sand/Grus = grus, ellers snø) ===== -->
+  <script>
+    // Hvem er "meg"?
+    function getCurrentDriverId(){
+      return (window.currentDriverId || window.driverId ||
+              localStorage.getItem('driverId') || localStorage.getItem('driverName') || '')
+              .toString().trim();
+    }
+
+    // Hvilket modus er aktivt nå? Sand/Grus av/på
+    function getTaskMode(){
+      const sand = document.getElementById('a_eq_sand');
+      return sand && sand.checked ? 'grus' : 'sno'; // 'sno' = snø
+    }
+
+    // Adresse matcher modus (snø/grus)?
+    function addressHasTask(addr, mode){
+      if (!addr) return false;
+      const flags = [];
+      for (const key of Object.keys(addr)) {
+        const v = addr[key];
+        if (v === true) flags.push(key.toLowerCase());
+        else if (v != null) flags.push(String(v).toLowerCase());
+      }
+      const isSnowFlag = flags.some(s =>
+        s.includes('snø') || s.includes('sno') || s.includes('snow') ||
+        s.includes('brøy') || s.includes('broey') || s.includes('plow') || s === 's'
+      );
+      const isGritFlag = flags.some(s =>
+        s.includes('grus') || s.includes('sand') || s.includes('strø') || s.includes('stro') ||
+        s.includes('salt') || s === 'g'
+      );
+      const isBothFlag = flags.some(s => s.includes('s/g') || s.includes('sg') || s.includes('snø og grus') || s.includes('sno og grus'));
+      if (mode === 'sno')  return isSnowFlag || isBothFlag;
+      if (mode === 'grus') return isGritFlag || isBothFlag;
+      return true;
+    }
+
+    // Rapport matcher modus (snø/grus)?
+    function reportMatchesMode(r, mode, addr){
+      if (!r) return false;
+      const t = (r.task ?? r.type ?? r.job ?? '').toString().toLowerCase();
+      if (t) {
+        const isSnow = t.includes('snø') || t.includes('sno') || t.includes('snow') || t.includes('brøy') || t.includes('plow');
+        const isGrit = t.includes('grus') || t.includes('sand') || t.includes('strø') || t.includes('stro') || t.includes('salt');
+        if (mode === 'sno'  && isSnow && !isGrit) return true;
+        if (mode === 'grus' && isGrit && !isSnow) return true;
+        if (isSnow && isGrit) return true; // dekker begge
+      }
+      // fall-back: hva adressen er merket som
+      return addressHasTask(addr, mode);
+    }
+
+    // Sørg for at statusbar finnes i Under arbeid-kortet
+    function ensureUAStatusBar() {
+      const host = document.querySelector('#work .work-card') || document.querySelector('#work') || document.body;
+      if (!document.getElementById('uaWrap')) {
+        const wrap = document.createElement('div');
+        wrap.id = 'uaWrap';
+        wrap.innerHTML = `
+          <div id="uaBar">
+            <div id="uaMine"  style="width:0%"></div>
+            <div id="uaRest"  style="width:100%"></div>
+            <div id="uaOthers" style="width:0%"></div>
+          </div>
+          <div id="uaCounts"></div>
+        `;
+        host.prepend(wrap);
+      }
+    }
+
+    function computeUAProgress(){
+      const mode = getTaskMode();                 // 'sno' eller 'grus'
+      const driverId = getCurrentDriverId();
+
+      // 1) Filtrer adresser på valgt modus
+      const allAddrs = (window.addresses || []).filter(a => !a?.archived && !a?.hidden);
+      const scopedAddrs = allAddrs.filter(a => addressHasTask(a, mode));
+      const total = scopedAddrs.length;
+
+      if (!total) return { total: 0, mine: 0, others: 0, rest: 0, minePct: 0, otherPct: 0, restPct: 100, mode };
+
+      // addrId → addr
+      const addrById = new Map();
+      for (const a of scopedAddrs) {
+        const aid = (a.addrId ?? a.addressId ?? a.id ?? a.addr ?? '').toString();
+        if (aid) addrById.set(aid, a);
+      }
+
+      // 2) Fullførte i valgt modus
+      const reps = (window.reports || []);
+      const mineSet = new Set();
+      const otherSet = new Set();
+
+      for (const r of reps) {
+        if (!r) continue;
+        const done = (r.status === 'done' || r.status === 'ferdig' || r.status === 'completed');
+        if (!done) continue;
+
+        const aid = (r.addrId ?? r.addressId ?? r.id ?? r.addr ?? '').toString();
+        if (!aid || !addrById.has(aid)) continue;
+
+        const addr = addrById.get(aid);
+        if (!reportMatchesMode(r, mode, addr)) continue;
+
+        const isMine = ((r.driverId ?? r.driver ?? r.user ?? '').toString() === driverId);
+        (isMine ? mineSet : otherSet).add(aid);
+      }
+
+      const mine = mineSet.size;
+      const others = otherSet.size;
+      const capped = Math.min(total, mine + others);
+      const rest = Math.max(0, total - capped);
+
+      const minePct  = Math.round(100 * (mine   / total));
+      const otherPct = Math.round(100 * (others / total));
+      let restPct    = 100 - minePct - otherPct;
+      if (restPct < 0) restPct = 0;
+
+      return { total, mine, others, rest, minePct, otherPct, restPct, mode };
+    }
+
+    function renderUAStatus(){
+      ensureUAStatusBar();
+      const { total, mine, others, rest, minePct, otherPct, restPct, mode } = computeUAProgress();
+
+      const elMine   = document.getElementById('uaMine');
+      const elOther  = document.getElementById('uaOthers');
+      const elRest   = document.getElementById('uaRest');
+      const elCounts = document.getElementById('uaCounts');
+      if (!elMine || !elOther || !elRest || !elCounts) return;
+
+      // Venstre = mine (grønn), høyre = andres (lilla), midten = rest (grå)
+      elMine.style.width  = (minePct  || 0) + '%';
+      elOther.style.width = (otherPct || 0) + '%';
+      elRest.style.width  = (restPct  || 0) + '%';
+
+      const label = mode === 'grus' ? 'Grus' : 'Snø';
+      elCounts.textContent = total
+        ? `${label}: Mine ${mine}/${total} • Andre ${others}/${total} • Gjenstår ${rest}`
+        : `${label}: Ingen adresser`;
+    }
+
+    // Oppdater når ting skjer
+    window.addEventListener('load', renderUAStatus);
+    document.addEventListener('app:data-ready', renderUAStatus);
+    document.addEventListener('app:sync', renderUAStatus);
+
+    // Følg med på utstyrs-valg (snø/grus)
+    ['a_eq_plow','a_eq_fres','a_eq_sand'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', renderUAStatus);
+    });
+
+    // Liten vakt for endringer (ny sjåfør, osv.)
+    setInterval(renderUAStatus, 4000);
   </script>
 </body>
 </html>
