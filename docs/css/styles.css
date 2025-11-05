@@ -260,3 +260,27 @@ section[hidden]{display:none !important}
 .standalone main{
   padding-bottom: calc(16px + var(--safe-bottom));
 }
+
+/* Knappetekst: aldri bryt ord, aldri klipp */
+#work button,
+button#act_start,
+button#act_done,
+button#act_skip,
+button#act_next,
+button#act_nav,
+button#act_block {
+  white-space: nowrap;     /* én linje */
+  overflow: visible;       /* ikke skjul/klipp */
+  text-overflow: clip;     /* ingen … */
+  min-width: 0;            /* tillat fleksing i grid/flex */
+  width: auto;             /* la knappen bli bred nok for teksten */
+  box-sizing: border-box;
+}
+
+/* Hvis knappene ligger i et 2-kol griddelayout, sørg for litt fleks på små mobiler */
+@media (max-width: 380px) {
+  #work .actions button {
+    padding: 12px 12px;            /* litt mindre luft for å få plass */
+    font-size: 15px;               /* knepp ned fonten minimalt */
+  }
+}
