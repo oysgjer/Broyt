@@ -260,30 +260,3 @@ section[hidden]{display:none !important}
 .standalone main{
   padding-bottom: calc(16px + var(--safe-bottom));
 }
-
-/* --- Stil for hovedknappene i Brøyte-appen --- */
-#work button,
-button#act_start,
-button#act_done,
-button#act_skip,
-button#act_next,
-button#act_nav,
-button#act_block {
-  white-space: nowrap;         /* tving teksten på én linje */
-  overflow: hidden;            /* skjul eventuell overløp */
-  text-overflow: ellipsis;     /* legg til "…" hvis teksten blir for lang */
-  font-size: 16px;             /* konsistent tekststørrelse */
-  font-weight: 600;            /* litt tydeligere tekst */
-  min-width: 140px;            /* unngå for smale knapper */
-  padding: 14px 16px;          /* god luft */
-  border-radius: 10px;         /* jevne kanter som du allerede bruker */
-  box-sizing: border-box;      /* forutsigbar bredde */
-}
-
-/* Juster for små mobiler om nødvendig */
-@media (max-width: 380px) {
-  #work button {
-    min-width: 120px;
-    font-size: 10px;
-  }
-}
