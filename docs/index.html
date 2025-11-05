@@ -414,166 +414,194 @@
     });
   </script>
 
-  <!-- ===== Statusbar CSS (som i skjermbildet) ===== -->
-  <style>
-    #uaWrap{margin:12px 0 14px}
-    #uaBar{
-      display:flex; height:14px; border-radius:999px; overflow:hidden;
-      border:1px solid var(--sep,#e5e7eb); background:#eef1f5;
-    }
-    #uaMine{background:#16a34a}   /* grønn, venstre */
-    #uaOthers{background:#7c3aed} /* lilla, høyre */
-    #uaRest{background:transparent}
-    #uaCounts{
-      display:flex; align-items:center; justify-content:space-between;
-      font-size:13px; margin-top:6px; opacity:.9;
-    }
-    #uaCounts .left{opacity:.85}
-    #uaCounts .right{opacity:.7}
-  </style>
+<script>
+  // ---- Robust statusbar som oppdaterer når du trykker Start/Ferdig ----
 
-  <!-- ===== Statusbar JS (følger utstyrsvalg: Sand/Grus = grus, ellers snø) ===== -->
-  <script>
-    // Hvem er "meg"?
-    function getCurrentDriverId(){
-      return (window.currentDriverId || window.driverId ||
-              localStorage.getItem('driverId') || localStorage.getItem('driverName') || '')
-              .toString().trim();
+  // Hvem er "meg"?
+  function getCurrentDriverId(){
+    // Fallback til fører-feltet på Hjem hvis ingen lagret ID
+    const byStorage = (window.currentDriverId || window.driverId ||
+      localStorage.getItem('driverId') || localStorage.getItem('driverName') || '').toString().trim();
+    const byInput = (document.getElementById('a_driver')?.value || '').toString().trim();
+    return byStorage || byInput;
+  }
+
+  // Utstyrsvalg styrer modus
+  function getTaskMode(){
+    const sand = document.getElementById('a_eq_sand');
+    return sand && sand.checked ? 'grus' : 'sno';
+  }
+
+  // Normaliser tekst (for navn-matching når id mangler)
+  function norm(s){ return (s||'').toString().toLowerCase().replace(/\s+/g,' ').trim(); }
+
+  // Adresse matcher modus (snø/grus)?
+  function addressHasTask(addr, mode){
+    if (!addr) return false;
+    const flags = [];
+    for (const k of Object.keys(addr)) {
+      const v = addr[k];
+      if (v === true) flags.push(k.toLowerCase());
+      else if (v != null) flags.push(String(v).toLowerCase());
+    }
+    const isSnow = flags.some(s => s.includes('snø')||s.includes('sno')||s.includes('snow')||s.includes('brøy')||s.includes('plow')||s==='s');
+    const isGrit = flags.some(s => s.includes('grus')||s.includes('sand')||s.includes('strø')||s.includes('stro')||s.includes('salt')||s==='g');
+    const both   = flags.some(s => s.includes('s/g')||s.includes('sg')||s.includes('snø og grus')||s.includes('sno og grus'));
+    return mode === 'sno' ? (isSnow||both) : (isGrit||both);
+  }
+
+  // Rapport matcher modus?
+  function reportMatchesMode(r, mode, addr){
+    if (!r) return false;
+    const t = (r.task ?? r.type ?? r.job ?? '').toString().toLowerCase();
+    if (t) {
+      const ts = t.includes('snø')||t.includes('sno')||t.includes('snow')||t.includes('brøy')||t.includes('plow');
+      const tg = t.includes('grus')||t.includes('sand')||t.includes('strø')||t.includes('stro')||t.includes('salt');
+      if (mode === 'sno'  && ts && !tg) return true;
+      if (mode === 'grus' && tg && !ts) return true;
+      if (ts && tg) return true; // dekker begge
+    }
+    return addressHasTask(addr, mode);
+  }
+
+  // Er denne rapporten "ferdig"? — støtter flere varianter
+  function isDoneStatus(s){
+    const v = (s||'').toString().toLowerCase();
+    return /done|ferdig|completed/.test(v); // tar også done_snow, done-grus, etc.
+  }
+
+  // Finn/lag statusbar
+  function ensureUAStatusBar() {
+    const host = document.querySelector('#work .work-card') || document.querySelector('#work') || document.body;
+    if (!document.getElementById('uaWrap')) {
+      const wrap = document.createElement('div');
+      wrap.id = 'uaWrap';
+      wrap.innerHTML = `
+        <div id="uaBar">
+          <div id="uaMine"  style="width:0%"></div>
+          <div id="uaRest"  style="width:100%"></div>
+          <div id="uaOthers" style="width:0%"></div>
+        </div>
+        <div id="uaCounts">
+          <span class="left">0 mine • 0 andre</span>
+          <span class="right">0 av 0 adresser fullført</span>
+        </div>
+      `;
+      host.prepend(wrap);
+    }
+  }
+
+  function computeUAProgress(){
+    const mode = getTaskMode();
+    const driverId = getCurrentDriverId();
+
+    // 1) Adresser i valgt modus
+    const allAddrs = (window.addresses || []).filter(a => !a?.archived && !a?.hidden);
+    const scoped = allAddrs.filter(a => addressHasTask(a, mode));
+    const total = scoped.length;
+
+    if (!total) return { total:0, mine:0, others:0, rest:0, minePct:0, otherPct:0, restPct:100, mode };
+
+    // Oppslag på id og (fallback) navn
+    const addrById = new Map();
+    const idByName = new Map();
+    for (const a of scoped) {
+      const aid = (a.addrId ?? a.addressId ?? a.id ?? a.addr ?? '').toString();
+      if (aid) addrById.set(aid, a);
+      const name = norm(a.name ?? a.title ?? a.adresse ?? a.address ?? a.addrName ?? '');
+      if (name) idByName.set(name, aid);
     }
 
-    // Utstyrsvalg styrer modus
-    function getTaskMode(){
-      const sand = document.getElementById('a_eq_sand');
-      return sand && sand.checked ? 'grus' : 'sno';
-    }
+    // 2) Ferdige i valgt modus (inkluder lokale, usynkede hvis du har en outbox)
+    const reps = []
+      .concat(window.reports || [])
+      .concat(window._pendingReports || [])
+      .concat((window.outbox && window.outbox.reports) || []);
 
-    // Adresse matcher modus (snø/grus)?
-    function addressHasTask(addr, mode){
-      if (!addr) return false;
-      const flags = [];
-      for (const k of Object.keys(addr)) {
-        const v = addr[k];
-        if (v === true) flags.push(k.toLowerCase());
-        else if (v != null) flags.push(String(v).toLowerCase());
+    const mineSet = new Set(), otherSet = new Set();
+
+    for (const r of reps) {
+      if (!r || !isDoneStatus(r.status)) continue;
+
+      // Prøv id først
+      let aid = (r.addrId ?? r.addressId ?? r.id ?? '').toString();
+      let addr = aid && addrById.get(aid);
+
+      // Fallback: match på navn hvis id mangler/ukjent
+      if (!addr) {
+        const rName = norm(r.addrName ?? r.addressName ?? r.name ?? r.address ?? r.addr ?? '');
+        if (rName && idByName.has(rName)) {
+          aid = idByName.get(rName);
+          addr = addrById.get(aid);
+        }
       }
-      const isSnow = flags.some(s => s.includes('snø')||s.includes('sno')||s.includes('snow')||s.includes('brøy')||s.includes('plow')||s==='s');
-      const isGrit = flags.some(s => s.includes('grus')||s.includes('sand')||s.includes('strø')||s.includes('stro')||s.includes('salt')||s==='g');
-      const both   = flags.some(s => s.includes('s/g')||s.includes('sg')||s.includes('snø og grus')||s.includes('sno og grus'));
-      return mode === 'sno' ? (isSnow||both) : (isGrit||both);
+      if (!addr) continue;        // ikke i denne kategorien
+      if (!reportMatchesMode(r, mode, addr)) continue;
+
+      const isMine = ((r.driverId ?? r.driver ?? r.user ?? '').toString() === driverId);
+      (isMine ? mineSet : otherSet).add(aid);
     }
 
-    // Rapport matcher modus?
-    function reportMatchesMode(r, mode, addr){
-      if (!r) return false;
-      const t = (r.task ?? r.type ?? r.job ?? '').toLowerCase();
-      if (t) {
-        const ts = t.includes('snø')||t.includes('sno')||t.includes('snow')||t.includes('brøy')||t.includes('plow');
-        const tg = t.includes('grus')||t.includes('sand')||t.includes('strø')||t.includes('stro')||t.includes('salt');
-        if (mode === 'sno'  && ts && !tg) return true;
-        if (mode === 'grus' && tg && !ts) return true;
-        if (ts && tg) return true; // dekker begge
-      }
-      return addressHasTask(addr, mode);
-    }
+    const mine = mineSet.size;
+    const others = otherSet.size;
+    const capped = Math.min(total, mine + others);
+    const rest = Math.max(0, total - capped);
 
-    // Sett inn UI øverst i "Under arbeid"-kortet
-    function ensureUAStatusBar() {
-      const host = document.querySelector('#work .work-card') || document.querySelector('#work') || document.body;
-      if (!document.getElementById('uaWrap')) {
-        const wrap = document.createElement('div');
-        wrap.id = 'uaWrap';
-        wrap.innerHTML = `
-          <div id="uaBar">
-            <div id="uaMine"  style="width:0%"></div>
-            <div id="uaRest"  style="width:100%"></div>
-            <div id="uaOthers" style="width:0%"></div>
-          </div>
-          <div id="uaCounts">
-            <span class="left">0 mine • 0 andre</span>
-            <span class="right">0 av 0 adresser fullført</span>
-          </div>
-        `;
-        host.prepend(wrap);
-      }
-    }
+    const minePct  = Math.round(100*(mine/total));
+    const otherPct = Math.round(100*(others/total));
+    let restPct    = 100 - minePct - otherPct; if (restPct<0) restPct=0;
 
-    function computeUAProgress(){
-      const mode = getTaskMode();
-      const driverId = getCurrentDriverId();
+    return { total, mine, others, rest, minePct, otherPct, restPct, mode };
+  }
 
-      // 1) Adresser i valgt modus
-      const allAddrs = (window.addresses || []).filter(a => !a?.archived && !a?.hidden);
-      const scoped = allAddrs.filter(a => addressHasTask(a, mode));
-      const total = scoped.length;
+  function renderUAStatus(){
+    ensureUAStatusBar();
+    const { total, mine, others, rest, minePct, otherPct, restPct, mode } = computeUAProgress();
 
-      if (!total) return { total:0, mine:0, others:0, rest:0, minePct:0, otherPct:0, restPct:100, mode };
+    const elMine   = document.getElementById('uaMine');
+    const elOther  = document.getElementById('uaOthers');
+    const elRest   = document.getElementById('uaRest');
+    const left     = document.querySelector('#uaCounts .left');
+    const right    = document.querySelector('#uaCounts .right');
 
-      const addrById = new Map();
-      for (const a of scoped) {
-        const aid = (a.addrId ?? a.addressId ?? a.id ?? a.addr ?? '').toString();
-        if (aid) addrById.set(aid, a);
-      }
+    if (!elMine || !elOther || !elRest || !left || !right) return;
 
-      // 2) Ferdige i valgt modus
-      const reps = (window.reports || []);
-      const mineSet = new Set(), otherSet = new Set();
+    elMine.style.width  = (minePct  || 0) + '%';
+    elOther.style.width = (otherPct || 0) + '%';
+    elRest.style.width  = (restPct  || 0) + '%';
 
-      for (const r of reps) {
-        const done = r && (r.status==='done'||r.status==='ferdig'||r.status==='completed');
-        if (!done) continue;
+    left.textContent  = `${mine} mine • ${others} andre`;
+    right.textContent = `${mine+others} av ${total} adresser fullført`;
+  }
 
-        const aid = (r.addrId ?? r.addressId ?? r.id ?? r.addr ?? '').toString();
-        if (!aid || !addrById.has(aid)) continue;
+  // --- Triggere: oppdater når det faktisk skjer noe ---
+  window.addEventListener('load', renderUAStatus);
+  document.addEventListener('app:data-ready', renderUAStatus);
+  document.addEventListener('app:sync', renderUAStatus);
+  document.addEventListener('reports:updated', renderUAStatus);
+  document.addEventListener('work:updated', renderUAStatus);
 
-        const addr = addrById.get(aid);
-        if (!reportMatchesMode(r, mode, addr)) continue;
+  // Knappetrykk i Work: oppdater etter at logger er skrevet
+  ['act_start','act_done','act_skip','act_block','act_next'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', () => setTimeout(renderUAStatus, 300));
+  });
 
-        const isMine = ((r.driverId ?? r.driver ?? r.user ?? '').toString() === driverId);
-        (isMine ? mineSet : otherSet).add(aid);
-      }
+  // Reager når "Nå"-adressen skifter (som tegn på at UI oppdateres)
+  const nowEl = document.getElementById('b_now');
+  if (nowEl && window.MutationObserver) {
+    const mo = new MutationObserver(() => setTimeout(renderUAStatus, 100));
+    mo.observe(nowEl, { childList: true, characterData: true, subtree: true });
+  }
 
-      const mine = mineSet.size;
-      const others = otherSet.size;
-      const capped = Math.min(total, mine + others);
-      const rest = Math.max(0, total - capped);
+  // Utstyrsvalg (Snø/Grus)
+  ['a_eq_plow','a_eq_fres','a_eq_sand','a_driver'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', renderUAStatus);
+    if (el && el.tagName === 'INPUT') el.addEventListener('input', renderUAStatus);
+  });
 
-      const minePct  = Math.round(100*(mine/total));
-      const otherPct = Math.round(100*(others/total));
-      let restPct    = 100 - minePct - otherPct; if (restPct<0) restPct=0;
-
-      return { total, mine, others, rest, minePct, otherPct, restPct, mode };
-    }
-
-    function renderUAStatus(){
-      ensureUAStatusBar();
-      const { total, mine, others, rest, minePct, otherPct, restPct, mode } = computeUAProgress();
-
-      const elMine   = document.getElementById('uaMine');
-      const elOther  = document.getElementById('uaOthers');
-      const elRest   = document.getElementById('uaRest');
-      const left     = document.querySelector('#uaCounts .left');
-      const right    = document.querySelector('#uaCounts .right');
-
-      if (!elMine || !elOther || !elRest || !left || !right) return;
-
-      // Venstre = mine (grønn), høyre = andres (lilla), midten = rest
-      elMine.style.width  = (minePct  || 0) + '%';
-      elOther.style.width = (otherPct || 0) + '%';
-      elRest.style.width  = (restPct  || 0) + '%';
-
-      left.textContent  = `${mine} mine • ${others} andre`;
-      right.textContent = `${mine+others} av ${total} adresser fullført`;
-    }
-
-    // Oppdater ved last, sync og når utstyr endres
-    window.addEventListener('load', renderUAStatus);
-    document.addEventListener('app:data-ready', renderUAStatus);
-    document.addEventListener('app:sync', renderUAStatus);
-    ['a_eq_plow','a_eq_fres','a_eq_sand'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('change', renderUAStatus);
-    });
-    setInterval(renderUAStatus, 4000);
-  </script>
-</body>
+  // Litt hyppigere intervall for å fange opp usynkede endringer
+  setInterval(renderUAStatus, 1500);
+</script>
 </html>
