@@ -284,3 +284,11 @@ button#act_block {
     font-size: 15px;               /* knepp ned fonten minimalt */
   }
 }
+
+/* Under-arbeid statusbar */
+#uaWrap{margin:8px 0 12px}
+#uaBar{display:flex;height:10px;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb}
+#uaMine{background:#16a34a}
+#uaOthers{background:#7c3aed}
+#uaRest{background:#e5e7eb}
+#uaCounts{font-size:12px;margin-top:6px;opacity:.8}
