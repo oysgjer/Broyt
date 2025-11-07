@@ -149,6 +149,14 @@
             <option>Normal</option>
             <option>Motsatt</option>
           </select>
+          <br>
+            <!-- Start Brøytekart-preferanse -->
+<label class="field" style="margin-top:10px">
+  <div class="row" style="gap:8px; align-items:center">
+    <input id="a_startKart" type="checkbox" />
+    <span class="muted-strong">Start Brøytekart</span>
+  </div>
+</label>
           <label class="row" style="gap:8px; align-items:center">
             <input id="a_autoNav" type="checkbox" />
             <span class="muted-strong">Auto-naviger</span>
@@ -511,5 +519,48 @@
   if (enabled) acquire();
 })();
   </script>
+  <script>
+(() => {
+  const KEY_START_KART = 'start_kart_on_start';
+
+  // 1) Husk checkbox på Hjem
+  window.addEventListener('DOMContentLoaded', () => {
+    const chk = document.getElementById('a_startKart');
+    if (!chk) return;
+
+    // Last preferanse
+    const saved = localStorage.getItem(KEY_START_KART);
+    chk.checked = saved === 'true';
+
+    // Lagre ved endring
+    chk.addEventListener('change', () => {
+      localStorage.setItem(KEY_START_KART, String(chk.checked));
+    });
+  });
+
+  // 2) Åpne Brøytekart automatisk når man trykker "Start" på en adresse
+  //    (Hooker på knappen i Work-seksjonen)
+  window.addEventListener('DOMContentLoaded', () => {
+    const btnStart = document.getElementById('act_start');
+    if (!btnStart) return;
+
+    // Ikke forstyrr eksisterende logikk – legg til egen lytter som kjører etterpå
+    btnStart.addEventListener('click', () => {
+      try {
+        const shouldOpen = localStorage.getItem(KEY_START_KART) === 'true';
+        if (!shouldOpen) return;
+
+        // Bruk samme hash-parametre som Brøytekart-knappen
+        const url = "tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes";
+        // Sett "returnTo" slik at index kan hente deg tilbake hvis du ønsker den adferden videre
+        sessionStorage.setItem('returnTo', window.location.href);
+        window.open(url, '_blank');
+      } catch (e) {
+        console.warn('Kunne ikke auto-åpne Brøytekart:', e);
+      }
+    }, false);
+  });
+})();
+</script>
 </body>
 </html>
