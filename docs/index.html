@@ -563,5 +563,88 @@
   });
 })();
 </script>
+<script>
+(() => {
+  // --- Wake Lock (moderne nettlesere) + iOS fallback ---
+  let wakeLock = null;
+  let noSleep = null;   // iOS fallback (NoSleep.js)
+  let triedAuto = false;
+
+  async function requestWakeLock() {
+    // Hvis nettleseren har Wake Lock API
+    if ('wakeLock' in navigator && navigator.wakeLock?.request) {
+      try {
+        // Be om "screen" wake lock
+        wakeLock = await navigator.wakeLock.request('screen');
+        // Hvis vi mister låsen (f.eks. når skjermen slukkes midlertidig)
+        wakeLock.addEventListener?.('release', () => {
+          // Forsøk å ta låsen igjen når siden er synlig
+          if (document.visibilityState === 'visible') {
+            requestWakeLock().catch(()=>{});
+          }
+        });
+        console.debug('[wakelock] aktiv');
+        return true;
+      } catch (err) {
+        console.warn('[wakelock] feilet:', err?.name || err);
+        // Fortsett til fallback nedenfor
+      }
+    }
+    // --- Fallback for iOS/Safari (bruk NoSleep.js) ---
+    try {
+      if (!noSleep && window.NoSleep) {
+        noSleep = new NoSleep();
+      }
+      if (noSleep && !noSleep.enabled) {
+        await noSleep.enable();
+        console.debug('[wakelock] iOS fallback aktiv (NoSleep)');
+        return true;
+      }
+    } catch (e) {
+      console.warn('[wakelock] iOS fallback feilet:', e);
+    }
+    return false;
+  }
+
+  // Re-aktiver når siden blir synlig/fokusert igjen
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      requestWakeLock().catch(()=>{});
+    }
+  });
+  window.addEventListener('focus', () => {
+    requestWakeLock().catch(()=>{});
+  });
+
+  // Prøv automatisk ved last (kan feile uten bruker-gest)
+  window.addEventListener('DOMContentLoaded', async () => {
+    triedAuto = true;
+    const ok = await requestWakeLock();
+    if (!ok) {
+      // Noen nettlesere krever et brukertrykk først. Koble på første berøring/klikk.
+      const once = async () => {
+        document.removeEventListener('touchstart', once, {passive:true});
+        document.removeEventListener('click', once, true);
+        await requestWakeLock();
+      };
+      document.addEventListener('touchstart', once, {passive:true});
+      document.addEventListener('click', once, true);
+    }
+  });
+
+  // (valgfritt) eksponer en manuell knapp via console:
+  window.__wakeLockOn = requestWakeLock;
+  window.__wakeLockOff = async () => {
+    try {
+      if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+      if (noSleep?.enabled) { await noSleep.disable(); }
+      console.debug('[wakelock] deaktivert manuelt');
+    } catch {}
+  };
+})();
+</script>
+
+<!-- iOS fallback-bibliotek (NoSleep). Trygt å ha med; gjør ingenting i moderne Chrome/Edge. -->
+<script src="https://unpkg.com/nosleep.js@0.12.0/dist/NoSleep.min.js" defer></script>
 </body>
 </html>
