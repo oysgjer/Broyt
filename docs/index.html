@@ -840,5 +840,116 @@
 
 <!-- iOS fallback-bibliotek (NoSleep). Trygt å ha med; gjør ingenting i moderne Chrome/Edge. -->
 <script src="https://unpkg.com/nosleep.js@0.12.0/dist/NoSleep.min.js" defer></script>
+<script>
+(() => {
+  // --- Finn elementene (kan være null hvis markup mangler)
+  const btn     = document.getElementById('act_block');      // ⛔ Ikke mulig
+  const overlay = document.getElementById('skipOverlay');     // modal-overlay
+  const txt     = document.getElementById('skipReason');      // textarea
+  const cnt     = document.getElementById('skipCount');       // teller
+  const saveBtn = document.getElementById('skipSave');        // "Lagre årsak"
+  const cancel  = document.getElementById('skipCancel');      // "Avbryt"
+
+  // --- JSONBin helper (samme som før – robust nøkkel-lesing)
+  const JSONBIN_API = "https://api.jsonbin.io/v3/b";
+  const BIN_HENDELSER = "68e89e3443b1c97be9611c48";
+  const getMasterKey = () =>
+    (localStorage.getItem('X-Master-Key') ||
+     localStorage.getItem('x-master-key') ||
+     localStorage.getItem('XMasterKey')   ||
+     localStorage.getItem('jsonbin_master_key') || '').trim();
+  const getAccessKey = () =>
+    (localStorage.getItem('X-Access-Key') ||
+     localStorage.getItem('x-access-key') ||
+     localStorage.getItem('jsonbin_access_key') || '').trim();
+
+  function driverName(){
+    return (
+      document.getElementById('a_driver')?.value ||
+      localStorage.getItem('driverName') ||
+      localStorage.getItem('sjaforNavn') || 'Ukjent sjåfør'
+    ).trim();
+  }
+  function activeAddressId(){
+    const t = (document.getElementById('b_now')?.textContent || '').trim();
+    return t && t !== '—' ? t : '(ukjent adresse)';
+  }
+  const nowIso = () => new Date().toISOString();
+
+  async function jsonbinGet(binId){
+    const headers = { 'X-Master-Key': getMasterKey() };
+    const acc = getAccessKey(); if (acc) headers['X-Access-Key'] = acc;
+    const r = await fetch(`${JSONBIN_API}/${binId}/latest`, { headers });
+    if (!r.ok) throw new Error(`GET ${r.status}`);
+    const js = await r.json();
+    return Array.isArray(js.record) ? js.record : (js.record?.items || []);
+  }
+  async function jsonbinPut(binId, record){
+    const headers = {
+      'Content-Type':'application/json',
+      'X-Master-Key': getMasterKey(),
+      'X-Bin-Meta': 'false'
+    };
+    const acc = getAccessKey(); if (acc) headers['X-Access-Key'] = acc;
+    const r = await fetch(`${JSONBIN_API}/${binId}`, { method:'PUT', headers, body: JSON.stringify(record) });
+    if (!r.ok) throw new Error(`PUT ${r.status}`);
+    return r.json();
+  }
+  async function appendEventSkip(reason){
+    const key = getMasterKey();
+    if (!key) throw new Error('Mangler X-Master-Key – åpne Admin og lagre nøkkelen.');
+    const list = await jsonbinGet(BIN_HENDELSER);
+    list.push({ type:'skip', addressId: activeAddressId(), at: nowIso(), by: driverName(), reason });
+    await jsonbinPut(BIN_HENDELSER, list);
+  }
+
+  // --- UI helpers
+  const show = () => { if (overlay) { overlay.style.display = 'flex'; setTimeout(() => txt?.focus(), 30); } };
+  const hide = () => { if (overlay) overlay.style.display = 'none'; };
+  const updateCnt = () => { if (cnt && txt) cnt.textContent = String((txt.value || '').length); };
+
+  // --- KRITISK: Koble uansett en *klikk-test* først, så vi ser at knappen faktisk fyrer
+  if (btn) {
+    // Fjern evt. gamle lyttere og koble på nytt
+    btn.addEventListener('click', async (ev) => {
+      try {
+        // 1) Hvis vi har modal – bruk den
+        if (overlay && txt && saveBtn) {
+          txt.value = '';
+          updateCnt();
+          show();
+          return;
+        }
+        // 2) Fallback: bruk prompt hvis modal ikke finnes
+        const reason = (prompt('Hvorfor var det ikke mulig? (min. 5 tegn)') || '').trim();
+        if (!reason || reason.length < 5) return;
+        await appendEventSkip(reason);
+        alert('“Ikke mulig” lagret.');
+        document.getElementById('act_next')?.click();
+      } catch (e) {
+        alert((e && e.message) ? e.message : String(e));
+      }
+    }, false);
+  } else {
+    console.error('Fant ikke #act_block i DOM.');
+  }
+
+  // --- Modal-knapper (om modal finnes)
+  txt?.addEventListener('input', updateCnt);
+  cancel?.addEventListener('click', hide);
+  saveBtn?.addEventListener('click', async () => {
+    const reason = (txt.value || '').trim();
+    if (reason.length < 5) { alert('Skriv minst 5 tegn.'); txt.focus(); return; }
+    try {
+      await appendEventSkip(reason);
+      hide();
+      alert('“Ikke mulig” lagret.');
+      document.getElementById('act_next')?.click();
+    } catch (e) {
+      alert((e && e.message) ? e.message : String(e));
+    }
+  });
+})();
+</script>
 </body>
 </html>
