@@ -139,6 +139,17 @@
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((addr.name||'')+', Norge')}`;
   }
 
+  // === NYTT: eksponer aktiv adresse til index.html ===
+  function getActiveAddressObj(){
+    const run  = getRun();
+    const lane = run.lane || laneFromSettings();
+    const list = filteredAddresses(lane);
+    const idx  = run.idx;
+    const cur  = (idx != null) ? list[idx] : null;
+    return cur ? { id: cur.id, name: cur.name || '' } : null;
+  }
+  window.__getCurrentAddress = getActiveAddressObj;
+
   function uiUpdate(){
     const run  = getRun();
     const lane = run.lane || laneFromSettings();
@@ -173,7 +184,7 @@
     $('#act_skip') ?.toggleAttribute('disabled', !hasAny);
     $('#act_next') ?.toggleAttribute('disabled', !hasAny);
     $('#act_nav')  ?.toggleAttribute('disabled', !hasAny);
-    $('#act_block')?.toggleAttribute('disabled', !hasAny); // knapp styres fortsatt i UI, men klikk håndteres av index.html
+    $('#act_block')?.toggleAttribute('disabled', !hasAny); // styres i index
   }
 
   async function actStart(){
@@ -198,6 +209,21 @@
     patch.status[cur.id] = {};
     patch.status[cur.id][lane] = { state:'pågår', by: my, rounds };
     await window.Sync.setStatusPatch(patch);
+
+    // === NYTT: logg "start" til hendelser-bin
+    try {
+      const curAddr = getActiveAddressObj();
+      if (curAddr && window.__appendEvent) {
+        await window.__appendEvent({
+          type: 'start',
+          addressId: curAddr.id,
+          addressName: curAddr.name || '',
+          at: new Date().toISOString(),
+          by: my
+        });
+      }
+    } catch(e) { console.warn('appendEvent start feilet:', e); }
+
     uiUpdate();
   }
 
@@ -223,6 +249,20 @@
     patch.status[cur.id][lane] = { state:'ferdig', by: my, rounds };
     await window.Sync.setStatusPatch(patch);
 
+    // === NYTT: logg "done"
+    try {
+      const curAddr = { id: cur.id, name: cur.name || '' };
+      if (window.__appendEvent) {
+        await window.__appendEvent({
+          type: 'done',
+          addressId: curAddr.id,
+          addressName: curAddr.name,
+          at: new Date().toISOString(),
+          by: my
+        });
+      }
+    } catch(e) { console.warn('appendEvent done feilet:', e); }
+
     const nextIdx = findNextIndex(list, idx, getRun().dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
@@ -242,30 +282,28 @@
     patch.status[cur.id][lane] = { state:'hoppet', by: my, rounds:(getStatus(cur.id,lane).rounds||[]) };
     await window.Sync.setStatusPatch(patch);
 
-    const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
-    setRun({ idx: nextIdx });
-    uiUpdate();
-  }
-
-  // actBlock beholdes for ev. fremtidig bruk, men *IKKE* koblet til knappen her.
-  async function actBlock(){
-    const run  = getRun();
-    const lane = run.lane || laneFromSettings();
-    const my   = run.driver || settings().driver || '';
-    const list = filteredAddresses(lane);
-    const idx  = run.idx;
-    if (idx==null || !list[idx]) return;
-    const cur = list[idx];
-
-    const patch = { status:{} };
-    patch.status[cur.id] = {};
-    patch.status[cur.id][lane] = { state:'blokkert', by: my, rounds:(getStatus(cur.id,lane).rounds||[]) };
-    await window.Sync.setStatusPatch(patch);
+    // (valgfritt) legg inn en minimal loggpost så “Hopp over” vises
+    try {
+      const curAddr = { id: cur.id, name: cur.name || '' };
+      if (window.__appendEvent) {
+        await window.__appendEvent({
+          type: 'skip',
+          addressId: curAddr.id,
+          addressName: curAddr.name,
+          at: new Date().toISOString(),
+          by: my,
+          reason: '(hoppet over)'
+        });
+      }
+    } catch(e) { console.warn('appendEvent skip feilet:', e); }
 
     const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
   }
+
+  // (ikke koblet til knappen her – index håndterer årsak + logging)
+  async function actBlock(){ /* beholdt for ev. senere bruk */ }
 
   function actNext(){
     const run  = getRun();
@@ -286,9 +324,7 @@
     const idx  = run.idx;
     const cur  = (idx != null) ? list[idx] : null;
     if (!cur) return;
-
     const url = mapsUrl(cur);
-
     try {
       sessionStorage.setItem('returnTo', window.location.href);
       window.location.href = url;
@@ -298,11 +334,9 @@
     }
   }
 
-  // --- Uhell-knapp: lag/vis/placer over Brøytekart (med fallback-timer)
   function ensureUhellButton(){
     const grid = document.querySelector('#work .btn-grid');
     if (!grid) return false;
-
     let u = document.getElementById('act_incident');
     if (!u) {
       u = document.createElement('button');
@@ -322,23 +356,17 @@
     return true;
   }
 
-  // --- Brøytekart: vis nederst med 🚜. Fjern bare #act_map (ikke wrapper)
   function ensureBroytKart(){
     const grid = document.querySelector('#work .btn-grid');
     if (!grid) return false;
-
     document.getElementById('act_map')?.remove();
-
     let bk = document.querySelector('#btnBroytKart, #btnMap');
     if (!bk){
       bk = document.createElement('button');
       bk.id = 'btnBroytKart';
       bk.className = 'btn';
       bk.addEventListener('click', () => {
-        const url = 'tools/kart.html'
-          + '#addrBin=68ed425cae596e708f11d25f'
-          + '&routeBin=68ed425cae596e708f11d25f'
-          + '&field=geojsonRoutes';
+        const url = 'tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes';
         window.open(url, '_blank');
       });
       const wrap = document.createElement('div');
@@ -376,17 +404,12 @@
     $('#act_skip') ?.addEventListener('click', actSkip);
     $('#act_next') ?.addEventListener('click', actNext);
     $('#act_nav')  ?.addEventListener('click', actNav);
-    // ❗ Ikke koble #act_block her – index.html håndterer modal + logging til JSONBin
-    // $('#act_block')?.addEventListener('click', actBlock);
+    // Ikke koble #act_block her – index håndterer modal + logging
 
-    // initial UI
     uiUpdate();
 
-    // Sørg for spesialknappene nå...
     let ok1 = ensureUhellButton();
     let ok2 = ensureBroytKart();
-
-    // ...og hvis grid ikke var klart enda, prøv et lite øyeblikk til
     if (!ok1 || !ok2){
       let tries = 0;
       const tick = setInterval(() => {
@@ -396,18 +419,10 @@
       }, 100);
     }
 
-    // feedback på store knapper
     wireClickFeedback(['act_start','act_done']);
-
-    // oppdater ved endring
     window.Sync.on('change', () => uiUpdate());
-
-    // trygghet: re-apply når vi navigerer tilbake til #work
     window.addEventListener('hashchange', () => {
-      if (location.hash === '#work') {
-        ensureUhellButton();
-        ensureBroytKart();
-      }
+      if (location.hash === '#work') { ensureUhellButton(); ensureBroytKart(); }
     });
   }
 
