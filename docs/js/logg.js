@@ -1,8 +1,8 @@
 // logg.js — viser hendelser + beregner totaltid
-const DEFAULT_BINS = [
-  "68e89e3443b1c97be9611c48", // hendelser
-  "68e7b4d2ae596e708f0bde7d"  // adresser
-];
+const BINS = {
+  HENDELSER: "68e89e3443b1c97be9611c48",      // PRIVAT: hendelser
+  ADRESSER:  "68ed425cae596e708f11d25f"       // ✅ RIKTIG: samme som addrBin i app/kart
+};
 const DEFAULT_DAYS = 5;
 
 const $ = (s, r=document) => r.querySelector(s);
@@ -37,7 +37,7 @@ async function jsonbinGetLatest(binId){
 }
 
 function escapeHtml(s){
-  return String(s)
+  return String(s ?? '')
     .replaceAll('&','&amp;')
     .replaceAll('<','&lt;')
     .replaceAll('>','&gt;')
@@ -87,7 +87,22 @@ function ensureControls(){
 }
 
 function normalizeAddrId(a){
-  return a.id || a.ID || a.adresse || a.navn || String(a);
+  // Forsøk å finne unik ID for adresseobjektet
+  return a.id ?? a.ID ?? a.uuid ?? a.adresseId ?? a.adresse_id ?? a.adresse ?? a.navn ?? String(a);
+}
+
+function buildAddressIndexes(adresser){
+  // Primært kart: id -> objekt
+  const byIdMap = new Map();
+  // Fallback: navn/label -> objekt (i tilfelle events mangler id)
+  const byNameMap = new Map();
+  for (const a of adresser){
+    const id = normalizeAddrId(a);
+    if (id) byIdMap.set(String(id), a);
+    if (a?.navn) byNameMap.set(String(a.navn).trim(), a);
+    if (a?.adresse) byNameMap.set(String(a.adresse).trim(), a);
+  }
+  return { byIdMap, byNameMap };
 }
 
 function groupByDate(events){
@@ -100,17 +115,19 @@ function groupByDate(events){
   return by;
 }
 
-// beregn total tid (minutter) ved å pare start->done per adresse og fører
+function keyForPairing(e){
+  // Par start->done per adresse + fører
+  const addrKey = e.addressId || e.addressName || '';
+  return `${addrKey}|${e.by || ''}`;
+}
+
 function computeTotals(events){
-  // sortér etter tid
   const ev = [...events].sort((a,b)=> new Date(a.at)-new Date(b.at));
-  const stacks = new Map(); // key: addrId|by -> [start times]
+  const stacks = new Map(); // key -> [start ms]
   let totalMs = 0;
 
-  const keyFor = (e)=> `${e.addressId || ''}|${e.by || ''}`;
-
   for (const e of ev){
-    const k = keyFor(e);
+    const k = keyForPairing(e);
     if (!stacks.has(k)) stacks.set(k, []);
     const st = stacks.get(k);
 
@@ -127,7 +144,7 @@ function computeTotals(events){
   return Math.round(totalMs/60000); // minutter
 }
 
-function renderTable(day, events, addrMap){
+function renderTable(day, events, addrIdx){
   const wrap = document.createElement('section');
   wrap.innerHTML = `<h2 style="margin-top:18px">${day}</h2>
   <table>
@@ -145,13 +162,16 @@ function renderTable(day, events, addrMap){
 
   for (const e of events.sort((a,b)=> new Date(a.at)-new Date(b.at))){
     const tr = document.createElement('tr');
-    const a = addrMap.get(e.addressId) || {};
+
+    // slå opp adresse
+    const fromId = e.addressId ? addrIdx.byIdMap.get(String(e.addressId)) : null;
+    const fromName = (!fromId && e.addressName) ? addrIdx.byNameMap.get(String(e.addressName)) : null;
+    const a = fromId || fromName || {};
     const title = a.navn || a.adresse || e.addressName || e.addressId || '—';
+
     const t = fmtTime(new Date(e.at));
 
-    let tag = '';
-    let label = '';
-    let extra = '';
+    let tag = '', label = '', extra = '';
     if (e.type === 'start'){ tag='tag-start'; label='Startet'; }
     else if (e.type === 'done'){ tag='tag-done'; label='Ferdig'; }
     else if (e.type === 'blocked'){ tag='tag-block'; label='Sperret'; }
@@ -184,13 +204,13 @@ async function loadAndRender(){
   const to   = byId('dateTo').value   ? new Date(byId('dateTo').value)   : endOfDay(new Date());
 
   const [hendelserRaw, adresserRaw] = await Promise.all([
-    jsonbinGetLatest(DEFAULT_BINS[0]),
-    jsonbinGetLatest(DEFAULT_BINS[1])
+    jsonbinGetLatest(BINS.HENDELSER),
+    jsonbinGetLatest(BINS.ADRESSER)
   ]);
 
-  const hendelser = Array.isArray(hendelserRaw) ? hendelserRaw : (hendelserRaw.items || []);
-  const adresser  = Array.isArray(adresserRaw)  ? adresserRaw  : (adresserRaw.items  || []);
-  const addrMap = new Map(adresser.map(a => [normalizeAddrId(a), a]));
+  const hendelser = Array.isArray(hendelserRaw) ? hendelserRaw : (hendelserRaw?.items || []);
+  const adresser  = Array.isArray(adresserRaw)  ? adresserRaw  : (adresserRaw?.items  || []);
+  const addrIdx = buildAddressIndexes(adresser);
 
   const filtered = hendelser.filter(e => e && e.at && new Date(e.at).getTime() >= from.getTime() && new Date(e.at).getTime() <= to.getTime());
 
@@ -217,7 +237,7 @@ async function loadAndRender(){
   }
 
   for (const day of days){
-    const section = renderTable(day, by.get(day), addrMap);
+    const section = renderTable(day, by.get(day), addrIdx);
     logWrap.appendChild(section);
   }
 }
