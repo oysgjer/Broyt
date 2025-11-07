@@ -890,5 +890,116 @@
   if (enabled) acquire();
 })();
 </script>
+
+<script>
+(() => {
+  const KEY_AUTO_GPS = 'kart_gps_auto';        // husk preferanse (default: true)
+  if (localStorage.getItem(KEY_AUTO_GPS) == null) localStorage.setItem(KEY_AUTO_GPS, 'true');
+
+  let autoOn   = localStorage.getItem(KEY_AUTO_GPS) === 'true';
+  let watchId  = null;
+  let retryT   = null;
+
+  // Hjelper: prøv å kalle eksisterende egen start-funksjon (hvis den finnes)
+  async function callExistingStart() {
+    // Vanlige funksjonsnavn/knapp-id'er
+    const fnNames = ['startGPS', 'gpsStart', 'enableGPS', 'startGeolocation'];
+    for (const n of fnNames) {
+      if (typeof window[n] === 'function') {
+        try { await window[n](); return true; } catch {}
+      }
+    }
+    // Prøv å "klikke" på en kjent knapp
+    const btn = document.getElementById('startGps') || document.querySelector('[data-role="start-gps"], button.start-gps');
+    if (btn) { btn.click(); return true; }
+    return false;
+  }
+
+  // Egen fallback-watch hvis appen ikke har en start-funksjon
+  function fallbackStartWatch() {
+    if (!('geolocation' in navigator)) return false;
+    try {
+      stopWatch();
+      watchId = navigator.geolocation.watchPosition(
+        pos => {
+          // Publiser posisjon til evt. kartlogikk hvis den finnes
+          if (window.updatePosition) {
+            try { window.updatePosition(pos.coords); } catch {}
+          }
+        },
+        err => {
+          console.warn('GPS feil:', err);
+          // Ved feil: prøv igjen forsiktig
+          clearTimeout(retryT);
+          retryT = setTimeout(tryStart, 2000);
+        },
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 8000 }
+      );
+      return true;
+    } catch (e) {
+      console.warn('Kunne ikke starte watchPosition:', e);
+      return false;
+    }
+  }
+
+  function stopWatch() {
+    clearTimeout(retryT);
+    if (watchId != null) {
+      try { navigator.geolocation.clearWatch(watchId); } catch {}
+      watchId = null;
+    }
+  }
+
+  async function tryStart() {
+    if (!autoOn || document.hidden) return;
+
+    // Sjekk tillatelse – auto starter kun når status er "granted"
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const st = await navigator.permissions.query({ name: 'geolocation' });
+        if (st.state === 'granted') {
+          const usedExisting = await callExistingStart();
+          if (!usedExisting) fallbackStartWatch();
+          return;
+        } else if (st.state === 'prompt') {
+          // Krever bruker-gest første gang; "armér" via første trykk
+          // Vi gjør ikke noe her automatisk for å unngå påtrengende prompt-loop
+          return;
+        } else {
+          // denied → ikke spam forsøk
+          return;
+        }
+      } catch {
+        // Permissions API ikke tilgjengelig – prøv forsiktig uansett
+      }
+    }
+    const usedExisting = await callExistingStart();
+    if (!usedExisting) fallbackStartWatch();
+  }
+
+  // Armér på første bruker-gest (iOS/Safari trenger ofte klikk først)
+  const arm = () => { tryStart(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
+  window.addEventListener('touchstart', arm, true);
+  window.addEventListener('mousedown', arm, true);
+
+  // Start ved visning, stopp ved skjuling
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopWatch();
+    else tryStart();
+  });
+  window.addEventListener('pageshow', tryStart);
+  window.addEventListener('pagehide', stopWatch);
+
+  // Start automatisk ved last – hvis bruker har valgt auto
+  if (autoOn) tryStart();
+
+  // Eksponer enkel toggle om du vil styre dette fra UI senere
+  window.kartAutoGps = {
+    enable()  { localStorage.setItem(KEY_AUTO_GPS, 'true');  autoOn = true;  tryStart(); },
+    disable() { localStorage.setItem(KEY_AUTO_GPS, 'false'); autoOn = false; stopWatch(); },
+    isOn()    { return autoOn; }
+  };
+})();
+</script>
 </body>
 </html>
