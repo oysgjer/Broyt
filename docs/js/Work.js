@@ -173,7 +173,7 @@
     $('#act_skip') ?.toggleAttribute('disabled', !hasAny);
     $('#act_next') ?.toggleAttribute('disabled', !hasAny);
     $('#act_nav')  ?.toggleAttribute('disabled', !hasAny);
-    $('#act_block')?.toggleAttribute('disabled', !hasAny);
+    $('#act_block')?.toggleAttribute('disabled', !hasAny); // knapp styres fortsatt i UI, men klikk håndteres av index.html
   }
 
   async function actStart(){
@@ -247,6 +247,7 @@
     uiUpdate();
   }
 
+  // actBlock beholdes for ev. fremtidig bruk, men *IKKE* koblet til knappen her.
   async function actBlock(){
     const run  = getRun();
     const lane = run.lane || laneFromSettings();
@@ -279,28 +280,23 @@
   }
 
   function actNav() {
-  const run  = getRun();
-  const lane = run.lane || laneFromSettings();
-  const list = filteredAddresses(lane);
-  const idx  = run.idx;
-  const cur  = (idx != null) ? list[idx] : null;
-  if (!cur) return;
+    const run  = getRun();
+    const lane = run.lane || laneFromSettings();
+    const list = filteredAddresses(lane);
+    const idx  = run.idx;
+    const cur  = (idx != null) ? list[idx] : null;
+    if (!cur) return;
 
-  const url = mapsUrl(cur);
+    const url = mapsUrl(cur);
 
-  try {
-    // lagre hvor vi var før vi navigerer
-    sessionStorage.setItem('returnTo', window.location.href);
-
-    // åpne navigasjon i samme fane – tryggere i PWA
-    window.location.href = url;
-
-    // rydde opp etter 1 minutt (hvis bruker ikke kommer tilbake)
-    setTimeout(() => sessionStorage.removeItem('returnTo'), 60000);
-  } catch (e) {
-    console.error('Navigasjonsfeil:', e);
+    try {
+      sessionStorage.setItem('returnTo', window.location.href);
+      window.location.href = url;
+      setTimeout(() => sessionStorage.removeItem('returnTo'), 60000);
+    } catch (e) {
+      console.error('Navigasjonsfeil:', e);
+    }
   }
-}
 
   // --- Uhell-knapp: lag/vis/placer over Brøytekart (med fallback-timer)
   function ensureUhellButton(){
@@ -318,7 +314,7 @@
       });
       const wrap = document.createElement('div');
       wrap.appendChild(u);
-      grid.insertBefore(wrap, grid.lastElementChild || null); // over Brøytekart
+      grid.insertBefore(wrap, grid.lastElementChild || null);
     }
     u.innerHTML = '⚠️ Uhell';
     u.style.removeProperty('display');
@@ -380,7 +376,8 @@
     $('#act_skip') ?.addEventListener('click', actSkip);
     $('#act_next') ?.addEventListener('click', actNext);
     $('#act_nav')  ?.addEventListener('click', actNav);
-    $('#act_block')?.addEventListener('click', actBlock);
+    // ❗ Ikke koble #act_block her – index.html håndterer modal + logging til JSONBin
+    // $('#act_block')?.addEventListener('click', actBlock);
 
     // initial UI
     uiUpdate();
