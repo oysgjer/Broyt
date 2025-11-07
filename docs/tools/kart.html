@@ -475,23 +475,32 @@
   let saveTimer=null;
   function markDirtyAndScheduleSave(){ dirty=true; saveLocalDraft(); if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(syncRemote,1200); }
   async function syncRemote(){
-    if(!ROUTE_BIN) return;
-    try{
-      const latest=await jsonbinGet(ROUTE_BIN,ROUTE_KEY);
-      const latestVer = (latest?.meta?.routesVersion)||0;
-      const latestFC  = latest?.[FIELD];
-      const mine = currentFC();
-      const serverById=new Map((latestFC?.features||[]).filter(f=>f?.properties?.id).map(f=>[f.properties.id,f]));
-      const localById =new Map((mine.features||[]).filter(f=>f?.properties?.id).map(f=>[f.properties.id,f]));
-      const merged=new Map(serverById); for(const [id,lf] of localById.entries()) merged.set(id,lf);
-      const mergedFeatures=Array.from(merged.values());
-      const record={...(latest||{})};
-      record[FIELD]={type:'FeatureCollection',features:mergedFeatures};
-      record.meta={...(record.meta||{}), routesVersion:latestVer+1, lastEditedAt:new Date().toISOString(), lastEditedBy:'KartTegner'};
-      await jsonbinPut(ROUTE_BIN,ROUTE_KEY,record);
-      remoteVersion=record.meta.routesVersion; dirty=false; toast('Lagret');
-    }catch(e){ console.warn('Autosave remote',e); toast('Lagret lokalt (offline)',1500); }
+  if (!ROUTE_BIN) return;
+  try {
+    const latest = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
+    const latestVer = (latest?.meta?.routesVersion) || 0;
+
+    // 🚀 Viktig: bruk NØYAKTIG det som ligger i kartet nå (inkl. slettinger)
+    const mine = { type: 'FeatureCollection', features: toGeoJSONMulti() };
+
+    const record = { ...(latest || {}) };
+    record[FIELD] = mine;
+    record.meta = {
+      ...(record.meta || {}),
+      routesVersion: latestVer + 1,
+      lastEditedAt: new Date().toISOString(),
+      lastEditedBy: 'KartTegner'
+    };
+
+    await jsonbinPut(ROUTE_BIN, ROUTE_KEY, record);
+    remoteVersion = record.meta.routesVersion;
+    dirty = false;
+    toast('Lagret');
+  } catch (e) {
+    console.warn('Autosave remote feilet', e);
+    toast('Lagret lokalt (offline)', 1800);
   }
+}
 
   async function safeLoad(){
     let loaded=false;
