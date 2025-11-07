@@ -127,6 +127,14 @@
     .toast { background: rgba(17,24,39,.96); color:#fff; padding:.7rem .9rem; border-radius:.7rem; box-shadow: 0 6px 30px rgba(0,0,0,.35);
       border:1px solid rgba(255,255,255,.08); font-size:.95rem; }
     [data-theme="light"] .toast { background: rgba(31,41,55,.96); }
+
+    /* ⬇️ Viktig: Modal Z-index over Leaflet */
+    .modal { position: fixed; inset: 0; display:none; z-index: 5000; }
+    .modal.show { display:block; }
+    /* Leaflet under modalen */
+    .leaflet-container { z-index: 0 !important; }
+    .leaflet-pane { z-index: 200 !important; }
+    .leaflet-top, .leaflet-bottom { z-index: 300 !important; }
   </style>
 </head>
 <body>
@@ -185,7 +193,6 @@
       <button class="btn" id="btnRouteList">📄 Ruteliste</button>
       <button class="btn" id="btnClearGPS">🗑️ Nullstill GPS</button>
 
-      <!-- NYE knapper -->
       <button class="btn" id="btnClearMine">🧹 Nullstill mine (grønn+blå)</button>
       <button class="btn" id="btnClearAll">🧨 Nullstill alle</button>
     </div>
@@ -194,7 +201,7 @@
 
   <div class="group">
     <h3>Om</h3>
-    <div class="note" id="metaInfo">v3.6 • auto-GPS + sentrer PÅ • wake-lock auto</div>
+    <div class="note" id="metaInfo">v3.7 • ruteliste-modal over kart • auto-GPS+følg PÅ • wake-lock auto</div>
   </div>
 </aside>
 
@@ -210,13 +217,13 @@
 
 <!-- Ruteliste Modal -->
 <div class="modal" id="routeModal" aria-hidden="true">
-  <div class="shade" id="routeShade"></div>
-  <div class="panel" role="dialog" aria-modal="true">
-    <div class="topbar">
+  <div class="shade" id="routeShade" style="position:absolute; inset:0; background:rgba(0,0,0,.4)"></div>
+  <div class="panel" role="dialog" aria-modal="true" style="position:absolute; left:50%; top:10vh; transform:translateX(-50%); width:min(92vw, 720px); max-height:80vh; overflow:auto; -webkit-overflow-scrolling:touch; background:var(--legend-bg); color:#111; border:1px solid var(--legend-bd); border-radius:12px; padding:12px;">
+    <div class="topbar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem;">
       <strong>Ruteliste</strong>
       <button class="close" id="btnCloseRouteModal">Lukk</button>
     </div>
-    <div class="routes" id="routesContainer"></div>
+    <div class="routes" id="routesContainer" style="display:grid; gap:.5rem;"></div>
   </div>
 </div>
 
@@ -247,7 +254,7 @@
   const LS_DRAFT = 'KARTTEGNER_DRAFT';
   const LS_THEME = 'KART_THEME_MODE';
 
-  // --- Identitet (for "andres dekning")
+  // --- Identitet
   const LS_USER = 'KARTTEGNER_USER';
   let USER_ID = localStorage.getItem(LS_USER) || params.get('user') || null;
   if (!USER_ID) {
@@ -313,7 +320,7 @@
     try { window.location.assign(BACK_URL); } catch { history.back(); }
   });
 
-  // --- Følg meg (PÅ som default, slås ikke av ved drag)
+  // --- Følg meg (PÅ som default)
   let followEnabled = true;
   const btnFollow = document.getElementById('btnFollow');
   function setFollowUI(on){
@@ -322,10 +329,8 @@
     btnFollow.classList.toggle('active', on);
     localStorage.setItem('kart_center_follow', String(on));
   }
-  // Start som PÅ
   setFollowUI(true);
   btnFollow.addEventListener('click', () => setFollowUI(!followEnabled));
-  // Vi slår IKKE av på drag lenger
 
   // --- Drawing & Editing
   let dirty = false;
@@ -355,16 +360,30 @@
 
   map.on(L.Draw.Event.EDITED, () => { recalcRouteStats(); othersLayer.clearLayers(); pollOthersCoverage(); markDirtyAndScheduleSave(); });
 
-  // Ruteliste
+  // Ruteliste (modal over kart, lukk skuffen først)
   const routeModal = document.getElementById('routeModal');
   const routeShade = document.getElementById('routeShade');
   const btnCloseRouteModal = document.getElementById('btnCloseRouteModal');
   const routesContainer = document.getElementById('routesContainer');
-  function openRoutes(){ buildRouteList(); routeModal.classList.add('show'); }
-  function closeRoutes(){ routeModal.classList.remove('show'); }
-  document.getElementById('btnRouteList').onclick = () => { openRoutes(); };
+
+  function openRoutes(){
+    buildRouteList();
+    routeModal.classList.add('show');
+  }
+  function closeRoutes(){
+    routeModal.classList.remove('show');
+  }
+  document.getElementById('btnRouteList').onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (drawer.classList.contains('open')) closeDrawer();
+    openRoutes();
+  };
   routeShade.onclick = closeRoutes;
   btnCloseRouteModal.onclick = closeRoutes;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && routeModal.classList.contains('show')) closeRoutes();
+  });
 
   function buildRouteList(){
     routesContainer.innerHTML = '';
@@ -377,17 +396,17 @@
       const gj = layer.toGeoJSON();
       const name = (gj.properties && gj.properties.name) || `Uten navn ${idx+1}`;
       const lenM = Math.round(turf.length(gj, {units:'kilometers'}) * 1000);
-      const row = document.createElement('div'); row.className='route-item';
+      const row = document.createElement('div'); row.className='route-item'; row.style.cssText='border:1px solid var(--legend-bd); border-radius:10px; padding:.6rem; display:grid; grid-template-columns: 1fr auto; align-items:center; gap:.4rem; background:rgba(0,0,0,.02);';
 
       const left = document.createElement('div');
-      const title = document.createElement('div'); title.className='route-title'; title.textContent = name;
-      const meta = document.createElement('div'); meta.className='route-meta'; meta.textContent = `${lenM} m`;
+      const title = document.createElement('div'); title.className='route-title'; title.style.fontWeight='600'; title.textContent = name;
+      const meta = document.createElement('div'); meta.className='route-meta'; meta.style.opacity='.8'; meta.style.fontSize='.9rem'; meta.textContent = `${lenM} m`;
       left.appendChild(title); left.appendChild(meta);
 
-      const actions = document.createElement('div'); actions.className='row-actions';
-      const bFocus = document.createElement('button'); bFocus.className='btn-sm'; bFocus.textContent='Vis';
+      const actions = document.createElement('div'); actions.className='row-actions'; actions.style.display='flex'; actions.style.gap='.4rem'; actions.style.flexWrap='wrap';
+      const bFocus = document.createElement('button'); bFocus.className='btn-sm'; bFocus.textContent='Vis'; bFocus.style.cssText='padding:.45rem .6rem; font-size:.95rem; border-radius:.6rem; background:var(--bg-btn); color:var(--fg); border:1px solid var(--bd-btn);';
       bFocus.onclick = () => { map.fitBounds(layer.getBounds(), {padding:[20,20]}); closeRoutes(); };
-      const bRename = document.createElement('button'); bRename.className='btn-sm'; bRename.textContent='Gi nytt navn';
+      const bRename = document.createElement('button'); bRename.className='btn-sm'; bRename.textContent='Gi nytt navn'; bRename.style.cssText=bFocus.style.cssText;
       bRename.onclick = () => {
         const newName = prompt('Nytt navn:', name);
         if(newName && newName.trim()){
@@ -397,7 +416,7 @@
           toast('Navn oppdatert'); markDirtyAndScheduleSave(); buildRouteList();
         }
       };
-      const bDelete = document.createElement('button'); bDelete.className='btn-sm'; bDelete.textContent='Slett';
+      const bDelete = document.createElement('button'); bDelete.className='btn-sm'; bDelete.textContent='Slett'; bDelete.style.cssText=bFocus.style.cssText;
       bDelete.onclick = () => {
         if(confirm('Slette denne ruten?')){
           drawnLayer.removeLayer(layer);
@@ -467,7 +486,6 @@
     const meters = totalMeters();
     updateUI(pct, meters);
 
-    // Publiser min dekning (debounced)
     schedulePublishMyCoverage();
   }
 
@@ -521,13 +539,11 @@
       document.getElementById('fix').textContent = `GPS: ${Math.round(accuracy)}m`;
     }
 
-    // Sentrer alltid når "følg" er på (default: på)
     if(followEnabled){
       const targetZoom = Math.max(map.getZoom() || 14, 16);
       map.setView(latlng, targetZoom, { animate: true });
     }
 
-    // Dekningsmatch mot ruter
     if(samples.length>0){
       const pt = turf.point([lon, lat]);
       let nearestIdx = 0; let best = Infinity;
@@ -545,7 +561,6 @@
     }
   }
 
-  // Start/stop GPS (kan også brukes manuelt fra menyen)
   function startGPS(){
     if(watchId!==null) return;
     if(!navigator.geolocation){ toast('Ingen GPS på enheten'); return; }
@@ -556,7 +571,6 @@
       document.getElementById('fix').textContent = 'GPS: feil';
       console.error(err);
       toast('GPS-feil');
-      // Prøv forsiktig igjen
       setTimeout(tryAutoStartGPS, 1500);
     }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 8000 });
     toast('GPS startet');
@@ -569,7 +583,6 @@
   document.getElementById('btnStartGPS').onclick = startGPS;
   document.getElementById('btnStopGPS').onclick = stopGPS;
 
-  // Nullstill GPS
   document.getElementById('btnClearGPS').onclick = () => {
     gpsLayer.clearLayers();
     gpsPolyline = null;
@@ -610,12 +623,10 @@
     return res.json();
   }
 
-  // --- Deknings-signatur
   function coverageSignature(){
     return `${samples.length || 0}:${remoteVersion || 0}`;
   }
 
-  // --- Publisering av min dekning (indekser) til JSONBin
   let publishTimer = null;
   function schedulePublishMyCoverage(){
     if (!ROUTE_BIN) return;
@@ -630,11 +641,7 @@
       const sig = coverageSignature();
       const myIndices = Array.from(covered).sort((a,b)=>a-b);
       const coveredBy = { ...(meta.coveredBy || {}) };
-      coveredBy[USER_ID] = {
-        sig,
-        indices: myIndices,
-        updatedAt: new Date().toISOString()
-      };
+      coveredBy[USER_ID] = { sig, indices: myIndices, updatedAt: new Date().toISOString() };
       record.meta = { ...meta, coveredBy };
       await jsonbinPut(ROUTE_BIN, ROUTE_KEY, record);
     } catch(e) {
@@ -642,7 +649,6 @@
     }
   }
 
-  // --- Hent og tegn andres dekning
   function indicesToLatLngs(indices){
     return indices.map(i => samples[i]).filter(Boolean).map(pt => {
       const c = pt.geometry.coordinates; return [c[1], c[0]];
@@ -723,7 +729,7 @@
     }
   };
 
-  // --- Wake Lock (auto på)
+  // Wake Lock (auto)
   let wakeLock = null;
   async function acquireWake(){
     try{
@@ -738,7 +744,7 @@
   document.getElementById('btnWake').onclick = async () => { if (wakeLock) releaseWake(); else acquireWake(); };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') acquireWake(); });
 
-  // --- Auto-GPS: start uten trykk når det er lov
+  // Auto-GPS
   async function tryAutoStartGPS(){
     if (document.hidden) return;
     if (navigator.permissions?.query){
@@ -746,19 +752,16 @@
         const st = await navigator.permissions.query({ name: 'geolocation' });
         if (st.state === 'granted'){ startGPS(); return; }
         if (st.state === 'prompt'){
-          // én myk forespørsel for å trigge prompt
           navigator.geolocation.getCurrentPosition(
             () => startGPS(),
-            () => {}, // bruker avslo
+            () => {},
             { enableHighAccuracy:true, maximumAge:0, timeout:6000 }
           );
           return;
         }
-        // denied: gjør ingenting
         return;
-      }catch{/* fallthrough */}
+      }catch{}
     }
-    // Mangler permissions API – prøv direkte
     startGPS();
   }
 
@@ -775,7 +778,12 @@
   window.addEventListener('pageshow', () => { tryAutoStartGPS(); acquireWake(); });
   window.addEventListener('pagehide', () => { stopGPS(); });
 
-  // --- Lasting / synk
+  // Lasting / synk
+  function currentFC(){ const feats = toGeoJSONMulti(); return { type:'FeatureCollection', features: feats }; }
+  function saveLocalDraft(){ try { localStorage.setItem(LS_DRAFT, JSON.stringify(currentFC())); } catch {} }
+  let saveTimer = null;
+  function markDirtyAndScheduleSave(){ dirty = true; saveLocalDraft(); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(syncRemote, 1200); }
+
   async function syncRemote(){
     if (!ROUTE_BIN) return;
     try {
@@ -807,7 +815,6 @@
   async function safeLoad(){
     let loaded = false;
 
-    // Adresser (valgfritt)
     try {
       if (ADDR_BIN){
         const dataAddr = await jsonbinGet(ADDR_BIN, ADDR_KEY);
@@ -817,7 +824,6 @@
       }
     } catch (e) {}
 
-    // Ruter
     try {
       if (ROUTE_BIN){
         const dataRoute = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
@@ -842,7 +848,6 @@
       }
     } catch (e) { console.warn('Fikk ikke ruter fra JSONBin', e); }
 
-    // Lokalt fallback
     if (!loaded){
       try {
         const txt = localStorage.getItem(LS_DRAFT);
@@ -865,7 +870,6 @@
 
   // Init
   safeLoad().then(()=> {
-    // Sørg for at UI står riktig fra start
     setFollowUI(true);
     acquireWake();
     tryAutoStartGPS();
