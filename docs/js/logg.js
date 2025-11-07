@@ -1,4 +1,5 @@
 // logg.js — leser flere JSONBin-bins, parer start/ferdig, viser A4-vennlig logg
+// Patch inkludert: rydder bort 'on' som sjåførnavn og bruker lagret navn som fallback
 
 const DEFAULT_BINS = [
   "68e89e3443b1c97be9611c48", // hendelser
@@ -15,6 +16,27 @@ const fmtTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const startOfDay = (d)=> new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const addDays = (d, n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
 const sameDay = (a,b)=> a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+
+// --- Sjåførnavn: robust henting og sanitering ('on' -> lagret navn)
+function getSavedDriver(){
+  const keys=['driver','driverName','sjafor','sjaforNavn'];
+  for(const k of keys){
+    try{
+      const v = localStorage.getItem(k);
+      if (v && String(v).trim()) return String(v).trim();
+    }catch{}
+  }
+  return '';
+}
+function resolveDriverName(v){
+  if(!v) return '';
+  const t = String(v).trim();
+  const tl = t.toLowerCase();
+  if (tl === 'on' || tl === 'true' || tl === 'yes') {
+    return getSavedDriver() || '';
+  }
+  return t;
+}
 
 function getBinIds(){
   try{ const raw = localStorage.getItem('JSONBIN_BIN_IDS'); if (raw){ const a=JSON.parse(raw); if (Array.isArray(a)&&a.length) return a; } }catch{}
@@ -69,9 +91,19 @@ function buildTaskMap(addrRec){
 }
 
 function pairRunsForDay(events, day, driverFilter, taskMap){
-  const sameDayEv = events.filter(e => sameDay(new Date(e.ts||e.t), day) && (!driverFilter || (e.driver===driverFilter)));
+  const driverFilterClean = resolveDriverName(driverFilter);
+  const sameDayEv = events.filter(e => {
+    const d = new Date(e.ts||e.t);
+    const drv = resolveDriverName(e.driver);
+    return sameDay(d, day) && (!driverFilterClean || drv === driverFilterClean);
+  });
+
   const groups = new Map();
-  const keyOf = e => `${(e.address||e.addr||'').trim()}|${e.driver||''}`;
+  const keyOf = e => {
+    const addr = (e.address||e.addr||'').trim();
+    const drv = resolveDriverName(e.driver);
+    return `${addr}|${drv}`;
+  };
   sameDayEv.forEach(e=>{ const k=keyOf(e); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(e); });
 
   const rows=[];
@@ -84,14 +116,26 @@ function pairRunsForDay(events, day, driverFilter, taskMap){
       else if (act==='ferdig' && open){
         const addr=(e.address||open.address||'').trim();
         const task=(e.task||open.task||e.oppgave||open.oppgave||taskMap.get(addr)||'Snø');
-        rows.push({ address:addr, task, startTs:new Date(open.ts||open.t), endTs:new Date(e.ts||e.t), driver:e.driver||open.driver||'' });
+        rows.push({
+          address:addr,
+          task,
+          startTs:new Date(open.ts||open.t),
+          endTs:new Date(e.ts||e.t),
+          driver: resolveDriverName(e.driver||open.driver||'')
+        });
         open=null;
       }
     }
     if (open){
       const addr=(open.address||'').trim();
       const task=(open.task||open.oppgave||taskMap.get(addr)||'Snø');
-      rows.push({ address:addr, task, startTs:new Date(open.ts||open.t), endTs:null, driver:open.driver||'' });
+      rows.push({
+        address:addr,
+        task,
+        startTs:new Date(open.ts||open.t),
+        endTs:null,
+        driver: resolveDriverName(open.driver||'')
+      });
     }
   }
   rows.sort((a,b)=> a.startTs-b.startTs);
@@ -106,7 +150,7 @@ function renderDaySection(container, d0, rows, driverSel){
 
   const section = document.createElement('section');
   section.innerHTML = `
-    <h3 style="margin:12px 0 6px">${fmtNorDate(d0)} — ${driverSel||'Alle'}</h3>
+    <h3 style="margin:12px 0 6px">${fmtNorDate(d0)}${driverSel ? ' — ' + driverSel : ''}</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:8px">
       <div><b>Måned og år:</b> ${pad(d0.getMonth()+1)}.${d0.getFullYear()}</div>
       <div><b>Oppstart klokken:</b> ${oppstart}</div>
@@ -146,7 +190,10 @@ function renderDaySection(container, d0, rows, driverSel){
 async function loadAndRender(){
   const status = byId('status'); if (status) status.textContent = 'Laster …';
 
-  const driverSel = byId('selDriver')?.value || '';
+  const uiSel = byId('selDriver');
+  const uiVal = uiSel?.value || '';
+  const driverSelected = resolveDriverName(uiVal) || getSavedDriver();
+
   const endStr = byId('inpDato')?.value || fmtDateInput(new Date());
   const endDate = new Date(endStr);
   const days = parseInt(byId('selDays')?.value || `${DEFAULT_DAYS}`, 10);
@@ -154,11 +201,17 @@ async function loadAndRender(){
   const ok = await ensureKeyPrompt(); if (!ok){ if (status) status.textContent=''; return; }
 
   const { events, addrRec } = await loadAll();
-  const drivers = Array.from(new Set(events.map(e=>e.driver).filter(Boolean))).sort();
-  const sel = byId('selDriver'); const keep = sel?.value || driverSel;
-  if (sel){
-    sel.innerHTML = '<option value="">Alle</option>' + drivers.map(d=>`<option value="${d}">${d}</option>`).join('');
-    sel.value = keep || '';
+
+  // Rydd sjåførnavn fra events
+  const drivers = Array.from(
+    new Set(events.map(e => resolveDriverName(e.driver)).filter(Boolean))
+  ).sort();
+
+  // Oppdater nedtrekk
+  if (uiSel){
+    const keep = resolveDriverName(uiSel.value) || driverSelected || '';
+    uiSel.innerHTML = '<option value="">Alle</option>' + drivers.map(d=>`<option value="${d}">${d}</option>`).join('');
+    uiSel.value = keep || '';
   }
 
   const taskMap = buildTaskMap(addrRec);
@@ -178,8 +231,8 @@ async function loadAndRender(){
   }
 
   for (const day of daysOut){
-    const rows = pairRunsForDay(events, day, sel?.value || '', taskMap);
-    renderDaySection(container, day, rows, sel?.value || '');
+    const rows = pairRunsForDay(events, day, uiSel?.value || '', taskMap);
+    renderDaySection(container, day, rows, resolveDriverName(uiSel?.value || '') );
   }
 
   if (status) status.textContent = '';
@@ -190,6 +243,17 @@ document.addEventListener('DOMContentLoaded', () => {
   byId('inpDato') && (byId('inpDato').value = fmtDateInput(d));
   byId('selDays') && (byId('selDays').value = `${DEFAULT_DAYS}`);
   byId('btnLoadLogg')?.addEventListener('click', loadAndRender);
-  byId('selDriver')?.addEventListener('change', loadAndRender);
+  byId('selDriver')?.addEventListener('change', e => {
+    const v = (e.target.value || '').trim();
+    if (v) localStorage.setItem('driver', v);
+    loadAndRender();
+  });
+
+  // Foreslå lagret sjåfør ved første visning
+  const saved = getSavedDriver();
+  if (saved && byId('selDriver') && !byId('selDriver').value){
+    byId('selDriver').value = saved;
+  }
+
   setTimeout(loadAndRender, 150);
 });
