@@ -1,4 +1,4 @@
-// js/Admin.js — Admin med kolonne "Merknad", sticky header, flytt opp/ned
+// js/Admin.js — Admin med kolonne "Merknad", sticky header, flytt opp/ned + Kart-knapp
 (() => {
   'use strict';
 
@@ -41,13 +41,14 @@
         <table id="adm_table" style="width:100%; border-collapse:collapse">
           <thead style="position:sticky; top:0; background:var(--surface); z-index:2">
             <tr>
-              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:34%">Adresse</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:30%">Adresse</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:7%">Snø</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:7%">Grus</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:8%">Pinner</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:20%">Koordinater (lat, lon)</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:18%">Merknad</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:6%">Flytt</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:4%">Kart</th>
               <th style="text-align:left;padding:8px;border-bottom:1px solid var(--sep); width:6%">Slett</th>
             </tr>
           </thead>
@@ -81,11 +82,49 @@
     markDirty(); render(); autoSave();
   }
 
-  function fmtCoords(a){ if (a?.lat==null || a?.lon==null) return ''; return `${a.lat.toFixed(6)}, ${a.lon.toFixed(6)}`; }
+  function fmtCoords(a){
+    if (a?.lat==null || a?.lon==null || !isFinite(a.lat) || !isFinite(a.lon)) return '';
+    return `${Number(a.lat).toFixed(6)}, ${Number(a.lon).toFixed(6)}`;
+  }
+
+  // Robust parser: "lat, lon" eller "lon, lat" -> normaliser til (lat,lon)
   function parseCoords(txt){
-    const m = String(txt||'').replace(/[()]/g,'').split(/[, ]+/).filter(Boolean);
-    const lat = parseFloat(m[0]); const lon = parseFloat(m[1]);
-    return { lat: isNaN(lat)?null:lat, lon: isNaN(lon)?null:lon };
+    const parts = String(txt||'').replace(/[()]/g,'').split(/[, ]+/).filter(Boolean);
+    if (parts.length < 2) return { lat:null, lon:null };
+    let a = parseFloat(parts[0]);
+    let b = parseFloat(parts[1]);
+    if (isNaN(a) || isNaN(b)) return { lat:null, lon:null };
+
+    // Hvis første tall ikke kan være lat, men andre kan – bytt om (brukeren skrev lon,lat)
+    const looksLikeLat = (x)=> Math.abs(x) <= 90;
+    const looksLikeLon = (x)=> Math.abs(x) <= 180;
+    if (!looksLikeLat(a) && looksLikeLat(b) && looksLikeLon(a)) {
+      // tolker som (lon,lat) -> snu
+      return { lat:b, lon:a };
+    }
+    return { lat:a, lon:b };
+  }
+
+  // Bygg Maps-URL – velger koordinater først hvis de finnes, ellers adressen
+  function buildMapsUrl(addr){
+    const hasCoords = addr && addr.lat!=null && addr.lon!=null && isFinite(addr.lat) && isFinite(addr.lon);
+    if (hasCoords) {
+      const lat = Number(addr.lat);
+      const lon = Number(addr.lon);
+      // Sikring for feil rekkefølge: hvis lat utenfor [-90,90] men lon er OK, bytt
+      let _lat = lat, _lon = lon;
+      if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) {
+        _lat = lon; _lon = lat;
+      }
+      return `https://www.google.com/maps/search/?api=1&query=${_lat},${_lon}`;
+    }
+    const q = (addr?.name || '').trim();
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+  }
+
+  function openInMaps(addr){
+    const url = buildMapsUrl(addr);
+    window.open(url, '_blank', 'noopener');
   }
 
   function render(){
@@ -115,12 +154,15 @@
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--sep)">
           <div class="row" style="gap:8px; justify-content:center">
-            <button class="btn-ghost adm_up">⬆️</button>
-            <button class="btn-ghost adm_down">⬇️</button>
+            <button class="btn-ghost adm_up" title="Flytt opp">⬆️</button>
+            <button class="btn-ghost adm_down" title="Flytt ned">⬇️</button>
           </div>
         </td>
         <td style="padding:6px;border-bottom:1px solid var(--sep); text-align:center">
-          <button class="btn-ghost adm_del">🗑️</button>
+          <button class="btn-ghost adm_map" title="Åpne i Google Maps">🗺️</button>
+        </td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep); text-align:center">
+          <button class="btn-ghost adm_del" title="Slett">🗑️</button>
         </td>
       </tr>
     `).join('');
@@ -133,12 +175,23 @@
       tr.querySelector('.adm_snow')?.addEventListener('change', e=>{ const it=get(); if(!it) return; it.tasks=it.tasks||{}; it.tasks.snow=!!e.target.checked; markDirty(); autoSaveSoon(); });
       tr.querySelector('.adm_grit')?.addEventListener('change', e=>{ const it=get(); if(!it) return; it.tasks=it.tasks||{}; it.tasks.grit=!!e.target.checked; markDirty(); autoSaveSoon(); });
       tr.querySelector('.adm_pins')?.addEventListener('input', e=>{ const it=get(); if(!it) return; it.pins=Number(e.target.value||0); markDirty(); autoSaveSoon(); });
-      tr.querySelector('.adm_coords')?.addEventListener('input', e=>{ const it=get(); if(!it) return; const {lat,lon}=parseCoords(e.target.value); it.lat=lat; it.lon=lon; markDirty(); autoSaveSoon(); });
+
+      tr.querySelector('.adm_coords')?.addEventListener('input', e=>{
+        const it=get(); if(!it) return;
+        const {lat,lon}=parseCoords(e.target.value);
+        it.lat=lat; it.lon=lon; markDirty(); autoSaveSoon();
+      });
+
       tr.querySelector('.adm_note')?.addEventListener('input', e=>{ const it=get(); if(!it) return; it.note = e.target.value || ''; markDirty(); autoSaveSoon(); });
 
       tr.querySelector('.adm_del')?.addEventListener('click', ()=>{ ADDR = ADDR.filter(a=>a.id!==id); renumberIfNeeded(); markDirty(); render(); autoSave(); });
       tr.querySelector('.adm_up')?.addEventListener('click', ()=>moveRow(id,-1));
       tr.querySelector('.adm_down')?.addEventListener('click', ()=>moveRow(id,+1));
+
+      tr.querySelector('.adm_map')?.addEventListener('click', ()=>{
+        const it = get(); if(!it) return;
+        openInMaps(it);
+      });
     });
   }
 
@@ -235,6 +288,7 @@
     addLoggButton();
   }
 })();
+
 // --- Sett inn "Logg (A4)"-knapp i Admin uansett partial/cache ---
 (function(){
   function addLoggButton(){
