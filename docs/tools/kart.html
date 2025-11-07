@@ -846,5 +846,49 @@
   window.addEventListener('offline', ()=> toast('Offline'));
 })();
 </script>
+<script>
+(() => {
+  const KEY = 'wl_on';
+  if (localStorage.getItem(KEY) == null) localStorage.setItem(KEY, 'true');
+
+  let enabled = localStorage.getItem(KEY) === 'true';
+  let lock = null;
+  let retryTimer = null;
+
+  async function acquire() {
+    clearTimeout(retryTimer);
+    if (!enabled || document.hidden || !('wakeLock' in navigator)) return;
+    try {
+      lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', () => {
+        if (enabled && !document.hidden) {
+          retryTimer = setTimeout(acquire, 1200);
+        }
+      });
+    } catch {
+      retryTimer = setTimeout(acquire, 1500);
+    }
+  }
+
+  async function release() {
+    clearTimeout(retryTimer);
+    try { await lock?.release(); } catch {}
+    lock = null;
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) release(); else acquire();
+  });
+  window.addEventListener('pageshow', acquire);
+
+  // Armér på første brukertrykk (iOS/Safari)
+  const arm = () => { acquire(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
+  window.addEventListener('touchstart', arm, true);
+  window.addEventListener('mousedown', arm, true);
+
+  // Start automatisk
+  if (enabled) acquire();
+})();
+</script>
 </body>
 </html>
