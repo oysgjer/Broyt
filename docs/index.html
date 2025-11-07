@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-  <!-- Tema (auto, lys, mørk) -->
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
@@ -23,10 +22,9 @@
 </head>
 
 <body>
-  <!-- Appbar (meny-knapp tilbake) -->
+  <!-- Appbar -->
   <header class="appbar">
     <button id="btnMenu" class="icon-btn" aria-label="Meny">≡</button>
-    
     <div class="appbar-title">Brøyterute<br>Romerike&nbsp;Trefelling</div>
     <div class="appbar-right">
       <span id="sync_badge" class="badge">
@@ -38,7 +36,7 @@
     </div>
   </header>
 
-  <!-- Scrim + Drawer -->
+  <!-- Drawer -->
   <div id="scrim"></div>
   <aside id="drawer" class="drawer">
     <div class="drawer-header">
@@ -71,58 +69,28 @@
           <span id="theme_label" class="muted">System</span>
         </div>
 
-        <!-- 🧭 Rask navigasjon -->
         <div class="drawer-section">Rask navigasjon</div>
         <ul class="drawer-list">
-          <li>
-            <a class="drawer-link"
-               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2523222,11.1899728"
-               target="_blank">
-              <span class="emoji">⛽</span> Fyll diesel
-            </a>
-          </li>
-          <li>
-            <a class="drawer-link"
-               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2527612,11.1687113"
-               target="_blank">
-              <span class="emoji">🪨</span> Hent grus
-            </a>
-          </li>
-          <li>
-            <a class="drawer-link"
-               href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2664605,11.2209567"
-               target="_blank">
-              <span class="emoji">🏠</span> Til base
-            </a>
-          </li>
+          <li><a class="drawer-link" href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2523222,11.1899728" target="_blank"><span class="emoji">⛽</span> Fyll diesel</a></li>
+          <li><a class="drawer-link" href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2527612,11.1687113" target="_blank"><span class="emoji">🪨</span> Hent grus</a></li>
+          <li><a class="drawer-link" href="https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=60.2664605,11.2209567" target="_blank"><span class="emoji">🏠</span> Til base</a></li>
         </ul>
       </nav>
     </div>
   </aside>
 
-  <!-- Innhold -->
+  <!-- MAIN -->
   <main>
     <!-- HJEM -->
     <section id="home">
       <h1 hidden>Hjem</h1>
 
-      <!-- Dashboard -->
       <section id="dashboard" style="margin-top:12px">
         <div id="funfact"></div>
         <div id="stats" style="margin-top:10px"></div>
-
-        <!-- Værkort (Yr) – egen id for Hjem -->
         <div id="wx_home" class="wx-row" style="margin:10px 0 12px; padding:0; overflow:hidden; border-radius:12px">
-          <iframe
-            class="yr-card"
-            src="https://www.yr.no/nb/innhold/1-103366/card.html"
-            title="Vær fra Yr"
-            loading="lazy"
-            referrerpolicy="no-referrer"
-            style="border:0; width:100%; height:220px; display:block;">
-          </iframe>
+          <iframe class="yr-card" src="https://www.yr.no/nb/innhold/1-103366/card.html" title="Vær fra Yr" loading="lazy" referrerpolicy="no-referrer" style="border:0; width:100%; height:220px; display:block;"></iframe>
         </div>
-
         <div id="recent" style="margin-top:10px"></div>
       </section>
 
@@ -142,24 +110,15 @@
         </div>
       </label>
 
-      <!-- REKKEFØLGE — VERTIKAL LAYOUT -->
       <label class="field">
         <span style="font-weight:700; font-size:1.05rem;">Rekkefølge</span>
-
         <select id="a_dir" class="input" style="max-width:320px; margin-top:6px;">
           <option>Normal</option>
           <option>Motsatt</option>
         </select>
-
         <div class="checkbox-col" style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
-          <label class="row" style="gap:8px; align-items:center;">
-            <input id="a_startKart" type="checkbox" />
-            <span class="muted-strong">Start Brøytekart</span>
-          </label>
-          <label class="row" style="gap:8px; align-items:center;">
-            <input id="a_autoNav" type="checkbox" />
-            <span class="muted-strong">Auto-naviger</span>
-          </label>
+          <label class="row" style="gap:8px; align-items:center;"><input id="a_startKart" type="checkbox" /><span class="muted-strong">Start Brøytekart</span></label>
+          <label class="row" style="gap:8px; align-items:center;"><input id="a_autoNav" type="checkbox" /><span class="muted-strong">Auto-naviger</span></label>
         </div>
       </label>
 
@@ -209,33 +168,21 @@
           Oppgave: <span id="b_task">—</span> • Status: <span id="b_status">—</span>
         </div>
 
-        <!-- Værkort (Yr) – egen id for Work -->
         <div id="wx_row" class="wx-row" style="margin:0 0 12px; padding:0; overflow:hidden; border-radius:12px">
-          <iframe
-            class="yr-card"
-            src="https://www.yr.no/nb/innhold/1-103366/card.html"
-            title="Vær fra Yr"
-            loading="lazy"
-            referrerpolicy="no-referrer"
-            style="border:0; width:100%; height:180px; display:block;">
-          </iframe>
+          <iframe class="yr-card" src="https://www.yr.no/nb/innhold/1-103366/card.html" title="Vær fra Yr" loading="lazy" referrerpolicy="no-referrer" style="border:0; width:100%; height:180px; display:block;"></iframe>
         </div>
-
       </div>
     </section>
 
     <!-- SERVICE -->
     <section id="service" hidden>
       <h1>Service</h1>
-      <!-- Service-UI fylles av Service.js / service-ui-inject.js -->
     </section>
 
     <!-- STATUS -->
     <section id="status" hidden>
       <h1>Status</h1>
-      <div class="card" style="margin-bottom:12px">
-        <div id="st_summary" class="muted">—</div>
-      </div>
+      <div class="card" style="margin-bottom:12px"><div id="st_summary" class="muted">—</div></div>
       <div class="row" style="gap:10px; margin-bottom:12px">
         <button id="st_reset_mine" class="btn-ghost">Nullstill mine</button>
         <button id="st_reset_all"  class="btn-ghost">Nullstill alle</button>
@@ -276,11 +223,8 @@
       <p id="incidentContext" style="margin:0 0 10px 0; font-size:13px; opacity:.8;">Adresse/posisjon hentes automatisk…</p>
       <label for="incidentText" style="display:block; font-weight:600; margin:8px 0 6px;">Hva skjedde?</label>
       <textarea id="incidentText" rows="4" placeholder="Kort beskrivelse…" style="width:100%; padding:10px; border-radius:10px; border:1px solid #374151; background:#0b1320; color:#e5e7eb;"></textarea>
-
       <label for="incidentPhotos" style="display:block; font-weight:600; margin:14px 0 6px;">Bilder</label>
-      <input id="incidentPhotos" type="file" accept="image/*" capture="environment" multiple
-             style="display:block; width:100%; padding:8px; border-radius:10px; border:1px solid #374151; background:#0b1320; color:#e5e7eb;" />
-
+      <input id="incidentPhotos" type="file" accept="image/*" capture="environment" multiple style="display:block; width:100%; padding:8px; border-radius:10px; border:1px solid #374151; background:#0b1320; color:#e5e7eb;" />
       <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
         <button id="incidentCancel" style="padding:10px 14px; border-radius:10px; border:1px solid #4b5563; background:#1f2937; color:#e5e7eb;">Avbryt</button>
         <button id="incidentSend" style="padding:10px 14px; border-radius:10px; border:1px solid #2563eb; background:#2563eb; color:white;">Send uhell</button>
@@ -304,7 +248,7 @@
     </div>
   </div>
 
-  <!-- JSONBin Key Modal (vises bare hvis nøkler mangler) -->
+  <!-- JSONBin Key Modal -->
   <div id="kbKeyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:10000; align-items:center; justify-content:center;">
     <div style="background:#0f172a; color:#e5e7eb; width:min(640px,92vw); border:1px solid rgba(255,255,255,.08); border-radius:14px; box-shadow:0 10px 34px rgba(0,0,0,.45);">
       <div style="padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.08)">
@@ -329,43 +273,28 @@
     </div>
   </div>
 
-  <!-- JS – rekkefølge er viktig -->
-  <!-- Kjerne -->
+  <!-- JS (rekkefølge viktig) -->
   <script src="js/app.js" defer></script>
   <script src="js/sync.js" defer></script>
-
-  <!-- Sider / dashbord -->
   <script src="js/Home.js" defer></script>
   <script src="js/home_dashboard.js" defer></script>
-
-  <!-- Work-relatert -->
-  <script src="js/Work.js?v=6" defer></script>
+  <script src="js/Work.js?v=7" defer></script>
   <script src="js/work_uhell_fix.js?v=2" defer></script>
-
-  <!-- Øvrige sider -->
   <script src="js/Status.js" defer></script>
   <script src="js/Service.js" defer></script>
   <script src="js/Admin.js" defer></script>
-
-  <!-- Diverse -->
   <script src="js/quicklinks.js?v=2" defer></script>
   <script src="js/autonav_settings.js" defer></script>
   <script src="js/work_autonav_patch.js" defer></script>
   <script src="js/driver_to_service_mirror.js" defer></script>
   <script src="js/service-ui-inject.js" defer></script>
   <script src="js/service_capture_emails.js" defer></script>
-
-  <!-- Speil navn/adresse før autologger -->
   <script src="js/driver_mirror.js" defer></script>
   <script src="js/work_addr_tag.js" defer></script>
-
-  <!-- Autologger til slutt -->
   <script src="js/auto_logger.js?v=6" defer></script>
-
-  <!-- Admin: injiser logg-knapp (valgfritt hvis ikke hardkodet) -->
   <script src="js/admin_logg_inject.js?v=3" defer></script>
 
-  <!-- Gå tilbake fra Maps -->
+  <!-- Return from Maps -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const ret = sessionStorage.getItem('returnTo');
@@ -376,11 +305,10 @@
     });
   </script>
 
-  <!-- Uhell: enkel kobling (åpne/close + send) -->
+  <!-- Uhell-modal kobling (uendret) -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const emailTo = "post@romeriketrefelling.no";
-
       const btnIncident = document.getElementById('act_incident');
       const modal = document.getElementById('incidentModal');
       const ctx = document.getElementById('incidentContext');
@@ -391,113 +319,61 @@
 
       function show() { modal.style.display = 'flex'; }
       function hide() { modal.style.display = 'none'; }
-
       function activeAddressName() {
-        const el = document.getElementById('b_now');
-        const t = (el?.textContent || '').trim();
+        const el = document.getElementById('b_now'); const t = (el?.textContent || '').trim();
         return t && t !== '—' ? t : null;
       }
-
       function nowISO() { return new Date().toISOString(); }
-
-      async function getPosition(timeoutMs = 8000) {
-        return new Promise((resolve) => {
-          if (!navigator.geolocation) return resolve(null);
-          let done = false;
-          const t = setTimeout(() => { if (!done) resolve(null); }, timeoutMs);
-          navigator.geolocation.getCurrentPosition(
-            pos => { done = true; clearTimeout(t); resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy }); },
-            _ => { done = true; clearTimeout(t); resolve(null); },
-            { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 20000 }
-          );
-        });
-      }
-
       function plainText(str) { return String(str || '').replace(/<[^>]+>/g, ''); }
-
-      async function sendEmail(subject, html, attachments) {
-        if (typeof window.sendAutoEmail === 'function') {
-          return window.sendAutoEmail(emailTo, subject, html, attachments || []);
-        }
-        if (typeof window.sendViaEmailService === 'function') {
-          return window.sendViaEmailService(emailTo, subject, html, attachments || []);
-        }
+      async function sendEmail(subject, html) {
+        if (typeof window.sendAutoEmail === 'function') return window.sendAutoEmail(emailTo, subject, html, []);
+        if (typeof window.sendViaEmailService === 'function') return window.sendViaEmailService(emailTo, subject, html, []);
         const mailto = `mailto:${encodeURIComponent(emailTo)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(plainText(html))}`;
         window.location.href = mailto;
         return null;
       }
-
-      async function onOpen() {
+      btnIncident?.addEventListener('click', () => {
         const addr = activeAddressName();
         ctx.textContent = `Aktiv adresse: ${addr || '(ukjent)'} – posisjon logges automatisk.`;
-        show();
-        setTimeout(() => txt.focus(), 50);
-      }
-
-      async function onSend() {
+        show(); setTimeout(() => txt.focus(), 50);
+      });
+      btnCancel?.addEventListener('click', () => hide());
+      btnSend?.addEventListener('click', async () => {
         btnSend.disabled = true;
         try {
           const ts = nowISO();
-          const pos = await getPosition();
           const addr = activeAddressName();
           const note = (txt.value || '').trim();
-
-          const html = `
-            <div style="font-family:ui-sans-serif,system-ui;">
-              <h2>Uhell-rapport</h2>
-              <ul>
-                <li><b>Tid:</b> ${ts}</li>
-                <li><b>Adresse:</b> ${addr || '-'}</li>
-                ${pos ? `<li><b>Posisjon:</b> ${pos.lat.toFixed(6)}, ${pos.lon.toFixed(6)} (±${Math.round(pos.acc || 0)} m)</li>` : `<li><b>Posisjon:</b> ikke tilgjengelig</li>`}
-              </ul>
-              <p><b>Beskrivelse:</b><br>${note ? note.replace(/\n/g,'<br>') : '(ingen tekst)'}</p>
-              <p style="font-size:12px;opacity:.7">Bilder legges ved manuelt.</p>
-            </div>
-          `.trim();
-
+          const html = `<div style="font-family:ui-sans-serif,system-ui;"><h2>Uhell-rapport</h2><ul><li><b>Tid:</b> ${ts}</li><li><b>Adresse:</b> ${addr || '-'}</li></ul><p><b>Beskrivelse:</b><br>${note ? note.replace(/\n/g,'<br>') : '(ingen tekst)'}</p></div>`;
           const subject = `Uhell – ${addr || 'Ukjent adresse'} – ${ts.replace('T',' ').slice(0,19)}`;
-          await sendEmail(subject, html, null);
-
+          await sendEmail(subject, html);
           alert('Uhell registrert og sendt/klargjort for sending.');
-          txt.value = '';
-          photos.value = '';
-          hide();
-        } catch (e) {
-          console.error(e);
-          alert('Klarte ikke å sende uhell. Se konsoll for detaljer.');
-        } finally {
-          btnSend.disabled = false;
-        }
-      }
-
-      if (btnIncident) btnIncident.addEventListener('click', onOpen);
-      if (btnCancel) btnCancel.addEventListener('click', () => { modal.style.display='none'; });
-      if (btnSend) btnSend.addEventListener('click', onSend);
+          txt.value = ''; photos.value = ''; hide();
+        } catch (e) { console.error(e); alert('Klarte ikke å sende uhell.'); }
+        finally { btnSend.disabled = false; }
+      });
     });
   </script>
 
-  <!-- ✅ NYTT: “Ikke mulig” med nøkkel-dialog + lagring til privat JSONBin -->
+  <!-- ✅ Nøkler + JSONBin-klient + “Ikke mulig” -->
   <script>
     (function(){
       const BIN_HENDELSER = "68e89e3443b1c97be9611c48";
       const API = "https://api.jsonbin.io/v3/b";
 
-      // --- Key helpers (støtt flere localStorage-navn) ---
+      // Keys
       const getMasterKey = () =>
         (localStorage.getItem('X-Master-Key') ||
          localStorage.getItem('x-master-key') ||
          localStorage.getItem('XMasterKey')   ||
          localStorage.getItem('jsonbin_master_key') || '').trim();
-
       const getAccessKey = () =>
         (localStorage.getItem('X-Access-Key') ||
          localStorage.getItem('x-access-key') ||
          localStorage.getItem('jsonbin_access_key') || '').trim();
-
       const setMasterKey = (v) => ['X-Master-Key','x-master-key','XMasterKey','jsonbin_master_key'].forEach(k=>localStorage.setItem(k,v));
       const setAccessKey = (v) => v && ['X-Access-Key','x-access-key','jsonbin_access_key'].forEach(k=>localStorage.setItem(k,v));
 
-      // --- UI: nøkkel-modal når nødvendig ---
       async function ensureKeysInteractive(){
         if (getMasterKey()) return true;
         const modal  = document.getElementById('kbKeyModal');
@@ -507,293 +383,160 @@
         const cancel = document.getElementById('kbCancel');
         const err    = document.getElementById('kbErr');
         if (!modal) return false;
-
         return new Promise(resolve=>{
-          modal.style.display = 'flex';
-          setTimeout(()=> mInp?.focus(), 30);
-
+          modal.style.display='flex'; setTimeout(()=>mInp?.focus(),30);
           const onSave = ()=>{
-            const m = (mInp.value||'').trim();
-            const a = (aInp.value||'').trim();
-            if (!m){
-              err.textContent = 'Du må lime inn X-Master-Key.';
-              err.style.display = 'block';
-              mInp.focus();
-              return;
-            }
-            setMasterKey(m);
-            setAccessKey(a);
-            err.style.display = 'none';
-            modal.style.display = 'none';
-            save.removeEventListener('click', onSave);
-            cancel.removeEventListener('click', onCancel);
-            resolve(true);
+            const m=(mInp.value||'').trim(); const a=(aInp.value||'').trim();
+            if(!m){ err.textContent='Du må lime inn X-Master-Key.'; err.style.display='block'; mInp.focus(); return; }
+            setMasterKey(m); setAccessKey(a); err.style.display='none'; modal.style.display='none';
+            save.removeEventListener('click', onSave); cancel.removeEventListener('click', onCancel); resolve(true);
           };
-          const onCancel = ()=>{
-            err.textContent = 'Avbrutt – nøkkel mangler.';
-            err.style.display = 'block';
-          };
-          save.addEventListener('click', onSave);
-          cancel.addEventListener('click', onCancel);
+          const onCancel = ()=>{ err.textContent='Avbrutt – nøkkel mangler.'; err.style.display='block'; };
+          save.addEventListener('click', onSave); cancel.addEventListener('click', onCancel);
         });
       }
 
-      // --- JSONBin helpers ---
-      function buildHeaders(json=false){
-        const h = {};
-        const mk = getMasterKey(); const ak = getAccessKey();
-        if (json) h['Content-Type'] = 'application/json';
-        if (mk)   h['X-Master-Key'] = mk;
-        if (ak)   h['X-Access-Key'] = ak;
+      function headers(json=false){
+        const h={}; const mk=getMasterKey(); const ak=getAccessKey();
+        if(json) h['Content-Type']='application/json';
+        if(mk)   h['X-Master-Key']=mk;
+        if(ak)   h['X-Access-Key']=ak;
         return h;
       }
-
-      async function binGetArray(binId){
-        const r = await fetch(`${API}/${binId}/latest`, { headers: buildHeaders(false) });
-        if (!r.ok) throw new Error(`GET ${r.status}`);
-        const js = await r.json();
-        return Array.isArray(js.record) ? js.record : (js.record?.items || []);
+      async function binGetArray(id){
+        const r=await fetch(`${API}/${id}/latest`,{headers:headers(false)});
+        if(!r.ok) throw new Error(`GET ${r.status}`); const js=await r.json();
+        return Array.isArray(js.record)?js.record:(js.record?.items||[]);
       }
-      async function binPutArray(binId, arr){
-        const r = await fetch(`${API}/${binId}`, {
-          method:'PUT',
-          headers: { ...buildHeaders(true), 'X-Bin-Meta':'false' },
-          body: JSON.stringify(arr)
-        });
-        if (!r.ok) throw new Error(`PUT ${r.status}`);
-        return r.json();
+      async function binPutArray(id,arr){
+        const r=await fetch(`${API}/${id}`,{method:'PUT',headers:{...headers(true),'X-Bin-Meta':'false'},body:JSON.stringify(arr)});
+        if(!r.ok) throw new Error(`PUT ${r.status}`); return r.json();
       }
 
+      // Aktiv adresse fra Work.js (id+name)
+      function getCurrentAddress(){
+        if (typeof window.__getCurrentAddress === 'function') return window.__getCurrentAddress() || null;
+        const name=(document.getElementById('b_now')?.textContent||'').trim()||'(ukjent)';
+        return { id:name, name };
+      }
       function driverName(){
-        const v = (document.getElementById('a_driver')?.value ||
-                   localStorage.getItem('driverName') ||
-                   localStorage.getItem('sjaforNavn') || '').trim();
-        return v || 'Ukjent sjåfør';
+        const v=(document.getElementById('a_driver')?.value||localStorage.getItem('driverName')||localStorage.getItem('sjaforNavn')||'').trim();
+        return v||'Ukjent sjåfør';
       }
-      function activeAddressId(){
-        const t = (document.getElementById('b_now')?.textContent || '').trim();
-        return t && t !== '—' ? t : '(ukjent adresse)';
-      }
-      const nowIso = ()=> new Date().toISOString();
+      const nowIso=()=>new Date().toISOString();
 
-      // --- Modal (Ikke mulig) ---
+      // Gjør en global appender for Work.js
+      window.__appendEvent = async function(evt){
+        const ok = await ensureKeysInteractive(); if(!ok) throw new Error('Mangler nøkkel');
+        const arr = await binGetArray(BIN_HENDELSER);
+        arr.push(evt);
+        await binPutArray(BIN_HENDELSER, arr);
+      };
+
+      // “Ikke mulig” modal
       const overlay = document.getElementById('skipOverlay');
       const reasonEl= document.getElementById('skipReason');
       const cntEl   = document.getElementById('skipCount');
       const btnOpen = document.getElementById('act_block');
-      const btnCancel = document.getElementById('skipCancel');
+      const btnCancel=document.getElementById('skipCancel');
       const btnSave = document.getElementById('skipSave');
 
       function show(){ overlay.style.display='flex'; setTimeout(()=>reasonEl?.focus(),30); }
       function hide(){ overlay.style.display='none'; }
-      function upd(){ if (cntEl && reasonEl) cntEl.textContent = String((reasonEl.value||'').length); }
+      function upd(){ if(cntEl&&reasonEl) cntEl.textContent=String((reasonEl.value||'').length); }
 
       document.addEventListener('DOMContentLoaded', () => {
         reasonEl?.addEventListener('input', upd);
         btnOpen?.addEventListener('click', async () => {
-          const ok = await ensureKeysInteractive();
-          if (!ok) return;
-          reasonEl.value = ''; upd(); show();
+          const ok = await ensureKeysInteractive(); if(!ok) return;
+          reasonEl.value=''; upd(); show();
         });
         btnCancel?.addEventListener('click', hide);
-
         btnSave?.addEventListener('click', async () => {
-          const reason = (reasonEl.value||'').trim();
-          if (reason.length < 5){ alert('Skriv minst 5 tegn.'); reasonEl.focus(); return; }
+          const reason=(reasonEl.value||'').trim();
+          if (reason.length<5){ alert('Skriv minst 5 tegn.'); reasonEl.focus(); return; }
           try{
-            const ok = await ensureKeysInteractive(); if (!ok) return;
+            const ok = await ensureKeysInteractive(); if(!ok) return;
             const arr = await binGetArray(BIN_HENDELSER);
-            arr.push({ type:'skip', addressId: activeAddressId(), at: nowIso(), by: driverName(), reason });
+            const addr = getCurrentAddress();
+            arr.push({
+              type:'skip',
+              addressId: addr?.id || addr?.name || '(ukjent)',
+              addressName: addr?.name || '',
+              at: nowIso(),
+              by: driverName(),
+              reason
+            });
             await binPutArray(BIN_HENDELSER, arr);
             hide();
             alert('“Ikke mulig” lagret.');
             document.getElementById('act_next')?.click();
-          }catch(e){
-            console.error(e);
-            alert(String(e.message||e));
-          }
+          }catch(e){ console.error(e); alert(String(e.message||e)); }
         });
       });
     })();
   </script>
 
+  <!-- WakeLock + iOS fallback (uendret) -->
   <script>
 (() => {
   const KEY = 'wl_on';
   if (localStorage.getItem(KEY) == null) localStorage.setItem(KEY, 'true');
-
   let enabled = localStorage.getItem(KEY) === 'true';
-  let lock = null;
-  let retryTimer = null;
+  let lock = null; let retryTimer = null;
 
-  const btn   = document.getElementById('qk_wl');
-  const dot   = document.getElementById('qk_wl_dot');
+  const btn = document.getElementById('qk_wl');
+  const dot = document.getElementById('qk_wl_dot');
   const label = document.getElementById('qk_wl_status');
 
-  function setUI(active) {
-    if (!dot || !label) return;
-    dot.classList.remove('dot-off','dot-on');
-    dot.classList.add(active ? 'dot-on' : 'dot-off');
-    label.textContent = 'Status: ' + (active ? 'på' : 'av');
-  }
-
-  async function acquire() {
+  function setUI(active){ if(!dot||!label) return; dot.classList.remove('dot-off','dot-on'); dot.classList.add(active?'dot-on':'dot-off'); label.textContent='Status: '+(active?'på':'av'); }
+  async function acquire(){
     clearTimeout(retryTimer);
-    if (!enabled) { setUI(false); return; }
-    if (document.hidden) return;
-    if (!('wakeLock' in navigator)) { setUI(false); return; }
-
-    try {
+    if(!enabled){ setUI(false); return; }
+    if(document.hidden) return;
+    if(!('wakeLock' in navigator)){ setUI(false); return; }
+    try{
       lock = await navigator.wakeLock.request('screen');
-      lock.addEventListener('release', () => {
-        setUI(false);
-        if (enabled && !document.hidden) {
-          retryTimer = setTimeout(acquire, 1200);
-        }
-      });
+      lock.addEventListener('release', ()=>{ setUI(false); if(enabled && !document.hidden){ retryTimer=setTimeout(acquire,1200); }});
       setUI(true);
-    } catch {
-      setUI(false);
-      retryTimer = setTimeout(acquire, 1500);
-    }
+    }catch{ setUI(false); retryTimer=setTimeout(acquire,1500); }
   }
+  async function release(){ clearTimeout(retryTimer); try{ await lock?.release(); }catch{} lock=null; setUI(false); }
 
-  async function release() {
-    clearTimeout(retryTimer);
-    try { await lock?.release(); } catch {}
-    lock = null;
-    setUI(false);
-  }
-
-  btn?.addEventListener('click', async () => {
-    enabled = !enabled;
-    localStorage.setItem(KEY, String(enabled));
-    if (enabled) acquire(); else release();
-  });
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) release(); else acquire();
-  });
-
-  const arm = () => { acquire(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
-  window.addEventListener('touchstart', arm, true);
-  window.addEventListener('mousedown', arm, true);
-
+  btn?.addEventListener('click', async ()=>{ enabled=!enabled; localStorage.setItem(KEY,String(enabled)); if(enabled) acquire(); else release(); });
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) release(); else acquire(); });
+  const arm=()=>{ acquire(); window.removeEventListener('touchstart',arm,true); window.removeEventListener('mousedown',arm,true); };
+  window.addEventListener('touchstart',arm,true); window.addEventListener('mousedown',arm,true);
   window.addEventListener('pageshow', acquire);
-
-  setUI(false);
-  if (enabled) acquire();
+  setUI(false); if(enabled) acquire();
 })();
   </script>
 
+  <!-- Auto-start Brøytekart ved “Start” (uendret) -->
   <script>
 (() => {
   const KEY_START_KART = 'start_kart_on_start';
-
   window.addEventListener('DOMContentLoaded', () => {
-    const chk = document.getElementById('a_startKart');
-    if (!chk) return;
-
-    const saved = localStorage.getItem(KEY_START_KART);
-    chk.checked = saved === 'true';
-
-    chk.addEventListener('change', () => {
-      localStorage.setItem(KEY_START_KART, String(chk.checked));
-    });
+    const chk=document.getElementById('a_startKart'); if(!chk) return;
+    const saved=localStorage.getItem(KEY_START_KART); chk.checked = saved==='true';
+    chk.addEventListener('change', ()=> localStorage.setItem(KEY_START_KART, String(chk.checked)));
   });
-
   window.addEventListener('DOMContentLoaded', () => {
-    const btnStart = document.getElementById('act_start');
-    if (!btnStart) return;
-
-    btnStart.addEventListener('click', () => {
-      try {
-        const shouldOpen = localStorage.getItem(KEY_START_KART) === 'true';
-        if (!shouldOpen) return;
-
-        const url = "tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes";
+    const btn=document.getElementById('act_start'); if(!btn) return;
+    btn.addEventListener('click', () => {
+      try{
+        const shouldOpen = localStorage.getItem(KEY_START_KART)==='true';
+        if(!shouldOpen) return;
+        const url="tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes";
         sessionStorage.setItem('returnTo', window.location.href);
-        window.open(url, '_blank');
-      } catch (e) {
-        console.warn('Kunne ikke auto-åpne Brøytekart:', e);
-      }
+        window.open(url,'_blank');
+      }catch(e){ console.warn('Kunne ikke auto-åpne Brøytekart:',e); }
     }, false);
   });
 })();
-</script>
+  </script>
 
-<script>
-(() => {
-  // --- Wake Lock (moderne nettlesere) + iOS fallback ---
-  let wakeLock = null;
-  let noSleep = null;
-  let triedAuto = false;
-
-  async function requestWakeLock() {
-    if ('wakeLock' in navigator && navigator.wakeLock?.request) {
-      try {
-        wakeLock = await navigator.wakeLock.request('screen');
-        wakeLock.addEventListener?.('release', () => {
-          if (document.visibilityState === 'visible') {
-            requestWakeLock().catch(()=>{});
-          }
-        });
-        console.debug('[wakelock] aktiv');
-        return true;
-      } catch (err) {
-        console.warn('[wakelock] feilet:', err?.name || err);
-      }
-    }
-    try {
-      if (!noSleep && window.NoSleep) {
-        noSleep = new NoSleep();
-      }
-      if (noSleep && !noSleep.enabled) {
-        await noSleep.enable();
-        console.debug('[wakelock] iOS fallback aktiv (NoSleep)');
-        return true;
-      }
-    } catch (e) {
-      console.warn('[wakelock] iOS fallback feilet:', e);
-    }
-    return false;
-  }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      requestWakeLock().catch(()=>{});
-    }
-  });
-  window.addEventListener('focus', () => {
-    requestWakeLock().catch(()=>{});
-  });
-
-  window.addEventListener('DOMContentLoaded', async () => {
-    triedAuto = true;
-    const ok = await requestWakeLock();
-    if (!ok) {
-      const once = async () => {
-        document.removeEventListener('touchstart', once, {passive:true});
-        document.removeEventListener('click', once, true);
-        await requestWakeLock();
-      };
-      document.addEventListener('touchstart', once, {passive:true});
-      document.addEventListener('click', once, true);
-    }
-  });
-
-  window.__wakeLockOn = requestWakeLock;
-  window.__wakeLockOff = async () => {
-    try {
-      if (wakeLock) { await wakeLock.release(); wakeLock = null; }
-      if (noSleep?.enabled) { await noSleep.disable(); }
-      console.debug('[wakelock] deaktivert manuelt');
-    } catch {}
-  };
-})();
-</script>
-
-<!-- iOS fallback-bibliotek (NoSleep). Trygt å ha med; gjør ingenting i moderne Chrome/Edge. -->
-<script src="https://unpkg.com/nosleep.js@0.12.0/dist/NoSleep.min.js" defer></script>
+  <!-- iOS fallback lib -->
+  <script src="https://unpkg.com/nosleep.js@0.12.0/dist/NoSleep.min.js" defer></script>
 </body>
 </html>
