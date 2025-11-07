@@ -127,26 +127,6 @@
     .toast { background: rgba(17,24,39,.96); color:#fff; padding:.7rem .9rem; border-radius:.7rem; box-shadow: 0 6px 30px rgba(0,0,0,.35);
       border:1px solid rgba(255,255,255,.08); font-size:.95rem; }
     [data-theme="light"] .toast { background: rgba(31,41,55,.96); }
-
-    /* Modal for route list */
-    .modal { position: fixed; inset: 0; display:none; z-index: 1300; }
-    .modal.show { display:block; }
-    .modal .shade { position:absolute; inset:0; background:rgba(0,0,0,.4); }
-    .modal .panel {
-      position:absolute; left:50%; top:10vh; transform:translateX(-50%);
-      width:min(92vw, 720px); max-height:80vh; overflow:auto; -webkit-overflow-scrolling:touch;
-      background:var(--legend-bg); color:#111; border:1px solid var(--legend-bd); border-radius:12px;
-      padding:12px;
-    }
-    [data-theme="dark"] .modal .panel { color:#e5e7eb; }
-    .routes { display:grid; gap:.5rem; }
-    .route-item { border:1px solid var(--legend-bd); border-radius:10px; padding:.6rem .6rem; display:grid; grid-template-columns: 1fr auto; align-items:center; gap:.4rem; background:rgba(0,0,0,.02); }
-    .route-title { font-weight:600; }
-    .route-meta { font-size:.9rem; opacity:.8; }
-    .row-actions { display:flex; gap:.4rem; flex-wrap:wrap; }
-    .btn-sm { padding:.45rem .6rem; font-size:.95rem; border-radius:.6rem; background:var(--bg-btn); color:var(--fg); border:1px solid var(--bd-btn); }
-    .modal .topbar { display:flex; justify-content: space-between; align-items:center; margin-bottom:.6rem; }
-    .modal .close { background: var(--bg-btn); color:var(--fg); border:1px solid var(--bd-btn); padding:.35rem .6rem; border-radius:.6rem; }
   </style>
 </head>
 <body>
@@ -157,7 +137,7 @@
       <h1>KartTegner</h1>
     </div>
     <div class="quick">
-      <button id="btnFollow" class="btn">📍 Sentrer (av)</button>
+      <button id="btnFollow" class="btn">📍 Sentrer (på)</button>
     </div>
   </header>
 
@@ -214,7 +194,7 @@
 
   <div class="group">
     <h3>Om</h3>
-    <div class="note" id="metaInfo">v3.5 • andres dekning (lilla) • nullstill mine/alle</div>
+    <div class="note" id="metaInfo">v3.6 • auto-GPS + sentrer PÅ • wake-lock auto</div>
   </div>
 </aside>
 
@@ -243,6 +223,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+
 <script>
 (function(){
   function toast(msg, ms=2000){
@@ -296,7 +277,6 @@
     else { if (map.hasLayer(darkTiles)) map.removeLayer(darkTiles); if (!map.hasLayer(lightTiles)) lightTiles.addTo(map); }
     const btn = document.getElementById('btnTheme');
     btn.textContent = '🌙 Natt: ' + (themeMode==='auto' ? 'Auto' : (themeMode==='dark' ? 'På' : 'Av'));
-    toast('Tema: ' + (themeMode==='auto'?'Auto':(themeMode==='dark'?'Natt':'Dag')), 1200);
   }
   applyThemeToMap();
   if (prefersDark && prefersDark.addEventListener){ prefersDark.addEventListener('change', applyThemeToMap); }
@@ -326,36 +306,28 @@
   btnCloseDrawer.addEventListener('click', closeDrawer);
   backdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && drawer.classList.contains('open')) closeDrawer(); });
-  // swipe to close
-  let startX=null, startY=null, swiping=false;
-  drawer.addEventListener('touchstart', (e)=>{ if (e.touches.length!==1) return; startX=e.touches[0].clientX; startY=e.touches[0].clientY; swiping=true; }, {passive:true});
-  drawer.addEventListener('touchmove', (e)=>{ if(!swiping) return; const dx=e.touches[0].clientX-startX; const dy=e.touches[0].clientY-startY; if (Math.abs(dy)>Math.abs(dx)) return; if (dx>50){ closeDrawer(); swiping=false; }}, {passive:true});
-  drawer.addEventListener('touchend', ()=>{ swiping=false; });
 
-  const backBtn = document.getElementById('btnBack');
-  backBtn.addEventListener('click', () => { closeDrawer(); try { window.location.assign(BACK_URL); } catch { history.back(); } });
-
-  // Follow me
-  let followEnabled = false;
-  document.getElementById('btnFollow').addEventListener('click', () => {
-    followEnabled = !followEnabled;
-    const btn = document.getElementById('btnFollow');
-    btn.textContent = followEnabled ? '📍 Sentrer (på)' : '📍 Sentrer (av)';
-    btn.classList.toggle('active', followEnabled);
-    if(followEnabled && lastLatLng){ const targetZoom = Math.max(map.getZoom()||14, 16); map.setView(lastLatLng, targetZoom, { animate:true }); }
-    toast(followEnabled ? 'Følger posisjon' : 'Følger av');
-  });
-  map.on('dragstart', () => {
-    if (followEnabled) {
-      followEnabled = false;
-      const btn = document.getElementById('btnFollow');
-      btn.textContent = '📍 Sentrer (av)';
-      btn.classList.remove('active');
-      toast('Følger av');
-    }
+  // Tilbake
+  document.getElementById('btnBack').addEventListener('click', () => {
+    closeDrawer();
+    try { window.location.assign(BACK_URL); } catch { history.back(); }
   });
 
-  // Drawing & Editing
+  // --- Følg meg (PÅ som default, slås ikke av ved drag)
+  let followEnabled = true;
+  const btnFollow = document.getElementById('btnFollow');
+  function setFollowUI(on){
+    followEnabled = !!on;
+    btnFollow.textContent = on ? '📍 Sentrer (på)' : '📍 Sentrer (av)';
+    btnFollow.classList.toggle('active', on);
+    localStorage.setItem('kart_center_follow', String(on));
+  }
+  // Start som PÅ
+  setFollowUI(true);
+  btnFollow.addEventListener('click', () => setFollowUI(!followEnabled));
+  // Vi slår IKKE av på drag lenger
+
+  // --- Drawing & Editing
   let dirty = false;
   document.getElementById('btnDraw').onclick = () => { new L.Draw.Polyline(map, drawControl.options.draw.polyline).enable(); toast('Tegning: på'); };
   document.getElementById('btnFinish').onclick = () => { map.fire('draw:drawstop'); toast('Tegning: ferdig'); };
@@ -378,10 +350,7 @@
     layer.feature.properties.id = layer.feature.properties.id || (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random()));
     layer.addTo(drawnLayer);
     map.fitBounds(layer.getBounds(), { padding:[20,20] });
-    recalcRouteStats();
-    othersLayer.clearLayers(); // ruteendring => tøm lilla
-    pollOthersCoverage();
-    markDirtyAndScheduleSave();
+    recalcRouteStats(); othersLayer.clearLayers(); pollOthersCoverage(); markDirtyAndScheduleSave();
   });
 
   map.on(L.Draw.Event.EDITED, () => { recalcRouteStats(); othersLayer.clearLayers(); pollOthersCoverage(); markDirtyAndScheduleSave(); });
@@ -552,6 +521,13 @@
       document.getElementById('fix').textContent = `GPS: ${Math.round(accuracy)}m`;
     }
 
+    // Sentrer alltid når "følg" er på (default: på)
+    if(followEnabled){
+      const targetZoom = Math.max(map.getZoom() || 14, 16);
+      map.setView(latlng, targetZoom, { animate: true });
+    }
+
+    // Dekningsmatch mot ruter
     if(samples.length>0){
       const pt = turf.point([lon, lat]);
       let nearestIdx = 0; let best = Infinity;
@@ -567,25 +543,33 @@
       }
       markCovered(found);
     }
-
-    if(followEnabled){
-      const targetZoom = Math.max(map.getZoom() || 14, 16);
-      map.setView(latlng, targetZoom, { animate: true });
-    }
   }
 
-  function startGPS(){ if(watchId!==null) return; if(!navigator.geolocation){ toast('Ingen GPS på enheten'); return; }
+  // Start/stop GPS (kan også brukes manuelt fra menyen)
+  function startGPS(){
+    if(watchId!==null) return;
+    if(!navigator.geolocation){ toast('Ingen GPS på enheten'); return; }
     watchId = navigator.geolocation.watchPosition(pos => {
       const { latitude, longitude, accuracy, heading } = pos.coords;
       addGpsPoint(latitude, longitude, heading, accuracy);
-    }, err => { document.getElementById('fix').textContent = 'GPS: feil'; console.error(err); toast('GPS-feil'); }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
+    }, err => {
+      document.getElementById('fix').textContent = 'GPS: feil';
+      console.error(err);
+      toast('GPS-feil');
+      // Prøv forsiktig igjen
+      setTimeout(tryAutoStartGPS, 1500);
+    }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 8000 });
     toast('GPS startet');
   }
-  function stopGPS(){ if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId = null; } document.getElementById('fix').textContent = 'GPS: stoppet'; toast('GPS stoppet'); }
+  function stopGPS(){
+    if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+    document.getElementById('fix').textContent = 'GPS: stoppet';
+    toast('GPS stoppet');
+  }
   document.getElementById('btnStartGPS').onclick = startGPS;
   document.getElementById('btnStopGPS').onclick = stopGPS;
 
-  // Nullstill GPS (eksisterende knapp)
+  // Nullstill GPS
   document.getElementById('btnClearGPS').onclick = () => {
     gpsLayer.clearLayers();
     gpsPolyline = null;
@@ -684,15 +668,12 @@
     try {
       const latest = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
       const meta = latest?.meta || {};
-      // Oppdater lilla
       renderOthersCoverage(meta.coveredBy);
-      // Fang opp "Nullstill alle"
       const v = parseInt(meta.clearVersion || 0, 10);
       if (v && v > seenClearVersion){
         seenClearVersion = v;
         localStorage.setItem(LS_CLEAR_VER, String(v));
-        clearCoverageAndGPSLocal(true); // true => stille toast tilpasset
-        // publiser tom dekning
+        clearCoverageAndGPSLocal(true);
         schedulePublishMyCoverage();
         toast('Felles nullstilling mottatt');
       }
@@ -702,7 +683,6 @@
   }
   setInterval(pollOthersCoverage, 5000);
 
-  // --- Nullstilling (mine / alle)
   function clearCoverageAndGPSLocal(silent=false) {
     covered.clear();
     coveredLayer.clearLayers();
@@ -719,7 +699,6 @@
 
   document.getElementById('btnClearMine').onclick = () => {
     clearCoverageAndGPSLocal();
-    // publiser tom dekning for meg
     schedulePublishMyCoverage();
   };
 
@@ -735,7 +714,7 @@
       seenClearVersion = nextVer;
       localStorage.setItem(LS_CLEAR_VER, String(nextVer));
       clearCoverageAndGPSLocal();
-      schedulePublishMyCoverage(); // publiser tom dekning
+      schedulePublishMyCoverage();
       toast('Nullstilte for alle');
     } catch (e) {
       console.warn('Broadcast clear feilet', e);
@@ -744,14 +723,59 @@
     }
   };
 
-  // Wake Lock
+  // --- Wake Lock (auto på)
   let wakeLock = null;
-  async function acquireWake(){ try{ if ('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); document.getElementById('btnWake').textContent = '📱 Skjerm på (på)'; wakeLock.addEventListener('release', ()=>{ document.getElementById('btnWake').textContent = '📱 Skjerm på'; }); } else { toast('Wake Lock støttes ikke'); } }catch(e){ console.warn('WakeLock:', e); } }
-  async function releaseWake(){ try{ await wakeLock?.release(); wakeLock=null; }catch{} document.getElementById('btnWake').textContent = '📱 Skjerm på'; }
+  async function acquireWake(){
+    try{
+      if ('wakeLock' in navigator){
+        wakeLock = await navigator.wakeLock.request('screen');
+        document.getElementById('btnWake').textContent = '📱 Skjerm på (på)';
+        wakeLock.addEventListener('release', ()=>{ document.getElementById('btnWake').textContent = '📱 Skjerm på'; });
+      }
+    }catch(e){ console.warn('WakeLock:', e); }
+  }
+  async function releaseWake(){ try{ await wakeLock?.release(); }catch{} wakeLock=null; document.getElementById('btnWake').textContent = '📱 Skjerm på'; }
   document.getElementById('btnWake').onclick = async () => { if (wakeLock) releaseWake(); else acquireWake(); };
-  document.addEventListener('visibilitychange', () => { if (wakeLock && document.visibilityState === 'visible') { acquireWake(); } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') acquireWake(); });
 
-  // Lasting / synk
+  // --- Auto-GPS: start uten trykk når det er lov
+  async function tryAutoStartGPS(){
+    if (document.hidden) return;
+    if (navigator.permissions?.query){
+      try{
+        const st = await navigator.permissions.query({ name: 'geolocation' });
+        if (st.state === 'granted'){ startGPS(); return; }
+        if (st.state === 'prompt'){
+          // én myk forespørsel for å trigge prompt
+          navigator.geolocation.getCurrentPosition(
+            () => startGPS(),
+            () => {}, // bruker avslo
+            { enableHighAccuracy:true, maximumAge:0, timeout:6000 }
+          );
+          return;
+        }
+        // denied: gjør ingenting
+        return;
+      }catch{/* fallthrough */}
+    }
+    // Mangler permissions API – prøv direkte
+    startGPS();
+  }
+
+  // Armér på første berøring (iOS/Safari)
+  const arm = () => { tryAutoStartGPS(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
+  window.addEventListener('touchstart', arm, true);
+  window.addEventListener('mousedown', arm, true);
+
+  // Start/stop ved synlighet
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { stopGPS(); }
+    else { tryAutoStartGPS(); acquireWake(); }
+  });
+  window.addEventListener('pageshow', () => { tryAutoStartGPS(); acquireWake(); });
+  window.addEventListener('pagehide', () => { stopGPS(); });
+
+  // --- Lasting / synk
   async function syncRemote(){
     if (!ROUTE_BIN) return;
     try {
@@ -798,9 +822,10 @@
       if (ROUTE_BIN){
         const dataRoute = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
         remoteVersion = (dataRoute?.meta?.routesVersion) || 0;
-        seenClearVersion = parseInt((dataRoute?.meta?.clearVersion)||0,10) || seenClearVersion;
-        localStorage.setItem(LS_CLEAR_VER, String(seenClearVersion));
         const stored = dataRoute?.[FIELD];
+        const clearVer = parseInt((dataRoute?.meta?.clearVersion)||0,10) || seenClearVersion;
+        seenClearVersion = clearVer; localStorage.setItem(LS_CLEAR_VER, String(clearVer));
+
         if(stored?.type==='FeatureCollection'){
           (stored.features||[]).forEach(feat => {
             if(feat.geometry?.type==='LineString'){
@@ -813,7 +838,6 @@
           recalcRouteStats();
           loaded = true;
         }
-        // tegn andres dekning ved oppstart
         renderOthersCoverage((dataRoute?.meta || {}).coveredBy);
       }
     } catch (e) { console.warn('Fikk ikke ruter fra JSONBin', e); }
@@ -840,331 +864,18 @@
   }
 
   // Init
-  safeLoad().then(()=> { toast('Klar'); pollOthersCoverage(); });
+  safeLoad().then(()=> {
+    // Sørg for at UI står riktig fra start
+    setFollowUI(true);
+    acquireWake();
+    tryAutoStartGPS();
+    toast('Klar');
+    pollOthersCoverage();
+  });
+
   if (navigator.onLine === false) toast('Offline-modus');
   window.addEventListener('online', ()=> toast('Online'));
   window.addEventListener('offline', ()=> toast('Offline'));
-})();
-</script>
-<script>
-(() => {
-  const KEY = 'wl_on';
-  if (localStorage.getItem(KEY) == null) localStorage.setItem(KEY, 'true');
-
-  let enabled = localStorage.getItem(KEY) === 'true';
-  let lock = null;
-  let retryTimer = null;
-
-  async function acquire() {
-    clearTimeout(retryTimer);
-    if (!enabled || document.hidden || !('wakeLock' in navigator)) return;
-    try {
-      lock = await navigator.wakeLock.request('screen');
-      lock.addEventListener('release', () => {
-        if (enabled && !document.hidden) {
-          retryTimer = setTimeout(acquire, 1200);
-        }
-      });
-    } catch {
-      retryTimer = setTimeout(acquire, 1500);
-    }
-  }
-
-  async function release() {
-    clearTimeout(retryTimer);
-    try { await lock?.release(); } catch {}
-    lock = null;
-  }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) release(); else acquire();
-  });
-  window.addEventListener('pageshow', acquire);
-
-  // Armér på første brukertrykk (iOS/Safari)
-  const arm = () => { acquire(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
-  window.addEventListener('touchstart', arm, true);
-  window.addEventListener('mousedown', arm, true);
-
-  // Start automatisk
-  if (enabled) acquire();
-})();
-</script>
-
-<script>
-(() => {
-  const KEY_AUTO_GPS = 'kart_gps_auto';        // husk preferanse (default: true)
-  if (localStorage.getItem(KEY_AUTO_GPS) == null) localStorage.setItem(KEY_AUTO_GPS, 'true');
-
-  let autoOn   = localStorage.getItem(KEY_AUTO_GPS) === 'true';
-  let watchId  = null;
-  let retryT   = null;
-
-  // Hjelper: prøv å kalle eksisterende egen start-funksjon (hvis den finnes)
-  async function callExistingStart() {
-    // Vanlige funksjonsnavn/knapp-id'er
-    const fnNames = ['startGPS', 'gpsStart', 'enableGPS', 'startGeolocation'];
-    for (const n of fnNames) {
-      if (typeof window[n] === 'function') {
-        try { await window[n](); return true; } catch {}
-      }
-    }
-    // Prøv å "klikke" på en kjent knapp
-    const btn = document.getElementById('startGps') || document.querySelector('[data-role="start-gps"], button.start-gps');
-    if (btn) { btn.click(); return true; }
-    return false;
-  }
-
-  // Egen fallback-watch hvis appen ikke har en start-funksjon
-  function fallbackStartWatch() {
-    if (!('geolocation' in navigator)) return false;
-    try {
-      stopWatch();
-      watchId = navigator.geolocation.watchPosition(
-        pos => {
-          // Publiser posisjon til evt. kartlogikk hvis den finnes
-          if (window.updatePosition) {
-            try { window.updatePosition(pos.coords); } catch {}
-          }
-        },
-        err => {
-          console.warn('GPS feil:', err);
-          // Ved feil: prøv igjen forsiktig
-          clearTimeout(retryT);
-          retryT = setTimeout(tryStart, 2000);
-        },
-        { enableHighAccuracy: true, maximumAge: 1000, timeout: 8000 }
-      );
-      return true;
-    } catch (e) {
-      console.warn('Kunne ikke starte watchPosition:', e);
-      return false;
-    }
-  }
-
-  function stopWatch() {
-    clearTimeout(retryT);
-    if (watchId != null) {
-      try { navigator.geolocation.clearWatch(watchId); } catch {}
-      watchId = null;
-    }
-  }
-
-  async function tryStart() {
-    if (!autoOn || document.hidden) return;
-
-    // Sjekk tillatelse – auto starter kun når status er "granted"
-    if (navigator.permissions && navigator.permissions.query) {
-      try {
-        const st = await navigator.permissions.query({ name: 'geolocation' });
-        if (st.state === 'granted') {
-          const usedExisting = await callExistingStart();
-          if (!usedExisting) fallbackStartWatch();
-          return;
-        } else if (st.state === 'prompt') {
-          // Krever bruker-gest første gang; "armér" via første trykk
-          // Vi gjør ikke noe her automatisk for å unngå påtrengende prompt-loop
-          return;
-        } else {
-          // denied → ikke spam forsøk
-          return;
-        }
-      } catch {
-        // Permissions API ikke tilgjengelig – prøv forsiktig uansett
-      }
-    }
-    const usedExisting = await callExistingStart();
-    if (!usedExisting) fallbackStartWatch();
-  }
-
-  // Armér på første bruker-gest (iOS/Safari trenger ofte klikk først)
-  const arm = () => { tryStart(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
-  window.addEventListener('touchstart', arm, true);
-  window.addEventListener('mousedown', arm, true);
-
-  // Start ved visning, stopp ved skjuling
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopWatch();
-    else tryStart();
-  });
-  window.addEventListener('pageshow', tryStart);
-  window.addEventListener('pagehide', stopWatch);
-
-  // Start automatisk ved last – hvis bruker har valgt auto
-  if (autoOn) tryStart();
-
-  // Eksponer enkel toggle om du vil styre dette fra UI senere
-  window.kartAutoGps = {
-    enable()  { localStorage.setItem(KEY_AUTO_GPS, 'true');  autoOn = true;  tryStart(); },
-    disable() { localStorage.setItem(KEY_AUTO_GPS, 'false'); autoOn = false; stopWatch(); },
-    isOn()    { return autoOn; }
-  };
-})();
-</script>
-<script>
-(() => {
-  // ---- Innstillinger (lagres i localStorage) ----
-  const KEY_AUTO_GPS = 'kart_gps_auto';
-  const KEY_FOLLOW   = 'kart_center_follow';
-
-  if (localStorage.getItem(KEY_AUTO_GPS) == null) localStorage.setItem(KEY_AUTO_GPS, 'true');
-  if (localStorage.getItem(KEY_FOLLOW)   == null) localStorage.setItem(KEY_FOLLOW,   'true');
-
-  let autoOn   = localStorage.getItem(KEY_AUTO_GPS) === 'true';
-  let followOn = localStorage.getItem(KEY_FOLLOW)   === 'true';
-
-  // ---- Finn Leaflet-kartet ----
-  function getMap() {
-    return window.map || window.m || window._map || null;
-  }
-
-  // ---- GPS-watch / markør ----
-  let watchId = null;
-  let retryT  = null;
-  let meMarker = null;
-  let meAcc = null;
-
-  function stopWatch() {
-    clearTimeout(retryT);
-    if (watchId != null) {
-      try { navigator.geolocation.clearWatch(watchId); } catch {}
-      watchId = null;
-    }
-  }
-
-  function ensureMyLayers(map) {
-    if (!map || !window.L) return;
-    if (!meMarker) {
-      meMarker = L.marker([0,0], { title: 'Meg', zIndexOffset: 1000 });
-      meMarker.addTo(map);
-    }
-    if (!meAcc) {
-      meAcc = L.circle([0,0], { radius: 0, weight: 1, opacity: .6, fillOpacity: .08 });
-      meAcc.addTo(map);
-    }
-  }
-
-  function updateMyPosition(map, coords) {
-    if (!map || !window.L) return;
-    ensureMyLayers(map);
-    const latlng = [coords.latitude, coords.longitude];
-    meMarker.setLatLng(latlng);
-    meAcc.setLatLng(latlng).setRadius(Math.max(0, coords.accuracy || 0));
-
-    if (followOn && !map._animatingZoom) {
-      const z = Math.max(map.getZoom ? (map.getZoom() || 16) : 16, 15);
-      map.setView(latlng, z, { animate: true });
-    }
-
-    // Dersom appen din har en egen oppdaterings-hook:
-    if (typeof window.updatePosition === 'function') {
-      try { window.updatePosition(coords); } catch {}
-    }
-  }
-
-  function startWatch() {
-    const map = getMap();
-    if (!map || !('geolocation' in navigator)) return false;
-
-    stopWatch(); // sikre bare én watch
-
-    watchId = navigator.geolocation.watchPosition(
-      pos => updateMyPosition(map, pos.coords),
-      err => {
-        console.warn('GPS-feil:', err);
-        clearTimeout(retryT);
-        retryT = setTimeout(tryAutoStart, 2000);
-      },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 8000 }
-    );
-    return true;
-  }
-
-  // ---- Auto-start logikk ----
-  async function tryAutoStart() {
-    if (!autoOn || document.hidden) return;
-
-    // Hvis appen din allerede har en start-funksjon/knapp, bruk den først
-    const fnNames = ['startGPS', 'gpsStart', 'enableGPS', 'startGeolocation'];
-    for (const n of fnNames) {
-      if (typeof window[n] === 'function') {
-        try { await window[n](); return; } catch {}
-      }
-    }
-    const btn = document.getElementById('startGps') || document.querySelector('[data-role="start-gps"], .start-gps');
-    if (btn) { btn.click(); return; }
-
-    // Ellers: vår egen watch
-    if (navigator.permissions && navigator.permissions.query) {
-      try {
-        const st = await navigator.permissions.query({ name: 'geolocation' });
-        if (st.state === 'granted') {
-          startWatch();
-          return;
-        }
-        if (st.state === 'prompt') {
-          // Trigg et enkelt kall for å be om tillatelse én gang
-          navigator.geolocation.getCurrentPosition(
-            () => startWatch(),
-            () => {}, // bruker avslo – ikke spam
-            { enableHighAccuracy: true, maximumAge: 0, timeout: 6000 }
-          );
-          return;
-        }
-        // denied: ikke gjør flere forsøk automatisk
-        return;
-      } catch {
-        // permissions API finnes ikke – bare prøv
-      }
-    }
-    startWatch();
-  }
-
-  // ---- Følg meg (sentrér kart) håndtering ----
-  function setFollow(on) {
-    followOn = !!on;
-    localStorage.setItem(KEY_FOLLOW, String(followOn));
-  }
-
-  // Slå av "følg" hvis bruker drar kartet manuelt
-  function hookMapFollowToggle() {
-    const map = getMap();
-    if (!map || !map.on) return;
-    map.on('dragstart', () => setFollow(false));
-    // Valgfritt: skru på igjen ved dblclick/tap på "min pos"-knapp hvis du har den.
-  }
-
-  // Armér på første bruker-gest (trengs ofte i Safari/iOS)
-  const arm = () => { tryAutoStart(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
-  window.addEventListener('touchstart', arm, true);
-  window.addEventListener('mousedown', arm, true);
-
-  // Start/stop ved visning
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopWatch();
-    else tryAutoStart();
-  });
-  window.addEventListener('pageshow', tryAutoStart);
-  window.addEventListener('pagehide', stopWatch);
-
-  // Når kartet er klart, koble follow-hooks og autostart
-  const onReady = () => { hookMapFollowToggle(); if (autoOn) tryAutoStart(); };
-
-  // Hvis kartet allerede finnes når skriptet kjører:
-  if (getMap()) onReady();
-  else {
-    // Prøv litt etter at side er lastet (i tilfelle kart init skjer litt senere)
-    window.addEventListener('load', () => setTimeout(onReady, 300));
-  }
-
-  // Eksponer enkel API hvis du vil styre dette fra UI senere
-  window.kartGPS = {
-    enableAuto()  { autoOn = true;  localStorage.setItem(KEY_AUTO_GPS, 'true');  tryAutoStart(); },
-    disableAuto() { autoOn = false; localStorage.setItem(KEY_AUTO_GPS, 'false'); stopWatch(); },
-    follow(on)    { setFollow(on); },
-    isFollowing() { return followOn; },
-    isAuto()      { return autoOn; }
-  };
 })();
 </script>
 </body>
