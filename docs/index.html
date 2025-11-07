@@ -433,6 +433,82 @@
       if (btnCancel) btnCancel.addEventListener('click', hide);
       if (btnSend) btnSend.addEventListener('click', onSend);
     });
+    
+    <script>
+(() => {
+  const KEY = 'wl_on';
+  // Standard: PÅ (hvis ikke satt fra før)
+  if (localStorage.getItem(KEY) == null) localStorage.setItem(KEY, 'true');
+
+  let enabled = localStorage.getItem(KEY) === 'true';
+  let lock = null;
+  let retryTimer = null;
+
+  const btn   = document.getElementById('qk_wl');
+  const dot   = document.getElementById('qk_wl_dot');
+  const label = document.getElementById('qk_wl_status');
+
+  function setUI(active) {
+    if (!dot || !label) return;
+    dot.classList.remove('dot-off','dot-on');
+    dot.classList.add(active ? 'dot-on' : 'dot-off');
+    label.textContent = 'Status: ' + (active ? 'på' : 'av');
+  }
+
+  async function acquire() {
+    clearTimeout(retryTimer);
+    if (!enabled) { setUI(false); return; }
+    if (document.hidden) return;
+    if (!('wakeLock' in navigator)) { setUI(false); return; }
+
+    try {
+      lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', () => {
+        setUI(false);
+        // Prøv igjen litt senere hvis fortsatt på
+        if (enabled && !document.hidden) {
+          retryTimer = setTimeout(acquire, 1200);
+        }
+      });
+      setUI(true);
+    } catch {
+      setUI(false);
+      // Nytt forsøk (typisk på iOS hvis ikke bruker-gest er gjort ennå)
+      retryTimer = setTimeout(acquire, 1500);
+    }
+  }
+
+  async function release() {
+    clearTimeout(retryTimer);
+    try { await lock?.release(); } catch {}
+    lock = null;
+    setUI(false);
+  }
+
+  // UI-knappen (hvis du vil kunne slå av/på manuelt)
+  btn?.addEventListener('click', async () => {
+    enabled = !enabled;
+    localStorage.setItem(KEY, String(enabled));
+    if (enabled) acquire(); else release();
+  });
+
+  // Når siden skjules/vises
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) release(); else acquire();
+  });
+
+  // iOS/Safari krever ofte første brukertrykk før det virker – “armér” på første interaksjon
+  const arm = () => { acquire(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
+  window.addEventListener('touchstart', arm, true);
+  window.addEventListener('mousedown', arm, true);
+
+  // pageshow (tilbake fra Brøytekart)
+  window.addEventListener('pageshow', acquire);
+
+  // Init: aktiver automatisk hvis på
+  setUI(false);
+  if (enabled) acquire();
+})();
   </script>
 </body>
 </html>
