@@ -1001,5 +1001,171 @@
   };
 })();
 </script>
+<script>
+(() => {
+  // ---- Innstillinger (lagres i localStorage) ----
+  const KEY_AUTO_GPS = 'kart_gps_auto';
+  const KEY_FOLLOW   = 'kart_center_follow';
+
+  if (localStorage.getItem(KEY_AUTO_GPS) == null) localStorage.setItem(KEY_AUTO_GPS, 'true');
+  if (localStorage.getItem(KEY_FOLLOW)   == null) localStorage.setItem(KEY_FOLLOW,   'true');
+
+  let autoOn   = localStorage.getItem(KEY_AUTO_GPS) === 'true';
+  let followOn = localStorage.getItem(KEY_FOLLOW)   === 'true';
+
+  // ---- Finn Leaflet-kartet ----
+  function getMap() {
+    return window.map || window.m || window._map || null;
+  }
+
+  // ---- GPS-watch / markør ----
+  let watchId = null;
+  let retryT  = null;
+  let meMarker = null;
+  let meAcc = null;
+
+  function stopWatch() {
+    clearTimeout(retryT);
+    if (watchId != null) {
+      try { navigator.geolocation.clearWatch(watchId); } catch {}
+      watchId = null;
+    }
+  }
+
+  function ensureMyLayers(map) {
+    if (!map || !window.L) return;
+    if (!meMarker) {
+      meMarker = L.marker([0,0], { title: 'Meg', zIndexOffset: 1000 });
+      meMarker.addTo(map);
+    }
+    if (!meAcc) {
+      meAcc = L.circle([0,0], { radius: 0, weight: 1, opacity: .6, fillOpacity: .08 });
+      meAcc.addTo(map);
+    }
+  }
+
+  function updateMyPosition(map, coords) {
+    if (!map || !window.L) return;
+    ensureMyLayers(map);
+    const latlng = [coords.latitude, coords.longitude];
+    meMarker.setLatLng(latlng);
+    meAcc.setLatLng(latlng).setRadius(Math.max(0, coords.accuracy || 0));
+
+    if (followOn && !map._animatingZoom) {
+      const z = Math.max(map.getZoom ? (map.getZoom() || 16) : 16, 15);
+      map.setView(latlng, z, { animate: true });
+    }
+
+    // Dersom appen din har en egen oppdaterings-hook:
+    if (typeof window.updatePosition === 'function') {
+      try { window.updatePosition(coords); } catch {}
+    }
+  }
+
+  function startWatch() {
+    const map = getMap();
+    if (!map || !('geolocation' in navigator)) return false;
+
+    stopWatch(); // sikre bare én watch
+
+    watchId = navigator.geolocation.watchPosition(
+      pos => updateMyPosition(map, pos.coords),
+      err => {
+        console.warn('GPS-feil:', err);
+        clearTimeout(retryT);
+        retryT = setTimeout(tryAutoStart, 2000);
+      },
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 8000 }
+    );
+    return true;
+  }
+
+  // ---- Auto-start logikk ----
+  async function tryAutoStart() {
+    if (!autoOn || document.hidden) return;
+
+    // Hvis appen din allerede har en start-funksjon/knapp, bruk den først
+    const fnNames = ['startGPS', 'gpsStart', 'enableGPS', 'startGeolocation'];
+    for (const n of fnNames) {
+      if (typeof window[n] === 'function') {
+        try { await window[n](); return; } catch {}
+      }
+    }
+    const btn = document.getElementById('startGps') || document.querySelector('[data-role="start-gps"], .start-gps');
+    if (btn) { btn.click(); return; }
+
+    // Ellers: vår egen watch
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const st = await navigator.permissions.query({ name: 'geolocation' });
+        if (st.state === 'granted') {
+          startWatch();
+          return;
+        }
+        if (st.state === 'prompt') {
+          // Trigg et enkelt kall for å be om tillatelse én gang
+          navigator.geolocation.getCurrentPosition(
+            () => startWatch(),
+            () => {}, // bruker avslo – ikke spam
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 6000 }
+          );
+          return;
+        }
+        // denied: ikke gjør flere forsøk automatisk
+        return;
+      } catch {
+        // permissions API finnes ikke – bare prøv
+      }
+    }
+    startWatch();
+  }
+
+  // ---- Følg meg (sentrér kart) håndtering ----
+  function setFollow(on) {
+    followOn = !!on;
+    localStorage.setItem(KEY_FOLLOW, String(followOn));
+  }
+
+  // Slå av "følg" hvis bruker drar kartet manuelt
+  function hookMapFollowToggle() {
+    const map = getMap();
+    if (!map || !map.on) return;
+    map.on('dragstart', () => setFollow(false));
+    // Valgfritt: skru på igjen ved dblclick/tap på "min pos"-knapp hvis du har den.
+  }
+
+  // Armér på første bruker-gest (trengs ofte i Safari/iOS)
+  const arm = () => { tryAutoStart(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
+  window.addEventListener('touchstart', arm, true);
+  window.addEventListener('mousedown', arm, true);
+
+  // Start/stop ved visning
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopWatch();
+    else tryAutoStart();
+  });
+  window.addEventListener('pageshow', tryAutoStart);
+  window.addEventListener('pagehide', stopWatch);
+
+  // Når kartet er klart, koble follow-hooks og autostart
+  const onReady = () => { hookMapFollowToggle(); if (autoOn) tryAutoStart(); };
+
+  // Hvis kartet allerede finnes når skriptet kjører:
+  if (getMap()) onReady();
+  else {
+    // Prøv litt etter at side er lastet (i tilfelle kart init skjer litt senere)
+    window.addEventListener('load', () => setTimeout(onReady, 300));
+  }
+
+  // Eksponer enkel API hvis du vil styre dette fra UI senere
+  window.kartGPS = {
+    enableAuto()  { autoOn = true;  localStorage.setItem(KEY_AUTO_GPS, 'true');  tryAutoStart(); },
+    disableAuto() { autoOn = false; localStorage.setItem(KEY_AUTO_GPS, 'false'); stopWatch(); },
+    follow(on)    { setFollow(on); },
+    isFollowing() { return followOn; },
+    isAuto()      { return autoOn; }
+  };
+})();
+</script>
 </body>
 </html>
