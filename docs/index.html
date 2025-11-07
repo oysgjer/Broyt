@@ -143,27 +143,27 @@
       </label>
 
       <!-- REKKEFØLGE — VERTIKAL LAYOUT -->
-<label class="field">
-  <span style="font-weight:700; font-size:1.05rem;">Rekkefølge</span>
+      <label class="field">
+        <span style="font-weight:700; font-size:1.05rem;">Rekkefølge</span>
 
-  <!-- Velger (egen linje) -->
-  <select id="a_dir" class="input" style="max-width:320px; margin-top:6px;">
-    <option>Normal</option>
-    <option>Motsatt</option>
-  </select>
+        <!-- Velger (egen linje) -->
+        <select id="a_dir" class="input" style="max-width:320px; margin-top:6px;">
+          <option>Normal</option>
+          <option>Motsatt</option>
+        </select>
 
-  <!-- Avkrysningsbokser (hver på sin linje) -->
-  <div class="checkbox-col" style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
-    <label class="row" style="gap:8px; align-items:center;">
-      <input id="a_startKart" type="checkbox" />
-      <span class="muted-strong">Start Brøytekart</span>
-    </label>
-    <label class="row" style="gap:8px; align-items:center;">
-      <input id="a_autoNav" type="checkbox" />
-      <span class="muted-strong">Auto-naviger</span>
-    </label>
-  </div>
-</label>
+        <!-- Avkrysningsbokser (hver på sin linje) -->
+        <div class="checkbox-col" style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+          <label class="row" style="gap:8px; align-items:center;">
+            <input id="a_startKart" type="checkbox" />
+            <span class="muted-strong">Start Brøytekart</span>
+          </label>
+          <label class="row" style="gap:8px; align-items:center;">
+            <input id="a_autoNav" type="checkbox" />
+            <span class="muted-strong">Auto-naviger</span>
+          </label>
+        </div>
+      </label>
 
       <button id="a_start" class="btn">Start runde</button>
     </section>
@@ -271,7 +271,6 @@
     </section>
   </main>
 
-  <!-- Uhell-modal (PLASSERT RETT FØR </body>) -->
   <!-- Uhell-modal -->
   <div id="incidentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center;">
     <div style="background:#111827;color:#e5e7eb; padding:16px; border-radius:12px; width:min(680px, 92vw); box-shadow:0 10px 30px rgba(0,0,0,.4);">
@@ -287,6 +286,22 @@
       <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px;">
         <button id="incidentCancel" style="padding:10px 14px; border-radius:10px; border:1px solid #4b5563; background:#1f2937; color:#e5e7eb;">Avbryt</button>
         <button id="incidentSend" style="padding:10px 14px; border-radius:10px; border:1px solid #2563eb; background:#2563eb; color:white;">Send uhell</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ NYTT: “Ikke mulig”-modal (årsak) -->
+  <div id="skipOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9998; align-items:center; justify-content:center;">
+    <div style="background:#0f172a; color:#e5e7eb; width:min(680px,92vw); border:1px solid rgba(255,255,255,.08); border-radius:16px; box-shadow:0 10px 34px rgba(0,0,0,.45);">
+      <div style="padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.08)"><h2 style="margin:0;font-size:18px">Hvorfor var det ikke mulig?</h2></div>
+      <div style="padding:16px">
+        <p style="margin:0 0 6px; opacity:.8">Skriv en kort forklaring som blir med i loggen (min. 5 tegn).</p>
+        <textarea id="skipReason" rows="5" placeholder="Eks: Porten var låst, bil sperret, for mye løsgrus, nabo blokkert innkjøring …" style="width:100%; padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,.18); background:#0b1222; color:#e5e7eb; resize:vertical;"></textarea>
+        <div style="font-size:12px; opacity:.7; margin-top:6px">Tegn: <span id="skipCount">0</span></div>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid rgba(255,255,255,.08)">
+        <button id="skipCancel" class="btn-ghost" style="padding:10px 14px; border-radius:10px; border:1px solid #4b5563; background:#1f2937; color:#e5e7eb;">Avbryt</button>
+        <button id="skipSave" class="btn btn-warn" style="padding:10px 14px; border-radius:10px; border:1px solid #b45309; background:#b45309; color:#fff;">Lagre årsak</button>
       </div>
     </div>
   </div>
@@ -407,7 +422,6 @@
           const addr = activeAddressName();
           const note = (txt.value || '').trim();
 
-          // Enkelt HTML-innhold til e-post
           const html = `
             <div style="font-family:ui-sans-serif,system-ui;">
               <h2>Uhell-rapport</h2>
@@ -421,8 +435,6 @@
             </div>
           `.trim();
 
-          // Forsøk å sende (vedlegg håndteres av appens e-posttjeneste hvis tilgjengelig)
-          // Vi sender ikke binære vedlegg her for å unngå konflikt; service_capture_emails.js kan fange feltene/bildene.
           const subject = `Uhell – ${addr || 'Ukjent adresse'} – ${ts.replace('T',' ').slice(0,19)}`;
           await sendEmail(subject, html, null);
 
@@ -439,14 +451,109 @@
       }
 
       if (btnIncident) btnIncident.addEventListener('click', onOpen);
-      if (btnCancel) btnCancel.addEventListener('click', hide);
+      if (btnCancel) btnCancel.addEventListener('click', () => { modal.style.display='none'; });
       if (btnSend) btnSend.addEventListener('click', onSend);
     });
-    
-    <script>
+  </script>
+
+  <!-- ✅ NYTT: “Ikke mulig” med begrunnelse (lagres i hendelser-bin som type=skip) -->
+  <script>
+    (function(){
+      const BINS = {
+        HENDELSER: "68e89e3443b1c97be9611c48" // hendelser
+        // ADRESSER-bin trengs ikke her, vi bruker bare b_now-teksten som id/visning
+      };
+      const JSONBIN_API = "https://api.jsonbin.io/v3/b";
+
+      function getMasterKey(){ return localStorage.getItem('X-Master-Key') || ''; }
+      function driverName(){
+        const inp = document.getElementById('a_driver');
+        const v = (inp?.value || localStorage.getItem('driverName') || localStorage.getItem('sjaforNavn') || '').trim();
+        return v || 'Ukjent sjåfør';
+      }
+      function activeAddressId(){
+        // Bruker navnet som id/fallback – dette vil fortsatt synes korrekt i loggen
+        const t = (document.getElementById('b_now')?.textContent || '').trim();
+        return t && t !== '—' ? t : '(ukjent adresse)';
+      }
+      function nowIso(){ return new Date().toISOString(); }
+
+      async function jsonbinGet(binId){
+        const r = await fetch(`${JSONBIN_API}/${binId}/latest`, { headers:{ 'X-Master-Key': getMasterKey() }});
+        if(!r.ok) throw new Error('JSONBin get feilet');
+        const js = await r.json();
+        return Array.isArray(js.record) ? js.record : (js.record?.items || []);
+      }
+      async function jsonbinPut(binId, record){
+        const r = await fetch(`${JSONBIN_API}/${binId}`, {
+          method:'PUT',
+          headers:{ 'Content-Type':'application/json', 'X-Master-Key': getMasterKey() },
+          body: JSON.stringify(record)
+        });
+        if(!r.ok) throw new Error('JSONBin put feilet');
+        return r.json();
+      }
+      async function appendEvent(evt){
+        const list = await jsonbinGet(BINS.HENDELSER);
+        list.push(evt);
+        await jsonbinPut(BINS.HENDELSER, list);
+      }
+
+      // Modal helpers
+      const overlay = document.getElementById('skipOverlay');
+      const txt = document.getElementById('skipReason');
+      const cnt = document.getElementById('skipCount');
+      const btnOpen = document.getElementById('act_block'); // ⛔ Ikke mulig
+      const btnCancel = document.getElementById('skipCancel');
+      const btnSave = document.getElementById('skipSave');
+
+      function show(){ if(overlay){ overlay.style.display='flex'; setTimeout(()=>txt?.focus(), 50);} }
+      function hide(){ if(overlay){ overlay.style.display='none'; } }
+      function updateCount(){ if(cnt && txt) cnt.textContent = String((txt.value||'').length); }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        if (!overlay || !txt || !btnOpen) return;
+
+        txt.addEventListener('input', updateCount);
+        btnOpen.addEventListener('click', () => {
+          txt.value = '';
+          updateCount();
+          show();
+        });
+        btnCancel?.addEventListener('click', hide);
+
+        btnSave?.addEventListener('click', async () => {
+          const reason = (txt.value || '').trim();
+          if (reason.length < 5){
+            alert('Skriv minst 5 tegn som forklaring.');
+            txt.focus();
+            return;
+          }
+          try{
+            const evt = {
+              type: 'skip',                 // Viktig: Logg viser dette som “Ikke mulig”
+              addressId: activeAddressId(),
+              at: nowIso(),
+              by: driverName(),
+              reason
+            };
+            await appendEvent(evt);
+            hide();
+            alert('“Ikke mulig” ble lagret i loggen.');
+            // Gå videre til neste adresse (simulerer klikk på “Neste” hvis den finnes)
+            document.getElementById('act_next')?.click();
+          }catch(e){
+            console.error(e);
+            alert('Klarte ikke å lagre til JSONBin. Sjekk nett og X-Master-Key.');
+          }
+        });
+      });
+    })();
+  </script>
+
+  <script>
 (() => {
   const KEY = 'wl_on';
-  // Standard: PÅ (hvis ikke satt fra før)
   if (localStorage.getItem(KEY) == null) localStorage.setItem(KEY, 'true');
 
   let enabled = localStorage.getItem(KEY) === 'true';
@@ -474,7 +581,6 @@
       lock = await navigator.wakeLock.request('screen');
       lock.addEventListener('release', () => {
         setUI(false);
-        // Prøv igjen litt senere hvis fortsatt på
         if (enabled && !document.hidden) {
           retryTimer = setTimeout(acquire, 1200);
         }
@@ -482,7 +588,6 @@
       setUI(true);
     } catch {
       setUI(false);
-      // Nytt forsøk (typisk på iOS hvis ikke bruker-gest er gjort ennå)
       retryTimer = setTimeout(acquire, 1500);
     }
   }
@@ -494,66 +599,53 @@
     setUI(false);
   }
 
-  // UI-knappen (hvis du vil kunne slå av/på manuelt)
   btn?.addEventListener('click', async () => {
     enabled = !enabled;
     localStorage.setItem(KEY, String(enabled));
     if (enabled) acquire(); else release();
   });
 
-
-  // Når siden skjules/vises
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) release(); else acquire();
   });
 
-  // iOS/Safari krever ofte første brukertrykk før det virker – “armér” på første interaksjon
   const arm = () => { acquire(); window.removeEventListener('touchstart', arm, true); window.removeEventListener('mousedown', arm, true); };
   window.addEventListener('touchstart', arm, true);
   window.addEventListener('mousedown', arm, true);
 
-  // pageshow (tilbake fra Brøytekart)
   window.addEventListener('pageshow', acquire);
 
-  // Init: aktiver automatisk hvis på
   setUI(false);
   if (enabled) acquire();
 })();
   </script>
+
   <script>
 (() => {
   const KEY_START_KART = 'start_kart_on_start';
 
-  // 1) Husk checkbox på Hjem
   window.addEventListener('DOMContentLoaded', () => {
     const chk = document.getElementById('a_startKart');
     if (!chk) return;
 
-    // Last preferanse
     const saved = localStorage.getItem(KEY_START_KART);
     chk.checked = saved === 'true';
 
-    // Lagre ved endring
     chk.addEventListener('change', () => {
       localStorage.setItem(KEY_START_KART, String(chk.checked));
     });
   });
 
-  // 2) Åpne Brøytekart automatisk når man trykker "Start" på en adresse
-  //    (Hooker på knappen i Work-seksjonen)
   window.addEventListener('DOMContentLoaded', () => {
     const btnStart = document.getElementById('act_start');
     if (!btnStart) return;
 
-    // Ikke forstyrr eksisterende logikk – legg til egen lytter som kjører etterpå
     btnStart.addEventListener('click', () => {
       try {
         const shouldOpen = localStorage.getItem(KEY_START_KART) === 'true';
         if (!shouldOpen) return;
 
-        // Bruk samme hash-parametre som Brøytekart-knappen
         const url = "tools/kart.html#addrBin=68ed425cae596e708f11d25f&routeBin=68ed425cae596e708f11d25f&field=geojsonRoutes";
-        // Sett "returnTo" slik at index kan hente deg tilbake hvis du ønsker den adferden videre
         sessionStorage.setItem('returnTo', window.location.href);
         window.open(url, '_blank');
       } catch (e) {
@@ -563,22 +655,19 @@
   });
 })();
 </script>
+
 <script>
 (() => {
   // --- Wake Lock (moderne nettlesere) + iOS fallback ---
   let wakeLock = null;
-  let noSleep = null;   // iOS fallback (NoSleep.js)
+  let noSleep = null;
   let triedAuto = false;
 
   async function requestWakeLock() {
-    // Hvis nettleseren har Wake Lock API
     if ('wakeLock' in navigator && navigator.wakeLock?.request) {
       try {
-        // Be om "screen" wake lock
         wakeLock = await navigator.wakeLock.request('screen');
-        // Hvis vi mister låsen (f.eks. når skjermen slukkes midlertidig)
         wakeLock.addEventListener?.('release', () => {
-          // Forsøk å ta låsen igjen når siden er synlig
           if (document.visibilityState === 'visible') {
             requestWakeLock().catch(()=>{});
           }
@@ -587,10 +676,8 @@
         return true;
       } catch (err) {
         console.warn('[wakelock] feilet:', err?.name || err);
-        // Fortsett til fallback nedenfor
       }
     }
-    // --- Fallback for iOS/Safari (bruk NoSleep.js) ---
     try {
       if (!noSleep && window.NoSleep) {
         noSleep = new NoSleep();
@@ -606,7 +693,6 @@
     return false;
   }
 
-  // Re-aktiver når siden blir synlig/fokusert igjen
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       requestWakeLock().catch(()=>{});
@@ -616,12 +702,10 @@
     requestWakeLock().catch(()=>{});
   });
 
-  // Prøv automatisk ved last (kan feile uten bruker-gest)
   window.addEventListener('DOMContentLoaded', async () => {
     triedAuto = true;
     const ok = await requestWakeLock();
     if (!ok) {
-      // Noen nettlesere krever et brukertrykk først. Koble på første berøring/klikk.
       const once = async () => {
         document.removeEventListener('touchstart', once, {passive:true});
         document.removeEventListener('click', once, true);
@@ -632,7 +716,6 @@
     }
   });
 
-  // (valgfritt) eksponer en manuell knapp via console:
   window.__wakeLockOn = requestWakeLock;
   window.__wakeLockOff = async () => {
     try {
