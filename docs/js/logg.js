@@ -1,7 +1,7 @@
-// logg.js — leser JSONBin-bins, parer start/ferdig/skip, viser A4-vennlig logg
+// logg.js — viser hendelser + beregner totaltid
 const DEFAULT_BINS = [
   "68e89e3443b1c97be9611c48", // hendelser
-  "68e7b4d2ae596e708f0bde7d"  // adresser (oppgave)
+  "68e7b4d2ae596e708f0bde7d"  // adresser
 ];
 const DEFAULT_DAYS = 5;
 
@@ -15,38 +15,34 @@ const startOfDay = (d)=> { const x=new Date(d); x.setHours(0,0,0,0); return x; }
 const endOfDay   = (d)=> { const x=new Date(d); x.setHours(23,59,59,999); return x; };
 
 const JSONBIN_API = "https://api.jsonbin.io/v3/b";
-function getMasterKey(){ return localStorage.getItem('X-Master-Key') || ''; }
+function getMasterKey(){
+  return (localStorage.getItem('X-Master-Key') ||
+          localStorage.getItem('x-master-key') ||
+          localStorage.getItem('XMasterKey')   ||
+          localStorage.getItem('jsonbin_master_key') || '').trim();
+}
+function getAccessKey(){
+  return (localStorage.getItem('X-Access-Key') ||
+          localStorage.getItem('x-access-key') ||
+          localStorage.getItem('jsonbin_access_key') || '').trim();
+}
 
 async function jsonbinGetLatest(binId){
-  const res = await fetch(`${JSONBIN_API}/${binId}/latest`, { headers:{'X-Master-Key': getMasterKey()} });
-  if(!res.ok) throw new Error('JSONBin feilet');
+  const headers = { 'X-Master-Key': getMasterKey() };
+  const ak = getAccessKey(); if (ak) headers['X-Access-Key'] = ak;
+  const res = await fetch(`${JSONBIN_API}/${binId}/latest`, { headers });
+  if(!res.ok) throw new Error('JSONBin feilet ' + res.status);
   const js = await res.json();
   return js.record;
 }
 
-function toMap(arr, keyFn){
-  const m = new Map();
-  arr.forEach(x => m.set(keyFn(x), x));
-  return m;
-}
-
-function normalizeAddrId(a){
-  return a.id || a.ID || a.adresse || a.navn || String(a);
-}
-
-function ensureEls(){
-  if (!byId('dateFrom')) {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = `
-      <div style="display:flex;gap:10px;align-items:end;margin:12px 0">
-        <div><label>Fra</label><input id="dateFrom" type="date"></div>
-        <div><label>Til</label><input id="dateTo" type="date"></div>
-        <button id="btnReload">Oppdater</button>
-      </div>
-      <div id="logWrap"></div>
-    `;
-    document.body.prepend(wrap);
-  }
+function escapeHtml(s){
+  return String(s)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
 }
 
 function styleOnce(){
@@ -65,8 +61,33 @@ function styleOnce(){
     .tag-block{background:#fee2e2;color:#b91c1c}
     .muted{color:#6b7280}
     .reason{font-style:italic;color:#7c2d12}
+    .totals{margin:6px 0 14px; font-weight:700}
   `;
   document.head.appendChild(st);
+}
+
+function ensureControls(){
+  if (byId('dateFrom')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:end;margin:12px 0">
+      <div><label>Fra</label><input id="dateFrom" type="date"></div>
+      <div><label>Til</label><input id="dateTo" type="date"></div>
+      <button id="btnReload">Oppdater</button>
+    </div>
+    <div id="totals" class="totals"></div>
+    <div id="logWrap"></div>
+  `;
+  document.body.prepend(wrap);
+  document.addEventListener('click', (e)=>{
+    if(e.target && e.target.id === 'btnReload') loadAndRender().catch(err=>{
+      alert('Kunne ikke laste logg'); console.error(err);
+    });
+  });
+}
+
+function normalizeAddrId(a){
+  return a.id || a.ID || a.adresse || a.navn || String(a);
 }
 
 function groupByDate(events){
@@ -77,6 +98,33 @@ function groupByDate(events){
     by.get(day).push(e);
   }
   return by;
+}
+
+// beregn total tid (minutter) ved å pare start->done per adresse og fører
+function computeTotals(events){
+  // sortér etter tid
+  const ev = [...events].sort((a,b)=> new Date(a.at)-new Date(b.at));
+  const stacks = new Map(); // key: addrId|by -> [start times]
+  let totalMs = 0;
+
+  const keyFor = (e)=> `${e.addressId || ''}|${e.by || ''}`;
+
+  for (const e of ev){
+    const k = keyFor(e);
+    if (!stacks.has(k)) stacks.set(k, []);
+    const st = stacks.get(k);
+
+    if (e.type === 'start'){
+      st.push(new Date(e.at).getTime());
+    } else if (e.type === 'done'){
+      if (st.length){
+        const t0 = st.pop();
+        const t1 = new Date(e.at).getTime();
+        if (!isNaN(t0) && !isNaN(t1) && t1 >= t0) totalMs += (t1 - t0);
+      }
+    }
+  }
+  return Math.round(totalMs/60000); // minutter
 }
 
 function renderTable(day, events, addrMap){
@@ -98,7 +146,7 @@ function renderTable(day, events, addrMap){
   for (const e of events.sort((a,b)=> new Date(a.at)-new Date(b.at))){
     const tr = document.createElement('tr');
     const a = addrMap.get(e.addressId) || {};
-    const title = a.navn || a.adresse || e.addressId || '—';
+    const title = a.navn || a.adresse || e.addressName || e.addressId || '—';
     const t = fmtTime(new Date(e.at));
 
     let tag = '';
@@ -128,23 +176,13 @@ function renderTable(day, events, addrMap){
   return wrap;
 }
 
-function escapeHtml(s){
-  return String(s)
-    .replaceAll('&','&amp;')
-    .replaceAll('<','&lt;')
-    .replaceAll('>','&gt;')
-    .replaceAll('"','&quot;')
-    .replaceAll("'","&#039;");
-}
-
 async function loadAndRender(){
-  ensureEls();
   styleOnce();
+  ensureControls();
 
   const from = byId('dateFrom').value ? new Date(byId('dateFrom').value) : startOfDay(new Date(Date.now()-DEFAULT_DAYS*24*3600*1000));
   const to   = byId('dateTo').value   ? new Date(byId('dateTo').value)   : endOfDay(new Date());
 
-  // Laster
   const [hendelserRaw, adresserRaw] = await Promise.all([
     jsonbinGetLatest(DEFAULT_BINS[0]),
     jsonbinGetLatest(DEFAULT_BINS[1])
@@ -154,19 +192,16 @@ async function loadAndRender(){
   const adresser  = Array.isArray(adresserRaw)  ? adresserRaw  : (adresserRaw.items  || []);
   const addrMap = new Map(adresser.map(a => [normalizeAddrId(a), a]));
 
-  // Filtrer på datointervall
-  const filtered = hendelser.filter(e => {
-    if (!e || !e.at) return false;
-    const t = new Date(e.at).getTime();
-    return t >= from.getTime() && t <= to.getTime();
-  });
+  const filtered = hendelser.filter(e => e && e.at && new Date(e.at).getTime() >= from.getTime() && new Date(e.at).getTime() <= to.getTime());
 
-  // Grupper på dato og render
+  // totals (minutter) på tvers av hele intervallet
+  const totalMin = computeTotals(filtered);
+  byId('totals').textContent = `Totaltid: ${totalMin} min`;
+
   const by = groupByDate(filtered);
   const logWrap = byId('logWrap');
   logWrap.innerHTML = '';
 
-  // Dato-velgere default
   byId('dateFrom').value = fmtDateInput(from);
   byId('dateTo').value   = fmtDateInput(to);
 
@@ -187,22 +222,13 @@ async function loadAndRender(){
   }
 }
 
-document.addEventListener('click', (e)=>{
-  if(e.target && e.target.id === 'btnReload'){
-    loadAndRender().catch(err=>{
-      alert('Kunne ikke laste logg. Sjekk nett og X-Master-Key.');
-      console.error(err);
-    });
-  }
-});
-
 window.addEventListener('DOMContentLoaded', ()=>{
-  // Sett standard datoperiode
   const dTo = new Date();
   const dFrom = new Date(Date.now()-DEFAULT_DAYS*24*3600*1000);
-  ensureEls();
+  styleOnce();
+  ensureControls();
   byId('dateFrom').value = fmtDateInput(dFrom);
-  byId('dateTo').value = fmtDateInput(dTo);
+  byId('dateTo').value   = fmtDateInput(dTo);
   loadAndRender().catch(err=>{
     console.error(err);
     byId('logWrap').innerHTML = `<div class="muted">Feil ved lasting av logg.</div>`;
