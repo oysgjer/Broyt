@@ -290,21 +290,132 @@
     </div>
   </div>
 
-  <!-- ✅ NYTT: “Ikke mulig”-modal (årsak) -->
-  <div id="skipOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9998; align-items:center; justify-content:center;">
-    <div style="background:#0f172a; color:#e5e7eb; width:min(680px,92vw); border:1px solid rgba(255,255,255,.08); border-radius:16px; box-shadow:0 10px 34px rgba(0,0,0,.45);">
-      <div style="padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.08)"><h2 style="margin:0;font-size:18px">Hvorfor var det ikke mulig?</h2></div>
-      <div style="padding:16px">
-        <p style="margin:0 0 6px; opacity:.8">Skriv en kort forklaring som blir med i loggen (min. 5 tegn).</p>
-        <textarea id="skipReason" rows="5" placeholder="Eks: Porten var låst, bil sperret, for mye løsgrus, nabo blokkert innkjøring …" style="width:100%; padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,.18); background:#0b1222; color:#e5e7eb; resize:vertical;"></textarea>
-        <div style="font-size:12px; opacity:.7; margin-top:6px">Tegn: <span id="skipCount">0</span></div>
-      </div>
-      <div style="display:flex; gap:8px; justify-content:flex-end; padding:12px 16px; border-top:1px solid rgba(255,255,255,.08)">
-        <button id="skipCancel" class="btn-ghost" style="padding:10px 14px; border-radius:10px; border:1px solid #4b5563; background:#1f2937; color:#e5e7eb;">Avbryt</button>
-        <button id="skipSave" class="btn btn-warn" style="padding:10px 14px; border-radius:10px; border:1px solid #b45309; background:#b45309; color:#fff;">Lagre årsak</button>
-      </div>
-    </div>
-  </div>
+  <script>
+(function(){
+  const BINS = {
+    HENDELSER: "68e89e3443b1c97be9611c48" // hendelser
+  };
+  const JSONBIN_API = "https://api.jsonbin.io/v3/b";
+
+  // 🔐 Les nøklene robust – støtt flere mulige nøkler fra Admin
+  function getMasterKey(){
+    return (
+      localStorage.getItem('X-Master-Key') ||
+      localStorage.getItem('x-master-key') ||
+      localStorage.getItem('XMasterKey')   ||
+      localStorage.getItem('jsonbin_master_key') ||
+      ''
+    ).trim();
+  }
+  function getAccessKey(){
+    return (
+      localStorage.getItem('X-Access-Key') ||
+      localStorage.getItem('x-access-key') ||
+      localStorage.getItem('jsonbin_access_key') ||
+      ''
+    ).trim();
+  }
+
+  function driverName(){
+    const v = (document.getElementById('a_driver')?.value ||
+               localStorage.getItem('driverName') ||
+               localStorage.getItem('sjaforNavn') || '').trim();
+    return v || 'Ukjent sjåfør';
+  }
+  function activeAddressId(){
+    const t = (document.getElementById('b_now')?.textContent || '').trim();
+    return t && t !== '—' ? t : '(ukjent adresse)';
+  }
+  function nowIso(){ return new Date().toISOString(); }
+
+  async function jsonbinGet(binId){
+    const headers = { 'X-Master-Key': getMasterKey() };
+    const acc = getAccessKey();
+    if (acc) headers['X-Access-Key'] = acc;
+
+    const r = await fetch(`${JSONBIN_API}/${binId}/latest`, { headers });
+    if (!r.ok) {
+      let msg = `GET feilet (${r.status})`;
+      try { const j = await r.json(); msg += ` – ${j.message || j.error || ''}`; } catch {}
+      throw new Error(msg);
+    }
+    const js = await r.json();
+    return Array.isArray(js.record) ? js.record : (js.record?.items || []);
+  }
+
+  async function jsonbinPut(binId, record){
+    const headers = {
+      'Content-Type':'application/json',
+      'X-Master-Key': getMasterKey(),
+      'X-Bin-Meta': 'false'
+    };
+    const acc = getAccessKey();
+    if (acc) headers['X-Access-Key'] = acc;
+
+    // NB: JSONBin krever at hele record skrives tilbake
+    const r = await fetch(`${JSONBIN_API}/${binId}`, {
+      method:'PUT',
+      headers,
+      body: JSON.stringify(record)
+    });
+    if (!r.ok) {
+      let msg = `PUT feilet (${r.status})`;
+      try { const j = await r.json(); msg += ` – ${j.message || j.error || ''}`; } catch {}
+      throw new Error(msg);
+    }
+    return r.json();
+  }
+
+  async function appendEvent(evt){
+    const key = getMasterKey();
+    if (!key) {
+      throw new Error('Manglende X-Master-Key i localStorage. Gå til Admin og lagre nøkkelen.');
+    }
+    const list = await jsonbinGet(BINS.HENDELSER);
+    list.push(evt);
+    await jsonbinPut(BINS.HENDELSER, list);
+  }
+
+  // --- Modal/knapper ---
+  const overlay = document.getElementById('skipOverlay');
+  const txt = document.getElementById('skipReason');
+  const cnt = document.getElementById('skipCount');
+  const btnOpen = document.getElementById('act_block'); // ⛔ Ikke mulig
+  const btnCancel = document.getElementById('skipCancel');
+  const btnSave = document.getElementById('skipSave');
+
+  function show(){ overlay.style.display='flex'; setTimeout(()=>txt?.focus(), 50); }
+  function hide(){ overlay.style.display='none'; }
+  function updateCount(){ cnt.textContent = String((txt.value||'').length); }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    txt?.addEventListener('input', updateCount);
+    btnOpen?.addEventListener('click', () => { txt.value=''; updateCount(); show(); });
+    btnCancel?.addEventListener('click', hide);
+
+    btnSave?.addEventListener('click', async () => {
+      const reason = (txt.value || '').trim();
+      if (reason.length < 5){ alert('Skriv minst 5 tegn som forklaring.'); txt.focus(); return; }
+      try{
+        await appendEvent({
+          type: 'skip',
+          addressId: activeAddressId(),
+          at: nowIso(),
+          by: driverName(),
+          reason
+        });
+        hide();
+        alert('“Ikke mulig” ble lagret i loggen.');
+        document.getElementById('act_next')?.click();
+      }catch(e){
+        // 🧪 Gi DEG nyttig feilmelding
+        console.error('[JSONBin]', e);
+        alert(String(e.message || e));
+      }
+    });
+  });
+})();
+</script>
 
   <!-- JS – rekkefølge er viktig -->
   <!-- Kjerne -->
