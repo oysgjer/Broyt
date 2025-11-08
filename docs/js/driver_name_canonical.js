@@ -1,4 +1,4 @@
-// js/driver_name_canonical.js — én kilde til sannhet for sjåførnavn
+// js/driver_name_canonical.js — én kilde til sannhet for sjåførnavn 
 (() => {
   'use strict';
 
