@@ -131,53 +131,43 @@
     $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(pr.done, pr.total)} av ${pr.total} adresser fullført`);
   }
 
-  // ===== NAVIGASJON: App (Google→Apple) med web-fallback. Ingen hvit side. =====
-  function openNavNative(addr){
-    const name  = (addr?.name || '').trim();
-    const hasLL = (addr?.lat != null && addr?.lon != null);
-    const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
-    const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
+// Kun Google Maps app. Hvis ikke installert -> App Store / Play Store.
+// Ingen web-URL, ingen ekstra faner.
+function openNavNative(addr){
+  const name  = (addr?.name || '').trim();
+  const hasLL = (addr?.lat != null && addr?.lon != null);
+  const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
+  const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
 
-    // Dype lenker
-    const gmApp = destLL
-      ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
-      : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
+  // Google Maps app deep-link
+  const gm = destLL
+    ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
+    : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
 
-    const amApp = destLL
-      ? `maps://?daddr=${encodeURIComponent(destLL)}&dirflg=d`
-      : `maps://?q=${encodeURIComponent(destQ)}&dirflg=d`;
+  // Butikk-lenker
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
+  const store = isIOS
+    ? 'itms-apps://itunes.apple.com/app/id585027354' // Google Maps for iOS
+    : 'market://details?id=com.google.android.apps.maps'; // Android
 
-    // Web (siste utvei – samme fane)
-    const web = destLL
-      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destLL)}`
-      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQ)}`;
+  // Hvis appen åpnes, blir siden "hidden". Da avbryter vi fallback.
+  let to = null;
+  const cancel = () => { clearTimeout(to); };
+  const onVis = () => { if (document.visibilityState === 'hidden') cancel(); };
+  document.addEventListener('visibilitychange', onVis, { once:true });
 
-    // Avbryt fallback hvis vi forlater siden (app tok fokus)
-    let step = 0;
-    let t1 = null, t2 = null;
-    const cancel = () => { clearTimeout(t1); clearTimeout(t2); };
-    const onHidden = () => { if (document.visibilityState === 'hidden') cancel(); };
-    document.addEventListener('visibilitychange', onHidden, { once: true });
+  // Forsøk å åpne appen
+  window.location.href = gm;
 
-    // 1) Google Maps app
-    step = 1;
-    window.location.href = gmApp;
-
-    // 2) Etter 700ms, hvis fortsatt synlig → Apple Maps
-    t1 = setTimeout(() => {
-      if (document.visibilityState === 'visible' && step === 1) {
-        step = 2;
-        window.location.href = amApp;
-
-        // 3) Etter 700ms til, hvis fortsatt synlig → Web
-        t2 = setTimeout(() => {
-          if (document.visibilityState === 'visible' && step === 2) {
-            window.location.href = web;
-          }
-        }, 700);
-      }
-    }, 700);
-  }
+  // Hvis vi fortsatt er synlige etter ~900ms, ta bruker til butikk
+  to = setTimeout(() => {
+    if (document.visibilityState === 'visible') {
+      // Valgfritt: kort beskjed før butikk
+      try { alert('For å navigere må Google Maps-appen være installert. Du blir sendt til butikken.'); } catch {}
+      window.location.href = store;
+    }
+  }, 900);
+}
 
   function uiUpdate(){
     let run  = getRun();
