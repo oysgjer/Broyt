@@ -140,44 +140,53 @@
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((addr.name||'')+', Norge')}`;
   }
 
-  // ===== NAVIGASJON: Åpne Maps uten hvit side ved retur =====
-  function openNavNative(addr){
-    const name  = (addr?.name || '').trim();
-    const hasLL = (addr?.lat != null && addr?.lon != null);
-    const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
-    const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
+// Åpne i app: Google Maps -> Apple Maps -> Web (fallback). Ingen hvit side.
+function openNavNative(addr){
+  const name  = (addr?.name || '').trim();
+  const hasLL = (addr?.lat != null && addr?.lon != null);
+  const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
+  const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
 
-    const ua = navigator.userAgent || '';
-    const isIOS = /iPad|iPhone|iPod/.test(ua);
-    const isAndroid = /Android/.test(ua);
+  // Dype lenker
+  const gmApp = destLL
+    ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
+    : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
 
-    // Web-fallback (brukes bare hvis app ikke åpnes)
-    const web = destLL
-      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destLL)}`
-      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQ)}`;
+  const amApp = destLL
+    ? `maps://?daddr=${encodeURIComponent(destLL)}&dirflg=d`
+    : `maps://?q=${encodeURIComponent(destQ)}&dirflg=d`;
 
-    // Avbryt fallback hvis vi faktisk forlater siden (app åpnes)
-    let fallbackTimer = null;
-    const cancelFallback = () => { if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; } };
-    const onVisChange = () => {
-      if (document.visibilityState === 'hidden') cancelFallback();
-    };
-    document.addEventListener('visibilitychange', onVisChange, { once: true });
+  // Web (siste utvei – samme fane, ikke ny)
+  const web = destLL
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destLL)}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQ)}`;
 
-    if (isIOS){
-      // Åpne Google Maps app i samme fane, fallback til web hvis ikke installert
-      const ios = destLL
-        ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
-        : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
+  // Avbryt fallback hvis vi forlater siden (app tok fokus)
+  let step = 0;
+  let t1 = null, t2 = null;
+  const cancel = () => { clearTimeout(t1); clearTimeout(t2); };
+  const onHidden = () => { if (document.visibilityState === 'hidden') cancel(); };
+  document.addEventListener('visibilitychange', onHidden, { once: true });
 
-      window.location.href = ios;
-      fallbackTimer = setTimeout(() => {
-        if (document.visibilityState === 'visible') {
-          window.location.href = web; // samme fane → ingen tom/ny fane
+  // 1) Forsøk Google Maps app
+  step = 1;
+  window.location.href = gmApp;
+
+  // 2) Hvis vi fortsatt er synlige etter 700ms, prøv Apple Maps app
+  t1 = setTimeout(() => {
+    if (document.visibilityState === 'visible' && step === 1) {
+      step = 2;
+      window.location.href = amApp;
+
+      // 3) Hvis vi fortsatt er synlige etter 700ms til, gå til web i samme fane
+      t2 = setTimeout(() => {
+        if (document.visibilityState === 'visible' && step === 2) {
+          window.location.href = web;
         }
-      }, 1000);
-      return;
+      }, 700);
     }
+  }, 700);
+}
 
     if (isAndroid){
       // Intent åpner Maps direkte uten ny fane
