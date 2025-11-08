@@ -543,5 +543,18 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+<script>
+// Vibrasjon ved knappetrykk (alle <button>)
+document.addEventListener('DOMContentLoaded', () => {
+  if (!('vibrate' in navigator)) return; // støttes ikke
+
+  document.body.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    // Kort, tydelig vibrasjon
+    navigator.vibrate(20);
+  }, true);
+});
+</script>
 </body>
 </html>
