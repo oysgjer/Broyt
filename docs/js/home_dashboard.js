@@ -1,10 +1,11 @@
-// js/home_dashboard.js — Samlet brøytetid med normalisering av "reports"
+// js/home_dashboard.js — summerer brøytetid uansett sjåfør (per adresse)
 (() => {
   'use strict';
 
-  const BIN_HENDELSER = "68e89e3443b1c97be9611c48";
+  const BIN = "68e89e3443b1c97be9611c48";
   const API = "https://api.jsonbin.io/v3/b";
 
+  // Nøkler hentes fra Admin
   const getMK = () =>
     (localStorage.getItem('X-Master-Key') ||
      localStorage.getItem('x-master-key') ||
@@ -15,25 +16,23 @@
      localStorage.getItem('jsonbin_access_key') || '').trim();
 
   function headers(){
-    const h = {};
-    const mk = getMK(), ak = getAK();
-    if (mk) h['X-Master-Key'] = mk;
-    if (ak) h['X-Access-Key'] = ak;
+    const h={};
+    const mk=getMK(), ak=getAK();
+    if (mk) h['X-Master-Key']=mk;
+    if (ak) h['X-Access-Key']=ak;
     return h;
   }
 
-  const elStats = () => document.getElementById('stats');
-  function renderCard(inner){ const el=elStats(); if(!el) return; el.innerHTML =
-    `<div class="card" style="padding:12px">
-       <div class="muted-strong" style="margin-bottom:6px">📊 Samlet brøytetid</div>
-       ${inner}
-     </div>`; }
+  // UI
+  const host = () => document.getElementById('stats');
+  const card = (inner) => `<div class="card" style="padding:12px">
+    <div class="muted-strong" style="margin-bottom:6px">📊 Samlet brøytetid</div>${inner}
+  </div>`;
 
-  function renderZerosWithHint(){
-    renderCard(`
-      <div class="muted" style="margin-bottom:6px">
-        Trenger JSONBin-nøkler. Åpne <a href="./index.html#admin">Admin</a> og lagre X-Master-Key.
-      </div>
+  function renderZeros(hint=false){
+    const el = host(); if(!el) return;
+    el.innerHTML = card(`
+      ${hint ? `<div class="muted" style="margin-bottom:6px">Trenger JSONBin-nøkkel (lagre i Admin).</div>` : ``}
       <div>Totalt: <b>0m</b></div>
       <div>Forrige måned: <b>0m</b></div>
       <div>Denne måneden: <b>0m</b></div>
@@ -42,7 +41,8 @@
     `);
   }
   function renderMinutes(m){
-    renderCard(`
+    const el = host(); if(!el) return;
+    el.innerHTML = card(`
       <div>Totalt: <b>${m.total}m</b></div>
       <div>Forrige måned: <b>${m.prevMonth}m</b></div>
       <div>Denne måneden: <b>${m.month}m</b></div>
@@ -51,60 +51,49 @@
     `);
   }
 
+  // Normalisering
   function normalizeOne(e){
-    // Kildefelter: {type/ action}, {at/ ts}, {by/ driver}, {addressId/ address/ addressName}
     const action = (e.type || e.action || '').toLowerCase();
     const type =
-      action === 'ferdig'      ? 'done' :
-      action === 'ikke_mulig'  ? 'skip' :
-      action === 'neste'       ? 'next' :
-      action; // 'start' | 'done' | 'skip' | 'next' | …
-
+      action === 'ferdig'     ? 'done' :
+      action === 'ikke_mulig' ? 'skip' :
+      action === 'neste'      ? 'next' : action; // start/done/skip/next
     const at = e.at || e.ts || null;
-    const by = e.by || e.driver || '';
-    const addressId = e.addressId || e.addressName || e.address || '';
-    const addressName = e.addressName || e.address || e.addressId || '';
-    const reason = e.reason || e.notes || '';
-
-    return { type, at, by, addressId, addressName, reason };
+    const address = e.addressId || e.addressName || e.address || '';
+    return { type, at, address: String(address||'').trim() };
   }
 
   async function fetchNormalized(){
     try{
-      const r = await fetch(`${API}/${BIN_HENDELSER}/latest`, { headers: headers() });
-      if (r.status === 401 || r.status === 403){ renderZerosWithHint(); return []; }
-      if (!r.ok) throw new Error('JSONBin status ' + r.status);
-
+      const r = await fetch(`${API}/${BIN}/latest`, { headers: headers() });
+      if (r.status === 401 || r.status === 403){ renderZeros(true); return []; }
+      if (!r.ok) throw new Error('JSONBin status '+r.status);
       const js = await r.json();
-      const rec = js.record;
-
-      // Støtt tre varianter: ren array | {items:[]} | {reports:[]}
       let raw = [];
-      if (Array.isArray(rec)) raw = rec;
-      else if (Array.isArray(rec?.items)) raw = rec.items;
-      else if (Array.isArray(rec?.reports)) raw = rec.reports;
+      if (Array.isArray(js.record)) raw = js.record;
+      else if (Array.isArray(js.record?.items)) raw = js.record.items;
+      else if (Array.isArray(js.record?.reports)) raw = js.record.reports;
 
-      // Normaliser og filtrer bort tomme/ukjente
+      // normaliser
       const norm = raw.map(normalizeOne)
-        .filter(x => x.at && x.type && ['start','done','skip'].includes(x.type));
+        .filter(x => x.at && x.address && (x.type==='start' || x.type==='done'))
+        .sort((a,b) => new Date(a.at) - new Date(b.at));
 
-      // Fjerne åpenbare duplikater (vi så dublerte i bin’en)
-      const seen = new Set();
-      const uniq = [];
-      for (const ev of norm){
-        const key = `${ev.type}|${ev.by}|${ev.addressId || ev.addressName}|${ev.at}`;
-        if (!seen.has(key)){ seen.add(key); uniq.push(ev); }
+      // fjern helt identiske dubletter
+      const seen = new Set(); const out=[];
+      for(const e of norm){
+        const k = `${e.type}|${e.address}|${e.at}`;
+        if (!seen.has(k)){ seen.add(k); out.push(e); }
       }
-      return uniq;
+      return out;
     }catch(e){
       console.warn('[home_dashboard] henting feilet:', e);
-      renderCard(`<div class="muted">Kunne ikke hente data.</div>
-                  <div style="margin-top:6px">Totalt: <b>0m</b> • Forrige måned: <b>0m</b> • Denne måneden: <b>0m</b> • Denne uken: <b>0m</b> • I dag: <b>0m</b></div>`);
+      renderZeros(false);
       return [];
     }
   }
 
-  // Datohjelpere
+  // Datointervaller
   const sod = d => { const x=new Date(d); x.setHours(0,0,0,0); return x; };
   const eod = d => { const x=new Date(d); x.setHours(23,59,59,999); return x; };
   const sow = d => { const x=sod(d); const day=x.getDay(); x.setDate(x.getDate() + (day===0?-6:1-day)); return x; };
@@ -112,28 +101,33 @@
   const eom = d => { const x=new Date(d); x.setMonth(x.getMonth()+1,0); x.setHours(23,59,59,999); return x; };
   const prevMonth = d => { const a=som(d); const to=new Date(a); to.setDate(0); to.setHours(23,59,59,999); const from=new Date(to); from.setDate(1); from.setHours(0,0,0,0); return [from,to]; };
 
-  // Summer minutter ved å pare start->done per (adresse, sjåfør)
+  // Summer tid: PARER KUN PÅ ADRESSE (uansett sjåfør)
   function sumMinutes(events, from=null, to=null){
-    const ev = events
-      .filter(e => {
-        const t = new Date(e.at).getTime();
-        return (!from || t >= from.getTime()) && (!to || t <= to.getTime());
-      })
-      .sort((a,b) => new Date(a.at) - new Date(b.at));
+    // filtrer på periode
+    const ev = events.filter(e => {
+      const t = new Date(e.at).getTime();
+      return (!from || t >= from.getTime()) && (!to || t <= to.getTime());
+    });
 
-    const key = e => `${e.addressId || e.addressName || ''}|${e.by || ''}`;
-    const stacks = new Map(); let ms = 0;
+    // stack per adresse
+    const stacks = new Map(); // addr -> [startMs, ...]
+    let ms = 0;
 
     for (const e of ev){
-      const k = key(e);
-      if (!stacks.has(k)) stacks.set(k, []);
-      const st = stacks.get(k);
+      const addr = e.address || '(ukjent)';
+
+      if (!stacks.has(addr)) stacks.set(addr, []);
+      const st = stacks.get(addr);
 
       if (e.type === 'start'){
         st.push(new Date(e.at).getTime());
-      } else if (e.type === 'done' && st.length){
-        const t0 = st.pop(), t1 = new Date(e.at).getTime();
-        if (!isNaN(t0) && !isNaN(t1) && t1 >= t0) ms += (t1 - t0);
+      } else if (e.type === 'done'){
+        // pop nærmeste start for samme adresse (uavhengig av sjåfør)
+        if (st.length){
+          const t0 = st.pop();
+          const t1 = new Date(e.at).getTime();
+          if (!isNaN(t0) && !isNaN(t1) && t1 >= t0) ms += (t1 - t0);
+        }
       }
     }
     return Math.round(ms/60000);
