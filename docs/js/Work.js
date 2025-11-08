@@ -1,4 +1,4 @@
-// docs/js/Work.js — robust adresser + kun Google Maps-app (ingen web)
+// docs/js/Work.js — enkel, stabil navigasjon (kun Google Maps-app) + robust UI
 (() => {
   'use strict';
 
@@ -132,61 +132,27 @@
   }
 
   // ===== NAVIGASJON =====
-  // Kun Google Maps app. Hvis ikke installert -> butikk. Ingen web-URL.
+  // Enkel og stabil: Kun Google Maps-APP. Ingen web, ingen Apple Maps, ingen timere.
   function openNavNative(addr){
-    const name  = (addr?.name || '').trim();
-    const hasLL = (addr?.lat != null && addr?.lon != null);
-    const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
-    const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
+    const hasLL = (addr && addr.lat != null && addr.lon != null);
+    const name  = (addr && addr.name ? String(addr.name).trim() : '');
 
-    const gm = destLL
-      ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
-      : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
+    let url = '';
+    if (hasLL) {
+      url = `comgooglemaps://?daddr=${encodeURIComponent(addr.lat+','+addr.lon)}&directionsmode=driving`;
+    } else if (name) {
+      url = `comgooglemaps://?q=${encodeURIComponent(name + ', Norge')}&directionsmode=driving`;
+    } else {
+      alert('Mangler både koordinater og navn på adressen – kan ikke navigere.');
+      return;
+    }
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
-    const store = isIOS
-      ? 'itms-apps://itunes.apple.com/app/id585027354'
-      : 'market://details?id=com.google.android.apps.maps';
-
-    // Hvis appen åpnes, siden blir "hidden" — da avbryter vi fallback.
-    let to = null;
-    const cancel = () => { clearTimeout(to); };
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') cancel();
-    }, { once:true });
-
-    // Midlertidig sperr "web Google Maps" i 5s for å hindre gammelt fallback-skript
-    hardBlockWebGMapsFor5s();
-
-    // Forsøk å åpne appen
-    window.location.href = gm;
-
-    // Hvis fortsatt synlig etter ~900ms, gå til butikk (ikke web)
-    to = setTimeout(() => {
-      if (document.visibilityState === 'visible') {
-        try { alert('Installer Google Maps-appen for å navigere.'); } catch {}
-        window.location.href = store;
-      }
-    }, 900);
-  }
-
-  // Blokker https://www.google.com/maps i 5 sek (fanger opp gamle fallback-skript)
-  function hardBlockWebGMapsFor5s(){
-    const isG = url => typeof url === 'string' && /^https:\/\/www\.google\.com\/maps/i.test(url);
-
-    const origOpen    = window.open.bind(window);
-    const origAssign  = window.location.assign.bind(window.location);
-    const origReplace = window.location.replace.bind(window.location);
-
-    window.open = (u, ...r) => isG(u) ? null : origOpen(u, ...r);
-    window.location.assign = u => { if (!isG(u)) origAssign(u); };
-    window.location.replace = u => { if (!isG(u)) origReplace(u); };
-
-    setTimeout(() => {
-      window.open = origOpen;
-      window.location.assign = origAssign;
-      window.location.replace = origReplace;
-    }, 5000);
+    try {
+      window.location.href = url;
+    } catch (e){
+      console.error('Navigasjonsfeil:', e);
+      alert('Kunne ikke åpne Google Maps-appen.');
+    }
   }
 
   function uiUpdate(){
@@ -348,7 +314,10 @@
     const list = filteredAddresses(lane);
     const idx  = run.idx;
     const cur  = (idx != null) ? list[idx] : null;
-    if (!cur) return;
+    if (!cur) {
+      alert('Ingen aktiv adresse å navigere til.');
+      return;
+    }
     openNavNative(cur);
   }
 
