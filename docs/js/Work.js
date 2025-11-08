@@ -334,14 +334,19 @@
 
   // >>> Ny actNav (native Maps) <<<
   function actNav(){
-    const run  = getRun();
-    const lane = run.lane || laneFromSettings();
-    const list = filteredAddresses(lane);
-    const idx  = run.idx;
-    const cur  = (idx != null) ? list[idx] : null;
-    if (!cur) return;
-    openNavNative(cur); // åpner appen / ny fane – PWA forblir
-  }
+  const run  = getRun();
+  const lane = run.lane || laneFromSettings();
+  const list = filteredAddresses(lane);
+  const idx  = run.idx;
+  const cur  = (idx != null) ? list[idx] : null;
+  if (!cur) return;
+
+  // bruk native-åpning (ekstern app / ny fane)
+  openNavNative(cur);
+
+  // ❌ Ikke bruk sessionStorage eller window.location her –
+  // det er dette som ga hvit side ved retur!
+}
 
   // --- Uhell-knapp: lag/vis/placer over Brøytekart (med fallback-timer)
   function ensureUhellButton(){
