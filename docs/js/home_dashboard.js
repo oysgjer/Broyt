@@ -1,12 +1,11 @@
-// js/home_dashboard.js – Samlet brøytetid beregnet fra JSONBin-hendelser
+// js/home_dashboard.js — Samlet brøytetid med robust nøkkel-håndtering + auto-refresh
 (() => {
   'use strict';
 
-  // === Konfig ===
-  const BIN_HENDELSER = "68e89e3443b1c97be9611c48"; // privat hendelser
+  const BIN_HENDELSER = "68e89e3443b1c97be9611c48";
   const API = "https://api.jsonbin.io/v3/b";
 
-  // Hent nøkler fra localStorage (settes via Admin)
+  // Nøkler fra localStorage (settes i Admin)
   const getMK = () =>
     (localStorage.getItem('X-Master-Key') ||
      localStorage.getItem('x-master-key') ||
@@ -16,119 +15,130 @@
      localStorage.getItem('x-access-key') ||
      localStorage.getItem('jsonbin_access_key') || '').trim();
 
-  function headers(json=false){
-    const h={};
-    if (json) h['Content-Type']='application/json';
-    const mk = getMK(); const ak = getAK();
-    if (mk) h['X-Master-Key']=mk;
-    if (ak) h['X-Access-Key']=ak;
+  const needsKeys = () => !getMK();
+
+  function headers(){
+    const h = {};
+    const mk = getMK(), ak = getAK();
+    if (mk) h['X-Master-Key'] = mk;
+    if (ak) h['X-Access-Key'] = ak;
     return h;
+  }
+
+  const elStats = () => document.getElementById('stats');
+
+  function renderCard(innerHtml){
+    const el = elStats(); if (!el) return;
+    el.innerHTML = `<div class="card" style="padding:12px">
+      <div class="muted-strong" style="margin-bottom:6px">📊 Samlet brøytetid</div>
+      ${innerHtml}
+    </div>`;
+  }
+
+  function renderZerosWithHint(){
+    renderCard(`
+      <div class="muted" style="margin-bottom:6px">
+        Trenger JSONBin-nøkler. Åpne <a href="./index.html#admin">Admin</a> og lagre X-Master-Key.
+      </div>
+      <div>Totalt: <b>0m</b></div>
+      <div>Forrige måned: <b>0m</b></div>
+      <div>Denne måneden: <b>0m</b></div>
+      <div>Denne uken: <b>0m</b></div>
+      <div>I dag: <b>0m</b></div>
+    `);
+  }
+
+  function renderMinutes(m){
+    renderCard(`
+      <div>Totalt: <b>${m.total}m</b></div>
+      <div>Forrige måned: <b>${m.prevMonth}m</b></div>
+      <div>Denne måneden: <b>${m.month}m</b></div>
+      <div>Denne uken: <b>${m.week}m</b></div>
+      <div>I dag: <b>${m.today}m</b></div>
+    `);
   }
 
   async function fetchHendelser(){
     try{
-      const r = await fetch(`${API}/${BIN_HENDELSER}/latest`, { headers: headers(false) });
+      const r = await fetch(`${API}/${BIN_HENDELSER}/latest`, { headers: headers() });
+      if (r.status === 401 || r.status === 403){
+        renderZerosWithHint();
+        return [];
+      }
       if (!r.ok) throw new Error('JSONBin status ' + r.status);
       const js = await r.json();
       const arr = Array.isArray(js.record) ? js.record : (js.record?.items || []);
-      // bare de vi bryr oss om
-      return arr.filter(e => e && e.at && (e.type==='start' || e.type==='done'));
+      return arr.filter(e => e && e.at && (e.type === 'start' || e.type === 'done'));
     }catch(e){
-      console.warn('[home_dashboard] klarte ikke å hente hendelser:', e);
-      return []; // vis 0m i verste fall
+      console.warn('[home_dashboard] henting feilet:', e);
+      renderCard(`<div class="muted">Kunne ikke hente data.</div>
+                  <div style="margin-top:6px">Totalt: <b>0m</b> • Forrige måned: <b>0m</b> • Denne måneden: <b>0m</b> • Denne uken: <b>0m</b> • I dag: <b>0m</b></div>`);
+      return [];
     }
   }
 
-  function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
-  function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
-  function startOfWeek(d){
-    const x = startOfDay(d);
-    const day = x.getDay(); // 0=Sun…6=Sat
-    const mondayOffset = (day === 0 ? -6 : 1 - day);
-    x.setDate(x.getDate() + mondayOffset);
-    return x;
-  }
-  function startOfMonth(d){ const x=new Date(d); x.setDate(1); x.setHours(0,0,0,0); return x; }
-  function endOfMonth(d){ const x=new Date(d); x.setMonth(x.getMonth()+1,0); x.setHours(23,59,59,999); return x; }
-  function prevMonthRange(d){
-    const curFirst = startOfMonth(d);
-    const prevLast = new Date(curFirst); prevLast.setDate(0); prevLast.setHours(23,59,59,999);
-    const prevFirst = new Date(prevLast); prevFirst.setDate(1); prevFirst.setHours(0,0,0,0);
-    return [prevFirst, prevLast];
-  }
+  // Datohjelpere
+  const sod = d => { const x=new Date(d); x.setHours(0,0,0,0); return x; };
+  const eod = d => { const x=new Date(d); x.setHours(23,59,59,999); return x; };
+  const sow = d => { const x=sod(d); const day=x.getDay(); x.setDate(x.getDate() + (day===0?-6:1-day)); return x; };
+  const som = d => { const x=new Date(d); x.setDate(1); x.setHours(0,0,0,0); return x; };
+  const eom = d => { const x=new Date(d); x.setMonth(x.getMonth()+1,0); x.setHours(23,59,59,999); return x; };
+  const prevMonth = d => { const a=som(d); const to=new Date(a); to.setDate(0); to.setHours(23,59,59,999); const from=new Date(to); from.setDate(1); from.setHours(0,0,0,0); return [from,to]; };
 
-  // sommer brøytetid (minutter) ved å pare start->done pr adresse + sjåfør
+  // Summer minutter ved å pare start->done per (adresse, sjåfør)
   function sumMinutes(events, from=null, to=null){
     const ev = events
       .filter(e => {
-        if (!e?.at) return false;
         const t = new Date(e.at).getTime();
-        if (from && t < from.getTime()) return false;
-        if (to && t > to.getTime()) return false;
-        return true;
+        return (!from || t >= from.getTime()) && (!to || t <= to.getTime());
       })
-      .sort((a,b)=> new Date(a.at)-new Date(b.at));
+      .sort((a,b) => new Date(a.at) - new Date(b.at));
 
-    const keyFor = (e)=> `${e.addressId || e.addressName || ''}|${e.by || ''}`;
-    const stacks = new Map(); // key -> [start ms]
-    let totalMs = 0;
+    const key = e => `${e.addressId || e.addressName || ''}|${e.by || ''}`;
+    const stacks = new Map(); let ms = 0;
 
     for (const e of ev){
-      const k = keyFor(e);
+      const k = key(e);
       if (!stacks.has(k)) stacks.set(k, []);
       const st = stacks.get(k);
+
       if (e.type === 'start'){
         st.push(new Date(e.at).getTime());
       } else if (e.type === 'done' && st.length){
-        const t0 = st.pop();
-        const t1 = new Date(e.at).getTime();
-        if (!isNaN(t0) && !isNaN(t1) && t1>=t0) totalMs += (t1 - t0);
+        const t0 = st.pop(), t1 = new Date(e.at).getTime();
+        if (!isNaN(t0) && !isNaN(t1) && t1 >= t0) ms += (t1 - t0);
       }
     }
-    return Math.round(totalMs/60000);
-  }
-
-  function renderStats(minutes){
-    const el = document.getElementById('stats');
-    if (!el) return;
-    const html = `
-      <div class="card" style="padding:12px">
-        <div class="muted-strong" style="margin-bottom:6px">📊 Samlet brøytetid</div>
-        <div>Totalt: <b>${minutes.total}m</b></div>
-        <div>Forrige måned: <b>${minutes.prevMonth}m</b></div>
-        <div>Denne måneden: <b>${minutes.month}m</b></div>
-        <div>Denne uken: <b>${minutes.week}m</b></div>
-        <div>I dag: <b>${minutes.today}m</b></div>
-      </div>
-    `;
-    el.innerHTML = html;
+    return Math.round(ms/60000);
   }
 
   async function run(){
+    // Viser hint med én gang hvis nøkler mangler
+    if (needsKeys()){
+      renderZerosWithHint();
+      // men prøver likevel å hente i tilfelle AK/MK finnes i andre key-navn
+    }
+
     const all = await fetchHendelser();
     const now = new Date();
-
-    const todayFrom = startOfDay(now);
-    const todayTo   = endOfDay(now);
-
-    const weekFrom = startOfWeek(now);
-    const weekTo   = endOfDay(now);
-
-    const monthFrom = startOfMonth(now);
-    const monthTo   = endOfMonth(now);
-
-    const [pmFrom, pmTo] = prevMonthRange(now);
-
     const minutes = {
       total:     sumMinutes(all),
-      prevMonth: sumMinutes(all, pmFrom, pmTo),
-      month:     sumMinutes(all, monthFrom, monthTo),
-      week:      sumMinutes(all, weekFrom, weekTo),
-      today:     sumMinutes(all, todayFrom, todayTo),
+      prevMonth: sumMinutes(all, ...prevMonth(now)),
+      month:     sumMinutes(all, som(now), eom(now)),
+      week:      sumMinutes(all, sow(now), eod(now)),
+      today:     sumMinutes(all, sod(now), eod(now))
     };
-
-    renderStats(minutes);
+    renderMinutes(minutes);
   }
+
+  // Auto-refresh når nøkler endres i Admin (samme origin)
+  window.addEventListener('storage', (e) => {
+    if (!e) return;
+    const k = (e.key || '').toLowerCase();
+    if (['x-master-key','x-access-key','jsonbin_master_key','jsonbin_access_key'].includes(k)){
+      run(); // re-hent og re-render
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', run);
 })();
