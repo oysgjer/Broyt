@@ -1,224 +1,54 @@
 <!doctype html>
 <html lang="no">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Logg – Brøyterute</title>
-<style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial;margin:12px}
-  h1{margin:0 0 8px}
-  .row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:10px 0}
-  label{font-size:13px;opacity:.85;display:block;margin-bottom:4px}
-  input[type="date"]{padding:8px;border:1px solid #d1d5db;border-radius:8px}
-  button{padding:10px 14px;border-radius:10px;border:1px solid #2563eb;background:#2563eb;color:#fff}
-  .totals{margin:6px 0 14px; font-weight:700}
-  table{width:100%;border-collapse:collapse}
-  th,td{border-bottom:1px solid #e5e7eb;padding:8px 6px;vertical-align:top}
-  th{text-align:left;background:#f8fafc}
-  .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
-  .tag-start{background:#e0e7ff;color:#1d4ed8}
-  .tag-done{background:#dcfce7;color:#166534}
-  .tag-skip{background:#fef3c7;color:#b45309}
-  .muted{color:#6b7280}
-  .reason{font-style:italic;color:#7c2d12}
-  .note{font-size:13px;color:#6b7280;margin:10px 0}
-  .warn{background:#fff7ed;color:#9a3412;border:1px solid #fdba74;padding:10px;border-radius:8px}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Brøyterute – Logg</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <style>
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .controls label{display:flex;gap:6px;align-items:center}
+    .hdr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 6px}
+    .hdr .cell{padding:6px 8px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--bg-soft,#fafafa)}
+    table{width:100%;border-collapse:collapse;margin-bottom:18px}
+    th,td{padding:8px;border-bottom:1px solid var(--border,#eee)}
+    th{background:var(--bg-muted,#f6f7f8);text-align:left}
+    .section-title{margin:18px 0 6px;font-size:1.1rem;font-weight:600}
+    .muted{color:#6b7280}
+    @media print{
+      .controls{display:none}
+      body{margin:0.8cm}
+      th,td{padding:6px}
+      .section-title{margin:8px 0 4px}
+    }
+  </style>
 </head>
 <body>
-  <h1>Logg</h1>
-  <div id="keyWarn" class="warn" style="display:none">
-    Mangler JSONBin-nøkler. Åpne <a href="index.html#admin">Admin-siden</a> og legg inn X-Master-Key (og ev. X-Access-Key).
+
+  <div class="controls">
+    <label>Sjåfør
+      <select id="selDriver"><option value="">Alle</option></select>
+    </label>
+    <label>Sluttdato <input id="inpDato" type="date"></label>
+    <label>Antall dager
+      <select id="selDays">
+        <option value="1">1</option>
+        <option value="3">3</option>
+        <option value="5" selected>5</option>
+        <option value="7">7</option>
+        <option value="14">14</option>
+        <option value="30">30</option>
+      </select>
+    </label>
+    <button id="btnLoadLogg" class="btn">Last fra JSONBin</button>
+    <button onclick="window.print()">Skriv ut / PDF</button>
+    <span id="status" class="muted"></span>
   </div>
 
-  <div class="row">
-    <div>
-      <label for="dateFrom">Fra</label>
-      <input id="dateFrom" type="date">
-    </div>
-    <div>
-      <label for="dateTo">Til</label>
-      <input id="dateTo" type="date">
-    </div>
-    <button id="btnReload">Oppdater</button>
-  </div>
+  <div id="logg_container"></div>
 
-  <div id="totals" class="totals">Totaltid: —</div>
-  <div id="logWrap"></div>
+  <div style="margin-top:10px;color:#6b7280">Brøyting Romerike Trefelling</div>
 
-<script>
-(() => {
-  'use strict';
-
-  const BINS = {
-    HENDELSER: "68e89e3443b1c97be9611c48",
-    ADRESSER:  "68ed425cae596e708f11d25f"
-  };
-  const API = "https://api.jsonbin.io/v3/b";
-  const DEFAULT_DAYS = 5;
-
-  const byId = (id)=>document.getElementById(id);
-  const pad = (n)=> n<10?('0'+n):''+n;
-  const fmtDateInput = (d)=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const fmtNorDate = (d)=> `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;
-  const fmtTime = (d)=> `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  const startOfDay = (d)=>{ const x=new Date(d); x.setHours(0,0,0,0); return x; };
-  const endOfDay   = (d)=>{ const x=new Date(d); x.setHours(23,59,59,999); return x; };
-
-  const getMK = ()=> (localStorage.getItem('X-Master-Key') || localStorage.getItem('x-master-key') || localStorage.getItem('jsonbin_master_key') || '').trim();
-  const getAK = ()=> (localStorage.getItem('X-Access-Key') || localStorage.getItem('x-access-key') || localStorage.getItem('jsonbin_access_key') || '').trim();
-
-  function headers(){
-    const h={};
-    const mk=getMK(), ak=getAK();
-    if (mk) h['X-Master-Key']=mk;
-    if (ak) h['X-Access-Key']=ak;
-    return h;
-  }
-
-  function esc(s){ return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;'); }
-
-  async function getBinLatest(id){
-    const r = await fetch(`${API}/${id}/latest`, { headers: headers() });
-    if (!r.ok) throw new Error(id+': '+r.status);
-    const js = await r.json();
-    return js.record;
-  }
-
-  function normalizeAddrId(a){
-    return a.id ?? a.ID ?? a.uuid ?? a.adresseId ?? a.adresse_id ?? a.adresse ?? a.navn ?? String(a);
-  }
-  function buildAddressIdx(list){
-    const byId = new Map(), byName = new Map();
-    for (const a of (list||[])){
-      const id = normalizeAddrId(a);
-      if (id) byId.set(String(id), a);
-      if (a?.navn) byName.set(String(a.navn).trim(), a);
-      if (a?.adresse) byName.set(String(a.adresse).trim(), a);
-    }
-    return { byId, byName };
-  }
-
-  function groupByDate(events){
-    const by = new Map();
-    for (const e of events){
-      if (!e?.at) continue;
-      const day = fmtNorDate(new Date(e.at));
-      if (!by.has(day)) by.set(day, []);
-      by.get(day).push(e);
-    }
-    return by;
-  }
-
-  function pairKey(e){ return `${(e.addressId||e.addressName||'')}|${(e.by||'')}`; }
-  function totalMinutes(events){
-    const ev = [...events].sort((a,b)=> new Date(a.at)-new Date(b.at));
-    const stacks = new Map(); let ms = 0;
-    for (const e of ev){
-      const k = pairKey(e);
-      if (!stacks.has(k)) stacks.set(k, []);
-      const st = stacks.get(k);
-      if (e.type==='start'){ st.push(new Date(e.at).getTime()); }
-      else if (e.type==='done' && st.length){
-        const t0 = st.pop(), t1 = new Date(e.at).getTime();
-        if (!isNaN(t0) && !isNaN(t1) && t1>=t0) ms += (t1 - t0);
-      }
-    }
-    return Math.round(ms/60000);
-  }
-
-  function renderDay(day, events, idx){
-    const sec = document.createElement('section');
-    sec.innerHTML = `<h2 style="margin-top:18px">${day}</h2>
-    <table>
-      <thead><tr>
-        <th style="width:120px">Tid</th>
-        <th>Adresse</th>
-        <th>Hendelse</th>
-        <th>Av</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>`;
-    const tb = sec.querySelector('tbody');
-
-    for (const e of events.sort((a,b)=> new Date(a.at)-new Date(b.at))){
-      const aFromId = e.addressId ? idx.byId.get(String(e.addressId)) : null;
-      const aFromNm = (!aFromId && e.addressName) ? idx.byName.get(String(e.addressName)) : null;
-      const a = aFromId || aFromNm || {};
-      const title = a.navn || a.adresse || e.addressName || e.addressId || '—';
-      const t = e.at ? fmtTime(new Date(e.at)) : '—';
-
-      let tag=''; let label=''; let extra='';
-      if (e.type==='start'){ tag='tag-start'; label='Startet'; }
-      else if (e.type==='done'){ tag='tag-done'; label='Ferdig'; }
-      else if (e.type==='skip'){ tag='tag-skip'; label='Ikke mulig'; if (e.reason) extra = `<div class="reason">Årsak: ${esc(e.reason)}</div>`; }
-
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${t}</td>
-        <td>
-          <div>${esc(title)}</div>
-          ${a.kunde ? `<div class="muted">${esc(a.kunde)}</div>` : ''}
-          ${a.adresse && a.navn ? `<div class="muted">${esc(a.adresse)}</div>` : ''}
-        </td>
-        <td><span class="tag ${tag}">${label}</span>${extra}</td>
-        <td>${esc(e.by || '—')}</td>
-      `;
-      tb.appendChild(tr);
-    }
-    return sec;
-  }
-
-  async function loadAndRender(){
-    const mk = getMK();
-    if (!mk){
-      byId('keyWarn').style.display='block';
-      return;
-    }
-
-    const from = byId('dateFrom').value ? new Date(byId('dateFrom').value) : startOfDay(new Date(Date.now()-DEFAULT_DAYS*24*3600*1000));
-    const to   = byId('dateTo').value   ? new Date(byId('dateTo').value)   : endOfDay(new Date());
-    byId('dateFrom').value = fmtDateInput(from);
-    byId('dateTo').value   = fmtDateInput(to);
-
-    const [hendRaw, addrRaw] = await Promise.all([
-      getBinLatest(BINS.HENDELSER),
-      getBinLatest(BINS.ADRESSER)
-    ]);
-    const hendelser = Array.isArray(hendRaw)? hendRaw : (hendRaw?.items||[]);
-    const adresser  = Array.isArray(addrRaw)? addrRaw : (addrRaw?.items||[]);
-    const idx = buildAddressIdx(adresser);
-
-    const filtered = hendelser.filter(e => e && e.at && new Date(e.at) >= from && new Date(e.at) <= to);
-
-    byId('totals').textContent = `Totaltid: ${totalMinutes(filtered)} min`;
-
-    const byDay = groupByDate(filtered);
-    const logWrap = byId('logWrap');
-    logWrap.innerHTML = '';
-    const days = Array.from(byDay.keys()).sort((a,b)=>{
-      const [da,ma,ya]=a.split('.').map(Number);
-      const [db,mb,yb]=b.split('.').map(Number);
-      return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
-    });
-    if (!days.length){
-      logWrap.innerHTML = `<div class="muted">Ingen hendelser i valgt periode.</div>`;
-      return;
-    }
-    for (const d of days){
-      logWrap.appendChild(renderDay(d, byDay.get(d), idx));
-    }
-  }
-
-  window.addEventListener('DOMContentLoaded', ()=>{
-    const dTo = new Date();
-    const dFrom = new Date(Date.now()-DEFAULT_DAYS*24*3600*1000);
-    byId('dateFrom').value = fmtDateInput(dFrom);
-    byId('dateTo').value   = fmtDateInput(dTo);
-    byId('btnReload').addEventListener('click', ()=> loadAndRender().catch(()=>alert('Kunne ikke laste logg')));
-    loadAndRender().catch(()=> byId('keyWarn').style.display='block');
-  });
-})();
-</script>
+  <script src="./js/logg.js" defer></script>
 </body>
 </html>
