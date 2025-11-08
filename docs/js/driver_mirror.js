@@ -1,110 +1,118 @@
-/*! driver_mirror.js (safe)
- * Speiler sjåførnavn fra Hjem til Under arbeid – helt usynlig.
- * - Lagrer LAST_DRIVER i localStorage
- * - Oppretter #work_driver_mirror med data-driver, men INGEN synlig tekst
- * - Elementet er både hidden & aria-hidden, og skjules også via CSS
+/*! driver_mirror.js — kanonisk håndtering av sjåførnavn
+ * - Leser fra #a_driver på Hjem
+ * - Lagrer i localStorage: BRYT_DRIVER (kanonisk) + kompatibilitetsnøkler
+ * - Oppdaterer BRYT_SETTINGS.driver og BRYT_RUN.driver
+ * - Speiler til #work_driver_mirror med data-driver
+ * - Eksponerer window.getDriverName()
  */
-(function(){
+(() => {
   'use strict';
 
-  function readDriverFromHome(){
-    try{
-      // Tekstinput eller felter som har driver/sjåfør
-      const el = document.querySelector('#home input[type="text"], input[name="driver"], #driver, #sjåfør, #sjafor');
-      const v = (el && (el.value || el.textContent || '') || '').trim();
-      return v || null;
-    }catch{ return null; }
+  const KEY_CANON = 'BRYT_DRIVER';
+  const LS_SETTINGS = 'BRYT_SETTINGS';
+  const LS_RUN = 'BRYT_RUN';
+
+  // ---------- Utils ----------
+  function getInput() {
+    return document.getElementById('a_driver');
   }
 
-  function ensureMirror(){
-    let holder = document.querySelector('#work') || document.body;
+  function ensureMirrorEl() {
     let el = document.getElementById('work_driver_mirror');
-    if (!el){
-      el = document.createElement('span');
-      el.id = 'work_driver_mirror';
-      el.setAttribute('data-driver-mirror','');
-      el.hidden = true;
-      el.setAttribute('aria-hidden','true');
-      // viktig: IKKE tekst, kun data-attributt
-      el.textContent = '';
-      holder.appendChild(el);
-    }
-    return el;
-  }
-
-  function setDriverCache(name){
-    try{ if (name && name.length) localStorage.setItem('LAST_DRIVER', name); }catch{}
-  }
-  function getDriverCache(){
-    try{ return localStorage.getItem('LAST_DRIVER') || ''; }catch{ return ''; }
-  }
-
-  function update(){
-    const name = readDriverFromHome() || getDriverCache() || '';
-    const mir = ensureMirror();
-    if (name) mir.setAttribute('data-driver', name);
-    // aldri vis tekst
-    mir.textContent = '';
-  }
-
-  document.addEventListener('input', function(e){
-    // Oppdater cache når man skriver i fører-felt
-    if (e.target && (e.target.id==='driver' || e.target.name==='driver' || e.target.closest('#home'))) {
-      const v = (e.target.value || '').trim();
-      if (v) setDriverCache(v);
-      update();
-    }
-  });
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', update, {once:true});
-  } else {
-    update();
-  }
-
-  // Oppdater når vi bytter seksjon mellom home/work
-  window.addEventListener('hashchange', update);
-})();
-// --- Patch: fanger opp fører fra hjem og speiler til work ---
-(function(){
-  function saveDriver(){
-    const el = document.querySelector(
-      '#home input[type="text"], #home [name="driver"], #home [placeholder*="fører" i]'
-    );
-    if (!el) return;
-    const val = (el.value || el.textContent || '').trim();
-    if (val.length > 0) {
-      localStorage.setItem('LAST_DRIVER', val);
-      console.log('💾 Lagret driver:', val);
-      mirrorDriver(val);
-    }
-  }
-
-  function mirrorDriver(name){
-    let el = document.querySelector('#work_driver_mirror');
     if (!el) {
       el = document.createElement('span');
       el.id = 'work_driver_mirror';
       el.hidden = true;
-      el.setAttribute('aria-hidden','true');
+      el.setAttribute('aria-hidden', 'true');
       document.body.appendChild(el);
     }
-    el.setAttribute('data-driver', name);
-    console.log('🔁 Speilet driver:', name);
+    return el;
   }
 
-  // Oppdater hver gang du skriver
-  document.addEventListener('input', e => {
-    if (e.target.closest('#home')) saveDriver();
-  });
+  function trim(v) { return String(v || '').trim(); }
 
-  // Oppdater ved lasting/bytte
-  document.addEventListener('DOMContentLoaded', () => {
-    const cached = localStorage.getItem('LAST_DRIVER') || '';
-    if (cached) mirrorDriver(cached);
-  });
-  window.addEventListener('hashchange', () => {
-    const cached = localStorage.getItem('LAST_DRIVER') || '';
-    if (cached) mirrorDriver(cached);
-  });
+  // ---------- Kanonisk get/set ----------
+  function setCanonical(nameRaw) {
+    const name = trim(nameRaw);
+    // 1) Kanonisk + kompatibilitet
+    localStorage.setItem(KEY_CANON, name);
+    localStorage.setItem('driverName', name);
+    localStorage.setItem('sjaforNavn', name);
+
+    // 2) Settings
+    try {
+      const s = JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}');
+      s.driver = name;
+      localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
+    } catch {}
+
+    // 3) Pågående runde
+    try {
+      const r = JSON.parse(localStorage.getItem(LS_RUN) || '{}');
+      r.driver = name;
+      localStorage.setItem(LS_RUN, JSON.stringify(r));
+    } catch {}
+
+    // 4) Speil til skjult element
+    const mir = ensureMirrorEl();
+    if (name) mir.setAttribute('data-driver', name);
+    else mir.removeAttribute('data-driver');
+  }
+
+  function getCanonical() {
+    const inputVal = trim(getInput()?.value);
+    const stored =
+      trim(localStorage.getItem(KEY_CANON)) ||
+      trim(localStorage.getItem('driverName')) ||
+      trim(localStorage.getItem('sjaforNavn'));
+    return inputVal || stored || '';
+  }
+
+  // Gjør tilgjengelig for andre skript (logger etc.)
+  window.getDriverName = () => getCanonical();
+
+  // ---------- Init & wiring ----------
+  function syncFromInput() {
+    const v = trim(getInput()?.value);
+    if (v) setCanonical(v);
+  }
+
+  function prefillInputFromStorage() {
+    const inp = getInput();
+    if (!inp) return;
+    const existing = trim(inp.value);
+    if (existing) { setCanonical(existing); return; }
+    const fromStore = getCanonical();
+    if (fromStore) {
+      inp.value = fromStore;
+      setCanonical(fromStore);
+    }
+  }
+
+  function wire() {
+    const inp = getInput();
+    if (inp) {
+      const onChange = () => setCanonical(inp.value);
+      inp.addEventListener('input', onChange);
+      inp.addEventListener('change', onChange);
+      inp.addEventListener('blur', onChange);
+    }
+
+    // Oppdater når vi bytter seksjon eller når andre faner endrer navnet
+    window.addEventListener('hashchange', syncFromInput);
+    window.addEventListener('storage', (e) => {
+      const k = (e.key || '').toLowerCase();
+      if (['bryt_driver', 'drivername', 'sjafornavn'].includes(k)) {
+        prefillInputFromStorage();
+      }
+    });
+  }
+
+  // Start
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { prefillInputFromStorage(); wire(); }, { once:true });
+  } else {
+    prefillInputFromStorage();
+    wire();
+  }
 })();
