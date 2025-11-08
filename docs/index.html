@@ -132,40 +132,56 @@
         <input id="a_driver" class="input" placeholder="Navn" />
       </label>
 
-      <label class="field">
-        <span style="font-weight:700; font-size:1.05rem;">Utstyr</span>
-        <div class="input-like">
-          <div class="checkbox-col" style="gap:10px">
-            <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
-            <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
-            <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
-          </div>
-        </div>
-      </label>
+  <!-- UTSTYR (uendret) -->
+<label class="field">
+  <span style="font-weight:700; font-size:1.05rem;">Utstyr</span>
+  <div class="input-like">
+    <div class="checkbox-col" style="gap:10px">
+      <label><input id="a_eq_plow" type="checkbox" /> Skjær</label>
+      <label><input id="a_eq_fres" type="checkbox" /> Fres</label>
+      <label><input id="a_eq_sand" type="checkbox" /> Sand/Grus</label>
+    </div>
+  </div>
+</label>
 
-      <label class="field">
-        <span style="font-weight:700; font-size:1.05rem;">Rekkefølge</span>
-        <div class="row" style="gap:16px; align-items:center">
-          <select id="a_dir" class="input" style="flex:1; max-width:320px">
+<!-- REKKEFØLGE — TABELL-LAYOUT (stabil) -->
+<label class="field" id="reorderField">
+  <span style="font-weight:700; font-size:1.05rem;">Rekkefølge</span>
+
+  <table class="dir-table">
+    <tbody>
+      <tr>
+        <td>
+          <select id="a_dir" class="input" style="max-width:320px;">
             <option>Normal</option>
             <option>Motsatt</option>
           </select>
-          <br>
-            <!-- Start Brøytekart-preferanse -->
-<label class="field" style="margin-top:10px">
-  <div class="row" style="gap:8px; align-items:center">
-    <input id="a_startKart" type="checkbox" />
-    <span class="muted-strong">Start Brøytekart</span>
-  </div>
-</label>
-          <label class="row" style="gap:8px; align-items:center">
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label class="row">
+            <input id="a_startKart" type="checkbox" />
+            <span class="muted-strong">Start Brøytekart</span>
+          </label>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label class="row">
             <input id="a_autoNav" type="checkbox" />
             <span class="muted-strong">Auto-naviger</span>
           </label>
-        </div>
-      </label>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</label>
 
-      <button id="a_start" class="btn">Start runde</button>
+<!-- VIKTIG: Ikke ha en ekstra "Auto-naviger"-label med samme id under her -->
+
+<button id="a_start" class="btn">Start runde</button>
+
     </section>
 
     <!-- UNDER ARBEID -->
