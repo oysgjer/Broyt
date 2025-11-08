@@ -1,4 +1,4 @@
-// docs/js/Work.js — robust adresser + native navigasjon (ingen hvit side)
+// docs/js/Work.js — robust adresser + kun Google Maps-app (ingen web)
 (() => {
   'use strict';
 
@@ -131,43 +131,63 @@
     $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(pr.done, pr.total)} av ${pr.total} adresser fullført`);
   }
 
-// Kun Google Maps app. Hvis ikke installert -> App Store / Play Store.
-// Ingen web-URL, ingen ekstra faner.
-function openNavNative(addr){
-  const name  = (addr?.name || '').trim();
-  const hasLL = (addr?.lat != null && addr?.lon != null);
-  const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
-  const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
+  // ===== NAVIGASJON =====
+  // Kun Google Maps app. Hvis ikke installert -> butikk. Ingen web-URL.
+  function openNavNative(addr){
+    const name  = (addr?.name || '').trim();
+    const hasLL = (addr?.lat != null && addr?.lon != null);
+    const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
+    const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
 
-  // Google Maps app deep-link
-  const gm = destLL
-    ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
-    : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
+    const gm = destLL
+      ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
+      : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
 
-  // Butikk-lenker
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
-  const store = isIOS
-    ? 'itms-apps://itunes.apple.com/app/id585027354' // Google Maps for iOS
-    : 'market://details?id=com.google.android.apps.maps'; // Android
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
+    const store = isIOS
+      ? 'itms-apps://itunes.apple.com/app/id585027354'
+      : 'market://details?id=com.google.android.apps.maps';
 
-  // Hvis appen åpnes, blir siden "hidden". Da avbryter vi fallback.
-  let to = null;
-  const cancel = () => { clearTimeout(to); };
-  const onVis = () => { if (document.visibilityState === 'hidden') cancel(); };
-  document.addEventListener('visibilitychange', onVis, { once:true });
+    // Hvis appen åpnes, siden blir "hidden" — da avbryter vi fallback.
+    let to = null;
+    const cancel = () => { clearTimeout(to); };
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') cancel();
+    }, { once:true });
 
-  // Forsøk å åpne appen
-  window.location.href = gm;
+    // Midlertidig sperr "web Google Maps" i 5s for å hindre gammelt fallback-skript
+    hardBlockWebGMapsFor5s();
 
-  // Hvis vi fortsatt er synlige etter ~900ms, ta bruker til butikk
-  to = setTimeout(() => {
-    if (document.visibilityState === 'visible') {
-      // Valgfritt: kort beskjed før butikk
-      try { alert('For å navigere må Google Maps-appen være installert. Du blir sendt til butikken.'); } catch {}
-      window.location.href = store;
-    }
-  }, 900);
-}
+    // Forsøk å åpne appen
+    window.location.href = gm;
+
+    // Hvis fortsatt synlig etter ~900ms, gå til butikk (ikke web)
+    to = setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        try { alert('Installer Google Maps-appen for å navigere.'); } catch {}
+        window.location.href = store;
+      }
+    }, 900);
+  }
+
+  // Blokker https://www.google.com/maps i 5 sek (fanger opp gamle fallback-skript)
+  function hardBlockWebGMapsFor5s(){
+    const isG = url => typeof url === 'string' && /^https:\/\/www\.google\.com\/maps/i.test(url);
+
+    const origOpen    = window.open.bind(window);
+    const origAssign  = window.location.assign.bind(window.location);
+    const origReplace = window.location.replace.bind(window.location);
+
+    window.open = (u, ...r) => isG(u) ? null : origOpen(u, ...r);
+    window.location.assign = u => { if (!isG(u)) origAssign(u); };
+    window.location.replace = u => { if (!isG(u)) origReplace(u); };
+
+    setTimeout(() => {
+      window.open = origOpen;
+      window.location.assign = origAssign;
+      window.location.replace = origReplace;
+    }, 5000);
+  }
 
   function uiUpdate(){
     let run  = getRun();
@@ -412,10 +432,8 @@ function openNavNative(addr){
     $('#act_nav')  ?.addEventListener('click', actNav);
     $('#act_block')?.addEventListener('click', actBlock);
 
-    // initial UI (kan være tom hvis Sync ikke er klar enda)
     uiUpdate();
 
-    // spesialknapper
     let ok1 = ensureUhellButton();
     let ok2 = ensureBroytKart();
     if (!ok1 || !ok2){
@@ -429,18 +447,15 @@ function openNavNative(addr){
 
     wireClickFeedback(['act_start','act_done']);
 
-    // oppdater ved synk
     window.Sync.on('change', () => uiUpdate());
     window.Sync.on('ready',  () => uiUpdate());
 
-    // vent-loop første lasting til adresser finnes
     (function waitForAddresses(){
       const addrs = (window.Sync.getCache().addresses || []);
       if (addrs.length > 0) { uiUpdate(); return; }
       setTimeout(waitForAddresses, 300);
     })();
 
-    // trygghet ved navigasjon internt
     window.addEventListener('hashchange', () => {
       if (location.hash === '#work') {
         ensureUhellButton();
