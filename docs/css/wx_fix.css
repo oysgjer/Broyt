@@ -1,91 +1,17 @@
 /* Skjul værikonet, behold temp/tekst */
 #work #wx_icon{ display:none !important; }
 
-/* HJEM → Rekkefølge: tving kolonne-layout inne i .field */
-#home label.field{
-  display:flex !important;
-  flex-direction:column !important;
-  align-items:flex-start !important;
+/* Hjem → Rekkefølge (tabell) */
+#home #reorderField .dir-table{
+  width:100%;
+  border-collapse:collapse;
 }
-
-/* Select på egen linje */
-#home label.field > select.input{
-  display:block !important;
-  max-width:320px;
-  margin-top:6px;
+#home #reorderField .dir-table td{
+  padding:8px 0;
+  border:0;
 }
-
-/* Avkrysningsboksene under hverandre */
-#home label.field .checkbox-col{
-  display:flex !important;
-  flex-direction:column !important;
-  gap:10px;
-  margin-top:10px;
-  width:auto;
-}
-
-/* Hver enkelt rad: ikon/tekst horisontalt, men radene i kolonne */
-#home label.field .checkbox-col label.row{
-  display:flex !important;
+#home #reorderField label.row{
+  display:flex;
   align-items:center;
   gap:8px;
-}
-/* HJEM → Rekkefølge: tving EN kolonne uansett global layout */
-#home label.field{
-  /* overstyr både flex/grid fra globale styles */
-  display:grid !important;
-  grid-template-columns: 1fr !important;  /* én kolonne */
-  align-items:start !important;
-  gap:0 !important;
-}
-
-/* Select skal ligge alene på egen rad */
-#home label.field > #a_dir{
-  grid-column: 1 / -1 !important;
-  display:block !important;
-  max-width:320px;
-  margin-top:6px;
-}
-
-/* Avkrysningsgruppen skal på neste rad, i kolonne */
-#home label.field > .checkbox-col{
-  grid-column: 1 / -1 !important;
-  display:flex !important;
-  flex-direction:column !important;
-  gap:10px !important;
-  margin-top:10px !important;
-}
-
-/* Hver checkbox-rad */
-#home label.field > .checkbox-col > label.row{
-  display:flex !important;
-  align-items:center !important;
-  gap:8px !important;
-}
-
-/* HJEM → Rekkefølge: tvangskolonne, 100% bredde på barna */
-#home > label.field{
-  display:flex !important;
-  flex-direction:column !important;
-  align-items:stretch !important;
-}
-
-/* alle direkte barn (tittel, select, checkbox-gruppe) tar hele raden */
-#home > label.field > *{
-  width:100% !important;
-}
-
-/* checkbox-gruppen som kolonne, med luft mellom radene */
-#home > label.field > .checkbox-col{
-  display:flex !important;
-  flex-direction:column !important;
-  gap:10px !important;
-  margin-top:10px !important;
-}
-
-/* hver enkelt checkbox-rad: ikon + tekst på samme linje */
-#home > label.field > .checkbox-col > label.row{
-  display:flex !important;
-  align-items:center !important;
-  gap:8px !important;
 }
