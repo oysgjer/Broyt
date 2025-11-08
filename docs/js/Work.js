@@ -1,4 +1,4 @@
-// docs/js/Work.js — single-file replacement (native Maps uten hvit side)
+// docs/js/Work.js — robust adresser + native navigasjon (ingen hvit side)
 (() => {
   'use strict';
 
@@ -29,6 +29,7 @@
     return st?.equipment?.sand ? 'grit' : 'snow';
   }
   function laneLabel(l){ return l==='grit' ? 'Grus' : 'Snø'; }
+  function otherLane(l){ return l === 'grit' ? 'snow' : 'grit'; }
 
   function allAddresses(){
     const raw = (window.Sync.getCache().addresses || []);
@@ -130,89 +131,74 @@
     $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(pr.done, pr.total)} av ${pr.total} adresser fullført`);
   }
 
-  // Kan brukes andre steder ved behov (beholdes)
-  function mapsUrl(addr){
-    if (!addr) return 'https://www.google.com/maps';
-    if (addr.lat!=null && addr.lon!=null){
-      const q = `${addr.lat},${addr.lon}`;
-      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
-    }
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((addr.name||'')+', Norge')}`;
-  }
+  // ===== NAVIGASJON: App (Google→Apple) med web-fallback. Ingen hvit side. =====
+  function openNavNative(addr){
+    const name  = (addr?.name || '').trim();
+    const hasLL = (addr?.lat != null && addr?.lon != null);
+    const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
+    const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
 
-// Åpne i app: Google Maps -> Apple Maps -> Web (fallback). Ingen hvit side.
-function openNavNative(addr){
-  const name  = (addr?.name || '').trim();
-  const hasLL = (addr?.lat != null && addr?.lon != null);
-  const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
-  const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
+    // Dype lenker
+    const gmApp = destLL
+      ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
+      : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
 
-  // Dype lenker
-  const gmApp = destLL
-    ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
-    : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
+    const amApp = destLL
+      ? `maps://?daddr=${encodeURIComponent(destLL)}&dirflg=d`
+      : `maps://?q=${encodeURIComponent(destQ)}&dirflg=d`;
 
-  const amApp = destLL
-    ? `maps://?daddr=${encodeURIComponent(destLL)}&dirflg=d`
-    : `maps://?q=${encodeURIComponent(destQ)}&dirflg=d`;
+    // Web (siste utvei – samme fane)
+    const web = destLL
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destLL)}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQ)}`;
 
-  // Web (siste utvei – samme fane, ikke ny)
-  const web = destLL
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destLL)}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQ)}`;
+    // Avbryt fallback hvis vi forlater siden (app tok fokus)
+    let step = 0;
+    let t1 = null, t2 = null;
+    const cancel = () => { clearTimeout(t1); clearTimeout(t2); };
+    const onHidden = () => { if (document.visibilityState === 'hidden') cancel(); };
+    document.addEventListener('visibilitychange', onHidden, { once: true });
 
-  // Avbryt fallback hvis vi forlater siden (app tok fokus)
-  let step = 0;
-  let t1 = null, t2 = null;
-  const cancel = () => { clearTimeout(t1); clearTimeout(t2); };
-  const onHidden = () => { if (document.visibilityState === 'hidden') cancel(); };
-  document.addEventListener('visibilitychange', onHidden, { once: true });
+    // 1) Google Maps app
+    step = 1;
+    window.location.href = gmApp;
 
-  // 1) Forsøk Google Maps app
-  step = 1;
-  window.location.href = gmApp;
+    // 2) Etter 700ms, hvis fortsatt synlig → Apple Maps
+    t1 = setTimeout(() => {
+      if (document.visibilityState === 'visible' && step === 1) {
+        step = 2;
+        window.location.href = amApp;
 
-  // 2) Hvis vi fortsatt er synlige etter 700ms, prøv Apple Maps app
-  t1 = setTimeout(() => {
-    if (document.visibilityState === 'visible' && step === 1) {
-      step = 2;
-      window.location.href = amApp;
-
-      // 3) Hvis vi fortsatt er synlige etter 700ms til, gå til web i samme fane
-      t2 = setTimeout(() => {
-        if (document.visibilityState === 'visible' && step === 2) {
-          window.location.href = web;
-        }
-      }, 700);
-    }
-  }, 700);
-}
-
-    if (isAndroid){
-      // Intent åpner Maps direkte uten ny fane
-      const intent = destLL
-        ? `intent://maps.google.com/maps?daddr=${encodeURIComponent(destLL)}&directionsmode=driving#Intent;scheme=https;package=com.google.android.apps.maps;end`
-        : `intent://maps.google.com/maps?q=${encodeURIComponent(destQ)}&directionsmode=driving#Intent;scheme=https;package=com.google.android.apps.maps;end`;
-
-      window.location.href = intent;
-      fallbackTimer = setTimeout(() => {
-        if (document.visibilityState === 'visible') {
-          window.location.href = web; // samme fane
-        }
-      }, 1000);
-      return;
-    }
-
-    // Desktop/annet
-    window.location.href = web;
+        // 3) Etter 700ms til, hvis fortsatt synlig → Web
+        t2 = setTimeout(() => {
+          if (document.visibilityState === 'visible' && step === 2) {
+            window.location.href = web;
+          }
+        }, 700);
+      }
+    }, 700);
   }
 
   function uiUpdate(){
-    const run  = getRun();
-    const lane = run.lane || laneFromSettings();
+    let run  = getRun();
+    let lane = run.lane || laneFromSettings();
     const my   = run.driver || settings().driver || '';
-    const list = filteredAddresses(lane);
 
+    // Hent for valgt lane
+    let list = filteredAddresses(lane);
+
+    // Fallback: ingen adresser i lane → bruk den andre lane’n
+    if (!list.length) {
+      const alt = otherLane(lane);
+      const altList = filteredAddresses(alt);
+      if (altList.length) {
+        lane = alt;
+        setRun({ lane: alt, idx: null });
+        list = altList;
+      }
+    }
+
+    // Sikre indeks
     let idx = run.idx;
     if (idx == null || idx < 0 || idx >= list.length || (list[idx] && isSkip(list[idx], lane, my))){
       idx = initialIndex(list, run.dir || 'Normal', lane, my);
@@ -329,7 +315,7 @@ function openNavNative(addr){
     patch.status[cur.id][lane] = { state:'blokkert', by: my, rounds:(getStatus(cur.id,lane).rounds||[]) };
     await window.Sync.setStatusPatch(patch);
 
-    const nextIdx = findNextIndex(list, idx, getRun().dir || 'Normal', lane, my);
+    const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
   }
@@ -346,7 +332,6 @@ function openNavNative(addr){
     uiUpdate();
   }
 
-  // Bruker openNavNative (ingen hvit side ved retur)
   function actNav(){
     const run  = getRun();
     const lane = run.lane || laneFromSettings();
@@ -357,7 +342,7 @@ function openNavNative(addr){
     openNavNative(cur);
   }
 
-  // --- Uhell-knapp: lag/vis/placer over Brøytekart (med fallback-timer)
+  // --- Uhell-knapp ---
   function ensureUhellButton(){
     const grid = document.querySelector('#work .btn-grid');
     if (!grid) return false;
@@ -373,7 +358,7 @@ function openNavNative(addr){
       });
       const wrap = document.createElement('div');
       wrap.appendChild(u);
-      grid.insertBefore(wrap, grid.lastElementChild || null); // over Brøytekart
+      grid.insertBefore(wrap, grid.lastElementChild || null);
     }
     u.innerHTML = '⚠️ Uhell';
     u.style.removeProperty('display');
@@ -381,7 +366,7 @@ function openNavNative(addr){
     return true;
   }
 
-  // --- Brøytekart: vis nederst med 🚜. Fjern bare #act_map (ikke wrapper)
+  // --- Brøytekart-knapp ---
   function ensureBroytKart(){
     const grid = document.querySelector('#work .btn-grid');
     if (!grid) return false;
@@ -437,14 +422,12 @@ function openNavNative(addr){
     $('#act_nav')  ?.addEventListener('click', actNav);
     $('#act_block')?.addEventListener('click', actBlock);
 
-    // initial UI
+    // initial UI (kan være tom hvis Sync ikke er klar enda)
     uiUpdate();
 
-    // Sørg for spesialknappene nå...
+    // spesialknapper
     let ok1 = ensureUhellButton();
     let ok2 = ensureBroytKart();
-
-    // ...og hvis grid ikke var klart enda, prøv et lite øyeblikk til
     if (!ok1 || !ok2){
       let tries = 0;
       const tick = setInterval(() => {
@@ -454,17 +437,25 @@ function openNavNative(addr){
       }, 100);
     }
 
-    // feedback på store knapper
     wireClickFeedback(['act_start','act_done']);
 
-    // oppdater ved endring
+    // oppdater ved synk
     window.Sync.on('change', () => uiUpdate());
+    window.Sync.on('ready',  () => uiUpdate());
 
-    // trygghet: re-apply når vi navigerer tilbake til #work
+    // vent-loop første lasting til adresser finnes
+    (function waitForAddresses(){
+      const addrs = (window.Sync.getCache().addresses || []);
+      if (addrs.length > 0) { uiUpdate(); return; }
+      setTimeout(waitForAddresses, 300);
+    })();
+
+    // trygghet ved navigasjon internt
     window.addEventListener('hashchange', () => {
       if (location.hash === '#work') {
         ensureUhellButton();
         ensureBroytKart();
+        uiUpdate();
       }
     });
   }
