@@ -116,3 +116,19 @@
     wire();
   }
 })();
+
+// --- Debugvisning i konsoll (frivillig) ---
+(function(){
+  function showMirror(){
+    const el = document.getElementById('work_driver_mirror');
+    const name = el?.getAttribute('data-driver') || '(ingen speilet driver)';
+    console.log('👤 Speilet driver nå:', name);
+  }
+
+  // Kjør ved lasting, input og seksjonsbytte
+  document.addEventListener('DOMContentLoaded', showMirror);
+  window.addEventListener('hashchange', showMirror);
+  document.addEventListener('input', e => {
+    if (e.target && e.target.id === 'a_driver') showMirror();
+  });
+})();
