@@ -524,17 +524,22 @@
   })();
   </script>
 <script>
-// Auto-naviger etter "Ferdig" hvis checkboxen er aktivert
+// Auto-naviger til NESTE adresse etter "Ferdig" hvis checkboxen er aktivert
 document.addEventListener('DOMContentLoaded', () => {
-  const chk = document.getElementById('a_autoNav');
+  const chk     = document.getElementById('a_autoNav');
   const btnDone = document.getElementById('act_done');
+  const btnNext = document.getElementById('act_next');
   const btnNav  = document.getElementById('act_nav');
-  if (!chk || !btnDone || !btnNav) return;
+  if (!chk || !btnDone || !btnNext || !btnNav) return;
 
   btnDone.addEventListener('click', () => {
-    if (chk.checked) {
-      setTimeout(() => btnNav.click(), 1000);
-    }
+    if (!chk.checked) return;
+    setTimeout(() => {
+      // Gå til neste adresse først
+      btnNext.click();
+      // Gi UI-et et øyeblikk til å oppdatere "Nå"-adressen før navigering
+      setTimeout(() => btnNav.click(), 60);
+    }, 1000);
   });
 });
 </script>
