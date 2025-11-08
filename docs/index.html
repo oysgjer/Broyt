@@ -10,11 +10,21 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
 
-  <title>Brøyterute<br>Romerike Trefelling</title>
+  <title>Brøyterute Romerike Trefelling</title>
 
   <link rel="manifest" href="/manifest.json?v=3">
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=3">
   <meta name="apple-mobile-web-app-title" content="Brøyterute">
+
+// --- Tidshjelpere ---
+const pad = (n) => (n < 10 ? '0' + n : '' + n);
+const msToHhMm = (ms) => {
+  if (ms <= 0) return '0:00';
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}:${pad(m)}`;
+};
 
   <!-- CSS -->
   <link rel="stylesheet" href="css/styles.css" />
