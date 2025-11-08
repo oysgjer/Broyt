@@ -1,11 +1,10 @@
-// js/home_dashboard.js — Samlet brøytetid med robust nøkkel-håndtering + auto-refresh
+// js/home_dashboard.js — Samlet brøytetid med normalisering av "reports"
 (() => {
   'use strict';
 
   const BIN_HENDELSER = "68e89e3443b1c97be9611c48";
   const API = "https://api.jsonbin.io/v3/b";
 
-  // Nøkler fra localStorage (settes i Admin)
   const getMK = () =>
     (localStorage.getItem('X-Master-Key') ||
      localStorage.getItem('x-master-key') ||
@@ -14,8 +13,6 @@
     (localStorage.getItem('X-Access-Key') ||
      localStorage.getItem('x-access-key') ||
      localStorage.getItem('jsonbin_access_key') || '').trim();
-
-  const needsKeys = () => !getMK();
 
   function headers(){
     const h = {};
@@ -26,14 +23,11 @@
   }
 
   const elStats = () => document.getElementById('stats');
-
-  function renderCard(innerHtml){
-    const el = elStats(); if (!el) return;
-    el.innerHTML = `<div class="card" style="padding:12px">
-      <div class="muted-strong" style="margin-bottom:6px">📊 Samlet brøytetid</div>
-      ${innerHtml}
-    </div>`;
-  }
+  function renderCard(inner){ const el=elStats(); if(!el) return; el.innerHTML =
+    `<div class="card" style="padding:12px">
+       <div class="muted-strong" style="margin-bottom:6px">📊 Samlet brøytetid</div>
+       ${inner}
+     </div>`; }
 
   function renderZerosWithHint(){
     renderCard(`
@@ -47,7 +41,6 @@
       <div>I dag: <b>0m</b></div>
     `);
   }
-
   function renderMinutes(m){
     renderCard(`
       <div>Totalt: <b>${m.total}m</b></div>
@@ -58,17 +51,51 @@
     `);
   }
 
-  async function fetchHendelser(){
+  function normalizeOne(e){
+    // Kildefelter: {type/ action}, {at/ ts}, {by/ driver}, {addressId/ address/ addressName}
+    const action = (e.type || e.action || '').toLowerCase();
+    const type =
+      action === 'ferdig'      ? 'done' :
+      action === 'ikke_mulig'  ? 'skip' :
+      action === 'neste'       ? 'next' :
+      action; // 'start' | 'done' | 'skip' | 'next' | …
+
+    const at = e.at || e.ts || null;
+    const by = e.by || e.driver || '';
+    const addressId = e.addressId || e.addressName || e.address || '';
+    const addressName = e.addressName || e.address || e.addressId || '';
+    const reason = e.reason || e.notes || '';
+
+    return { type, at, by, addressId, addressName, reason };
+  }
+
+  async function fetchNormalized(){
     try{
       const r = await fetch(`${API}/${BIN_HENDELSER}/latest`, { headers: headers() });
-      if (r.status === 401 || r.status === 403){
-        renderZerosWithHint();
-        return [];
-      }
+      if (r.status === 401 || r.status === 403){ renderZerosWithHint(); return []; }
       if (!r.ok) throw new Error('JSONBin status ' + r.status);
+
       const js = await r.json();
-      const arr = Array.isArray(js.record) ? js.record : (js.record?.items || []);
-      return arr.filter(e => e && e.at && (e.type === 'start' || e.type === 'done'));
+      const rec = js.record;
+
+      // Støtt tre varianter: ren array | {items:[]} | {reports:[]}
+      let raw = [];
+      if (Array.isArray(rec)) raw = rec;
+      else if (Array.isArray(rec?.items)) raw = rec.items;
+      else if (Array.isArray(rec?.reports)) raw = rec.reports;
+
+      // Normaliser og filtrer bort tomme/ukjente
+      const norm = raw.map(normalizeOne)
+        .filter(x => x.at && x.type && ['start','done','skip'].includes(x.type));
+
+      // Fjerne åpenbare duplikater (vi så dublerte i bin’en)
+      const seen = new Set();
+      const uniq = [];
+      for (const ev of norm){
+        const key = `${ev.type}|${ev.by}|${ev.addressId || ev.addressName}|${ev.at}`;
+        if (!seen.has(key)){ seen.add(key); uniq.push(ev); }
+      }
+      return uniq;
     }catch(e){
       console.warn('[home_dashboard] henting feilet:', e);
       renderCard(`<div class="muted">Kunne ikke hente data.</div>
@@ -113,13 +140,7 @@
   }
 
   async function run(){
-    // Viser hint med én gang hvis nøkler mangler
-    if (needsKeys()){
-      renderZerosWithHint();
-      // men prøver likevel å hente i tilfelle AK/MK finnes i andre key-navn
-    }
-
-    const all = await fetchHendelser();
+    const all = await fetchNormalized();
     const now = new Date();
     const minutes = {
       total:     sumMinutes(all),
@@ -131,13 +152,10 @@
     renderMinutes(minutes);
   }
 
-  // Auto-refresh når nøkler endres i Admin (samme origin)
+  // Oppdater når nøkler endres i Admin
   window.addEventListener('storage', (e) => {
-    if (!e) return;
-    const k = (e.key || '').toLowerCase();
-    if (['x-master-key','x-access-key','jsonbin_master_key','jsonbin_access_key'].includes(k)){
-      run(); // re-hent og re-render
-    }
+    const k = (e?.key || '').toLowerCase();
+    if (['x-master-key','x-access-key','jsonbin_master_key','jsonbin_access_key'].includes(k)) run();
   });
 
   document.addEventListener('DOMContentLoaded', run);
