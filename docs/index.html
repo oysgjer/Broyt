@@ -523,6 +523,20 @@
     });
   })();
   </script>
+<script>
+// Auto-naviger etter "Ferdig" hvis checkboxen er aktivert
+document.addEventListener('DOMContentLoaded', () => {
+  const chk = document.getElementById('a_autoNav');
+  const btnDone = document.getElementById('act_done');
+  const btnNav  = document.getElementById('act_nav');
+  if (!chk || !btnDone || !btnNav) return;
 
+  btnDone.addEventListener('click', () => {
+    if (chk.checked) {
+      setTimeout(() => btnNav.click(), 1000);
+    }
+  });
+});
+</script>
 </body>
 </html>
