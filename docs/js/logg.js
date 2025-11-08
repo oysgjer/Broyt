@@ -1,8 +1,10 @@
-// logg.js — viser hendelser + beregner totaltid
-const BINS = {
-  HENDELSER: "68e89e3443b1c97be9611c48",      // PRIVAT: hendelser
-  ADRESSER:  "68ed425cae596e708f11d25f"       // ✅ RIKTIG: samme som addrBin i app/kart
-};
+// logg.js — leser flere JSONBin-bins, parer start/ferdig, viser A4-vennlig logg
+// Patch inkludert: rydder bort 'on' som sjåførnavn og bruker lagret navn som fallback
+
+const DEFAULT_BINS = [
+  "68e89e3443b1c97be9611c48", // hendelser
+  "68e7b4d2ae596e708f0bde7d"  // adresser (oppgave)
+];
 const DEFAULT_DAYS = 5;
 
 const $ = (s, r=document) => r.querySelector(s);
@@ -11,246 +13,247 @@ const pad = (n) => (n<10?('0'+n):''+n);
 const fmtDateInput = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const fmtNorDate = (d) => `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;
 const fmtTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-const startOfDay = (d)=> { const x=new Date(d); x.setHours(0,0,0,0); return x; };
-const endOfDay   = (d)=> { const x=new Date(d); x.setHours(23,59,59,999); return x; };
+const startOfDay = (d)=> new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (d, n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const sameDay = (a,b)=> a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
 
-const JSONBIN_API = "https://api.jsonbin.io/v3/b";
-function getMasterKey(){
-  return (localStorage.getItem('X-Master-Key') ||
-          localStorage.getItem('x-master-key') ||
-          localStorage.getItem('XMasterKey')   ||
-          localStorage.getItem('jsonbin_master_key') || '').trim();
+// --- Sjåførnavn: robust henting og sanitering ('on' -> lagret navn)
+function getSavedDriver(){
+  const keys=['driver','driverName','sjafor','sjaforNavn'];
+  for(const k of keys){
+    try{
+      const v = localStorage.getItem(k);
+      if (v && String(v).trim()) return String(v).trim();
+    }catch{}
+  }
+  return '';
 }
-function getAccessKey(){
-  return (localStorage.getItem('X-Access-Key') ||
-          localStorage.getItem('x-access-key') ||
-          localStorage.getItem('jsonbin_access_key') || '').trim();
-}
-
-async function jsonbinGetLatest(binId){
-  const headers = { 'X-Master-Key': getMasterKey() };
-  const ak = getAccessKey(); if (ak) headers['X-Access-Key'] = ak;
-  const res = await fetch(`${JSONBIN_API}/${binId}/latest`, { headers });
-  if(!res.ok) throw new Error('JSONBin feilet ' + res.status);
-  const js = await res.json();
-  return js.record;
-}
-
-function escapeHtml(s){
-  return String(s ?? '')
-    .replaceAll('&','&amp;')
-    .replaceAll('<','&lt;')
-    .replaceAll('>','&gt;')
-    .replaceAll('"','&quot;')
-    .replaceAll("'","&#039;");
+function resolveDriverName(v){
+  if(!v) return '';
+  const t = String(v).trim();
+  const tl = t.toLowerCase();
+  if (tl === 'on' || tl === 'true' || tl === 'yes') {
+    return getSavedDriver() || '';
+  }
+  return t;
 }
 
-function styleOnce(){
-  if (byId('logStyle')) return;
-  const st = document.createElement('style');
-  st.id = 'logStyle';
-  st.textContent = `
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
-    table{width:100%;border-collapse:collapse}
-    th,td{border-bottom:1px solid #e5e7eb;padding:8px 6px;vertical-align:top}
-    th{text-align:left;background:#f8fafc}
-    .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
-    .tag-start{background:#e0e7ff;color:#1d4ed8}
-    .tag-done{background:#dcfce7;color:#166534}
-    .tag-skip{background:#fef3c7;color:#b45309}
-    .tag-block{background:#fee2e2;color:#b91c1c}
-    .muted{color:#6b7280}
-    .reason{font-style:italic;color:#7c2d12}
-    .totals{margin:6px 0 14px; font-weight:700}
-  `;
-  document.head.appendChild(st);
+function getBinIds(){
+  try{ const raw = localStorage.getItem('JSONBIN_BIN_IDS'); if (raw){ const a=JSON.parse(raw); if (Array.isArray(a)&&a.length) return a; } }catch{}
+  return DEFAULT_BINS.slice();
+}
+function getKeyForBin(binId){
+  try{ const m=JSON.parse(localStorage.getItem('JSONBIN_KEYS')||'{}'); if (m && typeof m[binId]==='string' && m[binId].length>10) return m[binId]; }catch{}
+  return localStorage.getItem('X_MASTER_KEY') || localStorage.getItem('JSONBIN_MASTER_KEY') || null;
+}
+async function ensureKeyPrompt(){
+  const k = localStorage.getItem('X_MASTER_KEY') || localStorage.getItem('JSONBIN_MASTER_KEY');
+  if (!k){
+    const v = prompt('Lim inn JSONBin X-Master-Key (lagres i nettleseren)');
+    if (v) { localStorage.setItem('X_MASTER_KEY', v.trim()); return true; }
+    return false;
+  }
+  return true;
 }
 
-function ensureControls(){
-  if (byId('dateFrom')) return;
-  const wrap = document.createElement('div');
-  wrap.innerHTML = `
-    <div style="display:flex;gap:10px;align-items:end;margin:12px 0">
-      <div><label>Fra</label><input id="dateFrom" type="date"></div>
-      <div><label>Til</label><input id="dateTo" type="date"></div>
-      <button id="btnReload">Oppdater</button>
-    </div>
-    <div id="totals" class="totals"></div>
-    <div id="logWrap"></div>
-  `;
-  document.body.prepend(wrap);
-  document.addEventListener('click', (e)=>{
-    if(e.target && e.target.id === 'btnReload') loadAndRender().catch(err=>{
-      alert('Kunne ikke laste logg'); console.error(err);
-    });
+// gratis proxy som støtter headere og PUT
+const CORS_PROXY = "https://corsproxy.io/?";
+
+async function fetchLatestForBin(binId){
+  const key=getKeyForBin(binId); if(!key){ console.warn('Mangler key for',binId); return []; }
+  const target = `https://api.jsonbin.io/v3/b/${binId}/latest`;
+  const r = await fetch(CORS_PROXY + encodeURIComponent(target), { headers: { 'X-Master-Key': key } });
+  if(!r.ok){ console.warn('BIN',binId,'ga',r.status); return []; }
+  const j = await r.json(); const rec = j && j.record;
+  return Array.isArray(rec)?rec:(rec && Array.isArray(rec.reports)?rec.reports:[]);
+}
+
+async function loadAll(){
+  const ids = getBinIds();
+  const lists = await Promise.all(ids.map(id=>fetchLatestForBin(id)));
+  const events = lists.flat().filter(x => x && (x.ts||x.t)).sort((a,b)=> new Date(a.ts||a.t)-new Date(b.ts||b.t));
+  const addrRec = lists.find(arr => Array.isArray(arr) && arr.length && (arr[0].address||arr[0].adresse||arr[0].gruppe||arr[0].snø||arr[0].grus)) || [];
+  return { events, addrRec };
+}
+
+function buildTaskMap(addrRec){
+  const m = new Map();
+  for (const it of addrRec){
+    const addr = (it.address || it.adresse || it.addr || '').trim(); if (!addr) continue;
+    let task='';
+    if (typeof it.oppgave==='string') task=it.oppgave;
+    else if (it.grus || it.hasGrus || it.type==='Grus') task='Grus';
+    else if (it.snø  || it.hasSnow || it.type==='Snø') task='Snø';
+    if (!task) task='Snø';
+    m.set(addr, task);
+  }
+  return m;
+}
+
+function pairRunsForDay(events, day, driverFilter, taskMap){
+  const driverFilterClean = resolveDriverName(driverFilter);
+  const sameDayEv = events.filter(e => {
+    const d = new Date(e.ts||e.t);
+    const drv = resolveDriverName(e.driver);
+    return sameDay(d, day) && (!driverFilterClean || drv === driverFilterClean);
   });
-}
 
-function normalizeAddrId(a){
-  // Forsøk å finne unik ID for adresseobjektet
-  return a.id ?? a.ID ?? a.uuid ?? a.adresseId ?? a.adresse_id ?? a.adresse ?? a.navn ?? String(a);
-}
+  const groups = new Map();
+  const keyOf = e => {
+    const addr = (e.address||e.addr||'').trim();
+    const drv = resolveDriverName(e.driver);
+    return `${addr}|${drv}`;
+  };
+  sameDayEv.forEach(e=>{ const k=keyOf(e); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(e); });
 
-function buildAddressIndexes(adresser){
-  // Primært kart: id -> objekt
-  const byIdMap = new Map();
-  // Fallback: navn/label -> objekt (i tilfelle events mangler id)
-  const byNameMap = new Map();
-  for (const a of adresser){
-    const id = normalizeAddrId(a);
-    if (id) byIdMap.set(String(id), a);
-    if (a?.navn) byNameMap.set(String(a.navn).trim(), a);
-    if (a?.adresse) byNameMap.set(String(a.adresse).trim(), a);
-  }
-  return { byIdMap, byNameMap };
-}
-
-function groupByDate(events){
-  const by = new Map();
-  for (const e of events){
-    const day = fmtNorDate(new Date(e.at));
-    if(!by.has(day)) by.set(day, []);
-    by.get(day).push(e);
-  }
-  return by;
-}
-
-function keyForPairing(e){
-  // Par start->done per adresse + fører
-  const addrKey = e.addressId || e.addressName || '';
-  return `${addrKey}|${e.by || ''}`;
-}
-
-function computeTotals(events){
-  const ev = [...events].sort((a,b)=> new Date(a.at)-new Date(b.at));
-  const stacks = new Map(); // key -> [start ms]
-  let totalMs = 0;
-
-  for (const e of ev){
-    const k = keyForPairing(e);
-    if (!stacks.has(k)) stacks.set(k, []);
-    const st = stacks.get(k);
-
-    if (e.type === 'start'){
-      st.push(new Date(e.at).getTime());
-    } else if (e.type === 'done'){
-      if (st.length){
-        const t0 = st.pop();
-        const t1 = new Date(e.at).getTime();
-        if (!isNaN(t0) && !isNaN(t1) && t1 >= t0) totalMs += (t1 - t0);
+  const rows=[];
+  for (const arr of groups.values()){
+    arr.sort((a,b)=> new Date(a.ts||a.t)-new Date(b.ts||b.t));
+    let open=null;
+    for (const e of arr){
+      const act=(e.action||e.a||'').toLowerCase();
+      if (act==='start' && !open){ open=e; }
+      else if (act==='ferdig' && open){
+        const addr=(e.address||open.address||'').trim();
+        const task=(e.task||open.task||e.oppgave||open.oppgave||taskMap.get(addr)||'Snø');
+        rows.push({
+          address:addr,
+          task,
+          startTs:new Date(open.ts||open.t),
+          endTs:new Date(e.ts||e.t),
+          driver: resolveDriverName(e.driver||open.driver||'')
+        });
+        open=null;
       }
     }
+    if (open){
+      const addr=(open.address||'').trim();
+      const task=(open.task||open.oppgave||taskMap.get(addr)||'Snø');
+      rows.push({
+        address:addr,
+        task,
+        startTs:new Date(open.ts||open.t),
+        endTs:null,
+        driver: resolveDriverName(open.driver||'')
+      });
+    }
   }
-  return Math.round(totalMs/60000); // minutter
+  rows.sort((a,b)=> a.startTs-b.startTs);
+  return rows;
 }
 
-function renderTable(day, events, addrIdx){
-  const wrap = document.createElement('section');
-  wrap.innerHTML = `<h2 style="margin-top:18px">${day}</h2>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:120px">Tid</th>
-        <th>Adresse</th>
-        <th>Hendelse</th>
-        <th>Av</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>`;
-  const tb = wrap.querySelector('tbody');
+function renderDaySection(container, d0, rows, driverSel){
+  const starts = rows.map(r=>r.startTs).filter(Boolean).sort((a,b)=>a-b);
+  const ends   = rows.map(r=>r.endTs).filter(Boolean).sort((a,b)=>a-b);
+  const oppstart = starts.length ? fmtTime(starts[0]) : '—';
+  const avslutt  = ends.length   ? fmtTime(ends[ends.length-1]) : '—';
 
-  for (const e of events.sort((a,b)=> new Date(a.at)-new Date(b.at))){
-    const tr = document.createElement('tr');
+  const section = document.createElement('section');
+  section.innerHTML = `
+    <h3 style="margin:12px 0 6px">${fmtNorDate(d0)}${driverSel ? ' — ' + driverSel : ''}</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:8px">
+      <div><b>Måned og år:</b> ${pad(d0.getMonth()+1)}.${d0.getFullYear()}</div>
+      <div><b>Oppstart klokken:</b> ${oppstart}</div>
+      <div><b>Avsluttet klokken:</b> ${avslutt}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <thead>
+        <tr><th>Adresse</th><th>Oppgave</th><th>Tid startet</th><th>Tid ferdig</th><th>Benyttet tid</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  `;
+  const tb = section.querySelector('tbody');
 
-    // slå opp adresse
-    const fromId = e.addressId ? addrIdx.byIdMap.get(String(e.addressId)) : null;
-    const fromName = (!fromId && e.addressName) ? addrIdx.byNameMap.get(String(e.addressName)) : null;
-    const a = fromId || fromName || {};
-    const title = a.navn || a.adresse || e.addressName || e.addressId || '—';
-
-    const t = fmtTime(new Date(e.at));
-
-    let tag = '', label = '', extra = '';
-    if (e.type === 'start'){ tag='tag-start'; label='Startet'; }
-    else if (e.type === 'done'){ tag='tag-done'; label='Ferdig'; }
-    else if (e.type === 'blocked'){ tag='tag-block'; label='Sperret'; }
-    else if (e.type === 'skip'){ tag='tag-skip'; label='Ikke mulig'; if (e.reason) extra = `<div class="reason">Årsak: ${escapeHtml(e.reason)}</div>`; }
-
-    tr.innerHTML = `
-      <td>${t}</td>
-      <td>
-        <div>${escapeHtml(title)}</div>
-        ${a.kunde ? `<div class="muted">${escapeHtml(a.kunde)}</div>` : ''}
-        ${a.adresse && a.navn ? `<div class="muted">${escapeHtml(a.adresse)}</div>` : ''}
-      </td>
-      <td>
-        <span class="tag ${tag}">${label}</span>
-        ${extra}
-      </td>
-      <td>${escapeHtml(e.by || '—')}</td>
-    `;
+  if (!rows.length){
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td colspan="5" style="text-align:center;color:#777;padding:10px">Ingen registrerte intervaller.</td>`;
     tb.appendChild(tr);
+  } else {
+    for (const r of rows){
+      const start = r.startTs ? fmtTime(r.startTs) : '—';
+      const end   = r.endTs ? fmtTime(r.endTs) : '—';
+      let dur='—';
+      if (r.startTs && r.endTs){
+        const mins = Math.floor((r.endTs - r.startTs)/60000);
+        const hh = Math.floor(mins/60), mm = mins%60;
+        dur = hh ? `${hh}t ${mm}m` : `${mm}m`;
+      }
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td>${r.address||''}</td><td>${r.task||'Snø'}</td><td>${start}</td><td>${end}</td><td>${dur}</td>`;
+      tb.appendChild(tr);
+    }
   }
-
-  return wrap;
+  container.appendChild(section);
 }
 
 async function loadAndRender(){
-  styleOnce();
-  ensureControls();
+  const status = byId('status'); if (status) status.textContent = 'Laster …';
 
-  const from = byId('dateFrom').value ? new Date(byId('dateFrom').value) : startOfDay(new Date(Date.now()-DEFAULT_DAYS*24*3600*1000));
-  const to   = byId('dateTo').value   ? new Date(byId('dateTo').value)   : endOfDay(new Date());
+  const uiSel = byId('selDriver');
+  const uiVal = uiSel?.value || '';
+  const driverSelected = resolveDriverName(uiVal) || getSavedDriver();
 
-  const [hendelserRaw, adresserRaw] = await Promise.all([
-    jsonbinGetLatest(BINS.HENDELSER),
-    jsonbinGetLatest(BINS.ADRESSER)
-  ]);
+  const endStr = byId('inpDato')?.value || fmtDateInput(new Date());
+  const endDate = new Date(endStr);
+  const days = parseInt(byId('selDays')?.value || `${DEFAULT_DAYS}`, 10);
 
-  const hendelser = Array.isArray(hendelserRaw) ? hendelserRaw : (hendelserRaw?.items || []);
-  const adresser  = Array.isArray(adresserRaw)  ? adresserRaw  : (adresserRaw?.items  || []);
-  const addrIdx = buildAddressIndexes(adresser);
+  const ok = await ensureKeyPrompt(); if (!ok){ if (status) status.textContent=''; return; }
 
-  const filtered = hendelser.filter(e => e && e.at && new Date(e.at).getTime() >= from.getTime() && new Date(e.at).getTime() <= to.getTime());
+  const { events, addrRec } = await loadAll();
 
-  // totals (minutter) på tvers av hele intervallet
-  const totalMin = computeTotals(filtered);
-  byId('totals').textContent = `Totaltid: ${totalMin} min`;
+  // Rydd sjåførnavn fra events
+  const drivers = Array.from(
+    new Set(events.map(e => resolveDriverName(e.driver)).filter(Boolean))
+  ).sort();
 
-  const by = groupByDate(filtered);
-  const logWrap = byId('logWrap');
-  logWrap.innerHTML = '';
-
-  byId('dateFrom').value = fmtDateInput(from);
-  byId('dateTo').value   = fmtDateInput(to);
-
-  const days = Array.from(by.keys()).sort((a,b)=>{
-    const [da,ma,ya]=a.split('.').map(Number);
-    const [db,mb,yb]=b.split('.').map(Number);
-    return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
-  });
-
-  if (days.length === 0){
-    logWrap.innerHTML = `<div class="muted">Ingen hendelser i valgt periode.</div>`;
-    return;
+  // Oppdater nedtrekk
+  if (uiSel){
+    const keep = resolveDriverName(uiSel.value) || driverSelected || '';
+    uiSel.innerHTML = '<option value="">Alle</option>' + drivers.map(d=>`<option value="${d}">${d}</option>`).join('');
+    uiSel.value = keep || '';
   }
 
-  for (const day of days){
-    const section = renderTable(day, by.get(day), addrIdx);
-    logWrap.appendChild(section);
+  const taskMap = buildTaskMap(addrRec);
+  const container = byId('logg_container'); container.innerHTML = '';
+
+  const haveDaysSet = new Set(events.map(e => startOfDay(new Date(e.ts||e.t)).getTime()));
+  const daysOut = [];
+  let cursor = startOfDay(endDate);
+
+  while (daysOut.length < days) {
+    if (haveDaysSet.has(cursor.getTime())) daysOut.push(new Date(cursor));
+    cursor = addDays(cursor, -1);
+    if (daysOut.length < days && addDays(endDate, -180) > cursor) break;
   }
+  while (daysOut.length < days) {
+    daysOut.push(addDays(startOfDay(endDate), -(daysOut.length)));
+  }
+
+  for (const day of daysOut){
+    const rows = pairRunsForDay(events, day, uiSel?.value || '', taskMap);
+    renderDaySection(container, day, rows, resolveDriverName(uiSel?.value || '') );
+  }
+
+  if (status) status.textContent = '';
 }
 
-window.addEventListener('DOMContentLoaded', ()=>{
-  const dTo = new Date();
-  const dFrom = new Date(Date.now()-DEFAULT_DAYS*24*3600*1000);
-  styleOnce();
-  ensureControls();
-  byId('dateFrom').value = fmtDateInput(dFrom);
-  byId('dateTo').value   = fmtDateInput(dTo);
-  loadAndRender().catch(err=>{
-    console.error(err);
-    byId('logWrap').innerHTML = `<div class="muted">Feil ved lasting av logg.</div>`;
+document.addEventListener('DOMContentLoaded', () => {
+  const d = new Date();
+  byId('inpDato') && (byId('inpDato').value = fmtDateInput(d));
+  byId('selDays') && (byId('selDays').value = `${DEFAULT_DAYS}`);
+  byId('btnLoadLogg')?.addEventListener('click', loadAndRender);
+  byId('selDriver')?.addEventListener('change', e => {
+    const v = (e.target.value || '').trim();
+    if (v) localStorage.setItem('driver', v);
+    loadAndRender();
   });
+
+  // Foreslå lagret sjåfør ved første visning
+  const saved = getSavedDriver();
+  if (saved && byId('selDriver') && !byId('selDriver').value){
+    byId('selDriver').value = saved;
+  }
+
+  setTimeout(loadAndRender, 150);
 });
