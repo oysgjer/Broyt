@@ -1,4 +1,4 @@
-// docs/js/Work.js — single-file replacement (med native Maps-nav)
+// docs/js/Work.js — single-file replacement (native Maps uten hvit side)
 (() => {
   'use strict';
 
@@ -130,7 +130,7 @@
     $('#b_prog_summary')     && ($('#b_prog_summary').textContent = `${Math.min(pr.done, pr.total)} av ${pr.total} adresser fullført`);
   }
 
-  // (beholdes – kan brukes andre steder)
+  // Kan brukes andre steder ved behov (beholdes)
   function mapsUrl(addr){
     if (!addr) return 'https://www.google.com/maps';
     if (addr.lat!=null && addr.lon!=null){
@@ -140,57 +140,62 @@
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((addr.name||'')+', Norge')}`;
   }
 
-  // === NAV: helpers for native Google Maps ===
-  function buildDest(addr){
-    const name = (addr?.name || '').trim();
-    const hasLL = (addr?.lat != null && addr?.lon != null);
-    return {
-      label: name,
-      ll: hasLL ? `${addr.lat},${addr.lon}` : null,          // "60.2523,11.1899"
-      q:  hasLL ? null : (name ? `${name}, Norge` : ''),     // fallback søkestreng
-    };
-  }
-
+  // ===== NAVIGASJON: Åpne Maps uten hvit side ved retur =====
   function openNavNative(addr){
-    const d = buildDest(addr);
+    const name  = (addr?.name || '').trim();
+    const hasLL = (addr?.lat != null && addr?.lon != null);
+    const destLL = hasLL ? `${addr.lat},${addr.lon}` : null;
+    const destQ  = hasLL ? null : (name ? `${name}, Norge` : '');
+
     const ua = navigator.userAgent || '';
     const isIOS = /iPad|iPhone|iPod/.test(ua);
     const isAndroid = /Android/.test(ua);
 
-    // web-fallback (i NY fane)
-    const web = d.ll
-      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.ll)}`
-      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.q)}`;
+    // Web-fallback (brukes bare hvis app ikke åpnes)
+    const web = destLL
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destLL)}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQ)}`;
+
+    // Avbryt fallback hvis vi faktisk forlater siden (app åpnes)
+    let fallbackTimer = null;
+    const cancelFallback = () => { if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; } };
+    const onVisChange = () => {
+      if (document.visibilityState === 'hidden') cancelFallback();
+    };
+    document.addEventListener('visibilitychange', onVisChange, { once: true });
 
     if (isIOS){
-      // Google Maps app scheme
-      const ios = d.ll
-        ? `comgooglemaps://?daddr=${encodeURIComponent(d.ll)}&directionsmode=driving`
-        : `comgooglemaps://?q=${encodeURIComponent(d.q)}&directionsmode=driving`;
-      const ifr = document.createElement('iframe');
-      ifr.style.display = 'none';
-      ifr.src = ios;
-      document.body.appendChild(ifr);
-      setTimeout(() => {
-        try { document.body.removeChild(ifr); } catch {}
-        window.open(web, '_blank', 'noopener,noreferrer');
-      }, 800);
+      // Åpne Google Maps app i samme fane, fallback til web hvis ikke installert
+      const ios = destLL
+        ? `comgooglemaps://?daddr=${encodeURIComponent(destLL)}&directionsmode=driving`
+        : `comgooglemaps://?q=${encodeURIComponent(destQ)}&directionsmode=driving`;
+
+      window.location.href = ios;
+      fallbackTimer = setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          window.location.href = web; // samme fane → ingen tom/ny fane
+        }
+      }, 1000);
       return;
     }
 
     if (isAndroid){
-      // geo:-lenke åpner app-velger / Google Maps
-      const geo = d.ll
-        ? `geo:${d.ll}?q=${encodeURIComponent(d.ll)}`
-        : `geo:0,0?q=${encodeURIComponent(d.q)}`;
-      window.open(geo, '_blank', 'noopener,noreferrer');
-      // liten fallback hvis geo: ikke håndteres
-      setTimeout(() => window.open(web, '_blank', 'noopener,noreferrer'), 1200);
+      // Intent åpner Maps direkte uten ny fane
+      const intent = destLL
+        ? `intent://maps.google.com/maps?daddr=${encodeURIComponent(destLL)}&directionsmode=driving#Intent;scheme=https;package=com.google.android.apps.maps;end`
+        : `intent://maps.google.com/maps?q=${encodeURIComponent(destQ)}&directionsmode=driving#Intent;scheme=https;package=com.google.android.apps.maps;end`;
+
+      window.location.href = intent;
+      fallbackTimer = setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          window.location.href = web; // samme fane
+        }
+      }, 1000);
       return;
     }
 
     // Desktop/annet
-    window.open(web, '_blank', 'noopener,noreferrer');
+    window.location.href = web;
   }
 
   function uiUpdate(){
@@ -315,7 +320,7 @@
     patch.status[cur.id][lane] = { state:'blokkert', by: my, rounds:(getStatus(cur.id,lane).rounds||[]) };
     await window.Sync.setStatusPatch(patch);
 
-    const nextIdx = findNextIndex(list, idx, run.dir || 'Normal', lane, my);
+    const nextIdx = findNextIndex(list, idx, getRun().dir || 'Normal', lane, my);
     setRun({ idx: nextIdx });
     uiUpdate();
   }
@@ -332,21 +337,16 @@
     uiUpdate();
   }
 
-  // >>> Ny actNav (native Maps) <<<
+  // Bruker openNavNative (ingen hvit side ved retur)
   function actNav(){
-  const run  = getRun();
-  const lane = run.lane || laneFromSettings();
-  const list = filteredAddresses(lane);
-  const idx  = run.idx;
-  const cur  = (idx != null) ? list[idx] : null;
-  if (!cur) return;
-
-  // bruk native-åpning (ekstern app / ny fane)
-  openNavNative(cur);
-
-  // ❌ Ikke bruk sessionStorage eller window.location her –
-  // det er dette som ga hvit side ved retur!
-}
+    const run  = getRun();
+    const lane = run.lane || laneFromSettings();
+    const list = filteredAddresses(lane);
+    const idx  = run.idx;
+    const cur  = (idx != null) ? list[idx] : null;
+    if (!cur) return;
+    openNavNative(cur);
+  }
 
   // --- Uhell-knapp: lag/vis/placer over Brøytekart (med fallback-timer)
   function ensureUhellButton(){
