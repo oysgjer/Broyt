@@ -1,2 +1,23 @@
 /* Skjul værikonet, behold temp/tekst */
 #work #wx_icon{ display:none !important; }
+/* Hjem: tving vertikal layout for rekkefølge-valgene */
+#home label.field { display:block; } /* ikke flex/grid på små skjermer */
+#home .field #a_dir { display:block; max-width:320px; margin-top:6px; }
+
+/* checkboks-kolonnen rett under selecten */
+#home .field .checkbox-col {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:10px;
+}
+
+/* hver rad: ikon + tekst horisontalt, men radene under hverandre */
+#home .field .checkbox-col .row {
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* ikke la noe flyte ved siden av selecten */
+#home #a_dir + .checkbox-col { clear:both; }
