@@ -342,16 +342,6 @@
   <!-- Admin: injiser logg-knapp (valgfritt hvis ikke hardkodet) -->
   <script src="js/admin_logg_inject.js?v=3" defer></script>
 
-  <!-- Gå tilbake fra Maps -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const ret = sessionStorage.getItem('returnTo');
-      if (ret && window.location.href !== ret) {
-        sessionStorage.removeItem('returnTo');
-        window.location.replace(ret);
-      }
-    });
-  </script>
 
     <!-- Uhell: enkel kobling (åpne/close + send) -->
   <script>
