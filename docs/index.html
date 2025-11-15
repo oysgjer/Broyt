@@ -338,8 +338,12 @@
   <!-- Admin: injiser logg-knapp (valgfritt hvis ikke hardkodet) -->
   <script src="js/admin_logg_inject.js?v=3" defer></script>
 
-  <!-- Samlet brøytetid – HJELPERE + RENDER (støtter både type/action + address/addrId) -->
-  <script>
+<!-- Samlet brøytetid – HJELPERE + RENDER (felles på tvers av enheter via report-bin) -->
+<script>
+(() => {
+  const REPORT_BIN_ID = '68e89e3443b1c97be9611c48';
+  const MAX_INTERVAL_MS = 90 * 60 * 1000; // maks 90 min per sammenhengende intervall
+
   // --- Tidshjelpere ---
   const pad = (n) => (n < 10 ? '0' + n : '' + n);
   const msToHhMm = (ms) => {
@@ -350,78 +354,13 @@
     return `${h}:${pad(m)}`;
   };
 
-  // Maks 90 minutter per sammenhengende intervall (failsafe)
-  const MAX_INTERVAL_MS = 90 * 60 * 1000;
-
-  function normalizeHendelse(h) {
-    if (!h) return null;
-
-    // 1) Finn type: start/stop
-    let kind = null;
-
-    // a) Ny modell: type = 'start' / 'stopp' / 'ferdig' / 'done'
-    if (h.type === 'start') kind = 'start';
-    else if (h.type === 'stopp' || h.type === 'ferdig' || h.type === 'done') kind = 'stop';
-
-    // b) Autologger-modell: action = 'start' / 'ferdig'
-    if (!kind && h.action) {
-      if (h.action === 'start') kind = 'start';
-      else if (h.action === 'ferdig' || h.action === 'stopp' || h.action === 'done') kind = 'stop';
-    }
-
-    if (!kind) return null;
-
-    // 2) Finn nøkkel (adresse-id/navn) – slik at vi får par per adresse
-    const key =
-      h.taskId ||
-      h.addrId ||
-      h.addressId ||
-      h.addressName ||
-      h.address ||
-      h.n ||         // master-katalog / stops
-      'global';
-
-    if (!key) return null;
-
-    // 3) Finn timestamp (ms)
-    let ts = null;
-
-    const tryParseTs = (v) => {
-      if (v == null) return null;
-      if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-      if (typeof v === 'string') {
-        const n = Number(v);
-        if (Number.isFinite(n)) return n;
-        const d = Date.parse(v);
-        return Number.isFinite(d) ? d : null;
-      }
-      return null;
-    };
-
-    ts =
-      tryParseTs(h.ts) ??
-      tryParseTs(h.time) ??
-      tryParseTs(h.timestamp) ??
-      tryParseTs(h.at) ??
-      tryParseTs(h.date) ??
-      tryParseTs(h.when);
-
-    if (!Number.isFinite(ts)) return null;
-
-    return { kind, key, ts };
-  }
-
-  // Summer KUN lukkede par (start → stopp/ferdig). Åpne starter ignoreres helt.
-  function calcSamletBroytetid(hendelser) {
-    if (!Array.isArray(hendelser) || hendelser.length === 0) return 0;
-
-    const norm = hendelser
-      .map(normalizeHendelse)
-      .filter(Boolean)
-      .sort((a, b) => a.ts - b.ts);
-
+  // Regner på ferdig-normaliserte events: [{kind:'start'|'stop', key, ts}]
+  function calcMsFromNorm(norm) {
+    if (!Array.isArray(norm) || norm.length === 0) return 0;
     const byKey = new Map();
+
     for (const ev of norm) {
+      if (!ev || !ev.key || !Number.isFinite(ev.ts)) continue;
       if (!byKey.has(ev.key)) byKey.set(ev.key, []);
       byKey.get(ev.key).push(ev);
     }
@@ -429,118 +368,147 @@
     let totalMs = 0;
 
     for (const [, arr] of byKey) {
+      arr.sort((a, b) => a.ts - b.ts);
       let openStart = null;
+
       for (const ev of arr) {
         if (ev.kind === 'start') {
-          // Hvis det allerede er en åpen start, ignorerer vi den nye for å unngå dobbel-logging
-          if (openStart == null) openStart = ev.ts;
+          if (openStart == null) openStart = ev.ts; // ignorer dobbelt-start
         } else if (ev.kind === 'stop') {
           if (openStart != null && ev.ts > openStart) {
             const dur = ev.ts - openStart;
-            totalMs += Math.min(dur, MAX_INTERVAL_MS); // klipp til 90 min per intervall
+            totalMs += Math.min(dur, MAX_INTERVAL_MS);
           }
           openStart = null;
         }
       }
-      // Åpen start uten stopp: ignoreres.
+      // Åpen start uten stop: ignoreres
     }
 
     return totalMs;
   }
 
-  // Eksponer globalt for debugging / andre moduler
-  window.calcSamletBroytetid = calcSamletBroytetid;
+  /**
+   * Tar inn "hendelser" i vårt format:
+   *   { type: 'start' | 'ferdig', addrId: 'Hagamoen', ts: <ms> }
+   * og regner total tid.
+   */
+  function calcSamletBroytetid(hendelser) {
+    if (!Array.isArray(hendelser) || hendelser.length === 0) return 0;
 
-  // Enkel renderer: viser bare sum av lukkede par. Ingen ticking.
-  (function setupSamletTidRenderer() {
-    function renderSamletTid(hendelser) {
-      const el = document.getElementById('samlet_tid');
-      if (!el) return;
-      const ms = calcSamletBroytetid(hendelser);
-      el.textContent = msToHhMm(ms);
+    const norm = hendelser
+      .map(h => {
+        const kind =
+          h?.type === 'start' ? 'start' :
+          (h?.type === 'stopp' || h?.type === 'ferdig') ? 'stop' : null;
+        if (!kind) return null;
+
+        const key = h.addrId || h.taskId || 'global';
+        const ts  = Number(h.ts);
+        if (!key || !Number.isFinite(ts)) return null;
+
+        return { kind, key, ts };
+      })
+      .filter(Boolean);
+
+    return calcMsFromNorm(norm);
+  }
+
+  // Viser tid på Hjem-siden
+  function renderSamletTid(hendelser) {
+    const el = document.getElementById('samlet_tid');
+    if (!el) return;
+    const totalMs = calcSamletBroytetid(hendelser);
+    el.textContent = msToHhMm(totalMs);
+  }
+
+  // Gjør renderer tilgjengelig globalt hvis noe annet vil bruke den
+  window.renderSamletTid = renderSamletTid;
+
+  // --- Hent fra JSONbin (report-bin) ---
+
+  function getMasterKey() {
+    // Forsøk å hente master key fra samme sted som resten av appen bruker
+    return (
+      localStorage.getItem('jsonbin_master_key') ||
+      localStorage.getItem('X-Master-Key') ||
+      ''
+    );
+  }
+
+  // Konverterer report-rader (slik du limte inn) til "hendelser" for kalkulatoren
+  function reportsToHendelser(reports) {
+    if (!Array.isArray(reports)) return [];
+
+    return reports
+      .map(r => {
+        // Finn type
+        let type = null;
+
+        if (r.type === 'start' || r.action === 'start') {
+          type = 'start';
+        } else if (r.type === 'done' || r.action === 'ferdig') {
+          type = 'ferdig';
+        } else {
+          // ignorér "neste" og andre ting
+          return null;
+        }
+
+        // Nøkkel per adresse (samler alt pr. navn)
+        const addrId =
+          r.addressId ||
+          r.address ||
+          r.addressName ||
+          'ukjent';
+
+        // Timestamp (ISO-streng)
+        const tsStr = r.at || r.ts;
+        const ts = Date.parse(tsStr);
+        if (!addrId || !Number.isFinite(ts)) return null;
+
+        return { type, addrId, ts };
+      })
+      .filter(Boolean);
+  }
+
+  async function fetchReportsAndRender() {
+    const key = getMasterKey();
+    const url = `https://api.jsonbin.io/v3/b/${REPORT_BIN_ID}/latest`;
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    if (key) {
+      headers['X-Master-Key'] = key;
     }
 
-    // Eksponer globalt slik at andre moduler kan kalle den.
-    window.renderSamletTid = renderSamletTid;
-
-    // Lytt etter oppdateringer fra loggeren(e). Send f.eks.:
-    // document.dispatchEvent(new CustomEvent('hendelser:updated', { detail:{ hendelser } }));
-    document.addEventListener('hendelser:updated', (e) => {
-      const h = (e && e.detail && Array.isArray(e.detail.hendelser)) ? e.detail.hendelser : [];
-      renderSamletTid(h);
-    });
-  })();
-  </script>
-
-  <!-- Hent hendelser fra JSONbin ved oppstart, slik at samlet brøytetid blir lik på alle enheter -->
-  <script>
-  (function () {
-    // Bin for hendelser – samme som brukes i logg.js (DEFAULT_BINS)
-    const HENDELSER_BIN_ID = '68e89e3443b1c97be9611c48';
-
-    // Forsøk noen vanlige localStorage-nøkler for X-Master-Key
-    const MASTER_KEY_KEYS = [
-      'jsonbin_master_key',
-      'jsonbin_master',
-      'rt_jsonbin_master',
-      'rt_jsonbin_key'
-    ];
-
-    function getMasterKey() {
-      for (const k of MASTER_KEY_KEYS) {
-        const v = localStorage.getItem(k);
-        if (v && v.trim()) return v.trim();
-      }
-      return null;
-    }
-
-    async function loadHendelserFraJsonbin() {
-      const key = getMasterKey();
-      if (!key) {
-        console.warn('[SamletTid] Fant ingen JSONbin X-Master-Key i localStorage');
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        console.warn('Kunne ikke hente report-bin:', res.status, await res.text());
         return;
       }
 
-      try {
-        const url = `https://api.jsonbin.io/v3/b/${HENDELSER_BIN_ID}/latest`;
-        const res = await fetch(url, {
-          headers: {
-            'X-Master-Key': key
-          }
-        });
+      const data = await res.json();
+      const record = data.record || data;     // JSONbin v3: {record:{...}}
+      const reports = record.reports || [];
+      const hendelser = reportsToHendelser(reports);
 
-        if (!res.ok) {
-          console.warn('[SamletTid] Klarte ikke å hente hendelser fra JSONbin', res.status);
-          return;
-        }
-
-        const data = await res.json();
-        const record = data && (data.record || data);
-
-        let hendelser = [];
-        if (Array.isArray(record)) {
-          hendelser = record;
-        } else if (record && Array.isArray(record.hendelser)) {
-          hendelser = record.hendelser;
-        } else {
-          console.warn('[SamletTid] Fant ingen hendelser-array i JSONbin-record');
-        }
-
-        // Fyr samme event som tiden-blekkeren vår lytter på:
-        document.dispatchEvent(
-          new CustomEvent('hendelser:updated', { detail: { hendelser } })
-        );
-      } catch (err) {
-        console.warn('[SamletTid] Feil ved henting av hendelser fra JSONbin', err);
-      }
+      renderSamletTid(hendelser);
+    } catch (err) {
+      console.error('Feil ved henting av report-bin:', err);
     }
+  }
 
-    // Kjør etter at siden er lastet (inkl. scripts)
-    window.addEventListener('load', () => {
-      loadHendelserFraJsonbin();
-    });
-  })();
-  </script>
+  // Hent ved oppstart + oppdater f.eks. hvert minutt
+  document.addEventListener('DOMContentLoaded', () => {
+    fetchReportsAndRender();
+    // Oppdatér jevnlig slik at alle enheter får med seg nye registreringer
+    setInterval(fetchReportsAndRender, 60 * 1000);
+  });
+})();
+</script>
+
 
   <!-- Wake Lock / skjerm våken -->
   <script>
