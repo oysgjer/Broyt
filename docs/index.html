@@ -1,3 +1,20 @@
+Her er oppdatert index.html bygget videre på din versjon.
+Endringer jeg har lagt til:
+	•	Registrerer om runden er snø eller grus (basert på utstyr når du trykker “Start runde”).
+	•	Etter hver Ferdig eller Ikke mulig sjekkes teksten i #b_prog_summary.
+Når den viser at alle adresser er fullført, dukker det opp en bunn-dialog med:
+	•	Snø-modus:
+	1.	Ferdig – kjør til base og start service
+	2.	Start ny runde med snømåking
+	3.	Ferdig med måking – kjør til base, bytt til gruskasse og start ny grusrunde
+	•	Grus-modus:
+	1.	Ferdig – kjør til base og start service
+	2.	Start ny runde med grusing
+	•	Valg 1 navigerer til Service-siden.
+	•	Valg 2/3 trigget round:new-event og forsøker (hvis du senere lager det) å kalle window.startNewRound(mode).
+
+Lim inn hele denne fila som index.html:
+
 <!doctype html>
 <html lang="no">
 <head>
@@ -523,39 +540,294 @@
     });
   })();
   </script>
-<script>
-// Auto-naviger til NESTE adresse etter "Ferdig" hvis checkboxen er aktivert
-document.addEventListener('DOMContentLoaded', () => {
-  const chk     = document.getElementById('a_autoNav');
-  const btnDone = document.getElementById('act_done');
-  const btnNext = document.getElementById('act_next');
-  const btnNav  = document.getElementById('act_nav');
-  if (!chk || !btnDone || !btnNext || !btnNav) return;
 
-  btnDone.addEventListener('click', () => {
-    if (!chk.checked) return;
-    setTimeout(() => {
-      // Gå til neste adresse først
-      btnNext.click();
-      // Gi UI-et et øyeblikk til å oppdatere "Nå"-adressen før navigering
-      setTimeout(() => btnNav.click(), 60);
-    }, 1000);
+  <script>
+  // Auto-naviger til NESTE adresse etter "Ferdig" hvis checkboxen er aktivert
+  document.addEventListener('DOMContentLoaded', () => {
+    const chk     = document.getElementById('a_autoNav');
+    const btnDone = document.getElementById('act_done');
+    const btnNext = document.getElementById('act_next');
+    const btnNav  = document.getElementById('act_nav');
+    if (!chk || !btnDone || !btnNext || !btnNav) return;
+
+    btnDone.addEventListener('click', () => {
+      if (!chk.checked) return;
+      setTimeout(() => {
+        // Gå til neste adresse først
+        btnNext.click();
+        // Gi UI-et et øyeblikk til å oppdatere "Nå"-adressen før navigering
+        setTimeout(() => btnNav.click(), 60);
+      }, 1000);
+    });
   });
-});
-</script>
-<script>
-// Vibrasjon ved knappetrykk (alle <button>)
-document.addEventListener('DOMContentLoaded', () => {
-  if (!('vibrate' in navigator)) return; // støttes ikke
+  </script>
 
-  document.body.addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    // Kort, tydelig vibrasjon
-    navigator.vibrate(20);
-  }, true);
-});
-</script>
-<script src="funfacts.js"></script>
+  <script>
+  // Vibrasjon ved knappetrykk (alle <button>)
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!('vibrate' in navigator)) return; // støttes ikke
+
+    document.body.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      // Kort, tydelig vibrasjon
+      navigator.vibrate(20);
+    }, true);
+  });
+  </script>
+
+  <script src="funfacts.js"></script>
+
+  <!-- NYTT: Runde-modus (snø/grus) + dialog når alle adresser er ferdige -->
+  <script>
+  (() => {
+    const MODE_KEY = 'current_round_mode';
+    let currentMode = localStorage.getItem(MODE_KEY) || 'snow';
+
+    function setMode(mode) {
+      currentMode = (mode === 'grit') ? 'grit' : 'snow';
+      localStorage.setItem(MODE_KEY, currentMode);
+    }
+
+    window.getCurrentRoundMode = () => currentMode;
+
+    function goToPage(id) {
+      const sections = ['home','work','service','status','admin'];
+      sections.forEach(secId => {
+        const secEl = document.getElementById(secId);
+        if (secEl) {
+          secEl.hidden = secId !== id;
+        }
+      });
+    }
+
+    function handleEndRoundService() {
+      goToPage('service');
+      document.dispatchEvent(new CustomEvent('round:service', {
+        detail: { from: 'endOfRoundDialog', mode: currentMode }
+      }));
+    }
+
+    function handleEndRoundStartSnowRound() {
+      setMode('snow');
+      document.dispatchEvent(new CustomEvent('round:new', {
+        detail: { mode: 'snow', from: 'endOfRoundDialog' }
+      }));
+      if (window.startNewRound) {
+        try { window.startNewRound('snow'); } catch (e) { console.warn(e); }
+      }
+      goToPage('work');
+    }
+
+    function handleEndRoundStartGritFromSnow() {
+      setMode('grit');
+
+      // Sett opp utstyr til ren grusrunde
+      const eqPlow = document.getElementById('a_eq_plow');
+      const eqFres = document.getElementById('a_eq_fres');
+      const eqSand = document.getElementById('a_eq_sand');
+      if (eqPlow && eqFres && eqSand) {
+        eqPlow.checked = false;
+        eqFres.checked = false;
+        eqSand.checked = true;
+      }
+
+      document.dispatchEvent(new CustomEvent('round:new', {
+        detail: { mode: 'grit', from: 'endOfRoundDialog', previous: 'snow' }
+      }));
+      if (window.startNewRound) {
+        try { window.startNewRound('grit'); } catch (e) { console.warn(e); }
+      }
+      // Til hjem der sjåfør kan bytte utstyr fysisk og trykke "Start runde"
+      goToPage('home');
+    }
+
+    function handleEndRoundStartGritRound() {
+      setMode('grit');
+      document.dispatchEvent(new CustomEvent('round:new', {
+        detail: { mode: 'grit', from: 'endOfRoundDialog' }
+      }));
+      if (window.startNewRound) {
+        try { window.startNewRound('grit'); } catch (e) { console.warn(e); }
+      }
+      goToPage('work');
+    }
+
+    function showEndOfRoundDialog(mode) {
+      if (document.getElementById('endRoundOverlay')) return;
+
+      const overlay = document.createElement('div');
+      overlay.id = 'endRoundOverlay';
+      overlay.style.cssText = `
+        position:fixed;
+        inset:0;
+        background:rgba(15,23,42,.85);
+        display:flex;
+        align-items:flex-end;
+        justify-content:center;
+        z-index:9998;
+      `;
+
+      const box = document.createElement('div');
+      box.style.cssText = `
+        width:100%;
+        max-width:480px;
+        background:#020617;
+        color:#f9fafb;
+        border-radius:16px 16px 0 0;
+        padding:16px 16px 22px;
+        box-shadow:0 -8px 30px rgba(0,0,0,.6);
+      `;
+
+      const title = document.createElement('h2');
+      title.textContent = 'Alle adresser er ferdig';
+      title.style.cssText = 'margin:0 0 4px;font-size:18px;';
+      box.appendChild(title);
+
+      const p = document.createElement('p');
+      p.textContent = 'Velg hva du vil gjøre videre:';
+      p.style.cssText = 'margin:0 0 14px;font-size:14px;opacity:.8;';
+      box.appendChild(p);
+
+      const btnWrap = document.createElement('div');
+      btnWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+      // 1. Ferdig – kjør til base og start service
+      const btn1 = document.createElement('button');
+      btn1.textContent = '1. Ferdig – kjør til base og start service';
+      btn1.className = 'btn';
+      btn1.style.cssText = `
+        border-radius:999px;
+        padding:12px 16px;
+        font-size:15px;
+        font-weight:600;
+        border:1px solid #22c55e;
+        background:#22c55e;
+        color:#022c22;
+        text-align:left;
+      `;
+      btn1.onclick = () => {
+        overlay.remove();
+        handleEndRoundService();
+      };
+      btnWrap.appendChild(btn1);
+
+      if (mode === 'snow') {
+        // 2. Start ny runde med snømåking
+        const btn2 = document.createElement('button');
+        btn2.textContent = '2. Start ny runde med snømåking';
+        btn2.className = 'btn';
+        btn2.style.cssText = `
+          border-radius:999px;
+          padding:12px 16px;
+          font-size:15px;
+          font-weight:600;
+          border:1px solid #334155;
+          background:#0f172a;
+          color:#e5e7eb;
+          text-align:left;
+        `;
+        btn2.onclick = () => {
+          overlay.remove();
+          handleEndRoundStartSnowRound();
+        };
+        btnWrap.appendChild(btn2);
+
+        // 3. Snø -> grus
+        const btn3 = document.createElement('button');
+        btn3.textContent = '3. Ferdig med måking – kjør til base, bytt til gruskasse og start ny grusrunde';
+        btn3.className = 'btn';
+        btn3.style.cssText = `
+          border-radius:999px;
+          padding:12px 16px;
+          font-size:15px;
+          font-weight:600;
+          border:1px solid #4b5563;
+          background:#020617;
+          color:#e5e7eb;
+          text-align:left;
+        `;
+        btn3.onclick = () => {
+          overlay.remove();
+          handleEndRoundStartGritFromSnow();
+        };
+        btnWrap.appendChild(btn3);
+      } else {
+        // GRUS: 2. Start ny runde med grusing
+        const btn2 = document.createElement('button');
+        btn2.textContent = '2. Start ny runde med grusing';
+        btn2.className = 'btn';
+        btn2.style.cssText = `
+          border-radius:999px;
+          padding:12px 16px;
+          font-size:15px;
+          font-weight:600;
+          border:1px solid #334155;
+          background:#0f172a;
+          color:#e5e7eb;
+          text-align:left;
+        `;
+        btn2.onclick = () => {
+          overlay.remove();
+          handleEndRoundStartGritRound();
+        };
+        btnWrap.appendChild(btn2);
+      }
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+
+      box.appendChild(btnWrap);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    }
+
+    function checkIfAllDoneAndPrompt() {
+      const summaryEl = document.getElementById('b_prog_summary');
+      if (!summaryEl) return;
+      const txt = summaryEl.textContent || '';
+      const m = txt.match(/(\d+)\s+av\s+(\d+)\s+adresser\s+fullført/);
+      if (!m) return;
+      const done = parseInt(m[1], 10);
+      const total = parseInt(m[2], 10);
+      if (!Number.isFinite(done) || !Number.isFinite(total)) return;
+      if (total === 0) return;
+      if (done < total) return;
+
+      showEndOfRoundDialog(currentMode);
+    }
+
+    // Koble seg på "Start runde" for å avgjøre om det er snø- eller grusrunde
+    document.addEventListener('DOMContentLoaded', () => {
+      const startBtn = document.getElementById('a_start');
+      const eqPlow  = document.getElementById('a_eq_plow');
+      const eqFres  = document.getElementById('a_eq_fres');
+      const eqSand  = document.getElementById('a_eq_sand');
+
+      if (startBtn && eqPlow && eqFres && eqSand) {
+        startBtn.addEventListener('click', () => {
+          const gritOnly = eqSand.checked && !eqPlow.checked && !eqFres.checked;
+          setMode(gritOnly ? 'grit' : 'snow');
+        }, true);
+      }
+
+      const btnDone  = document.getElementById('act_done');
+      const btnBlock = document.getElementById('act_block');
+
+      function afterAction() {
+        // Gi Work.js litt tid til å oppdatere progresjonsteksten
+        setTimeout(checkIfAllDoneAndPrompt, 800);
+      }
+
+      btnDone?.addEventListener('click', afterAction);
+      btnBlock?.addEventListener('click', afterAction);
+    });
+
+    // Eksponer hvis andre skript vil trigge det samme
+    window.showEndOfRoundDialog = showEndOfRoundDialog;
+    window.checkIfAllDoneAndPrompt = checkIfAllDoneAndPrompt;
+  })();
+  </script>
 </body>
 </html>
