@@ -1,54 +1,161 @@
 <!doctype html>
 <html lang="no">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Brøyterute – Logg</title>
-  <link rel="stylesheet" href="./css/style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Brøyterapport – Romerike Trefelling</title>
+
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#0b1320" />
+
   <style>
-    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-    .controls label{display:flex;gap:6px;align-items:center}
-    .hdr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 6px}
-    .hdr .cell{padding:6px 8px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--bg-soft,#fafafa)}
-    table{width:100%;border-collapse:collapse;margin-bottom:18px}
-    th,td{padding:8px;border-bottom:1px solid var(--border,#eee)}
-    th{background:var(--bg-muted,#f6f7f8);text-align:left}
-    .section-title{margin:18px 0 6px;font-size:1.1rem;font-weight:600}
-    .muted{color:#6b7280}
-    @media print{
-      .controls{display:none}
-      body{margin:0.8cm}
-      th,td{padding:6px}
-      .section-title{margin:8px 0 4px}
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 12px;
+      background: #0b1320;
+      color: #f9fafb;
+    }
+    header {
+      margin-bottom: 12px;
+    }
+    header h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+    }
+    header p {
+      margin: 0;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      background: #2563eb;
+      color: #f9fafb;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: #111827;
+      border: 1px solid #374151;
+    }
+    button:disabled {
+      opacity: .6;
+      cursor: default;
+    }
+    #status {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 8px;
+      min-height: 1.4em;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      background: #020617;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+      min-width: 640px;
+    }
+    thead {
+      background: #111827;
+    }
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #1f2937;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #9ca3af;
+    }
+    tbody tr:nth-child(even) {
+      background: #020617;
+    }
+    tbody tr:nth-child(odd) {
+      background: #030712;
+    }
+    .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .addr {
+      font-weight: 500;
+    }
+    .hint {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #9ca3af;
+    }
+    a.download-link {
+      color: #93c5fd;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 12px;
     }
   </style>
 </head>
 <body>
+  <header>
+    <h1>Brøyterapport</h1>
+    <p>Henter logg fra JSONbin, lager PDF og ZIP for e-post.</p>
+  </header>
 
-  <div class="controls">
-    <label>Sjåfør
-      <select id="selDriver"><option value="">Alle</option></select>
-    </label>
-    <label>Sluttdato <input id="inpDato" type="date"></label>
-    <label>Antall dager
-      <select id="selDays">
-        <option value="1">1</option>
-        <option value="3">3</option>
-        <option value="5" selected>5</option>
-        <option value="7">7</option>
-        <option value="14">14</option>
-        <option value="30">30</option>
-      </select>
-    </label>
-    <button id="btnLoadLogg" class="btn">Last fra JSONBin</button>
-    <button onclick="window.print()">Skriv ut / PDF</button>
-    <span id="status" class="muted"></span>
+  <div class="toolbar">
+    <button id="btnLoad">Oppdater data</button>
+    <button id="btnExport" class="secondary" disabled>Lag PDF + ZIP</button>
   </div>
 
-  <div id="logg_container"></div>
+  <div id="status"></div>
 
-  <div style="margin-top:10px;color:#6b7280">Brøyting Romerike Trefelling</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Adresse</th>
+          <th>Oppgave</th>
+          <th>Fører</th>
+          <th>Start</th>
+          <th>Slutt</th>
+          <th>Varighet (min)</th>
+        </tr>
+      </thead>
+      <tbody id="logBody">
+        <!-- fylles av logg.js -->
+      </tbody>
+    </table>
+  </div>
 
-  <script src="./js/logg.js" defer></script>
+  <div class="hint">
+    Etter at ZIP-filen er lastet ned kan du åpne e-posten som dukker opp
+    (<code>post@romeriketrefelling.no</code>, cc <code>oysgjer@gmail.com</code>) og legge ZIP-filen ved som vedlegg.
+    <br />
+    <span id="zipLinkWrap"></span>
+  </div>
+
+  <!-- jsPDF (PDF-generering) -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <!-- JSZip (ZIP-pakking) -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- Din logikk -->
+  <script src="logg.js"></script>
 </body>
 </html>
