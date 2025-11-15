@@ -472,6 +472,76 @@
   })();
   </script>
 
+  <!-- Hent hendelser fra JSONbin ved oppstart, slik at samlet brøytetid blir lik på alle enheter -->
+  <script>
+  (function () {
+    // Bin for hendelser – samme som brukes i logg.js (DEFAULT_BINS)
+    const HENDELSER_BIN_ID = '68e89e3443b1c97be9611c48';
+
+    // Forsøk noen vanlige localStorage-nøkler for X-Master-Key
+    const MASTER_KEY_KEYS = [
+      'jsonbin_master_key',
+      'jsonbin_master',
+      'rt_jsonbin_master',
+      'rt_jsonbin_key'
+    ];
+
+    function getMasterKey() {
+      for (const k of MASTER_KEY_KEYS) {
+        const v = localStorage.getItem(k);
+        if (v && v.trim()) return v.trim();
+      }
+      return null;
+    }
+
+    async function loadHendelserFraJsonbin() {
+      const key = getMasterKey();
+      if (!key) {
+        console.warn('[SamletTid] Fant ingen JSONbin X-Master-Key i localStorage');
+        return;
+      }
+
+      try {
+        const url = `https://api.jsonbin.io/v3/b/${HENDELSER_BIN_ID}/latest`;
+        const res = await fetch(url, {
+          headers: {
+            'X-Master-Key': key
+          }
+        });
+
+        if (!res.ok) {
+          console.warn('[SamletTid] Klarte ikke å hente hendelser fra JSONbin', res.status);
+          return;
+        }
+
+        const data = await res.json();
+        const record = data && (data.record || data);
+
+        let hendelser = [];
+        if (Array.isArray(record)) {
+          hendelser = record;
+        } else if (record && Array.isArray(record.hendelser)) {
+          hendelser = record.hendelser;
+        } else {
+          console.warn('[SamletTid] Fant ingen hendelser-array i JSONbin-record');
+        }
+
+        // Fyr samme event som tiden-blekkeren vår lytter på:
+        document.dispatchEvent(
+          new CustomEvent('hendelser:updated', { detail: { hendelser } })
+        );
+      } catch (err) {
+        console.warn('[SamletTid] Feil ved henting av hendelser fra JSONbin', err);
+      }
+    }
+
+    // Kjør etter at siden er lastet (inkl. scripts)
+    window.addEventListener('load', () => {
+      loadHendelserFraJsonbin();
+    });
+  })();
+  </script>
+
   <!-- Wake Lock / skjerm våken -->
   <script>
   (() => {
