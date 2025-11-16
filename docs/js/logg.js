@@ -1,453 +1,325 @@
-// js/logg.js – leser report-bin, viser detaljert logg + tid per adresse
+// logg.js – bygger detaljert logg og tid per adresse fra report-bin
+(() => {
+  'use strict';
 
-const REPORT_BIN_ID = '68e89e3443b1c97be9611c48';
+  const REPORT_BIN_ID = '68e89e3443b1c97be9611c48';
 
-// --- Hjelpere ---------------------------------------------------------------
+  // --- DOM ---
+  const sumContentEl = document.getElementById('sum_content');
+  const driverSelect = document.getElementById('f_driver');
+  const addrSelect   = document.getElementById('f_addr');
+  const jobsBody     = document.getElementById('jobs_body');
+  const addrBody     = document.getElementById('addr_body');
 
-const $ = (sel, root = document) => root.querySelector(sel);
-const byId = (id) => document.getElementById(id);
-const pad2 = (n) => (n < 10 ? '0' + n : '' + n);
+  // --- State ---
+  let allEvents = [];   // normaliserte hendelser (start/ferdig osv.)
+  let allJobs   = [];   // sammenhengende jobber (start→ferdig)
 
-function fmtDate(d) {
-  return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`;
-}
-function fmtTime(d) {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-function msToHhMm(ms) {
-  if (!Number.isFinite(ms) || ms <= 0) return '0 min';
-  const totalMin = Math.round(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  if (h === 0) return `${m} min`;
-  return `${h} t ${m.toString().padStart(2, '0')} min`;
-}
+  // --- Hjelpere for tid/format ---
+  const pad2 = (n) => (n < 10 ? '0' + n : '' + n);
 
-// --- Master key -------------------------------------------------------------
+  const fmtDate = (d) =>
+    `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`;
 
-const MASTER_KEY_KEYS = [
-  'jsonbin_master_key',
-  'jsonbin_master',
-  'rt_jsonbin_master',
-  'rt_jsonbin_key',
-  'X-Master-Key'
-];
+  const fmtTime = (d) =>
+    `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
-function getMasterKey() {
-  for (const k of MASTER_KEY_KEYS) {
-    const v = localStorage.getItem(k);
-    if (v && v.trim()) return v.trim();
+  // --- Finn X-Master-Key fra localStorage (samme logikk som ellers i appen) ---
+  const MASTER_KEY_KEYS = [
+    'jsonbin_master_key',
+    'jsonbin_master',
+    'rt_jsonbin_master',
+    'rt_jsonbin_key',
+    'X-Master-Key'
+  ];
+
+  function getMasterKey() {
+    for (const k of MASTER_KEY_KEYS) {
+      const v = localStorage.getItem(k);
+      if (v && v.trim()) return v.trim();
+    }
+    return null;
   }
-  return null;
-}
 
-// --- Normaliser rå-rader fra JSONbin ----------------------------------------
+  // --- Normaliser raw JSONbin-data til et enkelt event-format ---
+  function normalizeEvents(record) {
+    let raw = [];
 
-/**
- * Støtter både:
- *  - nytt format: { type:'start'|'done', addressId, addressName, at, by, roundTask? }
- *  - gammelt format: { ts, driver, address, task, action:'start'|'ferdig'|'neste'|'ikke_mulig', notes }
- */
-function normalizeEvents(raw) {
-  if (!Array.isArray(raw)) return [];
-
-  const out = [];
-
-  for (const r of raw) {
-    if (!r) continue;
-
-    const tsStr = r.at || r.ts;
-    const ts = Date.parse(tsStr);
-    if (!Number.isFinite(ts)) continue;
-
-    const address =
-      r.addressId ||
-      r.addressName ||
-      r.address ||
-      '—';
-
-    const driver = r.by || r.driver || '—';
-
-    let op = null; // 'start' | 'stop' | 'not_possible' | 'next'
-
-    if (r.type === 'start' || r.action === 'start') {
-      op = 'start';
-    } else if (r.type === 'done' || r.action === 'ferdig') {
-      op = 'stop';
-    } else if (r.action === 'ikke_mulig') {
-      op = 'not_possible';
-    } else if (r.action === 'neste') {
-      op = 'next';
+    if (Array.isArray(record)) {
+      raw = record;
+    } else if (record && Array.isArray(record.reports)) {
+      raw = record.reports;
+    } else if (record && Array.isArray(record.hendelser)) {
+      raw = record.hendelser;
     } else {
-      continue;
+      raw = [];
     }
 
-    // Oppgave S/G hvis vi har den – ellers lar vi den være null
-    let task = null;
-    if (r.roundTask === 'S' || r.roundTask === 'G') {
-      task = r.roundTask;
-    } else if (r.task === 'S' || r.task === 'G') {
-      task = r.task;
-    } else if (typeof r.task === 'string') {
-      const t = r.task.toLowerCase();
-      if (t.includes('grus')) task = 'G';
-      else if (t.includes('snø')) task = 'S';
+    const events = [];
+
+    for (const r of raw) {
+      if (!r) continue;
+
+      // Vi bryr oss om rader med "action" (start/ferdig/ikke_mulig/neste)
+      if (!r.action) continue;
+
+      const tsStr = r.ts;
+      if (!tsStr) continue;
+
+      const t = Date.parse(tsStr);
+      if (!Number.isFinite(t)) continue;
+
+      // Normaliser action
+      let action = String(r.action).toLowerCase();
+      if (action === 'stopp') action = 'ferdig';
+      if (action === 'done')  action = 'ferdig';
+
+      // Vi bruker driver + adresse som i appen
+      const driver  = r.driver || r.by || 'Ukjent';
+      const address = r.address || r.addressName || r.addressId || '—';
+
+      events.push({
+        ts: t,
+        date: new Date(t),
+        driver,
+        address,
+        action
+      });
     }
 
-    const notes = r.notes || '';
-
-    out.push({ ts, address, driver, op, task, notes });
+    return events;
   }
 
-  return out;
-}
+  // --- Bygg jobber (én linje per start→ferdig) ---
+  function buildJobs(events) {
+    const jobs = [];
 
-// --- Bygg sammenhengende jobber (start -> ferdig) --------------------------
+    // Grupper pr. driver+adresse
+    const groups = new Map();
+    for (const ev of events) {
+      if (ev.action !== 'start' && ev.action !== 'ferdig') continue;
+      const key = `${ev.driver}||${ev.address}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(ev);
+    }
 
-/**
- * Returnerer jobber:
- * { fromTs, toTs, address, driver, task, minutes, notPossible, notes }
- */
-function buildJobs(events) {
-  if (!Array.isArray(events)) return [];
+    for (const [key, arr] of groups) {
+      arr.sort((a, b) => a.ts - b.ts);
+      let open = null;
 
-  const sorted = [...events].sort((a, b) => a.ts - b.ts);
+      for (const ev of arr) {
+        if (ev.action === 'start') {
+          if (!open) {
+            open = ev;
+          }
+        } else if (ev.action === 'ferdig') {
+          if (open && ev.ts >= open.ts) {
+            let minutes = Math.round((ev.ts - open.ts) / 60000);
+            if (minutes < 0) minutes = 0;
 
-  const groups = new Map(); // key: address||driver
-  for (const ev of sorted) {
-    if (!['start', 'stop', 'not_possible'].includes(ev.op)) continue;
-    const key = `${ev.address}||${ev.driver}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(ev);
+            jobs.push({
+              startTs: open.ts,
+              endTs:   ev.ts,
+              start:   new Date(open.ts),
+              end:     new Date(ev.ts),
+              driver:  ev.driver,
+              address: ev.address,
+              minutes
+            });
+
+            open = null;
+          }
+        }
+      }
+      // Åpen start uten ferdig ignoreres.
+    }
+
+    return jobs;
   }
 
-  const jobs = [];
+  // --- Fyll nedtrekkslister for sjåfør og adresse ---
+  function populateFilters(events) {
+    const drivers = new Set();
+    const addrs   = new Set();
 
-  for (const [, arr] of groups) {
-    arr.sort((a, b) => a.ts - b.ts);
-    let openStart = null;
+    for (const ev of events) {
+      if (ev.driver)  drivers.add(ev.driver);
+      if (ev.address) addrs.add(ev.address);
+    }
 
-    for (const ev of arr) {
-      if (ev.op === 'start') {
-        openStart = ev; // overskriv gammel hvis ny start
-      } else if (ev.op === 'stop' || ev.op === 'not_possible') {
-        if (!openStart || ev.ts <= openStart.ts) {
-          openStart = null;
-          continue;
+    // Sjåfør
+    driverSelect.innerHTML = '<option value="">Alle sjåfører</option>';
+    Array.from(drivers).sort((a, b) => a.localeCompare(b, 'nb')).forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      driverSelect.appendChild(opt);
+    });
+
+    // Adresse
+    addrSelect.innerHTML = '<option value="">Alle adresser</option>';
+    Array.from(addrs).sort((a, b) => a.localeCompare(b, 'nb')).forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a;
+      opt.textContent = a;
+      addrSelect.appendChild(opt);
+    });
+  }
+
+  // --- Render samlet brøytetid (øverst på siden) ---
+  function renderSummary(jobs) {
+    if (!sumContentEl) return;
+
+    if (!jobs || jobs.length === 0) {
+      sumContentEl.textContent = 'Ingen registrerte jobber i valgt filter.';
+      return;
+    }
+
+    const totalMin = jobs.reduce((acc, j) => acc + (j.minutes || 0), 0);
+    const totalJobs = jobs.length;
+
+    // Enkle tall – dette er logg-sida, så her skal det være detaljert/ærlig
+    sumContentEl.textContent =
+      `Totalt ${totalMin} minutter fordelt på ${totalJobs} jobber ` +
+      `(etter valgte filtre).`;
+  }
+
+  // --- Render detaljert logg (nyeste øverst) ---
+  function renderJobs(jobs) {
+    if (!jobsBody) return;
+    jobsBody.innerHTML = '';
+
+    if (!jobs || jobs.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td colspan="6" style="padding:8px;text-align:center;" class="muted">
+          Ingen jobber å vise.
+        </td>`;
+      jobsBody.appendChild(tr);
+      return;
+    }
+
+    const sorted = [...jobs].sort((a, b) => b.startTs - a.startTs);
+
+    for (const j of sorted) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="padding:6px;border-bottom:1px solid var(--sep);">${fmtDate(j.start)}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep);">${fmtTime(j.start)}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep);">${fmtTime(j.end)}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep);">${j.address}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--sep);">${j.driver}</td>
+        <td style="padding:6px;text-align:right;border-bottom:1px solid var(--sep);">${j.minutes}</td>
+      `;
+      jobsBody.appendChild(tr);
+    }
+  }
+
+  // --- Lag "tid per adresse" fra jobber ---
+  function buildAddressTotals(jobs) {
+    const map = new Map();
+
+    for (const j of jobs) {
+      const key = j.address || '—';
+      if (!map.has(key)) {
+        map.set(key, { address: key, minutes: 0, rounds: 0 });
+      }
+      const agg = map.get(key);
+      agg.minutes += j.minutes || 0;
+      agg.rounds  += 1;
+    }
+
+    return Array.from(map.values());
+  }
+
+  function renderAddressTotalsFromJobs(jobs) {
+    if (!addrBody) return;
+    addrBody.innerHTML = '';
+
+    if (!jobs || jobs.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td colspan="3" style="padding:8px;text-align:center;" class="muted">
+          Ingen data å vise.
+        </td>`;
+      addrBody.appendChild(tr);
+      return;
+    }
+
+    const totals = buildAddressTotals(jobs);
+
+    // Mest tid øverst
+    const sorted = totals.sort((a, b) => b.minutes - a.minutes);
+
+    for (const t of sorted) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="padding:6px;border-bottom:1px solid var(--sep);">${t.address}</td>
+        <td style="padding:6px;text-align:right;border-bottom:1px solid var(--sep);">${t.rounds}</td>
+        <td style="padding:6px;text-align:right;border-bottom:1px solid var(--sep);">${t.minutes}</td>
+      `;
+      addrBody.appendChild(tr);
+    }
+  }
+
+  // --- Bruk filtre på eksisterende data ---
+  function applyFilters() {
+    const driver = driverSelect?.value || '';
+    const addr   = addrSelect?.value || '';
+
+    let jobs = allJobs;
+
+    if (driver) {
+      jobs = jobs.filter(j => j.driver === driver);
+    }
+    if (addr) {
+      jobs = jobs.filter(j => j.address === addr);
+    }
+
+    renderSummary(jobs);
+    renderJobs(jobs);
+    renderAddressTotalsFromJobs(jobs);
+  }
+
+  // --- Hent data fra JSONbin og bygg alt ---
+  async function loadAndRender() {
+    try {
+      const key = getMasterKey();
+      const headers = { 'Content-Type': 'application/json' };
+      if (key) headers['X-Master-Key'] = key;
+
+      const url = `https://api.jsonbin.io/v3/b/${REPORT_BIN_ID}/latest`;
+      const res = await fetch(url, { headers });
+
+      if (!res.ok) {
+        console.warn('Klarte ikke å hente report-bin', res.status);
+        if (sumContentEl) {
+          sumContentEl.textContent = `Feil ved henting av data (${res.status}).`;
         }
+        return;
+      }
 
-        const fromTs = openStart.ts;
-        const toTs = ev.ts;
-        const minutes = (toTs - fromTs) / 60000;
+      const data = await res.json();
+      const record = data && (data.record || data);
 
-        // Oppgave = det vi vet (fra start/stop-event). Kan være null.
-        let task = ev.task || openStart.task || null;
+      allEvents = normalizeEvents(record);
+      allJobs   = buildJobs(allEvents);
 
-        let notes = ev.notes || openStart.notes || '';
-        if (ev.op === 'not_possible') {
-          notes = notes ? `${notes} (Ikke mulig)` : 'Ikke mulig';
-        }
-
-        jobs.push({
-          fromTs,
-          toTs,
-          address: ev.address || openStart.address,
-          driver: ev.driver || openStart.driver,
-          task,
-          minutes,
-          notPossible: ev.op === 'not_possible',
-          notes
-        });
-
-        openStart = null;
+      populateFilters(allEvents);
+      applyFilters();
+    } catch (err) {
+      console.error('Feil i logg.js loadAndRender', err);
+      if (sumContentEl) {
+        sumContentEl.textContent = 'Ukjent feil ved henting av data.';
       }
     }
   }
 
-  // Nyeste øverst (basert på slutt-tid)
-  jobs.sort((a, b) => b.toTs - a.toTs);
-  return jobs;
-}
+  // --- Lyttere ---
+  driverSelect?.addEventListener('change', applyFilters);
+  addrSelect?.addEventListener('change', applyFilters);
 
-// --- Samlet brøytetid ------------------------------------------------------
-
-function calcSamletTidBuckets(jobs) {
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-  const weekStart = new Date(todayStart);
-  const dow = (weekStart.getDay() + 6) % 7; // 0 = mandag
-  weekStart.setDate(weekStart.getDate() - dow);
-
-  let totalMs = 0;
-  let todayMs = 0;
-  let weekMs = 0;
-  let thisMonthMs = 0;
-  let prevMonthMs = 0;
-
-  for (const j of jobs) {
-    if (!Number.isFinite(j.minutes)) continue;
-    const durMs = j.minutes * 60000;
-    totalMs += durMs;
-
-    const mid = new Date((j.fromTs + j.toTs) / 2);
-
-    if (mid >= todayStart && mid < tomorrowStart) todayMs += durMs;
-    if (mid >= weekStart && mid < tomorrowStart) weekMs += durMs;
-    if (mid >= monthStart && mid < nextMonthStart) thisMonthMs += durMs;
-    if (mid >= prevMonthStart && mid < monthStart) prevMonthMs += durMs;
-  }
-
-  return { totalMs, todayMs, weekMs, thisMonthMs, prevMonthMs };
-}
-
-function renderSamletTid(jobs) {
-  const el = byId('sum_content');
-  if (!el) return;
-
-  if (!jobs.length) {
-    el.textContent = 'Fant ingen registrert brøytetid.';
-    return;
-  }
-
-  const { totalMs, todayMs, weekMs, thisMonthMs, prevMonthMs } =
-    calcSamletTidBuckets(jobs);
-
-  el.innerHTML = [
-    `Totalt: <strong>${msToHhMm(totalMs)}</strong>`,
-    `Forrige måned: <strong>${msToHhMm(prevMonthMs)}</strong>`,
-    `Denne måneden: <strong>${msToHhMm(thisMonthMs)}</strong>`,
-    `Denne uken: <strong>${msToHhMm(weekMs)}</strong>`,
-    `I dag: <strong>${msToHhMm(todayMs)}</strong>`
-  ].join('<br>');
-}
-
-// --- Filtre -----------------------------------------------------------------
-
-function buildFilterOptions(jobs) {
-  const selDriver = byId('f_driver');
-  const selAddr = byId('f_addr');
-  if (!selDriver || !selAddr) return;
-
-  const drivers = new Set();
-  const addrs = new Set();
-
-  for (const j of jobs) {
-    if (j.driver) drivers.add(j.driver);
-    if (j.address) addrs.add(j.address);
-  }
-
-  // behold "Alle …" som første element
-  selDriver.innerHTML = '<option value="">Alle sjåfører</option>';
-  selAddr.innerHTML = '<option value="">Alle adresser</option>';
-
-  [...drivers].sort().forEach((d) => {
-    const o = document.createElement('option');
-    o.value = d;
-    o.textContent = d;
-    selDriver.appendChild(o);
+  window.addEventListener('DOMContentLoaded', () => {
+    loadAndRender();
   });
-
-  [...addrs].sort().forEach((a) => {
-    const o = document.createElement('option');
-    o.value = a;
-    o.textContent = a;
-    selAddr.appendChild(o);
-  });
-}
-
-function applyFilters(jobs) {
-  const selDriver = byId('f_driver');
-  const selAddr = byId('f_addr');
-  const d = selDriver ? selDriver.value : '';
-  const a = selAddr ? selAddr.value : '';
-
-  return jobs.filter((j) => {
-    if (d && j.driver !== d) return false;
-    if (a && j.address !== a) return false;
-    return true;
-  });
-}
-
-// --- Render: detaljert logg -------------------------------------------------
-
-function renderDetaljertLogg(jobs) {
-  const tbody = byId('jobs_body');
-  if (!tbody) return;
-
-  tbody.innerHTML = '';
-
-  if (!jobs.length) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 7;
-    td.textContent = 'Ingen jobber i valgt filter.';
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-    return;
-  }
-
-  for (const j of jobs) {
-    const tr = document.createElement('tr');
-    const from = new Date(j.fromTs);
-    const to = new Date(j.toTs);
-
-    const tdDato = document.createElement('td');
-    tdDato.textContent = fmtDate(from);
-    tr.appendChild(tdDato);
-
-    const tdFra = document.createElement('td');
-    tdFra.textContent = fmtTime(from);
-    tr.appendChild(tdFra);
-
-    const tdTil = document.createElement('td');
-    tdTil.textContent = fmtTime(to);
-    tr.appendChild(tdTil);
-
-    const tdAddr = document.createElement('td');
-    tdAddr.textContent = j.address;
-    tr.appendChild(tdAddr);
-
-    const tdOppg = document.createElement('td');
-    tdOppg.textContent =
-      j.task === 'S' || j.task === 'G' ? j.task : '—';
-    tr.appendChild(tdOppg);
-
-    const tdDrv = document.createElement('td');
-    tdDrv.textContent = j.driver;
-    tr.appendChild(tdDrv);
-
-    const tdMin = document.createElement('td');
-    tdMin.style.textAlign = 'right';
-    tdMin.textContent = Math.round(j.minutes || 0);
-    tr.appendChild(tdMin);
-
-    tbody.appendChild(tr);
-  }
-}
-
-// --- Render: tid per adresse -----------------------------------------------
-
-function renderTidPerAdresse(jobs) {
-  const tbody = byId('addr_body');
-  if (!tbody) return;
-
-  tbody.innerHTML = '';
-
-  if (!jobs.length) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 4;
-    td.textContent = 'Ingen data i valgt filter.';
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-    return;
-  }
-
-  const map = new Map(); // key: address||task
-
-  for (const j of jobs) {
-    const task = (j.task === 'S' || j.task === 'G') ? j.task : '—';
-    const key = `${j.address}||${task}`;
-    if (!map.has(key)) {
-      map.set(key, { address: j.address, task, totalMin: 0, count: 0 });
-    }
-    const row = map.get(key);
-    row.totalMin += j.minutes || 0;
-    row.count += 1;
-  }
-
-  const rows = [...map.values()].sort((a, b) =>
-    a.address.localeCompare(b.address, 'nb')
-  );
-
-  for (const r of rows) {
-    const tr = document.createElement('tr');
-
-    const tdAddr = document.createElement('td');
-    tdAddr.textContent = r.address;
-    tr.appendChild(tdAddr);
-
-    const tdTask = document.createElement('td');
-    tdTask.textContent = r.task;
-    tr.appendChild(tdTask);
-
-    const tdTid = document.createElement('td');
-    tdTid.style.textAlign = 'right';
-    tdTid.textContent = msToHhMm(r.totalMin * 60000);
-    tr.appendChild(tdTid);
-
-    const tdCount = document.createElement('td');
-    tdCount.style.textAlign = 'right';
-    tdCount.textContent = String(r.count);
-    tr.appendChild(tdCount);
-
-    tbody.appendChild(tr);
-  }
-}
-
-// --- Hent fra JSONbin -------------------------------------------------------
-
-async function fetchLogEvents() {
-  const key = getMasterKey();
-  const headers = {};
-  if (key) headers['X-Master-Key'] = key;
-
-  try {
-    const url = `https://api.jsonbin.io/v3/b/${REPORT_BIN_ID}/latest`;
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      console.warn('[logg] Klarte ikke å hente report-bin', res.status);
-      const sum = byId('sum_content');
-      if (sum) sum.textContent = 'Kunne ikke hente data fra JSONbin.';
-      return [];
-    }
-
-    const data = await res.json();
-    const record = data && (data.record || data);
-
-    let raw = [];
-    if (Array.isArray(record)) raw = record;
-    else if (record && Array.isArray(record.reports)) raw = record.reports;
-    else if (record && Array.isArray(record.hendelser)) raw = record.hendelser;
-
-    return normalizeEvents(raw);
-  } catch (err) {
-    console.error('[logg] Feil ved henting av report-bin', err);
-    const sum = byId('sum_content');
-    if (sum) sum.textContent = 'Feil ved henting av data.';
-    return [];
-  }
-}
-
-// --- Init -------------------------------------------------------------------
-
-document.addEventListener('DOMContentLoaded', async () => {
-  const events = await fetchLogEvents();
-  const allJobs = buildJobs(events);
-
-  renderSamletTid(allJobs);
-  buildFilterOptions(allJobs);
-
-  function refresh() {
-    const filtered = applyFilters(allJobs);
-    renderDetaljertLogg(filtered);
-    renderTidPerAdresse(filtered);
-  }
-
-  const selDriver = byId('f_driver');
-  const selAddr = byId('f_addr');
-  selDriver && selDriver.addEventListener('change', refresh);
-  selAddr && selAddr.addEventListener('change', refresh);
-
-  refresh();
-});
+})();
