@@ -12,54 +12,54 @@
 
   <link rel="stylesheet" href="css/styles.css" />
 
-  <!-- Print-vennlig layout -->
   <style>
+    /* Generell justering for utskrift */
     @media print {
-      body {
-        background:#fff;
-      }
-      .appbar,
       .no-print {
-        display:none !important;
+        display: none !important;
       }
-      main {
-        padding:0 !important;
-        margin:0 !important;
+      body {
+        background: #ffffff;
+        color: #000000;
       }
       .card {
-        box-shadow:none !important;
-        border:1px solid #ddd !important;
-        border-radius:0 !important;
-        page-break-inside:avoid;
-        margin:0 0 8px 0 !important;
+        box-shadow: none !important;
+        border: 1px solid #d1d5db !important;
       }
-      h1, h2 {
-        page-break-after:avoid;
+      .appbar {
+        position: static !important;
+        box-shadow: none !important;
       }
-      table {
-        font-size:11px !important;
+      main {
+        padding: 0 8px 16px 8px !important;
       }
     }
   </style>
 </head>
 <body>
   <!-- Appbar -->
-  <header class="appbar" style="position:sticky;top:0;z-index:10">
-    <button class="icon-btn no-print" aria-label="Tilbake" onclick="history.back()">←</button>
+  <header
+    class="appbar no-print"
+    style="
+      position:sticky;
+      top: env(safe-area-inset-top, 12px);
+      padding-top: env(safe-area-inset-top, 12px);
+      z-index:10;
+    "
+  >
+    <button class="icon-btn" aria-label="Tilbake" onclick="history.back()">←</button>
     <div class="appbar-title">Brøyterute<br>Detaljert logg</div>
-    <div style="width:40px"></div>
+    <button
+      class="icon-btn"
+      aria-label="Skriv ut"
+      onclick="window.print()"
+      title="Skriv ut denne loggen"
+    >
+      🖨️
+    </button>
   </header>
 
-  <main style="padding:12px; padding-top:16px;">
-    <!-- Skriv ut-knapp -->
-    <section class="card no-print" style="margin-bottom:12px; display:flex;justify-content:space-between;align-items:center;">
-      <div>
-        <h2 style="margin:0 0 4px;">Utskrift</h2>
-        <p class="muted" style="margin:0;">Åpner systemets utskriftsdialog for denne loggen.</p>
-      </div>
-      <button class="btn" style="white-space:nowrap;" onclick="window.print()">🖨️ Skriv ut</button>
-    </section>
-
+  <main style="padding:12px; padding-top: calc(env(safe-area-inset-top, 20px) + 16px);">
     <!-- Samlet brøytetid -->
     <section class="card" id="sum_card" style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -72,7 +72,7 @@
     </section>
 
     <!-- Filtre -->
-    <section class="card" style="margin-bottom:12px;">
+    <section class="card no-print" style="margin-bottom:12px;">
       <h2 style="margin:0 0 8px;">Filtre</h2>
 
       <label class="field">
@@ -88,34 +88,27 @@
           <option value="">Alle adresser</option>
         </select>
       </label>
+
+      <label class="field" style="margin-top:8px;">
+        <span>Antall jobber i detaljert logg</span>
+        <select id="f_limit" class="input">
+          <option value="10">Vis 10 siste</option>
+          <option value="20">Vis 20 siste</option>
+          <option value="50" selected>Vis 50 siste</option>
+          <option value="100">Vis 100 siste</option>
+          <option value="0">Vis alle</option>
+        </select>
+      </label>
     </section>
 
     <!-- Detaljert logg -->
     <section class="card" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;">
-        <div>
-          <h2 style="margin:0 0 4px;">Detaljert logg</h2>
-          <p class="muted" style="margin:0 0 8px;">
-            Én linje per sammenhengende jobb (start → ferdig). Nyeste øverst.
-          </p>
-        </div>
-        <!-- Vis X siste jobber (ikke med på print pga .no-print) -->
-        <div class="no-print" style="text-align:right;">
-          <label style="font-size:0.8rem;">
-            Vis
-            <select id="jobs_limit" class="input" style="display:inline-block;width:auto;padding:4px 8px;font-size:0.8rem;">
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="0">Alle</option>
-            </select>
-            jobber
-          </label>
-        </div>
-      </div>
+      <h2 style="margin:0 0 4px;">Detaljert logg</h2>
+      <p class="muted" style="margin:0 0 8px;">
+        Én linje per sammenhengende jobb (start → ferdig). Nyeste øverst.
+      </p>
 
-      <div style="overflow-x:auto;margin-top:4px;">
+      <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
           <thead>
             <tr>
@@ -123,7 +116,7 @@
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Fra</th>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Til</th>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
-              <!-- Oppgave er fjernet som avtalt -->
+              <!-- Oppgave fjernet etter ønske -->
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Sjåfør</th>
               <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Min</th>
             </tr>
@@ -137,7 +130,7 @@
     <section class="card" style="margin-bottom:12px;">
       <h2 style="margin:0 0 4px;">Tid per adresse</h2>
       <p class="muted" style="margin:0 0 8px;">
-        Summerer tid per adresse innenfor valgte filtre. Mest tid øverst.
+        Summerer tid per adresse innenfor valgte filtre. Adressen med mest tid vises øverst.
       </p>
 
       <div style="overflow-x:auto;">
@@ -145,8 +138,8 @@
           <thead>
             <tr>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
+              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Tid</th>
               <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Antall runder</th>
-              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Tid (min)</th>
             </tr>
           </thead>
           <tbody id="addr_body"></tbody>
