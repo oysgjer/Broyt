@@ -14,22 +14,13 @@
 </head>
 <body>
   <!-- Appbar -->
-  <header
-    class="appbar"
-    style="
-      position:sticky;
-      top:0;
-      z-index:10;
-      padding-top:calc(env(safe-area-inset-top, 0px) + 6px);
-      padding-bottom:8px;
-    "
-  >
+  <header class="appbar" style="position:sticky;top:0;z-index:10;padding-top:env(safe-area-inset-top,0px);">
     <button class="icon-btn" aria-label="Tilbake" onclick="history.back()">←</button>
     <div class="appbar-title">Brøyterute Detaljert logg</div>
     <div style="width:40px"></div>
   </header>
 
-  <main style="padding:12px;">
+  <main style="padding:12px; padding-top:16px;">
     <!-- Samlet brøytetid -->
     <section class="card" id="sum_card" style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -75,7 +66,6 @@
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Fra</th>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Til</th>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
-              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Oppgave</th>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Sjåfør</th>
               <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Min</th>
             </tr>
@@ -89,7 +79,7 @@
     <section class="card" style="margin-bottom:12px;">
       <h2 style="margin:0 0 4px;">Tid per adresse</h2>
       <p class="muted" style="margin:0 0 8px;">
-        Summerer tid per adresse og oppgave (S/G) innenfor valgte filtre.
+        Summerer tid per adresse innenfor valgte filtre. Mest tid øverst.
       </p>
 
       <div style="overflow-x:auto;">
@@ -97,9 +87,8 @@
           <thead>
             <tr>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
-              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Oppgave</th>
-              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Tid</th>
               <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Antall runder</th>
+              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Tid (min)</th>
             </tr>
           </thead>
           <tbody id="addr_body"></tbody>
