@@ -8,6 +8,16 @@ const MAX_INTERVAL_MS = 90 * 60 * 1000;             // maks 90 min per intervall
 
 const pad = (n) => (n < 10 ? '0' + n : '' + n);
 
+// Normaliser adressenavn slik at små forskjeller ikke ødelegger oppgave-oppslag
+function normalizeAddr(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(/\s+/g, ' ')     // flere mellomrom -> ett
+    .replace(/\s+,/g, ',')    // mellomrom før komma
+    .replace(/,\s+/g, ', ')   // pent komma + mellomrom
+    .trim();
+}
+
 function fmtTime(d) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
@@ -68,34 +78,74 @@ function normalizeReportsToEvents(reports) {
       let kind = null;
       if (type === 'start' || action === 'start') {
         kind = 'start';
-      } else if (type === 'done' || action === 'ferdig' || action === 'ikke mulig') {
+      } else if (
+        type === 'done' ||
+        action === 'ferdig' ||
+        action === 'ikke mulig'
+      ) {
         // ferdig + ikke mulig avslutter intervall
         kind = 'stop';
       } else {
         return null; // hopp over "neste" osv.
       }
 
-      const addr =
+      const addrRaw =
         r.addressId ||
         r.addressName ||
         r.address ||
         '—';
 
+      const addrNorm = normalizeAddr(addrRaw);
       const driver = r.by || r.driver || '';
 
-      return { ts, kind, addr, driver, raw: r };
+      return { ts, kind, addrRaw, addrNorm, driver, raw: r };
     })
     .filter(Boolean)
     .sort((a, b) => a.ts - b.ts);
 }
 
+// ----- Utled S / G -----
+
+function deriveTaskCode(addrEquip, rawTask) {
+  const t = (rawTask || '').toLowerCase();
+
+  // Direkte fra logg (hvis vi senere lagrer "S" / "G" eller tekst)
+  if (t === 'g') return 'G';
+  if (t === 's') return 'S';
+  if (t.includes('grus') || t.includes('sand') || t.includes('strø')) return 'G';
+  if (t.includes('snø') || t.includes('brøyte')) return 'S';
+
+  // Fallback fra utstyr på adressen (fra katalog)
+  const eq = Array.isArray(addrEquip) ? addrEquip : [];
+  const eqLower = eq.map(x => (x || '').toLowerCase());
+  if (
+    eqLower.includes('sand') ||
+    eqLower.includes('grus') ||
+    eqLower.includes('stro') ||
+    eqLower.includes('strø')
+  ) {
+    return 'G';
+  }
+  if (
+    eqLower.includes('fres') ||
+    eqLower.includes('plog') ||
+    eqLower.includes('skjær') ||
+    eqLower.includes('skjaer')
+  ) {
+    return 'S';
+  }
+
+  // Hvis vi ikke vet – default til snø (S)
+  return 'S';
+}
+
 // ----- events → sessions (start → stop) -----
 
-function buildSessions(events, addrTaskMap) {
-  const byKey = new Map(); // key = addr||driver
+function buildSessions(events, addrInfoMap) {
+  const byKey = new Map(); // key = addrNorm||driver
 
   for (const ev of events) {
-    const key = `${ev.addr}||${ev.driver || ''}`;
+    const key = `${ev.addrNorm}||${ev.driver || ''}`;
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(ev);
   }
@@ -119,16 +169,16 @@ function buildSessions(events, addrTaskMap) {
           let dur = ev.ts - openStart;
           if (dur > MAX_INTERVAL_MS) dur = MAX_INTERVAL_MS;
 
-          const [addr, driver] = key.split('||');
+          const [addrNorm, driver] = key.split('||');
+          const displayAddr = ev.addrRaw || '—';
 
-          // Oppgave fra katalog
-          let taskText = addrTaskMap.get(addr) || '';
-          if (!taskText && lastStartEv && lastStartEv.raw && lastStartEv.raw.task) {
-            taskText = lastStartEv.raw.task;
-          }
-          if (!taskText && ev.raw && ev.raw.task) {
-            taskText = ev.raw.task;
-          }
+          const addrInfo = addrInfoMap.get(addrNorm) || {};
+          const rawTask =
+            (lastStartEv && lastStartEv.raw && lastStartEv.raw.task) ||
+            (ev.raw && ev.raw.task) ||
+            '';
+
+          const taskCode = deriveTaskCode(addrInfo.equipment, rawTask); // 'S' eller 'G'
 
           // Merknad (ikke mulig + notes)
           let note = '';
@@ -142,12 +192,13 @@ function buildSessions(events, addrTaskMap) {
           }
 
           sessions.push({
-            addr,
+            addr: displayAddr,
+            addrNorm,
             driver,
             startTs: openStart,
             endTs: ev.ts,
             durMs: dur,
-            taskText,
+            taskCode, // 'S' eller 'G'
             note
           });
         }
@@ -204,14 +255,19 @@ function summarizeByDriver(sessions) {
 function summarizeByAddress(sessions) {
   const map = new Map();
   for (const s of sessions) {
-    const key = s.addr;
+    const key = s.addrNorm || s.addr;
     if (!map.has(key)) {
-      map.set(key, { durMs: 0, count: 0, taskText: s.taskText || '' });
+      map.set(key, {
+        displayAddr: s.addr,
+        durMs: 0,
+        count: 0,
+        taskCode: s.taskCode || 'S'
+      });
     }
     const obj = map.get(key);
     obj.durMs += s.durMs;
     obj.count += 1;
-    if (!obj.taskText && s.taskText) obj.taskText = s.taskText;
+    // La første oppgavekoden «vinne» – S eller G
   }
   return map;
 }
@@ -297,7 +353,7 @@ function renderDetailTable(sessions) {
       <td style="padding:4px;">${fmtTime(start)}</td>
       <td style="padding:4px;">${fmtTime(end)}</td>
       <td style="padding:4px;">${s.addr}</td>
-      <td style="padding:4px;">${s.taskText || '—'}</td>
+      <td style="padding:4px; text-align:center;">${s.taskCode || 'S'}</td>
       <td style="padding:4px;">${s.driver || '—'}</td>
       <td style="padding:4px;">${s.note || ''}</td>
     `;
@@ -327,11 +383,11 @@ function renderAddrSummary(map) {
   tbody.innerHTML = '';
 
   const entries = Array.from(map.entries()).sort((a, b) => b[1].durMs - a[1].durMs);
-  for (const [addr, info] of entries) {
+  for (const [, info] of entries) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="padding:4px;">${addr}</td>
-      <td style="padding:4px;">${info.taskText || '—'}</td>
+      <td style="padding:4px;">${info.displayAddr}</td>
+      <td style="padding:4px; text-align:center;">${info.taskCode || 'S'}</td>
       <td style="padding:4px;">${msToHhMm(info.durMs)}</td>
       <td style="padding:4px;">${info.count}</td>
     `;
@@ -352,16 +408,21 @@ async function initLogg() {
       ? reportRecord.reports
       : (Array.isArray(reportRecord) ? reportRecord : []);
 
-    const addrTaskMap = new Map();
+    // Bygg kart: normalisert adresse -> { task, equipment }
+    const addrInfoMap = new Map();
     if (addrRecord && Array.isArray(addrRecord.addresses)) {
       for (const a of addrRecord.addresses) {
         if (!a || !a.name) continue;
-        addrTaskMap.set(a.name, a.task || '');
+        const key = normalizeAddr(a.name);
+        addrInfoMap.set(key, {
+          task: a.task || '',
+          equipment: Array.isArray(a.equipment) ? a.equipment : []
+        });
       }
     }
 
     const events      = normalizeReportsToEvents(reports);
-    const allSessions = buildSessions(events, addrTaskMap);
+    const allSessions = buildSessions(events, addrInfoMap);
 
     renderFilters(allSessions);
 
