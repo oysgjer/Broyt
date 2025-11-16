@@ -3,310 +3,342 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Brøyte-logg – Romerike Trefelling</title>
 
-  <link rel="stylesheet" href="css/styles.css" />
+  <title>Brøyterute – Logg</title>
 
+  <!-- Lys, A4-vennlig layout, ikke tvungen mørk -->
   <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --danger: #b91c1c;
+      --radius: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      background:#020617;
-      color:#e5e7eb;
-      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    header.appbar {
-      position:sticky;
-      top:0;
-      z-index:100;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:calc(8px + env(safe-area-inset-top)) 12px 10px;
-      background:#020617;
-      border-bottom:1px solid #1f2933;
-    }
-    header.appbar h1 {
-      font-size:18px;
-      margin:0;
-    }
-    header.appbar .right {
-      font-size:12px;
-      opacity:.8;
-      text-align:right;
+      margin: 0;
+      padding: max(8px, env(safe-area-inset-top)) 12px 24px 12px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
 
-    main {
-      padding:12px;
-      max-width:1100px;
-      margin:0 auto 40px;
-    }
-
-    .card {
-      background:#0b1320;
-      border-radius:12px;
-      padding:12px 14px;
-      margin-bottom:12px;
-      border:1px solid #1f2937;
-    }
-
-    .filters-grid {
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-      gap:10px;
-      align-items:flex-end;
-    }
-
-    label.small {
-      font-size:12px;
-      display:block;
-      margin-bottom:4px;
-      color:#9ca3af;
-    }
-    input, select {
-      width:100%;
-      padding:6px 8px;
-      border-radius:8px;
-      border:1px solid #374151;
-      background:#020617;
-      color:#e5e7eb;
-      font-size:14px;
-    }
-    input::placeholder {
-      color:#6b7280;
-    }
-
-    .btn {
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      padding:8px 14px;
-      border:none;
-      background:#2563eb;
-      color:white;
-      font-size:14px;
-      cursor:pointer;
-      white-space:nowrap;
-    }
-    .btn-ghost {
-      background:transparent;
-      border:1px solid #4b5563;
-      color:#e5e7eb;
-    }
-    .btn + .btn {
-      margin-left:6px;
-    }
-
-    .summary-grid {
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-      gap:10px;
-    }
-    .summary-grid h3 {
-      margin:0 0 4px;
-      font-size:14px;
-    }
-    .summary-main-number {
-      font-size:20px;
-      font-weight:700;
-    }
-    .summary-list {
-      max-height:220px;
-      overflow:auto;
-      margin-top:4px;
-    }
-    .summary-list table {
-      width:100%;
-      border-collapse:collapse;
-      font-size:12px;
-    }
-    .summary-list th,
-    .summary-list td {
-      padding:3px 4px;
-      border-bottom:1px solid #111827;
-      text-align:left;
-    }
-    .summary-list th {
-      position:sticky;
-      top:0;
-      background:#020617;
-      z-index:1;
-    }
-
-    table.logg-table {
-      width:100%;
-      border-collapse:collapse;
-      font-size:12px;
-    }
-    table.logg-table th,
-    table.logg-table td {
-      padding:6px 6px;
-      border-bottom:1px solid #111827;
-      text-align:left;
-      vertical-align:top;
-    }
-    table.logg-table th {
-      font-size:11px;
-      text-transform:uppercase;
-      letter-spacing:.03em;
-      color:#9ca3af;
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.6rem;
     }
 
     .muted {
-      color:#9ca3af;
-      font-size:12px;
+      color: var(--muted);
+      font-size: .9rem;
     }
 
-    /* Print */
-    @media print {
-      body {
-        background:white;
-        color:black;
+    .layout {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    .filters {
+      display: grid;
+      gap: 8px;
+    }
+
+    @media (min-width: 720px) {
+      .filters {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
-      header.appbar {
-        position:static;
-        background:white;
-        border-color:#e5e7eb;
-        color:black;
-        padding:8px 0 8px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 2px;
+      color: var(--muted);
+    }
+
+    input[type="date"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: .9rem;
+      background: #ffffff;
+    }
+
+    input:focus,
+    select:focus {
+      outline: 2px solid var(--accent-soft);
+      border-color: var(--accent);
+    }
+
+    .summary-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    @media (min-width: 720px) {
+      .summary-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
-      .card {
-        background:white;
-        border-color:#e5e7eb;
-      }
-      input, select {
-        border-color:#d1d5db;
-        background:white;
-        color:black;
-      }
-      .btn,
-      .btn-ghost {
-        display:none !important;
-      }
-      a.back-link {
-        display:none !important;
-      }
+    }
+
+    .summary-item strong {
+      display: block;
+      font-size: 1.1rem;
+    }
+
+    .summary-item span {
+      font-size: .8rem;
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 6px 6px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      font-weight: 600;
+      background: #f9fafb;
+    }
+
+    tbody td {
+      padding: 4px 6px;
+      border-bottom: 1px solid #f3f4f6;
+      vertical-align: top;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .table-scroll {
+      overflow: auto;
+      max-height: 60vh;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: .7rem;
+      line-height: 1.4;
+    }
+
+    .pill-start {
+      background: #ecfdf5;
+      color: #166534;
+    }
+
+    .pill-done {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .pill-block {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .pill-task {
+      background: #eef2ff;
+      color: #4338ca;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .section-title span {
+      font-size: .8rem;
+      color: var(--muted);
+    }
+
+    .small-table-wrap {
+      overflow: auto;
+      max-height: 260px;
+    }
+
+    .small-table-wrap table td,
+    .small-table-wrap table th {
+      padding: 4px 6px;
+      font-size: .8rem;
     }
   </style>
 </head>
 <body>
-  <header class="appbar">
-    <div>
-      <h1>Brøyte-logg</h1>
-      <a href="./index.html" class="muted back-link">← Tilbake til appen</a>
-    </div>
-    <div class="right">
-      <div id="logg_meta" class="muted">Laster …</div>
-      <button class="btn-ghost" type="button" onclick="window.print()">🖨️ Skriv ut</button>
-    </div>
-  </header>
+  <div class="layout">
+    <header style="margin-bottom:10px">
+      <h1>Brøyterute – Logg</h1>
+      <div class="muted">Samlede runder fra alle sjåfører. Filtrer og skriv ut ved behov.</div>
+    </header>
 
-  <main>
-    <!-- FILTERE -->
+    <!-- Filterkort -->
     <section class="card">
-      <h2 style="margin:0 0 8px;">Filter</h2>
-      <p class="muted" style="margin:0 0 10px;">
-        Filtrerer logg og summeringer. Tomt felt = ingen filtrering.
-      </p>
-
-      <div class="filters-grid">
+      <div class="section-title">
+        <h2>Filter</h2>
+        <span>Siste hendelser vises nederst i tabellen under.</span>
+      </div>
+      <div class="filters">
         <div>
-          <label class="small" for="f_date_from">Fra dato</label>
-          <input id="f_date_from" type="date" />
+          <label class="field-label" for="f_date_from">Dato fra</label>
+          <input type="date" id="f_date_from" />
         </div>
         <div>
-          <label class="small" for="f_date_to">Til dato</label>
-          <input id="f_date_to" type="date" />
+          <label class="field-label" for="f_date_to">Dato til</label>
+          <input type="date" id="f_date_to" />
         </div>
         <div>
-          <label class="small" for="f_driver">Sjåfør</label>
-          <select id="f_driver">
-            <option value="">Alle</option>
-          </select>
+          <label class="field-label" for="f_driver">Sjåfør</label>
+          <input type="text" id="f_driver" placeholder="Alle sjåfører" />
         </div>
         <div>
-          <label class="small" for="f_address">Adresse</label>
-          <!-- Nå som rullegardin med alle adresser -->
+          <label class="field-label" for="f_address">Adresse</label>
           <select id="f_address">
-            <option value="">Alle</option>
+            <option value="">Alle adresser</option>
           </select>
         </div>
         <div>
-          <label class="small" for="f_type">Hendelse</label>
-          <select id="f_type">
+          <label class="field-label" for="f_task">Oppgave</label>
+          <select id="f_task">
             <option value="">Alle</option>
-            <option value="start">Start</option>
-            <option value="ferdig">Ferdig</option>
-            <option value="ikkemulig">Ikke mulig</option>
+            <option value="Snø">Snø</option>
+            <option value="Grus">Grus</option>
+            <option value="Ukjent">Ukjent</option>
           </select>
-        </div>
-      </div>
-
-      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button id="btn_reload" class="btn" type="button">🔄 Hent siste logg</button>
-        <button id="btn_clear_filters" class="btn-ghost" type="button">Tøm filter</button>
-      </div>
-    </section>
-
-    <!-- SAMMENDRAG -->
-    <section class="card">
-      <h2 style="margin:0 0 8px;">Sammendrag (gjelder filtrert logg)</h2>
-
-      <div id="summary_empty" class="muted" style="display:none;">
-        Ingen hendelser for valgt filter.
-      </div>
-
-      <div id="summary_content" class="summary-grid" style="display:none;">
-        <!-- Total tid -->
-        <div>
-          <h3>Samlet arbeidstid (alle sjåfører)</h3>
-          <div class="summary-main-number" id="sum_total_time">0:00</div>
-          <div class="muted" id="sum_total_count"></div>
-        </div>
-
-        <!-- Per sjåfør -->
-        <div>
-          <h3>Arbeidstid per sjåfør</h3>
-          <div class="summary-list">
-            <table>
-              <thead>
-                <tr>
-                  <th>Sjåfør</th>
-                  <th>Timer</th>
-                </tr>
-              </thead>
-              <tbody id="sum_per_driver"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Per adresse -->
-        <div>
-          <h3>Arbeidstid og antall ganger per adresse</h3>
-          <div class="summary-list">
-            <table>
-              <thead>
-                <tr>
-                  <th>Adresse</th>
-                  <th>Timer</th>
-                  <th>Ganger</th>
-                </tr>
-              </thead>
-              <tbody id="sum_per_address"></tbody>
-            </table>
-          </div>
         </div>
       </div>
     </section>
 
-    <!-- SELVE LOGGEN -->
+    <!-- Summeringer -->
     <section class="card">
-      <h2 style="margin:0 0 8px;">Detaljert logg</h2>
-      <p class="muted" style="margin:0 0 8px;">
-        Viser rå-hendelser (start/ferdig/ikke mulig osv.) sortert etter tid. Utskrift gir A4-vennlig rapport.
-      </p>
+      <div class="section-title">
+        <h2>Summer</h2>
+        <span>Gjelder alle registrerte runder i dette bin’et.</span>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <strong id="agg_total_time">0:00</strong>
+          <span>Samlet arbeidstid</span>
+        </div>
+        <div class="summary-item">
+          <strong id="agg_total_jobs">0</strong>
+          <span>Totalt antall oppdrag</span>
+        </div>
+        <div class="summary-item">
+          <strong id="agg_total_snow_jobs">0</strong>
+          <span>Antall snø-oppdrag</span>
+        </div>
+        <div class="summary-item">
+          <strong id="agg_total_grus_jobs">0</strong>
+          <span>Antall grus-oppdrag</span>
+        </div>
+      </div>
+    </section>
 
-      <div style="overflow:auto; max-height:70vh;">
-        <table class="logg-table">
+    <!-- Per runde / sjåfør / adresse -->
+    <section class="card">
+      <div class="section-title">
+        <h2>Fordeling</h2>
+        <span>Brukt for intern oppfølging og fakturering.</span>
+      </div>
+
+      <div style="display:grid; gap:12px; margin-top:4px">
+        <div class="small-table-wrap">
+          <div class="section-title">
+            <h2>Arbeidstid per runde</h2>
+            <span>Gruppert på sjåfør + dato.</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Runde (sjåfør + dato)</th>
+                <th>Timer</th>
+              </tr>
+            </thead>
+            <tbody id="agg_rounds_tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="small-table-wrap">
+          <div class="section-title">
+            <h2>Arbeidstid per sjåfør</h2>
+            <span>Totalt i alle runder.</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Sjåfør</th>
+                <th>Timer</th>
+              </tr>
+            </thead>
+            <tbody id="agg_driver_tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="small-table-wrap">
+          <div class="section-title">
+            <h2>Arbeidstid per adresse</h2>
+            <span>Brukes ved fakturering.</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Adresse</th>
+                <th>Timer</th>
+              </tr>
+            </thead>
+            <tbody id="agg_address_tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Selve loggen -->
+    <section class="card">
+      <div class="section-title">
+        <h2>Detaljert logg</h2>
+        <span>En rad per hendelse (start / ferdig / ikke mulig).</span>
+      </div>
+      <div class="table-scroll">
+        <table>
           <thead>
             <tr>
               <th>Dato</th>
@@ -315,16 +347,16 @@
               <th>Adresse</th>
               <th>Oppgave</th>
               <th>Hendelse</th>
+              <th>Merknad</th>
             </tr>
           </thead>
-          <tbody id="logg_tbody">
-            <!-- fylles av logg.js -->
+          <tbody id="log_tbody">
           </tbody>
         </table>
       </div>
     </section>
-  </main>
+  </div>
 
-  <script src="js/logg.js?v=3"></script>
+  <script src="js/logg.js"></script>
 </body>
 </html>
