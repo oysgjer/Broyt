@@ -1,21 +1,19 @@
-// logg.js – leser reports-bin + adressekatalog og lager detalj-logg
+// js/logg.js – detaljert logg / rapport
 
-const REPORT_BIN_ID   = '68e89e3443b1c97be9611c48'; // hendelser / reports
-const ADDR_BIN_ID     = '68e7b4d2ae596e708f0bde7d'; // adresser (task / oppgave)
-const MAX_INTERVAL_MS = 90 * 60 * 1000;             // maks 90 min per sammenhengende intervall
+const REPORT_BIN_ID   = '68e89e3443b1c97be9611c48'; // reports / hendelser
+const ADDR_BIN_ID     = '68e7b4d2ae596e708f0bde7d'; // adressekatalog
+const MAX_INTERVAL_MS = 90 * 60 * 1000;             // maks 90 min per intervall
 
-// --- Små hjelpere ---
+// ----- Hjelpere -----
 
 const pad = (n) => (n < 10 ? '0' + n : '' + n);
 
 function fmtTime(d) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-
 function fmtDate(d) {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
 }
-
 function msToHhMm(ms) {
   if (!Number.isFinite(ms) || ms <= 0) return '0 t 0 min';
   const totalMin = Math.floor(ms / 60000);
@@ -39,7 +37,7 @@ function getMasterKey() {
   return null;
 }
 
-// --- Hent fra JSONbin ---
+// ----- Hent JSONbin -----
 
 async function fetchJsonBinLatest(binId) {
   const key = getMasterKey();
@@ -53,7 +51,7 @@ async function fetchJsonBinLatest(binId) {
   return data.record || data;
 }
 
-// --- Normaliser rå reports til events ---
+// ----- Reports → events -----
 
 function normalizeReportsToEvents(reports) {
   if (!Array.isArray(reports)) return [];
@@ -71,11 +69,10 @@ function normalizeReportsToEvents(reports) {
       if (type === 'start' || action === 'start') {
         kind = 'start';
       } else if (type === 'done' || action === 'ferdig' || action === 'ikke mulig') {
-        // "ferdig" og "ikke mulig" avslutter intervall
+        // ferdig + ikke mulig avslutter intervall
         kind = 'stop';
       } else {
-        // hopp over f.eks "neste"
-        return null;
+        return null; // hopp over "neste" osv.
       }
 
       const addr =
@@ -86,22 +83,16 @@ function normalizeReportsToEvents(reports) {
 
       const driver = r.by || r.driver || '';
 
-      return {
-        ts,
-        kind,
-        addr,
-        driver,
-        raw: r
-      };
+      return { ts, kind, addr, driver, raw: r };
     })
     .filter(Boolean)
-    .sort((a, b) => a.ts - b.ts); // stigende i tid
+    .sort((a, b) => a.ts - b.ts);
 }
 
-// --- Bygg intervaller (start → stop) per adresse + sjåfør ---
+// ----- events → sessions (start → stop) -----
 
 function buildSessions(events, addrTaskMap) {
-  const byKey = new Map();
+  const byKey = new Map(); // key = addr||driver
 
   for (const ev of events) {
     const key = `${ev.addr}||${ev.driver || ''}`;
@@ -109,15 +100,11 @@ function buildSessions(events, addrTaskMap) {
     byKey.get(key).push(ev);
   }
 
-  /** @type {Array<{
-   *  addr:string, driver:string,
-   *  startTs:number, endTs:number, durMs:number,
-   *  taskText:string, note:string
-   * }>} */
   const sessions = [];
 
   for (const [key, list] of byKey.entries()) {
     list.sort((a, b) => a.ts - b.ts);
+
     let openStart = null;
     let lastStartEv = null;
 
@@ -127,7 +114,6 @@ function buildSessions(events, addrTaskMap) {
           openStart = ev.ts;
           lastStartEv = ev;
         }
-        // hvis det allerede er en åpen start, ignorerer vi dobbelt-start
       } else if (ev.kind === 'stop') {
         if (openStart != null && ev.ts > openStart) {
           let dur = ev.ts - openStart;
@@ -135,7 +121,7 @@ function buildSessions(events, addrTaskMap) {
 
           const [addr, driver] = key.split('||');
 
-          // Oppgave fra adressekatalog
+          // Oppgave fra katalog
           let taskText = addrTaskMap.get(addr) || '';
           if (!taskText && lastStartEv && lastStartEv.raw && lastStartEv.raw.task) {
             taskText = lastStartEv.raw.task;
@@ -144,15 +130,13 @@ function buildSessions(events, addrTaskMap) {
             taskText = ev.raw.task;
           }
 
-          // Merknad – «ikke mulig» + ev.raw.notes
+          // Merknad (ikke mulig + notes)
           let note = '';
           const raw = ev.raw || {};
           const action = (raw.action || '').toLowerCase();
           if (action.includes('ikke')) {
             note = 'Ikke mulig';
-            if (raw.notes && raw.notes.trim()) {
-              note += ': ' + raw.notes.trim();
-            }
+            if (raw.notes && raw.notes.trim()) note += ': ' + raw.notes.trim();
           } else if (raw.notes && raw.notes.trim()) {
             note = raw.notes.trim();
           }
@@ -171,7 +155,6 @@ function buildSessions(events, addrTaskMap) {
         lastStartEv = null;
       }
     }
-    // åpen start uten ferdig → ignoreres
   }
 
   // Nyeste øverst
@@ -179,46 +162,31 @@ function buildSessions(events, addrTaskMap) {
   return sessions;
 }
 
-// --- Summering ---
+// ----- Summeringer -----
 
 function summarizeTotal(sessions) {
-  let totalMs = 0;
-  let todayMs = 0;
-  let weekMs = 0;
-  let monthMs = 0;
-  let prevMonthMs = 0;
+  let totalMs = 0, todayMs = 0, weekMs = 0, monthMs = 0, prevMonthMs = 0;
 
   const now = new Date();
   const todayStr = fmtDate(now);
 
-  // Start på denne uka (mandag)
   const weekStart = new Date(now);
-  const day = weekStart.getDay() || 7; // søndag=0 → 7
+  const day = weekStart.getDay() || 7;
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(weekStart.getDate() - (day - 1));
 
-  // Start denne måned
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   for (const s of sessions) {
     totalMs += s.durMs;
-
     const start = new Date(s.startTs);
     const dStr = fmtDate(start);
 
-    if (dStr === todayStr) {
-      todayMs += s.durMs;
-    }
-    if (start >= weekStart && start <= now) {
-      weekMs += s.durMs;
-    }
-    if (start >= monthStart && start <= now) {
-      monthMs += s.durMs;
-    }
-    if (start >= prevMonthStart && start < monthStart) {
-      prevMonthMs += s.durMs;
-    }
+    if (dStr === todayStr) todayMs += s.durMs;
+    if (start >= weekStart && start <= now) weekMs += s.durMs;
+    if (start >= monthStart && start <= now) monthMs += s.durMs;
+    if (start >= prevMonthStart && start < monthStart) prevMonthMs += s.durMs;
   }
 
   return { totalMs, todayMs, weekMs, monthMs, prevMonthMs };
@@ -248,12 +216,11 @@ function summarizeByAddress(sessions) {
   return map;
 }
 
-// --- Rendering ---
+// ----- Rendering -----
 
 function renderTimeSummary(summary) {
   const el = document.getElementById('timeSummary');
   if (!el) return;
-
   el.innerHTML = `
     <div><strong>Totalt:</strong> ${msToHhMm(summary.totalMs)}</div>
     <div><strong>Forrige måned:</strong> ${msToHhMm(summary.prevMonthMs)}</div>
@@ -265,20 +232,19 @@ function renderTimeSummary(summary) {
 
 function renderFilters(sessions) {
   const driverSel = document.getElementById('filter_driver');
-  const addrSel = document.getElementById('filter_addr');
+  const addrSel   = document.getElementById('filter_addr');
   if (!driverSel || !addrSel) return;
 
   const drivers = new Set();
-  const addrs = new Set();
+  const addrs   = new Set();
 
   for (const s of sessions) {
     if (s.driver) drivers.add(s.driver);
     if (s.addr) addrs.add(s.addr);
   }
 
-  // Rensk alt bortsett fra første "alle"-option
   driverSel.length = 1;
-  addrSel.length = 1;
+  addrSel.length   = 1;
 
   Array.from(drivers).sort().forEach(d => {
     const opt = document.createElement('option');
@@ -296,10 +262,10 @@ function renderFilters(sessions) {
 }
 
 function applyFilters(allSessions) {
-  const driverSel = document.getElementById('filter_driver');
-  const addrSel = document.getElementById('filter_addr');
-  const driver = driverSel?.value || '';
-  const addr = addrSel?.value || '';
+  const dSel = document.getElementById('filter_driver');
+  const aSel = document.getElementById('filter_addr');
+  const driver = dSel?.value || '';
+  const addr   = aSel?.value || '';
 
   return allSessions.filter(s => {
     if (driver && s.driver !== driver) return false;
@@ -322,10 +288,10 @@ function renderDetailTable(sessions) {
   if (empty) empty.style.display = 'none';
 
   for (const s of sessions) {
-    const tr = document.createElement('tr');
     const start = new Date(s.startTs);
-    const end = new Date(s.endTs);
+    const end   = new Date(s.endTs);
 
+    const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="padding:4px;">${fmtDate(start)}</td>
       <td style="padding:4px;">${fmtTime(start)}</td>
@@ -373,7 +339,7 @@ function renderAddrSummary(map) {
   }
 }
 
-// --- Init ---
+// ----- Init -----
 
 async function initLogg() {
   try {
@@ -394,20 +360,19 @@ async function initLogg() {
       }
     }
 
-    const events = normalizeReportsToEvents(reports);
+    const events      = normalizeReportsToEvents(reports);
     const allSessions = buildSessions(events, addrTaskMap);
 
-    // Render første gang
     renderFilters(allSessions);
+
     const filtered = applyFilters(allSessions);
     renderDetailTable(filtered);
     renderTimeSummary(summarizeTotal(filtered));
     renderDriverSummary(summarizeByDriver(filtered));
     renderAddrSummary(summarizeByAddress(filtered));
 
-    // Koble filter-handlere
-    const driverSel = document.getElementById('filter_driver');
-    const addrSel = document.getElementById('filter_addr');
+    const dSel = document.getElementById('filter_driver');
+    const aSel = document.getElementById('filter_addr');
     const onChange = () => {
       const f = applyFilters(allSessions);
       renderDetailTable(f);
@@ -415,8 +380,8 @@ async function initLogg() {
       renderDriverSummary(summarizeByDriver(f));
       renderAddrSummary(summarizeByAddress(f));
     };
-    driverSel?.addEventListener('change', onChange);
-    addrSel?.addEventListener('change', onChange);
+    dSel?.addEventListener('change', onChange);
+    aSel?.addEventListener('change', onChange);
 
   } catch (err) {
     console.error('Feil ved lasting av logg:', err);
@@ -428,6 +393,8 @@ async function initLogg() {
       </td>`;
       tbody.appendChild(tr);
     }
+    const ts = document.getElementById('timeSummary');
+    if (ts) ts.textContent = 'Kunne ikke laste tid (feil mot JSONbin).';
   }
 }
 
