@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-  <!-- Tema (samme som index) -->
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
@@ -15,15 +14,16 @@
   <link rel="stylesheet" href="css/service.css" />
 </head>
 
-<body>
-  <header class="appbar">
+<body style="padding-top: env(safe-area-inset-top, 0px);">
+  <!-- Appbar, med ekstra padding for iPhone-notch -->
+  <header class="appbar" style="padding-top: max(10px, env(safe-area-inset-top, 0px));">
     <button onclick="history.back()" class="icon-btn" aria-label="Tilbake">←</button>
     <div class="appbar-title">Brøyterute<br>Detaljert logg</div>
     <div class="appbar-right"></div>
   </header>
 
   <main style="padding:12px; max-width:1100px; margin:0 auto;">
-    <!-- Sammenlagt tid -->
+    <!-- Samlet tid -->
     <section class="card" style="margin-bottom:12px;">
       <h1 style="margin:0 0 8px; font-size:1.2rem; display:flex; align-items:center; gap:6px;">
         <span>📊</span>
@@ -81,7 +81,7 @@
       </div>
     </section>
 
-    <!-- Summering per sjåfør -->
+    <!-- Tid per sjåfør -->
     <section class="card" style="margin-top:12px; overflow:auto;">
       <h2 style="margin-top:0;">Tid per sjåfør</h2>
       <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
@@ -95,7 +95,7 @@
       </table>
     </section>
 
-    <!-- Summering per adresse -->
+    <!-- Tid per adresse -->
     <section class="card" style="margin-top:12px; overflow:auto;">
       <h2 style="margin-top:0;">Tid per adresse</h2>
       <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
@@ -112,6 +112,7 @@
     </section>
   </main>
 
-  <script src="logg.js" defer></script>
+  <!-- Viktig: logg.js ligger i js/-mappen -->
+  <script src="js/logg.js" defer></script>
 </body>
 </html>
