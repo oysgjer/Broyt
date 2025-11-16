@@ -4,115 +4,101 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
+  <title>Brøyterute – Detaljert logg</title>
+
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
 
-  <title>Brøyterute – Logg</title>
-
   <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="css/service.css" />
 </head>
-
-<body style="padding-top: env(safe-area-inset-top, 0px);">
-  <!-- Appbar, med ekstra padding for iPhone-notch -->
-  <header class="appbar" style="padding-top: max(10px, env(safe-area-inset-top, 0px));">
-    <button onclick="history.back()" class="icon-btn" aria-label="Tilbake">←</button>
+<body>
+  <!-- Appbar -->
+  <header class="appbar" style="position:sticky;top:0;z-index:10">
+    <button class="icon-btn" aria-label="Tilbake" onclick="history.back()">←</button>
     <div class="appbar-title">Brøyterute<br>Detaljert logg</div>
-    <div class="appbar-right"></div>
+    <div style="width:40px"></div>
   </header>
 
-  <main style="padding:12px; max-width:1100px; margin:0 auto;">
-    <!-- Samlet tid -->
-    <section class="card" style="margin-bottom:12px;">
-      <h1 style="margin:0 0 8px; font-size:1.2rem; display:flex; align-items:center; gap:6px;">
-        <span>📊</span>
-        <span>Samlet brøytetid</span>
-      </h1>
-      <div id="timeSummary" class="muted">
+  <main style="padding:12px;">
+    <!-- Samlet brøytetid -->
+    <section class="card" id="sum_card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:22px;">📊</span>
+        <h2 style="margin:0;font-size:18px;">Samlet brøytetid</h2>
+      </div>
+      <div id="sum_content" class="muted">
         Laster samlet tid…
       </div>
     </section>
 
     <!-- Filtre -->
     <section class="card" style="margin-bottom:12px;">
-      <h2 style="margin-top:0;">Filtre</h2>
-      <div class="row" style="flex-wrap:wrap; gap:10px;">
-        <label class="field" style="min-width:180px;">
-          <span>Sjåfør</span>
-          <select id="filter_driver" class="input">
-            <option value="">Alle sjåfører</option>
-          </select>
-        </label>
+      <h2 style="margin:0 0 8px;">Filtre</h2>
 
-        <label class="field" style="min-width:220px;">
-          <span>Adresse</span>
-          <select id="filter_addr" class="input">
-            <option value="">Alle adresser</option>
-          </select>
-        </label>
-      </div>
+      <label class="field">
+        <span>Sjåfør</span>
+        <select id="f_driver" class="input">
+          <option value="">Alle sjåfører</option>
+        </select>
+      </label>
+
+      <label class="field" style="margin-top:8px;">
+        <span>Adresse</span>
+        <select id="f_addr" class="input">
+          <option value="">Alle adresser</option>
+        </select>
+      </label>
     </section>
 
     <!-- Detaljert logg -->
-    <section class="card" style="overflow:auto;">
-      <h2 style="margin-top:0;">Detaljert logg</h2>
-      <p class="muted" style="margin-top:0; margin-bottom:8px;">
+    <section class="card" style="margin-bottom:12px;">
+      <h2 style="margin:0 0 4px;">Detaljert logg</h2>
+      <p class="muted" style="margin:0 0 8px;">
         Én linje per sammenhengende jobb (start → ferdig). Nyeste øverst.
       </p>
 
-      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-        <thead>
-          <tr>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Dato</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Fra</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Til</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); min-width:180px;">Adresse</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Oppgave</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Sjåfør</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); min-width:160px;">Merknad</th>
-          </tr>
-        </thead>
-        <tbody id="log_tbody"></tbody>
-      </table>
-
-      <div id="log_empty" class="muted" style="padding:8px 4px; display:none;">
-        Ingen loggposter i valgt filtrering.
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Dato</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Fra</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Til</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Oppgave</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Sjåfør</th>
+              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Min</th>
+            </tr>
+          </thead>
+          <tbody id="jobs_body"></tbody>
+        </table>
       </div>
     </section>
 
-    <!-- Tid per sjåfør -->
-    <section class="card" style="margin-top:12px; overflow:auto;">
-      <h2 style="margin-top:0;">Tid per sjåfør</h2>
-      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-        <thead>
-          <tr>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Sjåfør</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Tid</th>
-          </tr>
-        </thead>
-        <tbody id="driver_tbody"></tbody>
-      </table>
-    </section>
-
     <!-- Tid per adresse -->
-    <section class="card" style="margin-top:12px; overflow:auto;">
-      <h2 style="margin-top:0;">Tid per adresse</h2>
-      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-        <thead>
-          <tr>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Adresse</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Oppgave</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Tid</th>
-            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Antall runder</th>
-          </tr>
-        </thead>
-        <tbody id="addr_tbody"></tbody>
-      </table>
+    <section class="card" style="margin-bottom:12px;">
+      <h2 style="margin:0 0 4px;">Tid per adresse</h2>
+      <p class="muted" style="margin:0 0 8px;">
+        Summerer tid per adresse og oppgave (S/G) innenfor valgte filtre.
+      </p>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Oppgave</th>
+              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Tid</th>
+              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Antall runder</th>
+            </tr>
+          </thead>
+          <tbody id="addr_body"></tbody>
+        </table>
+      </div>
     </section>
   </main>
 
-  <!-- Viktig: logg.js ligger i js/-mappen -->
   <script src="js/logg.js" defer></script>
 </body>
 </html>
