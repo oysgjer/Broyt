@@ -14,7 +14,16 @@
 </head>
 <body>
   <!-- Appbar -->
-  <header class="appbar" style="position:sticky;top:0;z-index:10">
+  <header
+    class="appbar"
+    style="
+      position:sticky;
+      top:0;
+      z-index:10;
+      padding-top:calc(env(safe-area-inset-top, 0px) + 6px);
+      padding-bottom:8px;
+    "
+  >
     <button class="icon-btn" aria-label="Tilbake" onclick="history.back()">←</button>
     <div class="appbar-title">Brøyterute<br>Detaljert logg</div>
     <div style="width:40px"></div>
