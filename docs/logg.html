@@ -20,7 +20,7 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
-      padding:10px 12px;
+      padding:calc(8px + env(safe-area-inset-top)) 12px 10px;
       background:#020617;
       border-bottom:1px solid #1f2933;
     }
@@ -167,6 +167,7 @@
         background:white;
         border-color:#e5e7eb;
         color:black;
+        padding:8px 0 8px;
       }
       .card {
         background:white;
@@ -224,8 +225,10 @@
         </div>
         <div>
           <label class="small" for="f_address">Adresse</label>
-          <input id="f_address" list="addrList" placeholder="Søk / velg adresse" />
-          <datalist id="addrList"></datalist>
+          <!-- Nå som rullegardin med alle adresser -->
+          <select id="f_address">
+            <option value="">Alle</option>
+          </select>
         </div>
         <div>
           <label class="small" for="f_type">Hendelse</label>
@@ -233,6 +236,7 @@
             <option value="">Alle</option>
             <option value="start">Start</option>
             <option value="ferdig">Ferdig</option>
+            <option value="ikkemulig">Ikke mulig</option>
           </select>
         </div>
       </div>
@@ -298,7 +302,7 @@
     <section class="card">
       <h2 style="margin:0 0 8px;">Detaljert logg</h2>
       <p class="muted" style="margin:0 0 8px;">
-        Viser rå-hendelser (start/ferdig osv.) sortert etter tid. Utskrift gir A4-vennlig rapport.
+        Viser rå-hendelser (start/ferdig/ikke mulig osv.) sortert etter tid. Utskrift gir A4-vennlig rapport.
       </p>
 
       <div style="overflow:auto; max-height:70vh;">
@@ -321,6 +325,6 @@
     </section>
   </main>
 
-  <script src="js/logg.js?v=2"></script>
+  <script src="js/logg.js?v=3"></script>
 </body>
 </html>
