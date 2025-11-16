@@ -3,97 +3,115 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+  <!-- Tema (samme som index) -->
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b1320">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
 
-  <title>Brøyterute – logg</title>
+  <title>Brøyterute – Logg</title>
 
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/service.css" />
 </head>
+
 <body>
-  <!-- Enkel appbar, litt ned fra toppen pga notch -->
-  <header class="appbar" style="padding-top:calc(8px + env(safe-area-inset-top,0px));">
-    <button class="icon-btn" type="button" onclick="history.back()" aria-label="Tilbake">←</button>
-    <div class="appbar-title">Logg</div>
+  <header class="appbar">
+    <button onclick="history.back()" class="icon-btn" aria-label="Tilbake">←</button>
+    <div class="appbar-title">Brøyterute<br>Detaljert logg</div>
+    <div class="appbar-right"></div>
   </header>
 
-  <main style="padding:8px 12px 24px; padding-top:calc(12px + env(safe-area-inset-top,0px));">
-    <!-- FILTRE -->
+  <main style="padding:12px; max-width:1100px; margin:0 auto;">
+    <!-- Sammenlagt tid -->
     <section class="card" style="margin-bottom:12px;">
-      <h1 style="margin:0 0 8px; font-size:1.1rem;">Filtrer logg</h1>
-      <div class="row" style="flex-wrap:wrap; gap:8px;">
-        <label class="field" style="min-width:140px; flex:1;">
-          <span class="muted-strong">Fra dato</span>
-          <input id="f_date_from" type="date" class="input" />
-        </label>
-        <label class="field" style="min-width:140px; flex:1;">
-          <span class="muted-strong">Til dato</span>
-          <input id="f_date_to" type="date" class="input" />
-        </label>
+      <h1 style="margin:0 0 8px; font-size:1.2rem; display:flex; align-items:center; gap:6px;">
+        <span>📊</span>
+        <span>Samlet brøytetid</span>
+      </h1>
+      <div id="timeSummary" class="muted">
+        Laster samlet tid…
       </div>
+    </section>
 
-      <div class="row" style="flex-wrap:wrap; gap:8px; margin-top:8px;">
-        <label class="field" style="min-width:160px; flex:1;">
-          <span class="muted-strong">Sjåfør</span>
-          <select id="f_driver" class="input">
-            <option value="">Alle</option>
+    <!-- Filtre -->
+    <section class="card" style="margin-bottom:12px;">
+      <h2 style="margin-top:0;">Filtre</h2>
+      <div class="row" style="flex-wrap:wrap; gap:10px;">
+        <label class="field" style="min-width:180px;">
+          <span>Sjåfør</span>
+          <select id="filter_driver" class="input">
+            <option value="">Alle sjåfører</option>
           </select>
         </label>
 
-        <label class="field" style="min-width:200px; flex:2;">
-          <span class="muted-strong">Adresse</span>
-          <select id="f_address" class="input">
+        <label class="field" style="min-width:220px;">
+          <span>Adresse</span>
+          <select id="filter_addr" class="input">
             <option value="">Alle adresser</option>
           </select>
         </label>
       </div>
-
-      <div class="row" style="flex-wrap:wrap; gap:8px; margin-top:8px;">
-        <label class="field" style="min-width:140px; flex:1;">
-          <span class="muted-strong">Oppgave</span>
-          <select id="f_task" class="input">
-            <option value="">Alle</option>
-            <option value="snø">Snø</option>
-            <option value="grus">Grus</option>
-            <option value="snø+grus">Snø + grus</option>
-          </select>
-        </label>
-        <div style="display:flex; align-items:flex-end; gap:8px;">
-          <button id="f_reset" class="btn-ghost" type="button">Nullstill filter</button>
-        </div>
-      </div>
     </section>
 
-    <!-- OPPSUMMERING -->
-    <section class="card" style="margin-bottom:12px;">
-      <h2 style="margin:0 0 6px; font-size:1rem;">Oppsummering</h2>
-      <p id="summary_text" class="muted" style="margin:0 0 6px;">Laster logg…</p>
-    </section>
-
-    <!-- DETALJERT LOGG -->
+    <!-- Detaljert logg -->
     <section class="card" style="overflow:auto;">
-      <h2 style="margin:0 0 8px; font-size:1rem;">Detaljert logg (intervaller)</h2>
-      <div style="overflow:auto;">
-        <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
-          <thead>
-            <tr>
-              <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Dato</th>
-              <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Tid fra</th>
-              <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Tid til</th>
-              <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); min-width:150px;">Adresse</th>
-              <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); min-width:80px;">Oppgave</th>
-              <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); min-width:120px;">Sjåfør</th>
-              <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); min-width:160px;">Merknad</th>
-            </tr>
-          </thead>
-          <tbody id="logg_tbody"></tbody>
-        </table>
+      <h2 style="margin-top:0;">Detaljert logg</h2>
+      <p class="muted" style="margin-top:0; margin-bottom:8px;">
+        Én linje per sammenhengende jobb (start → ferdig). Nyeste øverst.
+      </p>
+
+      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Dato</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Fra</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Til</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); min-width:180px;">Adresse</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Oppgave</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); white-space:nowrap;">Sjåfør</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep); min-width:160px;">Merknad</th>
+          </tr>
+        </thead>
+        <tbody id="log_tbody"></tbody>
+      </table>
+
+      <div id="log_empty" class="muted" style="padding:8px 4px; display:none;">
+        Ingen loggposter i valgt filtrering.
       </div>
+    </section>
+
+    <!-- Summering per sjåfør -->
+    <section class="card" style="margin-top:12px; overflow:auto;">
+      <h2 style="margin-top:0;">Tid per sjåfør</h2>
+      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Sjåfør</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Tid</th>
+          </tr>
+        </thead>
+        <tbody id="driver_tbody"></tbody>
+      </table>
+    </section>
+
+    <!-- Summering per adresse -->
+    <section class="card" style="margin-top:12px; overflow:auto;">
+      <h2 style="margin-top:0;">Tid per adresse</h2>
+      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Adresse</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Oppgave</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Tid</th>
+            <th style="text-align:left; padding:6px 4px; border-bottom:1px solid var(--sep);">Antall runder</th>
+          </tr>
+        </thead>
+        <tbody id="addr_tbody"></tbody>
+      </table>
     </section>
   </main>
 
-  <script src="js/logg.js"></script>
+  <script src="logg.js" defer></script>
 </body>
 </html>
