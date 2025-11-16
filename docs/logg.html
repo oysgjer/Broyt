@@ -3,159 +3,324 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Brøyterapport – Romerike Trefelling</title>
+  <title>Brøyte-logg – Romerike Trefelling</title>
 
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#0b1320" />
+  <link rel="stylesheet" href="css/styles.css" />
 
   <style>
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 12px;
-      background: #0b1320;
-      color: #f9fafb;
+      background:#020617;
+      color:#e5e7eb;
+      font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    header {
-      margin-bottom: 12px;
+    header.appbar {
+      position:sticky;
+      top:0;
+      z-index:100;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 12px;
+      background:#020617;
+      border-bottom:1px solid #1f2933;
     }
-    header h1 {
-      margin: 0 0 4px;
-      font-size: 20px;
+    header.appbar h1 {
+      font-size:18px;
+      margin:0;
     }
-    header p {
-      margin: 0;
-      font-size: 13px;
-      color: #9ca3af;
+    header.appbar .right {
+      font-size:12px;
+      opacity:.8;
+      text-align:right;
     }
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin: 12px 0;
+
+    main {
+      padding:12px;
+      max-width:1100px;
+      margin:0 auto 40px;
     }
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 10px 14px;
-      font-size: 14px;
-      font-weight: 500;
-      background: #2563eb;
-      color: #f9fafb;
-      cursor: pointer;
+
+    .card {
+      background:#0b1320;
+      border-radius:12px;
+      padding:12px 14px;
+      margin-bottom:12px;
+      border:1px solid #1f2937;
     }
-    button.secondary {
-      background: #111827;
-      border: 1px solid #374151;
+
+    .filters-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:10px;
+      align-items:flex-end;
     }
-    button:disabled {
-      opacity: .6;
-      cursor: default;
+
+    label.small {
+      font-size:12px;
+      display:block;
+      margin-bottom:4px;
+      color:#9ca3af;
     }
-    #status {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-bottom: 8px;
-      min-height: 1.4em;
+    input, select {
+      width:100%;
+      padding:6px 8px;
+      border-radius:8px;
+      border:1px solid #374151;
+      background:#020617;
+      color:#e5e7eb;
+      font-size:14px;
     }
-    .table-wrap {
-      overflow-x: auto;
-      border-radius: 8px;
-      border: 1px solid #1f2937;
-      background: #020617;
+    input::placeholder {
+      color:#6b7280;
     }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      font-size: 12px;
-      min-width: 640px;
+
+    .btn {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      padding:8px 14px;
+      border:none;
+      background:#2563eb;
+      color:white;
+      font-size:14px;
+      cursor:pointer;
+      white-space:nowrap;
     }
-    thead {
-      background: #111827;
+    .btn-ghost {
+      background:transparent;
+      border:1px solid #4b5563;
+      color:#e5e7eb;
     }
-    th, td {
-      padding: 6px 8px;
-      border-bottom: 1px solid #1f2937;
-      text-align: left;
-      white-space: nowrap;
+    .btn + .btn {
+      margin-left:6px;
     }
-    th {
-      font-weight: 600;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      color: #9ca3af;
+
+    .summary-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:10px;
     }
-    tbody tr:nth-child(even) {
-      background: #020617;
+    .summary-grid h3 {
+      margin:0 0 4px;
+      font-size:14px;
     }
-    tbody tr:nth-child(odd) {
-      background: #030712;
+    .summary-main-number {
+      font-size:20px;
+      font-weight:700;
     }
-    .num {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
+    .summary-list {
+      max-height:220px;
+      overflow:auto;
+      margin-top:4px;
     }
-    .addr {
-      font-weight: 500;
+    .summary-list table {
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
     }
-    .hint {
-      margin-top: 8px;
-      font-size: 11px;
-      color: #9ca3af;
+    .summary-list th,
+    .summary-list td {
+      padding:3px 4px;
+      border-bottom:1px solid #111827;
+      text-align:left;
     }
-    a.download-link {
-      color: #93c5fd;
-      text-decoration: underline;
-      cursor: pointer;
-      font-size: 12px;
+    .summary-list th {
+      position:sticky;
+      top:0;
+      background:#020617;
+      z-index:1;
+    }
+
+    table.logg-table {
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+    }
+    table.logg-table th,
+    table.logg-table td {
+      padding:6px 6px;
+      border-bottom:1px solid #111827;
+      text-align:left;
+      vertical-align:top;
+    }
+    table.logg-table th {
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.03em;
+      color:#9ca3af;
+    }
+
+    .muted {
+      color:#9ca3af;
+      font-size:12px;
+    }
+
+    /* Print */
+    @media print {
+      body {
+        background:white;
+        color:black;
+      }
+      header.appbar {
+        position:static;
+        background:white;
+        border-color:#e5e7eb;
+        color:black;
+      }
+      .card {
+        background:white;
+        border-color:#e5e7eb;
+      }
+      input, select {
+        border-color:#d1d5db;
+        background:white;
+        color:black;
+      }
+      .btn,
+      .btn-ghost {
+        display:none !important;
+      }
+      a.back-link {
+        display:none !important;
+      }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Brøyterapport</h1>
-    <p>Henter logg fra JSONbin, lager PDF og ZIP for e-post.</p>
+  <header class="appbar">
+    <div>
+      <h1>Brøyte-logg</h1>
+      <a href="./index.html" class="muted back-link">← Tilbake til appen</a>
+    </div>
+    <div class="right">
+      <div id="logg_meta" class="muted">Laster …</div>
+      <button class="btn-ghost" type="button" onclick="window.print()">🖨️ Skriv ut</button>
+    </div>
   </header>
 
-  <div class="toolbar">
-    <button id="btnLoad">Oppdater data</button>
-    <button id="btnExport" class="secondary" disabled>Lag PDF + ZIP</button>
-  </div>
+  <main>
+    <!-- FILTERE -->
+    <section class="card">
+      <h2 style="margin:0 0 8px;">Filter</h2>
+      <p class="muted" style="margin:0 0 10px;">
+        Filtrerer logg og summeringer. Tomt felt = ingen filtrering.
+      </p>
 
-  <div id="status"></div>
+      <div class="filters-grid">
+        <div>
+          <label class="small" for="f_date_from">Fra dato</label>
+          <input id="f_date_from" type="date" />
+        </div>
+        <div>
+          <label class="small" for="f_date_to">Til dato</label>
+          <input id="f_date_to" type="date" />
+        </div>
+        <div>
+          <label class="small" for="f_driver">Sjåfør</label>
+          <select id="f_driver">
+            <option value="">Alle</option>
+          </select>
+        </div>
+        <div>
+          <label class="small" for="f_address">Adresse</label>
+          <input id="f_address" list="addrList" placeholder="Søk / velg adresse" />
+          <datalist id="addrList"></datalist>
+        </div>
+        <div>
+          <label class="small" for="f_type">Hendelse</label>
+          <select id="f_type">
+            <option value="">Alle</option>
+            <option value="start">Start</option>
+            <option value="ferdig">Ferdig</option>
+          </select>
+        </div>
+      </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Adresse</th>
-          <th>Oppgave</th>
-          <th>Fører</th>
-          <th>Start</th>
-          <th>Slutt</th>
-          <th>Varighet (min)</th>
-        </tr>
-      </thead>
-      <tbody id="logBody">
-        <!-- fylles av logg.js -->
-      </tbody>
-    </table>
-  </div>
+      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="btn_reload" class="btn" type="button">🔄 Hent siste logg</button>
+        <button id="btn_clear_filters" class="btn-ghost" type="button">Tøm filter</button>
+      </div>
+    </section>
 
-  <div class="hint">
-    Etter at ZIP-filen er lastet ned kan du åpne e-posten som dukker opp
-    (<code>post@romeriketrefelling.no</code>, cc <code>oysgjer@gmail.com</code>) og legge ZIP-filen ved som vedlegg.
-    <br />
-    <span id="zipLinkWrap"></span>
-  </div>
+    <!-- SAMMENDRAG -->
+    <section class="card">
+      <h2 style="margin:0 0 8px;">Sammendrag (gjelder filtrert logg)</h2>
 
-  <!-- jsPDF (PDF-generering) -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <!-- JSZip (ZIP-pakking) -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <!-- Din logikk -->
-  <script src="logg.js"></script>
+      <div id="summary_empty" class="muted" style="display:none;">
+        Ingen hendelser for valgt filter.
+      </div>
+
+      <div id="summary_content" class="summary-grid" style="display:none;">
+        <!-- Total tid -->
+        <div>
+          <h3>Samlet arbeidstid (alle sjåfører)</h3>
+          <div class="summary-main-number" id="sum_total_time">0:00</div>
+          <div class="muted" id="sum_total_count"></div>
+        </div>
+
+        <!-- Per sjåfør -->
+        <div>
+          <h3>Arbeidstid per sjåfør</h3>
+          <div class="summary-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Sjåfør</th>
+                  <th>Timer</th>
+                </tr>
+              </thead>
+              <tbody id="sum_per_driver"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Per adresse -->
+        <div>
+          <h3>Arbeidstid og antall ganger per adresse</h3>
+          <div class="summary-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Adresse</th>
+                  <th>Timer</th>
+                  <th>Ganger</th>
+                </tr>
+              </thead>
+              <tbody id="sum_per_address"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SELVE LOGGEN -->
+    <section class="card">
+      <h2 style="margin:0 0 8px;">Detaljert logg</h2>
+      <p class="muted" style="margin:0 0 8px;">
+        Viser rå-hendelser (start/ferdig osv.) sortert etter tid. Utskrift gir A4-vennlig rapport.
+      </p>
+
+      <div style="overflow:auto; max-height:70vh;">
+        <table class="logg-table">
+          <thead>
+            <tr>
+              <th>Dato</th>
+              <th>Tid</th>
+              <th>Sjåfør</th>
+              <th>Adresse</th>
+              <th>Oppgave</th>
+              <th>Hendelse</th>
+            </tr>
+          </thead>
+          <tbody id="logg_tbody">
+            <!-- fylles av logg.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/logg.js?v=2"></script>
 </body>
 </html>
