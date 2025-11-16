@@ -412,14 +412,6 @@
     return calcMsFromNorm(norm);
   }
 
-  // Viser tid på Hjem-siden
-  function renderSamletTid(hendelser) {
-    const el = document.getElementById('samlet_tid');
-    if (!el) return;
-    const totalMs = calcSamletBroytetid(hendelser);
-    el.textContent = msToHhMm(totalMs);
-  }
-
   // Gjør renderer tilgjengelig globalt hvis noe annet vil bruke den
   window.renderSamletTid = renderSamletTid;
 
