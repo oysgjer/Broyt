@@ -1,455 +1,401 @@
-// logg.js – detaljert logg + samlet brøytetid fra report-bin
-
-// ----------------- KONFIG -----------------
+// logg.js – leser report-bin, parer start/ferdig og viser logg + summer
+// Bin med rapporter
 const REPORT_BIN_ID = '68e89e3443b1c97be9611c48';
-const MAX_INTERVAL_MS = 90 * 60 * 1000; // maks 90 min per økt
 
-// ----------------- DOM-HJELPERE -----------------
-const $    = (sel, root = document) => root.querySelector(sel);
-const byId = (id) => document.getElementById(id);
+// --- Tidshjelpere ---
 const pad2 = (n) => (n < 10 ? '0' + n : '' + n);
 
-function fmtNorDate(d) {
-  return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`;
+function fmtDate(d) {
+  return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${String(
+    d.getFullYear()
+  ).slice(-2)}`;
 }
-function fmtNorTime(d) {
+function fmtTime(d) {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
-function msToNorDur(ms) {
+function msToHhMm(ms) {
   if (!Number.isFinite(ms) || ms <= 0) return '0 min';
   const totalMin = Math.round(ms / 60000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   if (h <= 0) return `${m} min`;
-  if (m === 0) return `${h} t`;
   return `${h} t ${m} min`;
 }
 
-// ----------------- DATO-INTERVALLER -----------------
-function startOfDay(d) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function startOfMonth(d) {
-  const x = new Date(d);
-  x.setDate(1);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function startOfPrevMonth(d) {
-  const x = startOfMonth(d);
-  x.setMonth(x.getMonth() - 1);
-  return x;
-}
-function startOfWeek(d) {
-  const x = startOfDay(d);
-  const day = x.getDay(); // 0 = søn
-  const diff = (day + 6) % 7; // mandag som uke-start
-  x.setDate(x.getDate() - diff);
-  return x;
-}
-
-// ----------------- JSONBIN -----------------
-const MASTER_KEY_KEYS = [
-  'jsonbin_master_key',
-  'jsonbin_master',
-  'rt_jsonbin_master',
-  'rt_jsonbin_key',
-  'X-Master-Key'
-];
-
+// --- Master key fra localStorage ---
 function getMasterKey() {
-  for (const k of MASTER_KEY_KEYS) {
+  const KEYS = [
+    'jsonbin_master_key',
+    'jsonbin_master',
+    'rt_jsonbin_master',
+    'rt_jsonbin_key',
+    'X-Master-Key'
+  ];
+  for (const k of KEYS) {
     const v = localStorage.getItem(k);
-    if (v && v.trim()) return v.trim();
+    if (v && String(v).trim()) return String(v).trim();
   }
   return null;
 }
 
+// --- Hent rapporter fra JSONbin ---
 async function fetchReports() {
   const key = getMasterKey();
-  const headers = {};
-  if (key) headers['X-Master-Key'] = key;
+  if (!key) {
+    console.warn('[logg] Fant ingen X-Master-Key i localStorage');
+    return [];
+  }
 
   const url = `https://api.jsonbin.io/v3/b/${REPORT_BIN_ID}/latest`;
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, {
+    headers: { 'X-Master-Key': key }
+  });
+
   if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(`JSONbin feil ${res.status}: ${txt}`);
+    console.warn('[logg] Klarte ikke å hente reports', res.status);
+    return [];
   }
+
   const data = await res.json();
-  const rec = data && (data.record || data);
-
-  // Finn selve arrayen med rader
-  if (Array.isArray(rec)) return rec;
-  if (Array.isArray(rec.reports)) return rec.reports;
-  if (rec && rec.reports && Array.isArray(rec.reports.reports)) return rec.reports.reports;
-
-  console.warn('[logg] Fant ingen reports-array i record', rec);
-  return [];
+  const record = data && (data.record || data);
+  if (!record) return [];
+  return Array.isArray(record.reports) ? record.reports : [];
 }
 
-// ----------------- NORMALISER RADER -----------------
-/**
- * Inn: rå rad fra reports-bin
- * Ut: { ts, driver, address, type: 'start'|'done'|'blocked', roundTask?:'S'|'G', notes }
- */
-function normalizeRow(raw) {
-  if (!raw) return null;
+// --- Normaliser til interne events for paring ---
+function normalizeReportsToEvents(reports) {
+  const events = [];
 
-  const tsStr = raw.at || raw.ts || raw.time || raw.timestamp;
-  const ts = Date.parse(tsStr);
-  if (!Number.isFinite(ts)) return null;
+  for (const r of reports) {
+    // Type: start / ferdig
+    let kind = null;
+    if (r.type === 'start' || r.action === 'start') kind = 'start';
+    else if (r.type === 'done' || r.action === 'ferdig') kind = 'stop';
+    else continue; // ignorer "neste" osv.
 
-  const driver = raw.by || raw.driver || 'Ukjent';
-  const address =
-    raw.addressId ||
-    raw.addressName ||
-    raw.address ||
-    '—';
+    const addr =
+      r.addressId || r.addressName || r.address || r.addrId || 'Ukjent adresse';
+    const driver = (r.by || r.driver || 'Ukjent sjåfør').trim() || 'Ukjent sjåfør';
 
-  const t = (raw.type || raw.action || '').toString().toLowerCase();
-  let type;
-  if (t === 'start') type = 'start';
-  else if (t === 'done' || t === 'ferdig' || t === 'stopp' || t === 'stop') type = 'done';
-  else if (t.includes('ikke')) type = 'blocked';
-  else return null; // ignorer "neste" og annet støy
+    const tsStr = r.at || r.ts;
+    const ts = Date.parse(tsStr);
+    if (!Number.isFinite(ts)) continue;
 
-  // Oppgavekode for runden – logges av auto_logger på nye rader
-  let roundTask = raw.roundTask;
-  if (roundTask !== 'S' && roundTask !== 'G') roundTask = null;
+    // Oppgave: S / G – vi forventer at nye rader får roundTask = 'S' eller 'G'
+    let task = null;
+    if (r.roundTask === 'S' || r.roundTask === 'G') {
+      task = r.roundTask;
+    } else if (typeof r.roundTask === 'string') {
+      const t = r.roundTask.trim().toUpperCase();
+      if (t.startsWith('S')) task = 'S';
+      else if (t.startsWith('G')) task = 'G';
+    } else if (typeof r.task === 'string') {
+      const t = r.task.trim().toUpperCase();
+      if (t === 'S' || t === 'G') task = t;
+    }
+    // Hvis vi fortsatt ikke vet: null => vises som "—" i tabell
 
-  const notes =
-    raw.notes ||
-    (type === 'blocked' ? 'Ikke mulig' : '');
-
-  return {
-    ts,
-    driver,
-    address,
-    type,
-    roundTask, // kan være null
-    notes,
-    _raw: raw
-  };
-}
-
-// ----------------- BYGG JOBBER (SESSIONS) -----------------
-/**
- * sessions: [
- *   { from, to, durMs, driver, address, taskCode:'S'|'G'|'—', notes }
- * ]
- */
-function buildSessions(normRows) {
-  if (!Array.isArray(normRows) || normRows.length === 0) return [];
-
-  // sortér eldste først for pairing
-  const sorted = [...normRows].sort((a, b) => a.ts - b.ts);
-
-  // gruppert per (driver + adresse)
-  const byKey = new Map();
-  for (const r of sorted) {
-    const key = `${r.driver}@@${r.address}`;
-    if (!byKey.has(key)) byKey.set(key, []);
-    byKey.get(key).push(r);
+    events.push({
+      kind,
+      addr,
+      driver,
+      task, // 'S' | 'G' | null
+      ts
+    });
   }
 
-  const sessions = [];
+  return events;
+}
 
-  for (const [, evs] of byKey) {
+// --- Par start/stop til jobber ---
+function pairEventsToJobs(events) {
+  if (!Array.isArray(events) || !events.length) return [];
+
+  // grupper på adresse + sjåfør + oppgave-type
+  const groups = new Map();
+  for (const e of events) {
+    const key = `${e.addr}||${e.driver}||${e.task || '-'}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);
+  }
+
+  const jobs = [];
+
+  for (const [key, arr] of groups.entries()) {
+    arr.sort((a, b) => a.ts - b.ts);
     let openStart = null;
-    let openTask  = null;
-    let openNotes = '';
 
-    for (const ev of evs) {
-      if (ev.type === 'start') {
-        if (openStart == null) {
-          openStart = ev.ts;
-          openTask  = ev.roundTask || null;
-          openNotes = '';
-        }
-      } else if (ev.type === 'done' || ev.type === 'blocked') {
-        if (openStart != null && ev.ts > openStart) {
-          let durMs = ev.ts - openStart;
-          if (durMs > MAX_INTERVAL_MS) durMs = MAX_INTERVAL_MS;
-
-          const taskCode = ev.roundTask || openTask || '—';
-          const notes = (ev.type === 'blocked'
-            ? (ev.notes || 'Ikke mulig')
-            : ev.notes || openNotes || '');
-
-          sessions.push({
-            from: openStart,
-            to: ev.ts,
-            durMs,
-            driver: ev.driver,
-            address: ev.address,
-            taskCode,
-            notes
+    for (const e of arr) {
+      if (e.kind === 'start') {
+        // start på ny periode
+        openStart = e.ts;
+      } else if (e.kind === 'stop') {
+        if (openStart != null && e.ts > openStart) {
+          const [addr, driver, taskStr] = key.split('||');
+          const task = taskStr === '-' ? null : taskStr;
+          jobs.push({
+            addr,
+            driver,
+            task, // 'S'|'G'|null
+            fromTs: openStart,
+            toTs: e.ts,
+            durMs: e.ts - openStart
           });
         }
         openStart = null;
-        openTask  = null;
-        openNotes = '';
       }
     }
   }
 
-  // NYESTE ØVERST
-  sessions.sort((a, b) => b.to - a.to);
-  return sessions;
+  // Nyeste først
+  jobs.sort((a, b) => b.toTs - a.toTs);
+  return jobs;
 }
 
-// ----------------- AGGREGATER -----------------
-function buildAggregates(sessions) {
-  const now = new Date();
-  const todayStart   = startOfDay(now).getTime();
-  const weekStart    = startOfWeek(now).getTime();
-  const monthStart   = startOfMonth(now).getTime();
-  const prevMonthSt  = startOfPrevMonth(now).getTime();
-  const thisMonthSt  = monthStart;
+// --- Samlet brøytetid (ALLE jobber, uavhengig av filtre) ---
+function renderSummary(jobs) {
+  const el = document.getElementById('sum_content');
+  if (!el) return;
 
-  let totalMs = 0;
-  let todayMs = 0;
-  let weekMs  = 0;
-  let monthMs = 0;
-  let prevMonthMs = 0;
-
-  const driverMap = new Map();
-  const addrMap   = new Map(); // key: address@@taskCode
-
-  for (const s of sessions) {
-    const mid = (s.from + s.to) / 2;
-    const ms  = s.durMs;
-    totalMs += ms;
-
-    if (mid >= todayStart) todayMs += ms;
-    if (mid >= weekStart)  weekMs  += ms;
-    if (mid >= monthStart) monthMs += ms;
-    if (mid >= prevMonthSt && mid < thisMonthSt) prevMonthMs += ms;
-
-    // per sjåfør
-    const dKey = s.driver || 'Ukjent';
-    driverMap.set(dKey, (driverMap.get(dKey) || 0) + ms);
-
-    // per adresse + oppgave
-    const tCode = s.taskCode || '—';
-    const aKey = `${s.address}@@${tCode}`;
-    if (!addrMap.has(aKey)) {
-      addrMap.set(aKey, {
-        address: s.address,
-        taskCode: tCode,
-        ms: 0,
-        count: 0
-      });
-    }
-    const rec = addrMap.get(aKey);
-    rec.ms += ms;
-    rec.count += 1;
+  if (!jobs.length) {
+    el.textContent = 'Fant ingen registrert brøytetid.';
+    return;
   }
 
-  return {
-    totalMs,
-    todayMs,
-    weekMs,
-    monthMs,
-    prevMonthMs,
-    perDriver: Array.from(driverMap.entries())
-      .map(([driver, ms]) => ({ driver, ms }))
-      .sort((a, b) => b.ms - a.ms),
-    perAddress: Array.from(addrMap.values())
-      .sort((a, b) => b.ms - a.ms)
-  };
+  const now = new Date();
+  const todayY = now.getFullYear();
+  const todayM = now.getMonth();
+  const todayD = now.getDate();
+
+  // Start på uke (mandag)
+  const dow = (now.getDay() + 6) % 7; // 0 = mandag
+  const weekStart = new Date(todayY, todayM, todayD - dow);
+
+  const thisMonth = { y: todayY, m: todayM };
+  const prevMonth =
+    todayM === 0
+      ? { y: todayY - 1, m: 11 }
+      : { y: todayY, m: todayM - 1 };
+
+  let msTotal = 0;
+  let msToday = 0;
+  let msThisWeek = 0;
+  let msThisMonth = 0;
+  let msPrevMonth = 0;
+
+  for (const j of jobs) {
+    const d = new Date(j.fromTs);
+    const dy = d.getFullYear();
+    const dm = d.getMonth();
+    const dd = d.getDate();
+
+    msTotal += j.durMs;
+
+    // I dag
+    if (dy === todayY && dm === todayM && dd === todayD) {
+      msToday += j.durMs;
+    }
+
+    // Denne uka (fra mandag)
+    if (d >= weekStart && d <= now) {
+      msThisWeek += j.durMs;
+    }
+
+    // Denne måneden
+    if (dy === thisMonth.y && dm === thisMonth.m) {
+      msThisMonth += j.durMs;
+    }
+
+    // Forrige måned
+    if (dy === prevMonth.y && dm === prevMonth.m) {
+      msPrevMonth += j.durMs;
+    }
+  }
+
+  el.innerHTML = `
+    <div>Totalt: <strong>${msToHhMm(msTotal)}</strong></div>
+    <div>Forrige måned: <strong>${msToHhMm(msPrevMonth)}</strong></div>
+    <div>Denne måneden: <strong>${msToHhMm(msThisMonth)}</strong></div>
+    <div>Denne uken: <strong>${msToHhMm(msThisWeek)}</strong></div>
+    <div>I dag: <strong>${msToHhMm(msToday)}</strong></div>
+  `;
 }
 
-// ----------------- RENDER: SAMLET TID -----------------
-function renderSummary(agg) {
-  const { totalMs, todayMs, weekMs, monthMs, prevMonthMs } = agg;
-
-  const elTotal = byId('sum_total');
-  const elPrev  = byId('sum_prev_month');
-  const elMonth = byId('sum_this_month');
-  const elWeek  = byId('sum_this_week');
-  const elToday = byId('sum_today');
-
-  if (elTotal) elTotal.textContent = msToNorDur(totalMs);
-  if (elPrev)  elPrev.textContent  = msToNorDur(prevMonthMs);
-  if (elMonth) elMonth.textContent = msToNorDur(monthMs);
-  if (elWeek)  elWeek.textContent  = msToNorDur(weekMs);
-  if (elToday) elToday.textContent = msToNorDur(todayMs);
-}
-
-// ----------------- RENDER: FILTRE -----------------
-function populateFilters(sessions) {
-  const selDriver = byId('filter_driver');
-  const selAddr   = byId('filter_address');
-  if (!selDriver || !selAddr) return;
+// --- Filtre UI ---
+function buildFilters(jobs) {
+  const fDriver = document.getElementById('f_driver');
+  const fAddr = document.getElementById('f_addr');
+  if (!fDriver || !fAddr) return;
 
   const drivers = new Set();
-  const addrs   = new Set();
-  sessions.forEach(s => {
-    if (s.driver) drivers.add(s.driver);
-    if (s.address) addrs.add(s.address);
-  });
+  const addrs = new Set();
 
-  selDriver.innerHTML = '';
-  const optAllD = document.createElement('option');
-  optAllD.value = '';
-  optAllD.textContent = 'Alle sjåfører';
-  selDriver.appendChild(optAllD);
-  Array.from(drivers).sort().forEach(d => {
-    const o = document.createElement('option');
-    o.value = d;
-    o.textContent = d;
-    selDriver.appendChild(o);
-  });
+  for (const j of jobs) {
+    drivers.add(j.driver);
+    addrs.add(j.addr);
+  }
 
-  selAddr.innerHTML = '';
-  const optAllA = document.createElement('option');
-  optAllA.value = '';
-  optAllA.textContent = 'Alle adresser';
-  selAddr.appendChild(optAllA);
-  Array.from(addrs).sort().forEach(a => {
-    const o = document.createElement('option');
-    o.value = a;
-    o.textContent = a;
-    selAddr.appendChild(o);
-  });
+  // Sjåfør
+  fDriver.innerHTML = '<option value="">Alle sjåfører</option>';
+  Array.from(drivers)
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((d) => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      fDriver.appendChild(opt);
+    });
+
+  // Adresse
+  fAddr.innerHTML = '<option value="">Alle adresser</option>';
+  Array.from(addrs)
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((a) => {
+      const opt = document.createElement('option');
+      opt.value = a;
+      opt.textContent = a;
+      fAddr.appendChild(opt);
+    });
 }
 
-// ----------------- RENDER: TABELLER -----------------
-function renderSessionsTable(sessions) {
-  const tbody = byId('tbl_sessions');
-  if (!tbody) return;
-  tbody.innerHTML = '';
+function applyFilters(jobs) {
+  const fDriver = document.getElementById('f_driver');
+  const fAddr = document.getElementById('f_addr');
+  const dVal = fDriver ? fDriver.value : '';
+  const aVal = fAddr ? fAddr.value : '';
 
-  sessions.forEach(s => {
-    const tr = document.createElement('tr');
-    const dFrom = new Date(s.from);
-    const dTo   = new Date(s.to);
-
-    const tdDate = document.createElement('td');
-    const tdFrom = document.createElement('td');
-    const tdTo   = document.createElement('td');
-    const tdAddr = document.createElement('td');
-    const tdTask = document.createElement('td');
-    const tdDrv  = document.createElement('td');
-    const tdDur  = document.createElement('td');
-    const tdNote = document.createElement('td');
-
-    tdDate.textContent = fmtNorDate(dFrom);
-    tdFrom.textContent = fmtNorTime(dFrom);
-    tdTo.textContent   = fmtNorTime(dTo);
-    tdAddr.textContent = s.address || '—';
-    tdTask.textContent = s.taskCode || '—';   // S / G / —
-    tdDrv.textContent  = s.driver || 'Ukjent';
-    tdDur.textContent  = msToNorDur(s.durMs);
-    tdNote.textContent = s.notes || '';
-
-    tr.appendChild(tdDate);
-    tr.appendChild(tdFrom);
-    tr.appendChild(tdTo);
-    tr.appendChild(tdAddr);
-    tr.appendChild(tdTask);
-    tr.appendChild(tdDrv);
-    tr.appendChild(tdDur);
-    tr.appendChild(tdNote);
-
-    tbody.appendChild(tr);
-  });
-}
-
-function renderPerDriver(agg) {
-  const tbody = byId('tbl_driver');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-
-  agg.perDriver.forEach(row => {
-    const tr = document.createElement('tr');
-    const tdDrv = document.createElement('td');
-    const tdMs  = document.createElement('td');
-    tdDrv.textContent = row.driver || 'Ukjent';
-    tdMs.textContent  = msToNorDur(row.ms);
-    tr.appendChild(tdDrv);
-    tr.appendChild(tdMs);
-    tbody.appendChild(tr);
-  });
-}
-
-function renderPerAddress(agg) {
-  const tbody = byId('tbl_addr');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-
-  agg.perAddress.forEach(row => {
-    const tr = document.createElement('tr');
-    const tdAddr = document.createElement('td');
-    const tdTask = document.createElement('td');
-    const tdMs   = document.createElement('td');
-    const tdCnt  = document.createElement('td');
-
-    tdAddr.textContent = row.address || '—';
-    tdTask.textContent = row.taskCode || '—';
-    tdMs.textContent   = msToNorDur(row.ms);
-    tdCnt.textContent  = String(row.count);
-
-    tr.appendChild(tdAddr);
-    tr.appendChild(tdTask);
-    tr.appendChild(tdMs);
-    tr.appendChild(tdCnt);
-
-    tbody.appendChild(tr);
-  });
-}
-
-// ----------------- FILTRERING -----------------
-function applyFilters(allSessions) {
-  const selDriver = byId('filter_driver');
-  const selAddr   = byId('filter_address');
-
-  const driverVal = selDriver ? selDriver.value : '';
-  const addrVal   = selAddr ? selAddr.value : '';
-
-  return allSessions.filter(s => {
-    if (driverVal && s.driver !== driverVal) return false;
-    if (addrVal && s.address !== addrVal) return false;
+  return jobs.filter((j) => {
+    if (dVal && j.driver !== dVal) return false;
+    if (aVal && j.addr !== aVal) return false;
     return true;
   });
 }
 
-// ----------------- HOVEDFLYT -----------------
-document.addEventListener('DOMContentLoaded', async () => {
-  const sumTotal = byId('sum_total');
-  if (sumTotal) sumTotal.textContent = 'Laster…';
+// --- Render detaljert logg ---
+function renderJobsTable(jobs) {
+  const body = document.getElementById('jobs_body');
+  if (!body) return;
+  body.innerHTML = '';
 
-  try {
-    const rawReports = await fetchReports();
-    const normRows = rawReports.map(normalizeRow).filter(Boolean);
-
-    const allSessions = buildSessions(normRows);
-    const aggAll = buildAggregates(allSessions);
-
-    renderSummary(aggAll);
-    populateFilters(allSessions);
-    renderSessionsTable(allSessions);
-    renderPerDriver(aggAll);
-    renderPerAddress(aggAll);
-
-    const selDriver = byId('filter_driver');
-    const selAddr   = byId('filter_address');
-    const onChange  = () => {
-      const filtered = applyFilters(allSessions);
-      const aggF     = buildAggregates(filtered);
-      renderSummary(aggF);
-      renderSessionsTable(filtered);
-      renderPerDriver(aggF);
-      renderPerAddress(aggF);
-    };
-    selDriver && selDriver.addEventListener('change', onChange);
-    selAddr   && selAddr.addEventListener('change', onChange);
-  } catch (err) {
-    console.error('[logg] Feil:', err);
-    if (sumTotal) sumTotal.textContent = 'Feil ved henting av data';
+  if (!jobs.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 7;
+    td.textContent = 'Ingen jobber i valgt filter.';
+    td.style.padding = '6px';
+    tr.appendChild(td);
+    body.appendChild(tr);
+    return;
   }
-});
+
+  for (const j of jobs) {
+    const tr = document.createElement('tr');
+    const from = new Date(j.fromTs);
+    const to = new Date(j.toTs);
+    const mins = Math.round(j.durMs / 60000);
+
+    const tds = [
+      fmtDate(from),
+      fmtTime(from),
+      fmtTime(to),
+      j.addr,
+      j.task === 'S' ? 'S' : j.task === 'G' ? 'G' : '—',
+      j.driver,
+      String(mins)
+    ];
+
+    tds.forEach((val, idx) => {
+      const td = document.createElement('td');
+      td.textContent = val;
+      td.style.padding = '4px 6px';
+      if (idx === 6) td.style.textAlign = 'right';
+      tr.appendChild(td);
+    });
+
+    body.appendChild(tr);
+  }
+}
+
+// --- Render tid per adresse ---
+function renderAddrTable(jobs) {
+  const body = document.getElementById('addr_body');
+  if (!body) return;
+  body.innerHTML = '';
+
+  if (!jobs.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 4;
+    td.textContent = 'Ingen data i valgt filter.';
+    td.style.padding = '6px';
+    tr.appendChild(td);
+    body.appendChild(tr);
+    return;
+  }
+
+  // grupper på adresse + task
+  const byKey = new Map();
+  for (const j of jobs) {
+    const key = `${j.addr}||${j.task || '-'}`;
+    if (!byKey.has(key)) byKey.set(key, { addr: j.addr, task: j.task, ms: 0, count: 0 });
+    const agg = byKey.get(key);
+    agg.ms += j.durMs;
+    agg.count += 1;
+  }
+
+  const rows = Array.from(byKey.values()).sort((a, b) =>
+    a.addr.localeCompare(b.addr)
+  );
+
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+
+    const cols = [
+      r.addr,
+      r.task === 'S' ? 'S' : r.task === 'G' ? 'G' : '—',
+      msToHhMm(r.ms),
+      String(r.count)
+    ];
+
+    cols.forEach((val, idx) => {
+      const td = document.createElement('td');
+      td.textContent = val;
+      td.style.padding = '4px 6px';
+      if (idx >= 2) td.style.textAlign = 'right';
+      tr.appendChild(td);
+    });
+
+    body.appendChild(tr);
+  }
+}
+
+// --- Init ---
+async function initLogg() {
+  try {
+    const reports = await fetchReports();
+    const events = normalizeReportsToEvents(reports);
+    const allJobs = pairEventsToJobs(events);
+
+    renderSummary(allJobs);
+    buildFilters(allJobs);
+
+    const updateAll = () => {
+      const filtered = applyFilters(allJobs);
+      renderJobsTable(filtered);
+      renderAddrTable(filtered);
+    };
+
+    updateAll();
+
+    const fDriver = document.getElementById('f_driver');
+    const fAddr = document.getElementById('f_addr');
+    fDriver && fDriver.addEventListener('change', updateAll);
+    fAddr && fAddr.addEventListener('change', updateAll);
+  } catch (err) {
+    console.error('[logg] Init-feil', err);
+    const el = document.getElementById('sum_content');
+    if (el) el.textContent = 'Feil ved lasting av logg.';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initLogg);
