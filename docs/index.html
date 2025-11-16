@@ -338,7 +338,7 @@
   <!-- Admin: injiser logg-knapp (valgfritt hvis ikke hardkodet) -->
   <script src="js/admin_logg_inject.js?v=3" defer></script>
 
-<!-- Samlet brøytetid – HJELPERE + RENDER (felles på tvers av enheter via report-bin) -->
+<!-- Samlet brøytetid – Felles for alle enheter, basert på report-bin -->
 <script>
 (() => {
   const REPORT_BIN_ID = '68e89e3443b1c97be9611c48';
@@ -373,7 +373,8 @@
 
       for (const ev of arr) {
         if (ev.kind === 'start') {
-          if (openStart == null) openStart = ev.ts; // ignorer dobbelt-start
+          // ignorér dobbelt-start, vi vil bare ha første
+          if (openStart == null) openStart = ev.ts;
         } else if (ev.kind === 'stop') {
           if (openStart != null && ev.ts > openStart) {
             const dur = ev.ts - openStart;
@@ -382,17 +383,14 @@
           openStart = null;
         }
       }
-      // Åpen start uten stop: ignoreres
+      // Åpen start uten stop: ignoreres helt
     }
 
     return totalMs;
   }
 
-  /**
-   * Tar inn "hendelser" i vårt format:
-   *   { type: 'start' | 'ferdig', addrId: 'Hagamoen', ts: <ms> }
-   * og regner total tid.
-   */
+  // Tar inn "hendelser" i vårt format:
+  //   { type: 'start' | 'ferdig', addrId: 'Hagamoen', ts: <ms> }
   function calcSamletBroytetid(hendelser) {
     if (!Array.isArray(hendelser) || hendelser.length === 0) return 0;
 
@@ -425,15 +423,22 @@
   // Gjør renderer tilgjengelig globalt hvis noe annet vil bruke den
   window.renderSamletTid = renderSamletTid;
 
-  // --- Hent fra JSONbin (report-bin) ---
+  // ---- JSONbin-tilgang (samme tankegang som logg/status) ----
+
+  const MASTER_KEY_KEYS = [
+    'jsonbin_master_key',
+    'jsonbin_master',
+    'rt_jsonbin_master',
+    'rt_jsonbin_key',
+    'X-Master-Key'
+  ];
 
   function getMasterKey() {
-    // Forsøk å hente master key fra samme sted som resten av appen bruker
-    return (
-      localStorage.getItem('jsonbin_master_key') ||
-      localStorage.getItem('X-Master-Key') ||
-      ''
-    );
+    for (const k of MASTER_KEY_KEYS) {
+      const v = localStorage.getItem(k);
+      if (v && v.trim()) return v.trim();
+    }
+    return null;
   }
 
   // Konverterer report-rader (slik du limte inn) til "hendelser" for kalkulatoren
@@ -442,7 +447,6 @@
 
     return reports
       .map(r => {
-        // Finn type
         let type = null;
 
         if (r.type === 'start' || r.action === 'start') {
@@ -450,18 +454,16 @@
         } else if (r.type === 'done' || r.action === 'ferdig') {
           type = 'ferdig';
         } else {
-          // ignorér "neste" og andre ting
+          // ignorér "neste" og annet
           return null;
         }
 
-        // Nøkkel per adresse (samler alt pr. navn)
         const addrId =
           r.addressId ||
           r.address ||
           r.addressName ||
           'ukjent';
 
-        // Timestamp (ISO-streng)
         const tsStr = r.at || r.ts;
         const ts = Date.parse(tsStr);
         if (!addrId || !Number.isFinite(ts)) return null;
@@ -472,12 +474,10 @@
   }
 
   async function fetchReportsAndRender() {
-    const key = getMasterKey();
     const url = `https://api.jsonbin.io/v3/b/${REPORT_BIN_ID}/latest`;
+    const headers = {};
 
-    const headers = {
-      'Content-Type': 'application/json'
-    };
+    const key = getMasterKey();
     if (key) {
       headers['X-Master-Key'] = key;
     }
@@ -485,30 +485,28 @@
     try {
       const res = await fetch(url, { headers });
       if (!res.ok) {
-        console.warn('Kunne ikke hente report-bin:', res.status, await res.text());
+        console.warn('[SamletTid] Klarte ikke å hente reports fra JSONbin', res.status);
         return;
       }
 
       const data = await res.json();
-      const record = data.record || data;     // JSONbin v3: {record:{...}}
+      const record = data.record || data;
       const reports = record.reports || [];
       const hendelser = reportsToHendelser(reports);
 
       renderSamletTid(hendelser);
     } catch (err) {
-      console.error('Feil ved henting av report-bin:', err);
+      console.warn('[SamletTid] Feil ved henting av reports fra JSONbin', err);
     }
   }
 
-  // Hent ved oppstart + oppdater f.eks. hvert minutt
+  // Hent ved oppstart + oppdater jevnlig
   document.addEventListener('DOMContentLoaded', () => {
     fetchReportsAndRender();
-    // Oppdatér jevnlig slik at alle enheter får med seg nye registreringer
     setInterval(fetchReportsAndRender, 60 * 1000);
   });
 })();
 </script>
-
 
   <!-- Wake Lock / skjerm våken -->
   <script>
