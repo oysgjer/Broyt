@@ -11,16 +11,84 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#0b1320">
 
   <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Print-tilpasning for A4 -->
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm;
+    }
+
+    @media print {
+      html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      /* Appbar: behold tittel, fjern knapper og mørk bakgrunn */
+      .appbar {
+        position: static !important;
+        box-shadow: none !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        border-bottom: 1px solid #cccccc;
+      }
+
+      .appbar button,
+      .appbar-right {
+        display: none !important;
+      }
+
+      main {
+        padding: 0 !important;
+        margin-top: 8px;
+      }
+
+      .card {
+        box-shadow: none !important;
+        background: #ffffff !important;
+        border: 1px solid #cccccc;
+        page-break-inside: avoid;
+        margin-bottom: 8px !important;
+      }
+
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+
+      table th,
+      table td {
+        border: 1px solid #cccccc !important;
+      }
+
+      /* Fjern scrollbars, alt skal bare flyte på siden */
+      body::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* Ingen sticky på print */
+      .appbar[style] {
+        position: static !important;
+        top: auto !important;
+        z-index: auto !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <!-- Appbar -->
-  <header class="appbar" style="position:sticky;top:0;z-index:10;padding-top:env(safe-area-inset-top,0px);">
+  <header class="appbar" style="position:sticky;top:0;z-index:10">
     <button class="icon-btn" aria-label="Tilbake" onclick="history.back()">←</button>
-    <div class="appbar-title">Brøyterute Detaljert logg</div>
+    <div class="appbar-title">Brøyterute<br>Detaljert logg</div>
     <div style="width:40px"></div>
   </header>
 
-  <main style="padding:12px; padding-top:16px;">
+  <main style="padding:12px;">
     <!-- Samlet brøytetid -->
     <section class="card" id="sum_card" style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -54,9 +122,22 @@
     <!-- Detaljert logg -->
     <section class="card" style="margin-bottom:12px;">
       <h2 style="margin:0 0 4px;">Detaljert logg</h2>
-      <p class="muted" style="margin:0 0 8px;">
+      <p class="muted" style="margin:0 0 6px;">
         Én linje per sammenhengende jobb (start → ferdig). Nyeste øverst.
       </p>
+
+      <!-- Vis X siste jobber -->
+      <div class="row" style="align-items:center; gap:8px; margin:0 0 8px;">
+        <span class="muted">Vis</span>
+        <select id="jobs_limit" class="input" style="width:auto; min-width:88px; padding-right:28px;">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="0">Alle</option>
+        </select>
+        <span class="muted">siste jobber</span>
+      </div>
 
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
@@ -67,7 +148,7 @@
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Til</th>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Sjåfør</th>
-              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Min</th>
+              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Tid (min)</th>
             </tr>
           </thead>
           <tbody id="jobs_body"></tbody>
@@ -88,7 +169,7 @@
             <tr>
               <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
               <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Antall runder</th>
-              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Tid (min)</th>
+              <th style="text-align:right;padding:6px;border-bottom:1px solid var(--sep);">Tid</th>
             </tr>
           </thead>
           <tbody id="addr_body"></tbody>
