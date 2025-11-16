@@ -55,6 +55,13 @@
     var cached = recallDriver();
     return cached || 'Ukjent';
   }
+  
+function getRoundTaskCode() {
+  // Hvis Sand/Grus er huket av på hjem-skjermen => G (grusing), ellers S (snø)
+  const sand = document.getElementById('a_eq_sand');
+  if (sand && sand.checked) return 'G';
+  return 'S';
+}
 
   function sniffAddressFromDOM(){
     var sels = [
