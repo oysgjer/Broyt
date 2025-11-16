@@ -2,13 +2,13 @@
 
 (() => {
   // JSONbin ID-er
-  const REPORT_BIN_ID   = '68e89e3443b1c97be9611c48'; // reports (start/ferdig osv.)
-  const ADDR_BIN_ID     = '68e7b4d2ae596e708f0bde7d'; // adresser/katalog
+  const REPORT_BIN_ID = '68e89e3443b1c97be9611c48'; // reports (start/ferdig osv.)
+  const ADDR_BIN_ID   = '68e7b4d2ae596e708f0bde7d'; // adresser/katalog
 
   const MAX_INTERVAL_MS = 90 * 60 * 1000; // maks 90 min per sammenhengende intervall
 
   // --- DOM helpers ---
-  const $ = (s, r = document) => r.querySelector(s);
+  const $   = (s, r = document) => r.querySelector(s);
   const byId = (id) => document.getElementById(id);
 
   const pad = (n) => (n < 10 ? '0' + n : '' + n);
@@ -22,7 +22,13 @@
     return `${h}:${pad(m)}`;
   };
 
-  // Master key: prøv noen vanlige nøkler + den du brukte i index
+  // Normaliser adresser for fuzzy match
+  const normStr = (s) =>
+    (s || '')
+      .toLowerCase()
+      .replace(/[\s,()\/]/g, '');
+
+  // Master key: prøv noen vanlige nøkler + X-Master-Key
   function getMasterKey() {
     const KEYS = [
       'jsonbin_master_key',
@@ -61,14 +67,16 @@
 
     return reports
       .map((r) => {
-        // Finn type
+        const a = (r.action || '').toLowerCase();
+        const t = (r.type || '').toLowerCase();
+
         let kind = null;
-        if (r.type === 'start' || r.action === 'start') {
+        if (t === 'start' || a === 'start') {
           kind = 'start';
-        } else if (r.type === 'done' || r.action === 'ferdig') {
+        } else if (t === 'done' || a === 'ferdig') {
           kind = 'stop';
         } else {
-          return null;
+          return null; // ikke med i tidsberegning (f.eks. "neste", "ikke mulig")
         }
 
         const addr =
@@ -170,11 +178,11 @@
   // --- FILTRERING ---
 
   function passesFilters(r, filters) {
-    // Dato
     const tsStr = r.at || r.ts;
     const d = new Date(tsStr);
     if (!Number.isFinite(d.getTime())) return false;
 
+    // Dato
     if (filters.fromDate) {
       const from = new Date(filters.fromDate + 'T00:00:00');
       if (d < from) return false;
@@ -190,19 +198,27 @@
       if (!drv.includes(filters.driver.toLowerCase())) return false;
     }
 
-    // Adresse
+    // Adresse (eksakt valg fra select, men case-insensitivt)
     if (filters.address) {
       const addr =
         (r.addressId || r.addressName || r.address || '').toLowerCase();
-      if (!addr.includes(filters.address.toLowerCase())) return false;
+      if (addr !== filters.address.toLowerCase()) return false;
     }
 
     // Type / hendelse
     if (filters.type) {
-      const isStart = r.type === 'start' || r.action === 'start';
-      const isDone  = r.type === 'done'  || r.action === 'ferdig';
+      const a = (r.action || '').toLowerCase();
+      const t = (r.type || '').toLowerCase();
+      const isStart = t === 'start' || a === 'start';
+      const isDone  = t === 'done'  || a === 'ferdig';
+      const isIkkeMulig =
+        a.includes('ikke') && a.includes('mulig') ||
+        a === 'block' ||
+        a === 'blocked';
+
       if (filters.type === 'start' && !isStart) return false;
       if (filters.type === 'ferdig' && !isDone) return false;
+      if (filters.type === 'ikkemulig' && !isIkkeMulig) return false;
     }
 
     return true;
@@ -218,9 +234,27 @@
     };
   }
 
+  // Finn metadata for adresse: først eksakt, så fuzzy
+  function findAddressMeta(addr, addressesByName) {
+    if (!addressesByName || !addr) return null;
+    if (addressesByName.has(addr)) return addressesByName.get(addr);
+
+    const target = normStr(addr);
+    if (!target) return null;
+
+    for (const [name, meta] of addressesByName.entries()) {
+      const n = normStr(name);
+      if (!n) continue;
+      if (target === n || target.includes(n) || n.includes(target)) {
+        return meta;
+      }
+    }
+    return null;
+  }
+
   // --- RENDERING AV SAMMENDRAG OG TABELL ---
 
-  function renderSummary(filteredReports, addressesByName) {
+  function renderSummary(filteredReports) {
     const sumEmpty   = byId('summary_empty');
     const sumContent = byId('summary_content');
     const elTotal    = byId('sum_total_time');
@@ -341,17 +375,31 @@
         r.address ||
         '';
 
-      // Finn oppgave fra adresseregister hvis mulig
+      // Finn oppgave: først direkte fra report, så fra adresseregister med fuzzy match
       let task = r.task || '';
-      if (!task && addr && addressesByName && addressesByName.has(addr)) {
-        task = addressesByName.get(addr).task || '';
+      if (!task && addr && addressesByName) {
+        const meta = findAddressMeta(addr, addressesByName);
+        if (meta && meta.task) task = meta.task;
       }
 
+      // Hendelse / action
+      const a = (r.action || '').toLowerCase();
+      const t = (r.type || '').toLowerCase();
       let actionLabel = '';
-      if (r.type === 'start' || r.action === 'start') {
+
+      const isStart = t === 'start' || a === 'start';
+      const isDone  = t === 'done'  || a === 'ferdig';
+      const isIkkeMulig =
+        a.includes('ikke') && a.includes('mulig') ||
+        a === 'block' ||
+        a === 'blocked';
+
+      if (isStart) {
         actionLabel = 'Start';
-      } else if (r.type === 'done' || r.action === 'ferdig') {
+      } else if (isDone) {
         actionLabel = 'Ferdig';
+      } else if (isIkkeMulig) {
+        actionLabel = 'Ikke mulig';
       } else if (r.action) {
         actionLabel = r.action;
       } else if (r.type) {
@@ -361,10 +409,10 @@
       const cells = [
         dateStr,
         timeStr,
-        driver,
-        addr,
-        task,
-        actionLabel
+        driver || '—',
+        addr   || '—',
+        task   || '—',
+        actionLabel || '—'
       ];
 
       for (const val of cells) {
@@ -392,7 +440,6 @@
     }
     drivers.sort((a, b) => a.localeCompare(b, 'nb'));
 
-    // Behold første "Alle"
     sel.innerHTML = '<option value="">Alle</option>';
     for (const d of drivers) {
       const opt = document.createElement('option');
@@ -402,10 +449,9 @@
     }
   }
 
-  function fillAddressDatalist(addressesByName, reports) {
-    const dl = byId('addrList');
-    if (!dl) return;
-    dl.innerHTML = '';
+  function fillAddressSelect(addressesByName, reports) {
+    const sel = byId('f_address');
+    if (!sel) return;
 
     const seen = new Set();
 
@@ -430,10 +476,13 @@
     }
 
     const list = Array.from(seen).sort((a, b) => a.localeCompare(b, 'nb'));
+
+    sel.innerHTML = '<option value="">Alle</option>';
     for (const name of list) {
       const opt = document.createElement('option');
       opt.value = name;
-      dl.appendChild(opt);
+      opt.textContent = name;
+      sel.appendChild(opt);
     }
   }
 
@@ -468,26 +517,30 @@
         if (total > 0) {
           const latest = reports
             .slice()
-            .sort((a, b) => Date.parse(b.at || b.ts || 0) - Date.parse(a.at || a.ts || 0))[0];
+            .sort(
+              (a, b) =>
+                Date.parse(b.at || b.ts || 0) -
+                Date.parse(a.at || a.ts || 0)
+            )[0];
           const d = new Date(latest.at || latest.ts || Date.now());
           latestStr = ` – siste: ${fmtDate(d)} kl ${fmtTime(d)}`;
         }
         metaEl.textContent = `Totalt ${total} rå-hendelser${latestStr}`;
       }
 
-      // Oppdater filter-valg (sjåfør + adresseliste)
+      // Oppdater filter-valg (sjåfør + adresse)
       fillDriverFilterOptions(reports);
-      fillAddressDatalist(addressesByName, reports);
+      fillAddressSelect(addressesByName, reports);
 
-      // Lag en renderer-funksjon som kan kalles ved filter-endring
+      // Renderer ved filter-endring
       function applyFiltersAndRender() {
         const filters = readFilters();
         const filtered = reports.filter((r) => passesFilters(r, filters));
-        renderSummary(filtered, addressesByName);
+        renderSummary(filtered);
         renderTable(filtered, addressesByName);
       }
 
-      // Første render uten filter (alt)
+      // Første render (alt)
       applyFiltersAndRender();
 
       // Koble filter-events
@@ -495,10 +548,6 @@
         const el = byId(id);
         if (!el) return;
         el.addEventListener('change', applyFiltersAndRender);
-        el.addEventListener('input', () => {
-          // for tekstfelter
-          if (el.tagName === 'INPUT') applyFiltersAndRender();
-        });
       });
 
       const btnClear = byId('btn_clear_filters');
@@ -508,11 +557,7 @@
           f.forEach((id) => {
             const el = byId(id);
             if (!el) return;
-            if (el.tagName === 'SELECT') {
-              el.value = '';
-            } else {
-              el.value = '';
-            }
+            el.value = '';
           });
           applyFiltersAndRender();
         });
