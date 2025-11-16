@@ -338,168 +338,6 @@
   <!-- Admin: injiser logg-knapp (valgfritt hvis ikke hardkodet) -->
   <script src="js/admin_logg_inject.js?v=3" defer></script>
 
-<!-- Samlet brøytetid – Felles for alle enheter, basert på report-bin -->
-<script>
-(() => {
-  const REPORT_BIN_ID = '68e89e3443b1c97be9611c48';
-  const MAX_INTERVAL_MS = 90 * 60 * 1000; // maks 90 min per sammenhengende intervall
-
-  // --- Tidshjelpere ---
-  const pad = (n) => (n < 10 ? '0' + n : '' + n);
-  const msToHhMm = (ms) => {
-    if (!Number.isFinite(ms) || ms <= 0) return '0:00';
-    const totalMin = Math.floor(ms / 60000);
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    return `${h}:${pad(m)}`;
-  };
-
-  // Regner på ferdig-normaliserte events: [{kind:'start'|'stop', key, ts}]
-  function calcMsFromNorm(norm) {
-    if (!Array.isArray(norm) || norm.length === 0) return 0;
-    const byKey = new Map();
-
-    for (const ev of norm) {
-      if (!ev || !ev.key || !Number.isFinite(ev.ts)) continue;
-      if (!byKey.has(ev.key)) byKey.set(ev.key, []);
-      byKey.get(ev.key).push(ev);
-    }
-
-    let totalMs = 0;
-
-    for (const [, arr] of byKey) {
-      arr.sort((a, b) => a.ts - b.ts);
-      let openStart = null;
-
-      for (const ev of arr) {
-        if (ev.kind === 'start') {
-          // ignorér dobbelt-start, vi vil bare ha første
-          if (openStart == null) openStart = ev.ts;
-        } else if (ev.kind === 'stop') {
-          if (openStart != null && ev.ts > openStart) {
-            const dur = ev.ts - openStart;
-            totalMs += Math.min(dur, MAX_INTERVAL_MS);
-          }
-          openStart = null;
-        }
-      }
-      // Åpen start uten stop: ignoreres helt
-    }
-
-    return totalMs;
-  }
-
-  // Tar inn "hendelser" i vårt format:
-  //   { type: 'start' | 'ferdig', addrId: 'Hagamoen', ts: <ms> }
-  function calcSamletBroytetid(hendelser) {
-    if (!Array.isArray(hendelser) || hendelser.length === 0) return 0;
-
-    const norm = hendelser
-      .map(h => {
-        const kind =
-          h?.type === 'start' ? 'start' :
-          (h?.type === 'stopp' || h?.type === 'ferdig') ? 'stop' : null;
-        if (!kind) return null;
-
-        const key = h.addrId || h.taskId || 'global';
-        const ts  = Number(h.ts);
-        if (!key || !Number.isFinite(ts)) return null;
-
-        return { kind, key, ts };
-      })
-      .filter(Boolean);
-
-    return calcMsFromNorm(norm);
-  }
-
-  // Gjør renderer tilgjengelig globalt hvis noe annet vil bruke den
-  window.renderSamletTid = renderSamletTid;
-
-  // ---- JSONbin-tilgang (samme tankegang som logg/status) ----
-
-  const MASTER_KEY_KEYS = [
-    'jsonbin_master_key',
-    'jsonbin_master',
-    'rt_jsonbin_master',
-    'rt_jsonbin_key',
-    'X-Master-Key'
-  ];
-
-  function getMasterKey() {
-    for (const k of MASTER_KEY_KEYS) {
-      const v = localStorage.getItem(k);
-      if (v && v.trim()) return v.trim();
-    }
-    return null;
-  }
-
-  // Konverterer report-rader (slik du limte inn) til "hendelser" for kalkulatoren
-  function reportsToHendelser(reports) {
-    if (!Array.isArray(reports)) return [];
-
-    return reports
-      .map(r => {
-        let type = null;
-
-        if (r.type === 'start' || r.action === 'start') {
-          type = 'start';
-        } else if (r.type === 'done' || r.action === 'ferdig') {
-          type = 'ferdig';
-        } else {
-          // ignorér "neste" og annet
-          return null;
-        }
-
-        const addrId =
-          r.addressId ||
-          r.address ||
-          r.addressName ||
-          'ukjent';
-
-        const tsStr = r.at || r.ts;
-        const ts = Date.parse(tsStr);
-        if (!addrId || !Number.isFinite(ts)) return null;
-
-        return { type, addrId, ts };
-      })
-      .filter(Boolean);
-  }
-
-  async function fetchReportsAndRender() {
-    const url = `https://api.jsonbin.io/v3/b/${REPORT_BIN_ID}/latest`;
-    const headers = {};
-
-    const key = getMasterKey();
-    if (key) {
-      headers['X-Master-Key'] = key;
-    }
-
-    try {
-      const res = await fetch(url, { headers });
-      if (!res.ok) {
-        console.warn('[SamletTid] Klarte ikke å hente reports fra JSONbin', res.status);
-        return;
-      }
-
-      const data = await res.json();
-      const record = data.record || data;
-      const reports = record.reports || [];
-      const hendelser = reportsToHendelser(reports);
-
-      renderSamletTid(hendelser);
-    } catch (err) {
-      console.warn('[SamletTid] Feil ved henting av reports fra JSONbin', err);
-    }
-  }
-
-  // Hent ved oppstart + oppdater jevnlig
-  document.addEventListener('DOMContentLoaded', () => {
-    fetchReportsAndRender();
-    setInterval(fetchReportsAndRender, 60 * 1000);
-  });
-})();
-</script>
-
   <!-- Wake Lock / skjerm våken -->
   <script>
   (() => {
@@ -606,39 +444,42 @@
     });
   })();
   </script>
-<script>
-// Auto-naviger til NESTE adresse etter "Ferdig" hvis checkboxen er aktivert
-document.addEventListener('DOMContentLoaded', () => {
-  const chk     = document.getElementById('a_autoNav');
-  const btnDone = document.getElementById('act_done');
-  const btnNext = document.getElementById('act_next');
-  const btnNav  = document.getElementById('act_nav');
-  if (!chk || !btnDone || !btnNext || !btnNav) return;
 
-  btnDone.addEventListener('click', () => {
-    if (!chk.checked) return;
-    setTimeout(() => {
-      // Gå til neste adresse først
-      btnNext.click();
-      // Gi UI-et et øyeblikk til å oppdatere "Nå"-adressen før navigering
-      setTimeout(() => btnNav.click(), 60);
-    }, 1000);
+  <script>
+  // Auto-naviger til NESTE adresse etter "Ferdig" hvis checkboxen er aktivert
+  document.addEventListener('DOMContentLoaded', () => {
+    const chk     = document.getElementById('a_autoNav');
+    const btnDone = document.getElementById('act_done');
+    const btnNext = document.getElementById('act_next');
+    const btnNav  = document.getElementById('act_nav');
+    if (!chk || !btnDone || !btnNext || !btnNav) return;
+
+    btnDone.addEventListener('click', () => {
+      if (!chk.checked) return;
+      setTimeout(() => {
+        // Gå til neste adresse først
+        btnNext.click();
+        // Gi UI-et et øyeblikk til å oppdatere "Nå"-adressen før navigering
+        setTimeout(() => btnNav.click(), 60);
+      }, 1000);
+    });
   });
-});
-</script>
-<script>
-// Vibrasjon ved knappetrykk (alle <button>)
-document.addEventListener('DOMContentLoaded', () => {
-  if (!('vibrate' in navigator)) return; // støttes ikke
+  </script>
 
-  document.body.addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    // Kort, tydelig vibrasjon
-    navigator.vibrate(20);
-  }, true);
-});
-</script>
-<script src="funfacts.js"></script>
+  <script>
+  // Vibrasjon ved knappetrykk (alle <button>)
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!('vibrate' in navigator)) return; // støttes ikke
+
+    document.body.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      // Kort, tydelig vibrasjon
+      navigator.vibrate(20);
+    }, true);
+  });
+  </script>
+
+  <script src="funfacts.js"></script>
 </body>
 </html>
