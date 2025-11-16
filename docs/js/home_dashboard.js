@@ -208,41 +208,48 @@
   }
 
   function ensureStatsLayout() {
-    const statsEl = document.getElementById('stats');
-    if (!statsEl) return null;
+  const statsEl = document.getElementById('stats');
+  if (!statsEl) return null;
 
-    statsEl.innerHTML = `
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:4px;">
-          <h2 style="margin:0; font-size:1rem;">Samlet brøytetid</h2>
-          <span style="font-size:.8rem; opacity:.7;">Hentes fra felles logg (alle sjåfører)</span>
+  statsEl.innerHTML = `
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:4px;">
+        <h2 style="margin:0; font-size:1rem;">Samlet brøytetid</h2>
+        <span style="font-size:.8rem; opacity:.7;">Hentes fra felles logg (alle sjåfører)</span>
+      </div>
+
+      <div class="home-stats-row"
+           style="display:flex; gap:12px; overflow-x:auto; padding-top:4px;">
+        <div class="home-stat" style="min-width:80px; text-align:center;">
+          <div style="font-size:.8rem; opacity:.7; display:block;">I dag</div>
+          <div id="st_time_today"
+               style="font-weight:600; font-size:1.2rem; display:block; margin-top:2px;">0:00</div>
         </div>
-        <div class="home-stats-row" style="display:flex; gap:8px; overflow-x:auto;">
-          <div class="home-stat" style="min-width:90px;">
-            <div style="font-size:.8rem; opacity:.7;">I dag</div>
-            <div id="st_time_today" style="font-weight:600; font-size:1.1rem;">0:00</div>
-          </div>
-          <div class="home-stat" style="min-width:90px;">
-            <div style="font-size:.8rem; opacity:.7;">Denne uken</div>
-            <div id="st_time_week" style="font-weight:600; font-size:1.1rem;">0:00</div>
-          </div>
-          <div class="home-stat" style="min-width:90px;">
-            <div style="font-size:.8rem; opacity:.7;">Denne mnd</div>
-            <div id="st_time_month" style="font-weight:600; font-size:1.1rem;">0:00</div>
-          </div>
-          <div class="home-stat" style="min-width:100px;">
-            <div style="font-size:.8rem; opacity:.7;">Forrige mnd</div>
-            <div id="st_time_prev_month" style="font-weight:600; font-size:1.1rem;">0:00</div>
-          </div>
-          <div class="home-stat" style="min-width:90px;">
-            <div style="font-size:.8rem; opacity:.7;">Totalt</div>
-            <div id="st_time_total" style="font-weight:600; font-size:1.1rem;">0:00</div>
-          </div>
+        <div class="home-stat" style="min-width:80px; text-align:center;">
+          <div style="font-size:.8rem; opacity:.7; display:block;">Denne uken</div>
+          <div id="st_time_week"
+               style="font-weight:600; font-size:1.2rem; display:block; margin-top:2px;">0:00</div>
+        </div>
+        <div class="home-stat" style="min-width:80px; text-align:center;">
+          <div style="font-size:.8rem; opacity:.7; display:block;">Denne mnd</div>
+          <div id="st_time_month"
+               style="font-weight:600; font-size:1.2rem; display:block; margin-top:2px;">0:00</div>
+        </div>
+        <div class="home-stat" style="min-width:90px; text-align:center;">
+          <div style="font-size:.8rem; opacity:.7; display:block;">Forrige mnd</div>
+          <div id="st_time_prev_month"
+               style="font-weight:600; font-size:1.2rem; display:block; margin-top:2px;">0:00</div>
+        </div>
+        <div class="home-stat" style="min-width:80px; text-align:center;">
+          <div style="font-size:.8rem; opacity:.7; display:block;">Totalt</div>
+          <div id="st_time_total"
+               style="font-weight:600; font-size:1.2rem; display:block; margin-top:2px;">0:00</div>
         </div>
       </div>
-    `;
-    return statsEl;
-  }
+    </div>
+  `;
+  return statsEl;
+}
 
   function renderBuckets(buckets) {
     const elToday = document.getElementById('st_time_today');
