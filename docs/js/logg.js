@@ -1,19 +1,12 @@
-// js/logg.js — leser report-bin + adresser, viser logg + sammendrag
-
+// js/logg.js
 (() => {
-  // JSONbin ID-er
-  const REPORT_BIN_ID = '68e89e3443b1c97be9611c48'; // reports (start/ferdig osv.)
-  const ADDR_BIN_ID   = '68e7b4d2ae596e708f0bde7d'; // adresser/katalog
+  const REPORT_BIN_ID   = '68e89e3443b1c97be9611c48'; // reports
+  const ADDRESS_BIN_ID  = '68e7b4d2ae596e708f0bde7d'; // adresser/katalog
+  const MAX_INTERVAL_MS = 90 * 60 * 1000;             // maks 90 min per interval
 
-  const MAX_INTERVAL_MS = 90 * 60 * 1000; // maks 90 min per sammenhengende intervall
-
-  // --- DOM helpers ---
-  const $   = (s, r = document) => r.querySelector(s);
-  const byId = (id) => document.getElementById(id);
-
+  // --- Små hjelpere ---
+  const $ = (sel) => document.querySelector(sel);
   const pad = (n) => (n < 10 ? '0' + n : '' + n);
-  const fmtTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  const fmtDate = (d) => `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
   const msToHhMm = (ms) => {
     if (!Number.isFinite(ms) || ms <= 0) return '0:00';
     const totalMin = Math.floor(ms / 60000);
@@ -22,571 +15,359 @@
     return `${h}:${pad(m)}`;
   };
 
-  // Normaliser adresser for fuzzy match
-  const normStr = (s) =>
-    (s || '')
-      .toLowerCase()
-      .replace(/[\s,()\/]/g, '');
+  const MASTER_KEY_KEYS = [
+    'jsonbin_master_key',
+    'jsonbin_master',
+    'rt_jsonbin_master',
+    'rt_jsonbin_key',
+    'X-Master-Key'
+  ];
 
-  // Master key: prøv noen vanlige nøkler + X-Master-Key
   function getMasterKey() {
-    const KEYS = [
-      'jsonbin_master_key',
-      'jsonbin_master',
-      'rt_jsonbin_master',
-      'rt_jsonbin_key',
-      'X-Master-Key'
-    ];
-    for (const k of KEYS) {
+    for (const k of MASTER_KEY_KEYS) {
       const v = localStorage.getItem(k);
       if (v && v.trim()) return v.trim();
-    }
-    return '';
-  }
-
-  async function fetchJsonbinLatest(binId) {
-    const key = getMasterKey();
-    const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
-
-    const headers = {
-      'Content-Type': 'application/json'
-    };
-    if (key) headers['X-Master-Key'] = key;
-
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      throw new Error(`JSONbin ${binId} feilet: ${res.status}`);
-    }
-    const data = await res.json();
-    return data.record || data;
-  }
-
-  // --- Normalisering av reports til "events" (start/stop) med driver + adresse ---
-  function reportsToEvents(reports) {
-    if (!Array.isArray(reports)) return [];
-
-    return reports
-      .map((r) => {
-        const a = (r.action || '').toLowerCase();
-        const t = (r.type || '').toLowerCase();
-
-        let kind = null;
-        if (t === 'start' || a === 'start') {
-          kind = 'start';
-        } else if (t === 'done' || a === 'ferdig') {
-          kind = 'stop';
-        } else {
-          return null; // ikke med i tidsberegning (f.eks. "neste", "ikke mulig")
-        }
-
-        const addr =
-          r.addressId ||
-          r.addressName ||
-          r.address ||
-          '—';
-
-        const driver =
-          r.by ||
-          r.driver ||
-          'Ukjent';
-
-        const tsStr = r.at || r.ts;
-        const ts = Date.parse(tsStr);
-        if (!Number.isFinite(ts)) return null;
-
-        return {
-          kind,
-          addr,
-          driver,
-          ts
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.ts - b.ts);
-  }
-
-  // Bygg "økter" (stints) per (adresse + sjåfør)
-  function buildStints(events) {
-    const byKey = new Map(); // key = addr|driver → events[]
-    for (const ev of events) {
-      const key = `${ev.addr}||${ev.driver}`;
-      if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key).push(ev);
-    }
-
-    const stints = [];
-
-    for (const [key, list] of byKey) {
-      list.sort((a, b) => a.ts - b.ts);
-
-      let openStart = null;
-      for (const ev of list) {
-        if (ev.kind === 'start') {
-          if (openStart == null) {
-            openStart = ev.ts; // ignorér dobbelt-start
-          }
-        } else if (ev.kind === 'stop') {
-          if (openStart != null && ev.ts > openStart) {
-            const dur = Math.min(ev.ts - openStart, MAX_INTERVAL_MS);
-            const [addr, driver] = key.split('||');
-            stints.push({
-              addr,
-              driver,
-              startTs: openStart,
-              stopTs: ev.ts,
-              durMs: dur
-            });
-          }
-          openStart = null;
-        }
-      }
-    }
-
-    return stints;
-  }
-
-  // Gruppér stints per sjåfør
-  function summarizePerDriver(stints) {
-    const map = new Map();
-    for (const s of stints) {
-      const key = s.driver || 'Ukjent';
-      const prev = map.get(key) || 0;
-      map.set(key, prev + s.durMs);
-    }
-    return Array.from(map.entries())
-      .map(([driver, ms]) => ({ driver, ms }))
-      .sort((a, b) => b.ms - a.ms);
-  }
-
-  // Gruppér stints per adresse
-  function summarizePerAddress(stints) {
-    const map = new Map(); // addr -> {ms, count}
-    for (const s of stints) {
-      const addr = s.addr || '—';
-      if (!map.has(addr)) {
-        map.set(addr, { ms: 0, count: 0 });
-      }
-      const v = map.get(addr);
-      v.ms += s.durMs;
-      v.count += 1;
-    }
-    return Array.from(map.entries())
-      .map(([addr, v]) => ({ addr, ms: v.ms, count: v.count }))
-      .sort((a, b) => b.ms - a.ms);
-  }
-
-  // --- FILTRERING ---
-
-  function passesFilters(r, filters) {
-    const tsStr = r.at || r.ts;
-    const d = new Date(tsStr);
-    if (!Number.isFinite(d.getTime())) return false;
-
-    // Dato
-    if (filters.fromDate) {
-      const from = new Date(filters.fromDate + 'T00:00:00');
-      if (d < from) return false;
-    }
-    if (filters.toDate) {
-      const to = new Date(filters.toDate + 'T23:59:59');
-      if (d > to) return false;
-    }
-
-    // Sjåfør
-    if (filters.driver) {
-      const drv = (r.by || r.driver || '').toLowerCase();
-      if (!drv.includes(filters.driver.toLowerCase())) return false;
-    }
-
-    // Adresse (eksakt valg fra select, men case-insensitivt)
-    if (filters.address) {
-      const addr =
-        (r.addressId || r.addressName || r.address || '').toLowerCase();
-      if (addr !== filters.address.toLowerCase()) return false;
-    }
-
-    // Type / hendelse
-    if (filters.type) {
-      const a = (r.action || '').toLowerCase();
-      const t = (r.type || '').toLowerCase();
-      const isStart = t === 'start' || a === 'start';
-      const isDone  = t === 'done'  || a === 'ferdig';
-      const isIkkeMulig =
-        a.includes('ikke') && a.includes('mulig') ||
-        a === 'block' ||
-        a === 'blocked';
-
-      if (filters.type === 'start' && !isStart) return false;
-      if (filters.type === 'ferdig' && !isDone) return false;
-      if (filters.type === 'ikkemulig' && !isIkkeMulig) return false;
-    }
-
-    return true;
-  }
-
-  function readFilters() {
-    return {
-      fromDate: byId('f_date_from')?.value || '',
-      toDate:   byId('f_date_to')?.value || '',
-      driver:   byId('f_driver')?.value || '',
-      address:  byId('f_address')?.value || '',
-      type:     byId('f_type')?.value || ''
-    };
-  }
-
-  // Finn metadata for adresse: først eksakt, så fuzzy
-  function findAddressMeta(addr, addressesByName) {
-    if (!addressesByName || !addr) return null;
-    if (addressesByName.has(addr)) return addressesByName.get(addr);
-
-    const target = normStr(addr);
-    if (!target) return null;
-
-    for (const [name, meta] of addressesByName.entries()) {
-      const n = normStr(name);
-      if (!n) continue;
-      if (target === n || target.includes(n) || n.includes(target)) {
-        return meta;
-      }
     }
     return null;
   }
 
-  // --- RENDERING AV SAMMENDRAG OG TABELL ---
+  async function fetchJsonbinLatest(binId) {
+    const key = getMasterKey();
+    const headers = { 'Content-Type': 'application/json' };
+    if (key) headers['X-Master-Key'] = key;
 
-  function renderSummary(filteredReports) {
-    const sumEmpty   = byId('summary_empty');
-    const sumContent = byId('summary_content');
-    const elTotal    = byId('sum_total_time');
-    const elTotalCnt = byId('sum_total_count');
-    const tbodyDrv   = byId('sum_per_driver');
-    const tbodyAddr  = byId('sum_per_address');
+    const url = `https://api.jsonbin.io/v3/b/${binId}/latest`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      throw new Error(`JSONbin ${binId} status ${res.status}`);
+    }
+    const data = await res.json();
+    return data && (data.record || data);
+  }
 
-    if (!filteredReports || filteredReports.length === 0) {
-      if (sumEmpty)   sumEmpty.style.display = 'block';
-      if (sumContent) sumContent.style.display = 'none';
-      return;
+  // --- Normaliser reports til "row"-objekter ---
+  function normalizeReports(record) {
+    const raw = Array.isArray(record?.reports) ? record.reports
+      : Array.isArray(record) ? record
+      : [];
+
+    const rows = [];
+
+    for (const r of raw) {
+      const tsStr = r.at || r.ts;
+      const ts = Date.parse(tsStr);
+      if (!Number.isFinite(ts)) continue;
+
+      const d = new Date(ts);
+      const date = d.toISOString().slice(0, 10);
+      const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+      const driver = r.by || r.driver || '';
+      const address = r.addressId || r.addressName || r.address || '—';
+      const taskRaw = (r.task || '').trim();
+
+      let action = null;
+      if (r.type === 'start' || r.action === 'start') {
+        action = 'start';
+      } else if (r.type === 'done' || r.action === 'ferdig') {
+        action = 'ferdig';
+      } else if (r.action === 'block' || r.action === 'ikke-mulig' || r.action === 'blocked') {
+        action = 'ikke-mulig';
+      } else {
+        // hopp over "neste" og annet
+        continue;
+      }
+
+      const notes = r.notes || '';
+
+      rows.push({
+        ts,
+        date,
+        time,
+        driver,
+        address,
+        task: taskRaw,
+        action,
+        notes
+      });
     }
 
-    if (sumEmpty)   sumEmpty.style.display = 'none';
-    if (sumContent) sumContent.style.display = 'grid';
+    // Sorter stigende i tid – vi kan snu ved rendering hvis vi vil
+    rows.sort((a, b) => a.ts - b.ts);
+    return rows;
+  }
 
-    // Bygg events → stints basert på filtrerte reports
-    const events = reportsToEvents(filteredReports);
-    const stints = buildStints(events);
+  // --- Hent adresser til dropdown ---
+  function extractAddressList(addrRecord, rows) {
+    const set = new Set();
 
-    const totalMs = stints.reduce((acc, s) => acc + s.durMs, 0);
-    if (elTotal) elTotal.textContent = msToHhMm(totalMs);
-    if (elTotalCnt) {
-      elTotalCnt.textContent =
-        `${stints.length} fullførte økter (start→ferdig) i valgt filter.`;
+    // Fra katalog-bin
+    if (Array.isArray(addrRecord?.addresses)) {
+      for (const a of addrRecord.addresses) {
+        if (a?.name) set.add(a.name);
+      }
+    }
+    if (Array.isArray(addrRecord?.stops)) {
+      for (const s of addrRecord.stops) {
+        if (s?.n) set.add(s.n);
+      }
+    }
+
+    // I tillegg: alle adresser som faktisk finnes i reports
+    for (const r of rows) {
+      if (r.address && r.address !== '—') set.add(r.address);
+    }
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'nb'));
+  }
+
+  function populateAddressSelect(addresses) {
+    const sel = $('#f_address');
+    if (!sel) return;
+    // behold "Alle adresser"
+    for (const addr of addresses) {
+      const opt = document.createElement('option');
+      opt.value = addr;
+      opt.textContent = addr;
+      sel.appendChild(opt);
+    }
+  }
+
+  // --- Summeringer ---
+  function buildAggregates(rows) {
+    const byKey = new Map(); // key = driver || address || task
+
+    for (const r of rows) {
+      if (r.action !== 'start' && r.action !== 'ferdig') continue;
+
+      const key = `${r.driver}||${r.address}||${r.task || ''}`;
+      const kind = r.action === 'start' ? 'start' : 'stop';
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key).push({ kind, ts: r.ts, date: r.date });
+    }
+
+    const perDriverMs = new Map();
+    const perAddressMs = new Map();
+    const perRoundMs = new Map();   // sjåfør + dato
+    let totalMs = 0;
+    let totalJobs = 0;
+    let totalSnowJobs = 0;
+    let totalGrusJobs = 0;
+
+    for (const [key, events] of byKey) {
+      events.sort((a, b) => a.ts - b.ts);
+      let openStart = null;
+      let openDate = null;
+
+      const [driver, address, taskRaw] = key.split('||');
+      const task = (taskRaw || '').trim();
+      const taskLower = task.toLowerCase();
+      const isGrus = taskLower === 'grus' || taskLower.includes('grus');
+      const isSnø = taskLower === 'snø' || taskLower.includes('snø');
+
+      for (const ev of events) {
+        if (ev.kind === 'start') {
+          if (openStart == null) {
+            openStart = ev.ts;
+            openDate = ev.date;
+          }
+        } else if (ev.kind === 'stop') {
+          if (openStart != null && ev.ts > openStart) {
+            let dur = ev.ts - openStart;
+            if (dur > MAX_INTERVAL_MS) dur = MAX_INTERVAL_MS;
+
+            totalMs += dur;
+            totalJobs++;
+
+            if (isGrus) totalGrusJobs++;
+            else if (isSnø) totalSnowJobs++;
+
+            if (driver) {
+              perDriverMs.set(driver, (perDriverMs.get(driver) || 0) + dur);
+            }
+            if (address) {
+              perAddressMs.set(address, (perAddressMs.get(address) || 0) + dur);
+            }
+
+            if (driver && openDate) {
+              const rKey = `${driver} – ${openDate}`;
+              perRoundMs.set(rKey, (perRoundMs.get(rKey) || 0) + dur);
+            }
+          }
+          openStart = null;
+          openDate = null;
+        }
+      }
+    }
+
+    return {
+      totalMs,
+      totalJobs,
+      totalSnowJobs,
+      totalGrusJobs,
+      perDriverMs,
+      perAddressMs,
+      perRoundMs
+    };
+  }
+
+  function renderAggregates(agg) {
+    $('#agg_total_time').textContent       = msToHhMm(agg.totalMs);
+    $('#agg_total_jobs').textContent       = String(agg.totalJobs);
+    $('#agg_total_snow_jobs').textContent  = String(agg.totalSnowJobs);
+    $('#agg_total_grus_jobs').textContent  = String(agg.totalGrusJobs);
+
+    // Per runde (sjåfør + dato)
+    const roundBody = $('#agg_rounds_tbody');
+    roundBody.innerHTML = '';
+    const rounds = Array.from(agg.perRoundMs.entries())
+      .sort((a, b) => b[1] - a[1]); // mest tid øverst
+
+    for (const [label, ms] of rounds) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${label}</td>
+        <td>${msToHhMm(ms)}</td>
+      `;
+      roundBody.appendChild(tr);
     }
 
     // Per sjåfør
-    if (tbodyDrv) {
-      tbodyDrv.innerHTML = '';
-      const perDrv = summarizePerDriver(stints);
-      if (perDrv.length === 0) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 2;
-        td.textContent = 'Ingen data.';
-        tr.appendChild(td);
-        tbodyDrv.appendChild(tr);
-      } else {
-        for (const row of perDrv) {
-          const tr = document.createElement('tr');
-          const tdName = document.createElement('td');
-          const tdTime = document.createElement('td');
-          tdName.textContent = row.driver || 'Ukjent';
-          tdTime.textContent = msToHhMm(row.ms);
-          tr.appendChild(tdName);
-          tr.appendChild(tdTime);
-          tbodyDrv.appendChild(tr);
-        }
-      }
+    const drvBody = $('#agg_driver_tbody');
+    drvBody.innerHTML = '';
+    const drivers = Array.from(agg.perDriverMs.entries())
+      .sort((a, b) => b[1] - a[1]);
+
+    for (const [driver, ms] of drivers) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${driver || 'Ukjent'}</td>
+        <td>${msToHhMm(ms)}</td>
+      `;
+      drvBody.appendChild(tr);
     }
 
     // Per adresse
-    if (tbodyAddr) {
-      tbodyAddr.innerHTML = '';
-      const perAddr = summarizePerAddress(stints);
-      if (perAddr.length === 0) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 3;
-        td.textContent = 'Ingen data.';
-        tr.appendChild(td);
-        tbodyAddr.appendChild(tr);
-      } else {
-        for (const row of perAddr) {
-          const tr = document.createElement('tr');
-          const tdAddr = document.createElement('td');
-          const tdTime = document.createElement('td');
-          const tdCnt  = document.createElement('td');
+    const addrBody = $('#agg_address_tbody');
+    addrBody.innerHTML = '';
+    const addresses = Array.from(agg.perAddressMs.entries())
+      .sort((a, b) => b[1] - a[1]);
 
-          tdAddr.textContent = row.addr || '—';
-          tdTime.textContent = msToHhMm(row.ms);
-          tdCnt.textContent  = String(row.count);
-
-          tr.appendChild(tdAddr);
-          tr.appendChild(tdTime);
-          tr.appendChild(tdCnt);
-          tbodyAddr.appendChild(tr);
-        }
-      }
+    for (const [addr, ms] of addresses) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${addr}</td>
+        <td>${msToHhMm(ms)}</td>
+      `;
+      addrBody.appendChild(tr);
     }
   }
 
-  function renderTable(filteredReports, addressesByName) {
-    const tbody = byId('logg_tbody');
-    if (!tbody) return;
+  // --- Filtrering + tabell ---
+  function applyFilters(allRows) {
+    const fDateFrom = $('#f_date_from')?.value || '';
+    const fDateTo   = $('#f_date_to')?.value || '';
+    const fDriver   = ($('#f_driver')?.value || '').trim().toLowerCase();
+    const fAddress  = $('#f_address')?.value || '';
+    const fTask     = $('#f_task')?.value || '';
+
+    let filtered = allRows;
+
+    if (fDateFrom) {
+      filtered = filtered.filter(r => r.date >= fDateFrom);
+    }
+    if (fDateTo) {
+      filtered = filtered.filter(r => r.date <= fDateTo);
+    }
+    if (fDriver) {
+      filtered = filtered.filter(r => (r.driver || '').toLowerCase().includes(fDriver));
+    }
+    if (fAddress) {
+      filtered = filtered.filter(r => r.address === fAddress);
+    }
+    if (fTask) {
+      if (fTask === 'Ukjent') {
+        filtered = filtered.filter(r => !r.task);
+      } else {
+        filtered = filtered.filter(r => r.task === fTask);
+      }
+    }
+
+    // Nyeste nederst (som i dag) eller øverst – her tar vi nyeste NEDERST
+    filtered = filtered.slice().sort((a, b) => a.ts - b.ts);
+
+    const tbody = $('#log_tbody');
     tbody.innerHTML = '';
 
-    if (!filteredReports || filteredReports.length === 0) {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 6;
-      td.textContent = 'Ingen hendelser for valgt filter.';
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-      return;
-    }
-
-    const rows = filteredReports
-      .slice()
-      .sort((a, b) => {
-        const ta = Date.parse(a.at || a.ts || 0);
-        const tb = Date.parse(b.at || b.ts || 0);
-        return tb - ta; // nyeste først
-      });
-
-    for (const r of rows) {
+    for (const r of filtered) {
       const tr = document.createElement('tr');
 
-      const d = new Date(r.at || r.ts || Date.now());
-      const dateStr = fmtDate(d);
-      const timeStr = fmtTime(d);
-
-      const driver = r.by || r.driver || '';
-      const addr =
-        r.addressId ||
-        r.addressName ||
-        r.address ||
-        '';
-
-      // Finn oppgave: først direkte fra report, så fra adresseregister med fuzzy match
-      let task = r.task || '';
-      if (!task && addr && addressesByName) {
-        const meta = findAddressMeta(addr, addressesByName);
-        if (meta && meta.task) task = meta.task;
-      }
-
-      // Hendelse / action
-      const a = (r.action || '').toLowerCase();
-      const t = (r.type || '').toLowerCase();
       let actionLabel = '';
-
-      const isStart = t === 'start' || a === 'start';
-      const isDone  = t === 'done'  || a === 'ferdig';
-      const isIkkeMulig =
-        a.includes('ikke') && a.includes('mulig') ||
-        a === 'block' ||
-        a === 'blocked';
-
-      if (isStart) {
+      let actionClass = '';
+      if (r.action === 'start') {
         actionLabel = 'Start';
-      } else if (isDone) {
+        actionClass = 'pill-start';
+      } else if (r.action === 'ferdig') {
         actionLabel = 'Ferdig';
-      } else if (isIkkeMulig) {
+        actionClass = 'pill-done';
+      } else if (r.action === 'ikke-mulig') {
         actionLabel = 'Ikke mulig';
-      } else if (r.action) {
-        actionLabel = r.action;
-      } else if (r.type) {
-        actionLabel = r.type;
+        actionClass = 'pill-block';
       }
 
-      const cells = [
-        dateStr,
-        timeStr,
-        driver || '—',
-        addr   || '—',
-        task   || '—',
-        actionLabel || '—'
-      ];
+      const taskLabel = r.task || '';
+      const safeNotes = r.notes || '';
 
-      for (const val of cells) {
-        const td = document.createElement('td');
-        td.textContent = val || '—';
-        tr.appendChild(td);
-      }
+      tr.innerHTML = `
+        <td>${r.date}</td>
+        <td>${r.time}</td>
+        <td>${r.driver || ''}</td>
+        <td>${r.address || ''}</td>
+        <td>${taskLabel ? `<span class="pill pill-task">${taskLabel}</span>` : ''}</td>
+        <td><span class="pill ${actionClass}">${actionLabel}</span></td>
+        <td>${safeNotes}</td>
+      `;
       tbody.appendChild(tr);
     }
   }
 
-  function fillDriverFilterOptions(reports) {
-    const sel = byId('f_driver');
-    if (!sel) return;
-    const seen = new Set();
-    const drivers = [];
-
-    for (const r of reports) {
-      const d = (r.by || r.driver || '').trim();
-      if (!d) continue;
-      if (!seen.has(d)) {
-        seen.add(d);
-        drivers.push(d);
-      }
-    }
-    drivers.sort((a, b) => a.localeCompare(b, 'nb'));
-
-    sel.innerHTML = '<option value="">Alle</option>';
-    for (const d of drivers) {
-      const opt = document.createElement('option');
-      opt.value = d;
-      opt.textContent = d;
-      sel.appendChild(opt);
+  function attachFilterListeners(allRows) {
+    const ids = ['#f_date_from', '#f_date_to', '#f_driver', '#f_address', '#f_task'];
+    for (const sel of ids) {
+      const el = $(sel);
+      if (!el) continue;
+      el.addEventListener('input', () => applyFilters(allRows));
+      el.addEventListener('change', () => applyFilters(allRows));
     }
   }
 
-  function fillAddressSelect(addressesByName, reports) {
-    const sel = byId('f_address');
-    if (!sel) return;
-
-    const seen = new Set();
-
-    // Fra adresseregister
-    if (addressesByName) {
-      for (const name of addressesByName.keys()) {
-        if (!name) continue;
-        seen.add(name);
-      }
-    }
-
-    // Fra logg (i tilfelle noen ikke ligger i katalog)
-    if (Array.isArray(reports)) {
-      for (const r of reports) {
-        const addr =
-          r.addressId ||
-          r.addressName ||
-          r.address ||
-          '';
-        if (addr) seen.add(addr);
-      }
-    }
-
-    const list = Array.from(seen).sort((a, b) => a.localeCompare(b, 'nb'));
-
-    sel.innerHTML = '<option value="">Alle</option>';
-    for (const name of list) {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      sel.appendChild(opt);
-    }
-  }
-
-  // --- HOVEDLASTER ---
-
-  async function loadAllAndRender() {
-    const metaEl = byId('logg_meta');
-    if (metaEl) metaEl.textContent = 'Laster logg fra JSONbin …';
-
+  // --- Init ---
+  async function init() {
     try {
       const [reportRecord, addrRecord] = await Promise.all([
         fetchJsonbinLatest(REPORT_BIN_ID),
-        fetchJsonbinLatest(ADDR_BIN_ID).catch(() => null)
+        fetchJsonbinLatest(ADDRESS_BIN_ID)
       ]);
 
-      const reports = Array.isArray(reportRecord.reports)
-        ? reportRecord.reports
-        : (Array.isArray(reportRecord) ? reportRecord : []);
+      const allRows = normalizeReports(reportRecord);
+      const addrList = extractAddressList(addrRecord, allRows);
+      populateAddressSelect(addrList);
 
-      let addressesByName = null;
-      if (addrRecord && Array.isArray(addrRecord.addresses)) {
-        addressesByName = new Map();
-        for (const a of addrRecord.addresses) {
-          if (!a || !a.name) continue;
-          addressesByName.set(a.name, a);
-        }
-      }
+      const agg = buildAggregates(allRows);
+      renderAggregates(agg);
 
-      if (metaEl) {
-        const total = reports.length;
-        let latestStr = '';
-        if (total > 0) {
-          const latest = reports
-            .slice()
-            .sort(
-              (a, b) =>
-                Date.parse(b.at || b.ts || 0) -
-                Date.parse(a.at || a.ts || 0)
-            )[0];
-          const d = new Date(latest.at || latest.ts || Date.now());
-          latestStr = ` – siste: ${fmtDate(d)} kl ${fmtTime(d)}`;
-        }
-        metaEl.textContent = `Totalt ${total} rå-hendelser${latestStr}`;
-      }
-
-      // Oppdater filter-valg (sjåfør + adresse)
-      fillDriverFilterOptions(reports);
-      fillAddressSelect(addressesByName, reports);
-
-      // Renderer ved filter-endring
-      function applyFiltersAndRender() {
-        const filters = readFilters();
-        const filtered = reports.filter((r) => passesFilters(r, filters));
-        renderSummary(filtered);
-        renderTable(filtered, addressesByName);
-      }
-
-      // Første render (alt)
-      applyFiltersAndRender();
-
-      // Koble filter-events
-      ['f_date_from', 'f_date_to', 'f_driver', 'f_address', 'f_type'].forEach((id) => {
-        const el = byId(id);
-        if (!el) return;
-        el.addEventListener('change', applyFiltersAndRender);
-      });
-
-      const btnClear = byId('btn_clear_filters');
-      if (btnClear) {
-        btnClear.addEventListener('click', () => {
-          const f = ['f_date_from', 'f_date_to', 'f_driver', 'f_address', 'f_type'];
-          f.forEach((id) => {
-            const el = byId(id);
-            if (!el) return;
-            el.value = '';
-          });
-          applyFiltersAndRender();
-        });
-      }
-
-      const btnReload = byId('btn_reload');
-      if (btnReload) {
-        btnReload.addEventListener('click', () => {
-          loadAllAndRender(); // re-load fra JSONbin
-        });
-      }
+      attachFilterListeners(allRows);
+      applyFilters(allRows);
     } catch (err) {
-      console.error('Feil i logg-laster:', err);
-      if (metaEl) metaEl.textContent = 'Feil ved lasting av logg. Sjekk JSONbin/X-Master-Key.';
-      const tbody = byId('logg_tbody');
+      console.error('Feil ved lasting av logg:', err);
+      const tbody = $('#log_tbody');
       if (tbody) {
-        tbody.innerHTML = '';
         const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 6;
-        td.textContent = 'Feil ved lasting av logg-data.';
-        tr.appendChild(td);
+        tr.innerHTML = `<td colspan="7">Kunne ikke laste logg-data. Sjekk JSONbin-nøkkel og nettverk.</td>`;
         tbody.appendChild(tr);
       }
     }
   }
 
-  // Start når siden er klar
-  window.addEventListener('DOMContentLoaded', () => {
-    loadAllAndRender();
-  });
+  document.addEventListener('DOMContentLoaded', init);
 })();
