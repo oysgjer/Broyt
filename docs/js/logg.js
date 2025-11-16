@@ -82,7 +82,7 @@ function normalizeEvents(raw) {
       continue;
     }
 
-    // Oppgave S/G hvis vi har den – ellers prøver vi å gjette
+    // Oppgave S/G hvis vi har den – ellers lar vi den være null
     let task = null;
     if (r.roundTask === 'S' || r.roundTask === 'G') {
       task = r.roundTask;
@@ -140,8 +140,8 @@ function buildJobs(events) {
         const toTs = ev.ts;
         const minutes = (toTs - fromTs) / 60000;
 
-        let task = ev.task || openStart.task;
-        if (!task) task = 'S'; // inntil vi har bedre data: antar snø
+        // Oppgave = det vi vet (fra start/stop-event). Kan være null.
+        let task = ev.task || openStart.task || null;
 
         let notes = ev.notes || openStart.notes || '';
         if (ev.op === 'not_possible') {
@@ -318,7 +318,8 @@ function renderDetaljertLogg(jobs) {
     tr.appendChild(tdAddr);
 
     const tdOppg = document.createElement('td');
-    tdOppg.textContent = j.task || 'S'; // S/G – inntil videre default S
+    tdOppg.textContent =
+      j.task === 'S' || j.task === 'G' ? j.task : '—';
     tr.appendChild(tdOppg);
 
     const tdDrv = document.createElement('td');
@@ -355,7 +356,7 @@ function renderTidPerAdresse(jobs) {
   const map = new Map(); // key: address||task
 
   for (const j of jobs) {
-    const task = j.task || 'S';
+    const task = (j.task === 'S' || j.task === 'G') ? j.task : '—';
     const key = `${j.address}||${task}`;
     if (!map.has(key)) {
       map.set(key, { address: j.address, task, totalMin: 0, count: 0 });
