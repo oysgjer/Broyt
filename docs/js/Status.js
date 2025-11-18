@@ -18,7 +18,10 @@
     catch { return ''; }
   }
 
-  function safeDate(ts){ try { return ts ? new Date(ts) : null; } catch { return null; } }
+  function safeDate(ts){
+    try { return ts ? new Date(ts) : null; }
+    catch { return null; }
+  }
 
   function firstStart(laneObj){
     const rounds = Array.isArray(laneObj?.rounds) ? laneObj.rounds : [];
@@ -44,12 +47,24 @@
     return onlyDone[onlyDone.length - 1].done || '';
   }
 
+  // Opprinnelig formatter (hvis vi vil vise dato et annet sted)
   function fmt(ts){
     if (!ts) return '—';
     const d = safeDate(ts);
     if (!d) return '—';
     return d.toLocaleString('no-NO', {
       day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+    });
+  }
+
+  // Ny: bare klokkeslett til status-tabellen
+  function fmtTimeOnly(ts){
+    if (!ts) return '—';
+    const d = safeDate(ts);
+    if (!d) return '—';
+    return d.toLocaleTimeString('no-NO', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   }
 
@@ -87,10 +102,10 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${a.name || ''}</td>
-        <td>${fmt(firstStart(snow))}</td>
-        <td>${fmt(lastDone(snow))}</td>
-        <td>${fmt(firstStart(grit))}</td>
-        <td>${fmt(lastDone(grit))}</td>
+        <td>${fmtTimeOnly(firstStart(snow))}</td>
+        <td>${fmtTimeOnly(lastDone(snow))}</td>
+        <td>${fmtTimeOnly(firstStart(grit))}</td>
+        <td>${fmtTimeOnly(lastDone(grit))}</td>
         <td>${snow.by || grit.by || '—'}</td>
       `;
       tbody.appendChild(tr);
