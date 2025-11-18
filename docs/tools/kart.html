@@ -33,7 +33,7 @@
       padding: calc(8px + var(--safe-top)) 12px 8px 12px;
       background:var(--bg-header);color:var(--fg);
       display:flex;align-items:center;justify-content:space-between;
-      position:sticky;top:0;z-index:2000; /* ⬅️ over alt annet */
+      position:sticky;top:0;z-index:2000;
     }
     .brand{display:flex;align-items:center;gap:.6rem}
     .brand h1{margin:0;font-size:1.15rem;font-weight:700}
@@ -68,7 +68,7 @@
 
     .legend{
       position:fixed; right:calc(12px + var(--safe-right));
-      top: calc(76px + var(--safe-top)); /* ⬅️ under header, ikke klikk-blokk */
+      top: calc(76px + var(--safe-top));
       background:var(--legend-bg); border:1px solid var(--legend-bd);
       padding:.6rem; border-radius:.6rem; box-shadow:0 4px 18px rgba(0,0,0,.18);
       z-index:800; color:#111;
@@ -86,7 +86,6 @@
     .toast{background:rgba(17,24,39,.96);color:#fff;padding:.7rem .9rem;border-radius:.7rem;border:1px solid rgba(255,255,255,.08);box-shadow:0 6px 30px rgba(0,0,0,.35);font-size:.95rem}
     [data-theme="light"] .toast{background:rgba(31,41,55,.96)}
 
-    /* Modal over kartet */
     .modal{position:fixed;inset:0;display:none;z-index:5000}
     .modal.show{display:block}
     .modal .shade{position:absolute;inset:0;background:rgba(0,0,0,.4)}
@@ -189,7 +188,6 @@
     if (navigator.vibrate) navigator.vibrate(8);
   }
 
-  // URL-hash params
   const params = new URLSearchParams(location.hash.replace(/^#/, ''));
   const ADDR_BIN = params.get('addrBin') || params.get('bin') || '';
   const ADDR_KEY = params.get('addrKey') || params.get('key') || '';
@@ -198,24 +196,30 @@
   const FIELD     = params.get('field') || 'geojsonRoutes';
   const BACK_URL  = params.get('backUrl') || 'https://broyt.pages.dev/#work';
 
-  // Identitet (for "andres dekning")
   const LS_USER = 'KARTTEGNER_USER';
   let USER_ID = localStorage.getItem(LS_USER) || params.get('user') || null;
-  if (!USER_ID){ USER_ID = (crypto?.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())).slice(0,8); localStorage.setItem(LS_USER, USER_ID); }
+  if (!USER_ID){
+    USER_ID = (crypto?.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())).slice(0,8);
+    localStorage.setItem(LS_USER, USER_ID);
+  }
 
-  // Tema
   const appEl = document.getElementById('app');
   const prefersDark = matchMedia?.('(prefers-color-scheme: dark)');
   const LS_THEME='KART_THEME_MODE';
   let themeMode = localStorage.getItem(LS_THEME) || 'auto';
+
   const map = L.map('map', { zoomControl:true, attributionControl:true }).setView([60.2563,11.1941], 14);
   const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap'});
   const darkTiles  = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap, ©Carto'});
 
-  function effectiveDark(){ if (themeMode==='dark') return true; if (themeMode==='light') return false; return !!(prefersDark && prefersDark.matches); }
+  function effectiveDark(){
+    if (themeMode==='dark') return true;
+    if (themeMode==='light') return false;
+    return !!(prefersDark && prefersDark.matches);
+  }
   function applyThemeToMap(){
-    const dark = effectiveDark(); appEl.setAttribute('data-theme', dark?'dark':'light');
-    // robust: prøv mørk, fallback til lys hvis ikke lagt til innen 1 sek
+    const dark = effectiveDark();
+    appEl.setAttribute('data-theme', dark?'dark':'light');
     if (dark){
       if (map.hasLayer(lightTiles)) map.removeLayer(lightTiles);
       darkTiles.addTo(map);
@@ -224,13 +228,17 @@
       if (map.hasLayer(darkTiles)) map.removeLayer(darkTiles);
       lightTiles.addTo(map);
     }
-    document.getElementById('btnTheme').textContent = '🌙 Natt: ' + (themeMode==='auto'?'Auto':(themeMode==='dark'?'På':'Av'));
+    document.getElementById('btnTheme').textContent =
+      '🌙 Natt: ' + (themeMode==='auto'?'Auto':(themeMode==='dark'?'På':'Av'));
   }
   applyThemeToMap();
   prefersDark?.addEventListener?.('change', applyThemeToMap);
-  document.getElementById('btnTheme').onclick=()=>{ themeMode = themeMode==='auto'?'dark':(themeMode==='dark'?'light':'auto'); localStorage.setItem(LS_THEME, themeMode); applyThemeToMap(); };
+  document.getElementById('btnTheme').onclick=()=>{
+    themeMode = themeMode==='auto'?'dark':(themeMode==='dark'?'light':'auto');
+    localStorage.setItem(LS_THEME, themeMode);
+    applyThemeToMap();
+  };
 
-  // Lag
   const drawnLayer   = new L.FeatureGroup().addTo(map);
   const coveredLayer = new L.FeatureGroup().addTo(map);
   const othersLayer  = new L.FeatureGroup().addTo(map);
@@ -238,23 +246,68 @@
   const addressLayer = new L.FeatureGroup().addTo(map);
 
   const drawControl = new L.Control.Draw({
-    draw:{ polygon:false, rectangle:false, circle:false, circlemarker:false, marker:false, polyline:{shapeOptions:{color:'#ef4444',weight:4}} },
+    draw:{
+      polygon:false, rectangle:false, circle:false, circlemarker:false, marker:false,
+      polyline:{shapeOptions:{color:'#ef4444',weight:4}}
+    },
     edit:{ featureGroup: drawnLayer }
   });
 
-  // Drawer
+  const VIEW_KEY = ROUTE_BIN ? `KART_LAST_VIEW_${ROUTE_BIN}` : 'KART_LAST_VIEW_DEFAULT';
+  function saveLastView(){
+    const c = map.getCenter();
+    const z = map.getZoom();
+    try{
+      localStorage.setItem(VIEW_KEY, JSON.stringify({lat:c.lat,lng:c.lng,zoom:z}));
+    }catch{}
+  }
+  function restoreLastView(){
+    try{
+      const raw = localStorage.getItem(VIEW_KEY);
+      if (!raw) return false;
+      const v = JSON.parse(raw);
+      if (typeof v.lat==='number' && typeof v.lng==='number' && typeof v.zoom==='number'){
+        map.setView([v.lat,v.lng], v.zoom);
+        return true;
+      }
+    }catch{}
+    return false;
+  }
+  map.on('moveend', saveLastView);
+
   const drawer = document.getElementById('drawer');
   const backdrop = document.getElementById('backdrop');
   const btnMenu = document.getElementById('btnMenu');
   const btnCloseDrawer = document.getElementById('btnCloseDrawer');
-  function openDrawer(){ drawer.classList.add('open'); backdrop.classList.add('show'); map.dragging.disable(); map.scrollWheelZoom.disable(); if(map.tap) map.tap.disable(); document.body.style.overflow='hidden'; }
-  function closeDrawer(){ drawer.classList.remove('open'); backdrop.classList.remove('show'); map.dragging.enable(); map.scrollWheelZoom.enable(); if(map.tap) map.tap.enable(); document.body.style.overflow=''; }
-  btnMenu.addEventListener('click', openDrawer);
+
+  function openDrawer(){
+    drawer.classList.add('open');
+    backdrop.classList.add('show');
+    map.dragging.disable();
+    map.scrollWheelZoom.disable();
+    if(map.tap) map.tap.disable();
+    document.body.style.overflow='hidden';
+  }
+  function closeDrawer(){
+    drawer.classList.remove('open');
+    backdrop.classList.remove('show');
+    map.dragging.enable();
+    map.scrollWheelZoom.enable();
+    if(map.tap) map.tap.enable();
+    document.body.style.overflow='';
+  }
+
+  btnMenu.addEventListener('click', ()=>{
+    if (drawer.classList.contains('open')) closeDrawer();
+    else openDrawer();
+  });
   btnCloseDrawer.addEventListener('click', closeDrawer);
   backdrop.addEventListener('click', closeDrawer);
-  document.getElementById('btnBack').onclick = ()=>{ closeDrawer(); try{ location.assign(BACK_URL); } catch { history.back(); } };
+  document.getElementById('btnBack').onclick = ()=>{
+    closeDrawer();
+    try{ location.assign(BACK_URL); } catch { history.back(); }
+  };
 
-  // Follow
   let followEnabled = true;
   const btnFollow = document.getElementById('btnFollow');
   function setFollow(on){
@@ -266,145 +319,411 @@
   btnFollow.onclick=()=>setFollow(!followEnabled);
   setFollow(true);
 
-  // Ruting & redigering
   let dirty=false;
-  document.getElementById('btnDraw').onclick = ()=>{ new L.Draw.Polyline(map, drawControl.options.draw.polyline).enable(); toast('Tegning: på'); };
-  document.getElementById('btnFinish').onclick = ()=>{ map.fire('draw:drawstop'); toast('Tegning: ferdig'); };
+  document.getElementById('btnDraw').onclick = ()=>{
+    new L.Draw.Polyline(map, drawControl.options.draw.polyline).enable();
+    toast('Tegning: på');
+  };
+  document.getElementById('btnFinish').onclick = ()=>{
+    map.fire('draw:drawstop');
+    toast('Tegning: ferdig');
+  };
   let editHandler=null;
-  document.getElementById('btnEdit').onclick = ()=>{ if(!editHandler) editHandler = new L.EditToolbar.Edit(map,{featureGroup:drawnLayer,selectedPathOptions:{maintainColor:true}}); editHandler.enable(); toast('Redigering: på'); };
-  document.getElementById('btnEditOff').onclick = ()=>{ if(editHandler){ editHandler.disable(); toast('Redigering: av'); markDirtyAndScheduleSave(); } };
+  document.getElementById('btnEdit').onclick = ()=>{
+    if(!editHandler){
+      editHandler = new L.EditToolbar.Edit(map,{featureGroup:drawnLayer,selectedPathOptions:{maintainColor:true}});
+    }
+    editHandler.enable();
+    toast('Redigering: på');
+  };
+  document.getElementById('btnEditOff').onclick = ()=>{
+    if(editHandler){
+      editHandler.disable();
+      toast('Redigering: av');
+      markDirtyAndScheduleSave();
+    }
+  };
 
   map.on(L.Draw.Event.CREATED, (e)=>{
     const layer = e.layer;
     const name = prompt('Navn på strekning?', 'Ny brøytestrek') || 'Uten navn';
     layer.feature = layer.feature || { type:'Feature', properties:{} };
     layer.feature.properties.name = name;
-    layer.feature.properties.id = layer.feature.properties.id || (crypto?.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()));
+    layer.feature.properties.id =
+      layer.feature.properties.id ||
+      (crypto?.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()));
     layer.addTo(drawnLayer);
     map.fitBounds(layer.getBounds(), {padding:[20,20]});
-    recalcRouteStats(); othersLayer.clearLayers(); pollOthersCoverage(); markDirtyAndScheduleSave();
+    recalcRouteStats();
+    othersLayer.clearLayers();
+    pollOthersCoverage();
+    markDirtyAndScheduleSave();
   });
-  map.on(L.Draw.Event.EDITED, ()=>{ recalcRouteStats(); othersLayer.clearLayers(); pollOthersCoverage(); markDirtyAndScheduleSave(); });
 
-  // Ruteliste modal
+  map.on(L.Draw.Event.EDITED, ()=>{
+    recalcRouteStats();
+    othersLayer.clearLayers();
+    pollOthersCoverage();
+    markDirtyAndScheduleSave();
+  });
+
   const routeModal = document.getElementById('routeModal');
   const routeShade = document.getElementById('routeShade');
   const btnCloseRouteModal = document.getElementById('btnCloseRouteModal');
   const routesContainer = document.getElementById('routesContainer');
+
   function openRoutes(){ buildRouteList(); routeModal.classList.add('show'); }
   function closeRoutes(){ routeModal.classList.remove('show'); }
-  document.getElementById('btnRouteList').onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); if (drawer.classList.contains('open')) closeDrawer(); openRoutes(); };
-  routeShade.onclick=closeRoutes; btnCloseRouteModal.onclick=closeRoutes;
-  document.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && routeModal.classList.contains('show')) closeRoutes(); });
+
+  document.getElementById('btnRouteList').onclick=(e)=>{
+    e.preventDefault(); e.stopPropagation();
+    if (drawer.classList.contains('open')) closeDrawer();
+    openRoutes();
+  };
+  routeShade.onclick=closeRoutes;
+  btnCloseRouteModal.onclick=closeRoutes;
+  document.addEventListener('keydown',(e)=>{
+    if(e.key==='Escape' && routeModal.classList.contains('show')) closeRoutes();
+  });
 
   function buildRouteList(){
     routesContainer.innerHTML='';
     const layers = drawnLayer.getLayers();
     if(!layers.length){
-      const n=document.createElement('div'); n.className='note'; n.textContent='Ingen ruter ennå. Bruk “Tegn”.';
-      routesContainer.appendChild(n); return;
+      const n=document.createElement('div');
+      n.className='note';
+      n.textContent='Ingen ruter ennå. Bruk “Tegn”.';
+      routesContainer.appendChild(n);
+      return;
     }
     layers.forEach((layer,idx)=>{
       const gj = layer.toGeoJSON();
       const name = (gj.properties && gj.properties.name) || `Uten navn ${idx+1}`;
       const lenM = Math.round(turf.length(gj,{units:'kilometers'})*1000);
-      const row=document.createElement('div'); row.className='route-item';
+
+      const row=document.createElement('div');
+      row.className='route-item';
+
       const left=document.createElement('div');
-      const title=document.createElement('div'); title.style.fontWeight='600'; title.textContent=name;
-      const meta=document.createElement('div'); meta.style.opacity='.8'; meta.style.fontSize='.9rem'; meta.textContent=`${lenM} m`;
-      left.appendChild(title); left.appendChild(meta);
-      const actions=document.createElement('div'); actions.style.display='flex'; actions.style.gap='.4rem'; actions.style.flexWrap='wrap';
-      const bFocus=document.createElement('button'); bFocus.className='btn-sm'; bFocus.textContent='Vis'; bFocus.onclick=()=>{ map.fitBounds(layer.getBounds(),{padding:[20,20]}); closeRoutes(); };
-      const bRename=document.createElement('button'); bRename.className='btn-sm'; bRename.textContent='Gi nytt navn'; bRename.onclick=()=>{ const nn=prompt('Nytt navn:',name); if(nn && nn.trim()){ layer.feature=layer.feature||{type:'Feature',properties:{}}; layer.feature.properties.name=nn.trim(); toast('Navn oppdatert'); markDirtyAndScheduleSave(); buildRouteList(); } };
-      const bDelete=document.createElement('button'); bDelete.className='btn-sm'; bDelete.textContent='Slett'; bDelete.onclick=()=>{ if(confirm('Slette denne ruten?')){ drawnLayer.removeLayer(layer); recalcRouteStats(); othersLayer.clearLayers(); pollOthersCoverage(); markDirtyAndScheduleSave(); buildRouteList(); } };
-      actions.appendChild(bFocus); actions.appendChild(bRename); actions.appendChild(bDelete);
-      row.appendChild(left); row.appendChild(actions); routesContainer.appendChild(row);
+      const title=document.createElement('div');
+      title.style.fontWeight='600';
+      title.textContent=name;
+      const meta=document.createElement('div');
+      meta.style.opacity='.8';
+      meta.style.fontSize='.9rem';
+      meta.textContent=`${lenM} m`;
+      left.appendChild(title);
+      left.appendChild(meta);
+
+      const actions=document.createElement('div');
+      actions.style.display='flex';
+      actions.style.gap='.4rem';
+      actions.style.flexWrap='wrap';
+
+      const bFocus=document.createElement('button');
+      bFocus.className='btn-sm';
+      bFocus.textContent='Vis';
+      bFocus.onclick=()=>{
+        map.fitBounds(layer.getBounds(),{padding:[20,20]});
+        closeRoutes();
+      };
+
+      const bRename=document.createElement('button');
+      bRename.className='btn-sm';
+      bRename.textContent='Gi nytt navn';
+      bRename.onclick=()=>{
+        const nn=prompt('Nytt navn:',name);
+        if(nn && nn.trim()){
+          layer.feature=layer.feature||{type:'Feature',properties:{}};
+          layer.feature.properties.name=nn.trim();
+          toast('Navn oppdatert');
+          markDirtyAndScheduleSave();
+          buildRouteList();
+        }
+      };
+
+      const bDelete=document.createElement('button');
+      bDelete.className='btn-sm';
+      bDelete.textContent='Slett';
+      bDelete.onclick=()=>{
+        if(confirm('Slette denne ruten?')){
+          drawnLayer.removeLayer(layer);
+          recalcRouteStats();
+          othersLayer.clearLayers();
+          pollOthersCoverage();
+          markDirtyAndScheduleSave();
+          buildRouteList();
+        }
+      };
+
+      actions.appendChild(bFocus);
+      actions.appendChild(bRename);
+      actions.appendChild(bDelete);
+
+      row.appendChild(left);
+      row.appendChild(actions);
+      routesContainer.appendChild(row);
     });
   }
 
-  // Coverage sampling
-  let samples=[]; const SAMPLE_EVERY_M=5; const TOLERANCE_M=12; let covered=new Set();
+  let samples=[];
+  const SAMPLE_EVERY_M=5;
+  const TOLERANCE_M=12;
+  let covered=new Set();
+
   function recalcRouteStats(){
-    covered.clear(); coveredLayer.clearLayers();
-    const gjs = toGeoJSONMulti(); if(!gjs||!gjs.length){ updateUI(0,0); samples=[]; return; }
-    let meters=0; samples=[];
-    gjs.forEach(gj=>{ const lenKm=turf.length(gj,{units:'kilometers'}); meters += Math.round(lenKm*1000);
+    covered.clear();
+    coveredLayer.clearLayers();
+    const gjs = toGeoJSONMulti();
+    if(!gjs || !gjs.length){
+      updateUI(0,0);
+      samples=[];
+      return;
+    }
+    let meters=0;
+    samples=[];
+    gjs.forEach(gj=>{
+      const lenKm=turf.length(gj,{units:'kilometers'});
+      meters += Math.round(lenKm*1000);
       const steps=Math.max(1, Math.ceil((lenKm*1000)/SAMPLE_EVERY_M));
-      for(let i=0;i<=steps;i++){ const pt=turf.along(gj,(i*SAMPLE_EVERY_M)/1000,{units:'kilometers'}); samples.push(pt); }
+      for(let i=0;i<=steps;i++){
+        const pt=turf.along(gj,(i*SAMPLE_EVERY_M)/1000,{units:'kilometers'});
+        samples.push(pt);
+      }
     });
     updateUI(0,meters);
   }
-  function toGeoJSONMulti(){ const layers=drawnLayer.getLayers(); if(!layers.length) return []; return layers.map(l=>l.toGeoJSON()).filter(f=>f.geometry?.type==='LineString'); }
-  function updateUI(pct,meters){ document.getElementById('bar').style.width=`${pct}%`; document.getElementById('coverage').textContent=`Dekning: ${pct.toFixed(0)}%`; document.getElementById('distance').textContent=`Rutelengde: ${meters} m`; }
-  function totalMeters(){ const gjs=toGeoJSONMulti(); let m=0; gjs.forEach(gj=>m += Math.round(turf.length(gj,{units:'kilometers'})*1000)); return m; }
+
+  function toGeoJSONMulti(){
+    const layers=drawnLayer.getLayers();
+    if(!layers.length) return [];
+    return layers.map(l=>l.toGeoJSON()).filter(f=>f.geometry?.type==='LineString');
+  }
+
+  function updateUI(pct,meters){
+    document.getElementById('bar').style.width=`${pct}%`;
+    document.getElementById('coverage').textContent=`Dekning: ${pct.toFixed(0)}%`;
+    document.getElementById('distance').textContent=`Rutelengde: ${meters} m`;
+  }
+
+  function totalMeters(){
+    const gjs=toGeoJSONMulti();
+    let m=0;
+    gjs.forEach(gj=>m += Math.round(turf.length(gj,{units:'kilometers'})*1000));
+    return m;
+  }
+
   function markCovered(indices){
-    if(!indices||!indices.length) return;
+    if(!indices || !indices.length) return;
     indices.forEach(i=>covered.add(i));
+
     const coveredPts = Array.from(covered).sort((a,b)=>a-b).map(i=>samples[i]);
     if(coveredPts.length){
       coveredLayer.clearLayers();
-      const coords = coveredPts.map(pt => pt.geometry.coordinates).map(c=>[c[1],c[0]]);
-      L.polyline(coords,{color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#16a34a',weight:6,opacity:.6}).addTo(coveredLayer);
+      const coords = coveredPts
+        .map(pt => pt.geometry.coordinates)
+        .map(c=>[c[1],c[0]]);
+      L.polyline(coords,{
+        color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#16a34a',
+        weight:6, opacity:.6
+      }).addTo(coveredLayer);
     }
-    const pct = samples.length? Math.min(100,(covered.size/samples.length)*100):0;
-    updateUI(pct,totalMeters()); schedulePublishMyCoverage();
+
+    const pct = samples.length
+      ? Math.min(100,(covered.size/samples.length)*100)
+      : 0;
+    updateUI(pct,totalMeters());
+    schedulePublishMyCoverage();
   }
 
-  // GPS + follow
-  let watchId=null, gpsPolyline=null, myDot=null, myAccuracy=null, lastLatLng=null, lastHeading=null; const gpsCoords=[];
+  function restoreMyCoverageFromMeta(meta){
+    const coveredBy = meta?.coveredBy || {};
+    const entry = coveredBy[USER_ID];
+    if (!entry || !Array.isArray(entry.indices) || !samples.length) return;
+
+    covered.clear();
+    const valid = entry.indices
+      .filter(i => Number.isInteger(i) && i>=0 && i<samples.length);
+    valid.forEach(i=>covered.add(i));
+
+    if(!covered.size){
+      updateUI(0,totalMeters());
+      return;
+    }
+
+    const coveredPts = Array.from(covered).sort((a,b)=>a-b).map(i=>samples[i]);
+    coveredLayer.clearLayers();
+    const coords = coveredPts
+      .map(pt => pt.geometry.coordinates)
+      .map(c=>[c[1],c[0]]);
+    L.polyline(coords,{
+      color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#16a34a',
+      weight:6, opacity:.6
+    }).addTo(coveredLayer);
+
+    const pct = samples.length
+      ? Math.min(100,(covered.size/samples.length)*100)
+      : 0;
+    updateUI(pct,totalMeters());
+  }
+
+  let watchId=null, gpsPolyline=null, myDot=null, myAccuracy=null, lastLatLng=null, lastHeading=null;
+  const gpsCoords=[];
+
   function addGpsPoint(lat,lon,heading,accuracy){
-    const latlng=[lat,lon]; lastLatLng=latlng; lastHeading=(typeof heading==='number'&&!Number.isNaN(heading))?heading:lastHeading;
+    const latlng=[lat,lon];
+    lastLatLng=latlng;
+    lastHeading=(typeof heading==='number'&&!Number.isNaN(heading))
+      ? heading
+      : lastHeading;
+
     gpsCoords.push(latlng);
-    if(!gpsPolyline) gpsPolyline=L.polyline(gpsCoords,{color:'#3b82f6',weight:3}).addTo(gpsLayer);
-    else gpsPolyline.setLatLngs(gpsCoords);
-    if(!myDot) myDot=L.circleMarker(latlng,{radius:5,color:'#1d4ed8',fillColor:'#1d4ed8',fillOpacity:1,stroke:false}).addTo(gpsLayer);
-    else myDot.setLatLng(latlng);
-    if(typeof accuracy==='number'){ if(!myAccuracy) myAccuracy=L.circle(latlng,{radius:Math.max(5,Math.min(100,accuracy)),color:'#3b82f6',weight:1,fillOpacity:.1}).addTo(gpsLayer);
-      else { myAccuracy.setLatLng(latlng); myAccuracy.setRadius(Math.max(5,Math.min(100,accuracy))); }
-      document.getElementById('fix').textContent=`GPS: ${Math.round(accuracy)}m`; }
-    if(followEnabled){ const z=Math.max(map.getZoom()||14,16); map.setView(latlng,z,{animate:true}); }
+    if(!gpsPolyline){
+      gpsPolyline=L.polyline(gpsCoords,{color:'#3b82f6',weight:3}).addTo(gpsLayer);
+    } else {
+      gpsPolyline.setLatLngs(gpsCoords);
+    }
+
+    if(!myDot){
+      myDot=L.circleMarker(latlng,{
+        radius:5,color:'#1d4ed8',fillColor:'#1d4ed8',
+        fillOpacity:1,stroke:false
+      }).addTo(gpsLayer);
+    } else {
+      myDot.setLatLng(latlng);
+    }
+
+    if(typeof accuracy==='number'){
+      if(!myAccuracy){
+        myAccuracy=L.circle(latlng,{
+          radius:Math.max(5,Math.min(100,accuracy)),
+          color:'#3b82f6',weight:1,fillOpacity:.1
+        }).addTo(gpsLayer);
+      } else {
+        myAccuracy.setLatLng(latlng);
+        myAccuracy.setRadius(Math.max(5,Math.min(100,accuracy)));
+      }
+      document.getElementById('fix').textContent=`GPS: ${Math.round(accuracy)}m`;
+    }
+
+    if(followEnabled){
+      const z=Math.max(map.getZoom()||14,16);
+      map.setView(latlng,z,{animate:true});
+    }
+
     if(samples.length){
-      const pt=turf.point([lon,lat]); let nearestIdx=0,best=Infinity;
-      for(let i=0;i<samples.length;i++){ const d=turf.distance(pt,samples[i],{units:'kilometers'}); if(d<best){best=d; nearestIdx=i;} }
-      const found=[]; const maxJump=25;
-      for(let j=Math.max(0,nearestIdx-maxJump); j<=Math.min(samples.length-1,nearestIdx+maxJump); j++){ const m=turf.distance(pt,samples[j],{units:'kilometers'})*1000; if(m<=TOLERANCE_M) found.push(j); }
+      const pt=turf.point([lon,lat]);
+      let nearestIdx=0,best=Infinity;
+      for(let i=0;i<samples.length;i++){
+        const d=turf.distance(pt,samples[i],{units:'kilometers'});
+        if(d<best){best=d; nearestIdx=i;}
+      }
+      const found=[];
+      const maxJump=25;
+      for(let j=Math.max(0,nearestIdx-maxJump); j<=Math.min(samples.length-1,nearestIdx+maxJump); j++){
+        const m=turf.distance(pt,samples[j],{units:'kilometers'})*1000;
+        if(m<=TOLERANCE_M) found.push(j);
+      }
       markCovered(found);
     }
   }
+
   function startGPS(){
     if(watchId!==null) return;
-    if(!navigator.geolocation){ toast('Ingen GPS på enheten'); return; }
+    if(!navigator.geolocation){
+      toast('Ingen GPS på enheten');
+      return;
+    }
     watchId = navigator.geolocation.watchPosition(pos=>{
-      const {latitude,longitude,accuracy,heading}=pos.coords; addGpsPoint(latitude,longitude,heading,accuracy);
-    }, err=>{ document.getElementById('fix').textContent='GPS: feil'; console.warn(err); toast('GPS-feil'); setTimeout(tryAutoStartGPS,1500); },
-    { enableHighAccuracy:true, maximumAge:1000, timeout:8000 });
+      const {latitude,longitude,accuracy,heading}=pos.coords;
+      addGpsPoint(latitude,longitude,heading,accuracy);
+    }, err=>{
+      document.getElementById('fix').textContent='GPS: feil';
+      console.warn(err);
+      toast('GPS-feil');
+      setTimeout(tryAutoStartGPS,1500);
+    },{
+      enableHighAccuracy:true, maximumAge:1000, timeout:8000
+    });
     toast('GPS startet');
   }
-  function stopGPS(){ if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId=null; } document.getElementById('fix').textContent='GPS: stoppet'; toast('GPS stoppet'); }
-  document.getElementById('btnStartGPS').onclick=startGPS; document.getElementById('btnStopGPS').onclick=stopGPS;
-  document.getElementById('btnClearGPS').onclick=()=>{ gpsLayer.clearLayers(); gpsPolyline=null; gpsCoords.length=0; myDot=null; myAccuracy=null; toast('GPS-spor nullstilt'); };
 
-  // Kurs-opp (enkel rotasjon av #map)
-  let courseUp=false; const mapEl=document.getElementById('map');
-  document.getElementById('btnCourseUp').onclick=()=>{ courseUp=!courseUp; document.getElementById('btnCourseUp').textContent=courseUp?'🧭 Kurs-opp (på)':'🧭 Kurs-opp'; if(!courseUp) mapEl.style.transform='rotate(0deg)'; };
-  setInterval(()=>{ if(courseUp && lastHeading!=null){ mapEl.style.transform=`rotate(${-lastHeading}deg)`; } }, 500);
+  function stopGPS(){
+    if(watchId!==null){
+      navigator.geolocation.clearWatch(watchId);
+      watchId=null;
+    }
+    document.getElementById('fix').textContent='GPS: stoppet';
+    toast('GPS stoppet');
+  }
 
-  // Wake Lock auto
+  document.getElementById('btnStartGPS').onclick=startGPS;
+  document.getElementById('btnStopGPS').onclick=stopGPS;
+  document.getElementById('btnClearGPS').onclick=()=>{
+    gpsLayer.clearLayers();
+    gpsPolyline=null;
+    gpsCoords.length=0;
+    myDot=null;
+    myAccuracy=null;
+    toast('GPS-spor nullstilt');
+  };
+
+  let courseUp=false;
+  const mapEl=document.getElementById('map');
+  document.getElementById('btnCourseUp').onclick=()=>{
+    courseUp=!courseUp;
+    document.getElementById('btnCourseUp').textContent=
+      courseUp?'🧭 Kurs-opp (på)':'🧭 Kurs-opp';
+    if(!courseUp) mapEl.style.transform='rotate(0deg)';
+  };
+  setInterval(()=>{
+    if(courseUp && lastHeading!=null){
+      mapEl.style.transform=`rotate(${-lastHeading}deg)`;
+    }
+  }, 500);
+
   let wakeLock=null;
-  async function acquireWake(){ try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); document.getElementById('btnWake').textContent='📱 Skjerm på (på)'; wakeLock.addEventListener('release',()=>{ document.getElementById('btnWake').textContent='📱 Skjerm på'; }); } }catch(e){ console.warn('WakeLock:',e); } }
-  async function releaseWake(){ try{ await wakeLock?.release(); }catch{} wakeLock=null; document.getElementById('btnWake').textContent='📱 Skjerm på'; }
-  document.getElementById('btnWake').onclick=()=>{ if(wakeLock) releaseWake(); else acquireWake(); };
-  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') acquireWake(); });
+  async function acquireWake(){
+    try{
+      if('wakeLock' in navigator){
+        wakeLock = await navigator.wakeLock.request('screen');
+        document.getElementById('btnWake').textContent='📱 Skjerm på (på)';
+        wakeLock.addEventListener('release',()=>{
+          document.getElementById('btnWake').textContent='📱 Skjerm på';
+        });
+      }
+    }catch(e){
+      console.warn('WakeLock:',e);
+    }
+  }
+  async function releaseWake(){
+    try{ await wakeLock?.release(); }catch{}
+    wakeLock=null;
+    document.getElementById('btnWake').textContent='📱 Skjerm på';
+  }
+  document.getElementById('btnWake').onclick=()=>{
+    if(wakeLock) releaseWake();
+    else acquireWake();
+  };
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible') acquireWake();
+  });
 
-  // Auto-GPS ved visning
   async function tryAutoStartGPS(){
     if(document.hidden) return;
     if (navigator.permissions?.query){
       try{
         const st = await navigator.permissions.query({ name:'geolocation' });
-        if (st.state==='granted'){ startGPS(); return; }
+        if (st.state==='granted'){
+          startGPS();
+          return;
+        }
         if (st.state==='prompt'){
-          navigator.geolocation.getCurrentPosition(()=>startGPS(),()=>{}, { enableHighAccuracy:true, maximumAge:0, timeout:6000 });
+          navigator.geolocation.getCurrentPosition(
+            ()=>startGPS(),
+            ()=>{},
+            { enableHighAccuracy:true, maximumAge:0, timeout:6000 }
+          );
           return;
         }
         return;
@@ -412,30 +731,79 @@
     }
     startGPS();
   }
-  const arm = ()=>{ tryAutoStartGPS(); window.removeEventListener('touchstart',arm,true); window.removeEventListener('mousedown',arm,true); };
-  window.addEventListener('touchstart',arm,true); window.addEventListener('mousedown',arm,true);
-  document.addEventListener('visibilitychange',()=>{ if(document.hidden) stopGPS(); else tryAutoStartGPS(); });
-  window.addEventListener('pageshow',()=>{ tryAutoStartGPS(); acquireWake(); });
-  window.addEventListener('pagehide',()=>{ stopGPS(); });
 
-  // JSONBin helpers
-  async function jsonbinGet(binId,key){ const res=await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{headers:key?{'X-Master-Key':key}:{}}); if(!res.ok) throw new Error('JSONBin GET'); const j=await res.json(); return j.record; }
-  async function jsonbinPut(binId,key,record){ const res=await fetch(`https://api.jsonbin.io/v3/b/${binId}`,{method:'PUT',headers:{'Content-Type':'application/json',...(key?{'X-Master-Key':key}:{})},body:JSON.stringify(record)}); if(!res.ok) throw new Error('JSONBin PUT'); return res.json(); }
+  const arm = ()=>{
+    tryAutoStartGPS();
+    acquireWake();
+    window.removeEventListener('touchstart',arm,true);
+    window.removeEventListener('mousedown',arm,true);
+  };
+  window.addEventListener('touchstart',arm,true);
+  window.addEventListener('mousedown',arm,true);
 
-  // Deknings-publisering
-  let remoteVersion=0; let publishTimer=null;
-  function coverageSignature(){ return `${samples.length||0}:${remoteVersion||0}`; }
-  function schedulePublishMyCoverage(){ if(!ROUTE_BIN) return; if(publishTimer) clearTimeout(publishTimer); publishTimer=setTimeout(publishMyCoverage,1500); }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden) stopGPS();
+    else tryAutoStartGPS();
+  });
+  window.addEventListener('pageshow',()=>{
+    tryAutoStartGPS();
+    acquireWake();
+  });
+  window.addEventListener('pagehide',()=>{
+    stopGPS();
+  });
+
+  async function jsonbinGet(binId,key){
+    const res=await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{
+      headers:key?{'X-Master-Key':key}:{}
+    });
+    if(!res.ok) throw new Error('JSONBin GET');
+    const j=await res.json();
+    return j.record;
+  }
+  async function jsonbinPut(binId,key,record){
+    const res=await fetch(`https://api.jsonbin.io/v3/b/${binId}`,{
+      method:'PUT',
+      headers:{
+        'Content-Type':'application/json',
+        ...(key?{'X-Master-Key':key}:{})
+      },
+      body:JSON.stringify(record)
+    });
+    if(!res.ok) throw new Error('JSONBin PUT');
+    return res.json();
+  }
+
+  let remoteVersion=0;
+  let publishTimer=null;
+  function coverageSignature(){
+    return `${samples.length||0}:${remoteVersion||0}`;
+  }
+  function schedulePublishMyCoverage(){
+    if(!ROUTE_BIN) return;
+    if(publishTimer) clearTimeout(publishTimer);
+    publishTimer=setTimeout(publishMyCoverage,1500);
+  }
   async function publishMyCoverage(){
     try{
       const latest=await jsonbinGet(ROUTE_BIN,ROUTE_KEY);
-      const record={...(latest||{})}; const meta=record.meta||{};
+      const record={...(latest||{})};
+      const meta=record.meta||{};
       const coveredBy={...(meta.coveredBy||{})};
-      coveredBy[USER_ID]={ sig:coverageSignature(), indices:Array.from(covered).sort((a,b)=>a-b), updatedAt:new Date().toISOString() };
+
+      coveredBy[USER_ID]={
+        sig:coverageSignature(),
+        indices:Array.from(covered).sort((a,b)=>a-b),
+        updatedAt:new Date().toISOString()
+      };
+
       record.meta={...meta, coveredBy};
       await jsonbinPut(ROUTE_BIN,ROUTE_KEY,record);
-    }catch(e){ console.warn('publishMyCoverage',e); }
+    }catch(e){
+      console.warn('publishMyCoverage',e);
+    }
   }
+
   function renderOthersCoverage(coveredBy){
     othersLayer.clearLayers();
     const sig=coverageSignature();
@@ -444,17 +812,69 @@
       if(!entry || entry.sig!==sig) return;
       const arr=Array.isArray(entry.indices)?entry.indices:[];
       if(!arr.length) return;
-      const latlngs = arr.map(i=>samples[i]).filter(Boolean).map(pt=>[pt.geometry.coordinates[1],pt.geometry.coordinates[0]]);
-      if(latlngs.length>1) L.polyline(latlngs,{color:getComputedStyle(document.documentElement).getPropertyValue('--others').trim()||'#8b5cf6',weight:5,opacity:.6}).addTo(othersLayer);
+      const latlngs = arr
+        .map(i=>samples[i])
+        .filter(Boolean)
+        .map(pt=>[pt.geometry.coordinates[1],pt.geometry.coordinates[0]]);
+      if(latlngs.length>1){
+        L.polyline(latlngs,{
+          color:getComputedStyle(document.documentElement).getPropertyValue('--others').trim()||'#8b5cf6',
+          weight:5, opacity:.6
+        }).addTo(othersLayer);
+      }
     });
   }
 
-  // Nullstill mine/alle
-  const LS_CLEAR_VER='KARTTEGNER_CLEAR_VER'; let seenClearVersion=parseInt(localStorage.getItem(LS_CLEAR_VER)||'0',10);
-  function clearCoverageAndGPSLocal(silent=false){ covered.clear(); coveredLayer.clearLayers(); othersLayer.clearLayers(); gpsLayer.clearLayers(); gpsPolyline=null; gpsCoords.length=0; myDot=null; myAccuracy=null; updateUI(0,totalMeters()); if(!silent) toast('Nullstilte dekning + GPS lokalt'); }
-  document.getElementById('btnClearMine').onclick=()=>{ clearCoverageAndGPSLocal(); schedulePublishMyCoverage(); };
-  document.getElementById('btnClearAll').onclick=async()=>{ if(!ROUTE_BIN){ clearCoverageAndGPSLocal(); toast('Nullstilte lokalt (ingen felles lagring satt)'); return; }
-    try{ const latest=await jsonbinGet(ROUTE_BIN,ROUTE_KEY); const record={...(latest||{})}; const meta=record.meta||{}; const nextVer=(meta.clearVersion||0)+1; record.meta={...meta, clearVersion:nextVer, clearAt:new Date().toISOString(), clearBy:USER_ID}; await jsonbinPut(ROUTE_BIN,ROUTE_KEY,record); seenClearVersion=nextVer; localStorage.setItem(LS_CLEAR_VER,String(nextVer)); clearCoverageAndGPSLocal(); schedulePublishMyCoverage(); toast('Nullstilte for alle'); }catch(e){ console.warn('Broadcast clear',e); clearCoverageAndGPSLocal(); toast('Nullstilte lokalt (nettfeil)'); } };
+  const LS_CLEAR_VER='KARTTEGNER_CLEAR_VER';
+  let seenClearVersion=parseInt(localStorage.getItem(LS_CLEAR_VER)||'0',10);
+
+  function clearCoverageAndGPSLocal(silent=false){
+    covered.clear();
+    coveredLayer.clearLayers();
+    othersLayer.clearLayers();
+    gpsLayer.clearLayers();
+    gpsPolyline=null;
+    gpsCoords.length=0;
+    myDot=null;
+    myAccuracy=null;
+    updateUI(0,totalMeters());
+    if(!silent) toast('Nullstilte dekning + GPS lokalt');
+  }
+
+  document.getElementById('btnClearMine').onclick=()=>{
+    clearCoverageAndGPSLocal();
+    schedulePublishMyCoverage();
+  };
+
+  document.getElementById('btnClearAll').onclick=async()=>{
+    if(!ROUTE_BIN){
+      clearCoverageAndGPSLocal();
+      toast('Nullstilte lokalt (ingen felles lagring satt)');
+      return;
+    }
+    try{
+      const latest=await jsonbinGet(ROUTE_BIN,ROUTE_KEY);
+      const record={...(latest||{})};
+      const meta=record.meta||{};
+      const nextVer=(meta.clearVersion||0)+1;
+      record.meta={
+        ...meta,
+        clearVersion:nextVer,
+        clearAt:new Date().toISOString(),
+        clearBy:USER_ID
+      };
+      await jsonbinPut(ROUTE_BIN,ROUTE_KEY,record);
+      seenClearVersion=nextVer;
+      localStorage.setItem(LS_CLEAR_VER,String(nextVer));
+      clearCoverageAndGPSLocal();
+      schedulePublishMyCoverage();
+      toast('Nullstilte for alle');
+    }catch(e){
+      console.warn('Broadcast clear',e);
+      clearCoverageAndGPSLocal();
+      toast('Nullstilte lokalt (nettfeil)');
+    }
+  };
 
   async function pollOthersCoverage(){
     if(!ROUTE_BIN) return;
@@ -462,91 +882,153 @@
       const latest=await jsonbinGet(ROUTE_BIN,ROUTE_KEY);
       const meta=latest?.meta||{};
       renderOthersCoverage(meta.coveredBy);
+
       const v=parseInt(meta.clearVersion||0,10);
-      if(v && v>seenClearVersion){ seenClearVersion=v; localStorage.setItem(LS_CLEAR_VER,String(v)); clearCoverageAndGPSLocal(true); schedulePublishMyCoverage(); toast('Felles nullstilling mottatt'); }
-    }catch(e){ console.warn('pollOthersCoverage',e); }
+      if(v && v>seenClearVersion){
+        seenClearVersion=v;
+        localStorage.setItem(LS_CLEAR_VER,String(v));
+        clearCoverageAndGPSLocal(true);
+        schedulePublishMyCoverage();
+        toast('Felles nullstilling mottatt');
+      }
+    }catch(e){
+      console.warn('pollOthersCoverage',e);
+    }
   }
   setInterval(pollOthersCoverage,5000);
 
-  // Autosave (local + JSONBin)
   const LS_DRAFT='KARTTEGNER_DRAFT';
-  function currentFC(){ return { type:'FeatureCollection', features: toGeoJSONMulti() }; }
-  function saveLocalDraft(){ try{ localStorage.setItem(LS_DRAFT, JSON.stringify(currentFC())); }catch{} }
-  let saveTimer=null;
-  function markDirtyAndScheduleSave(){ dirty=true; saveLocalDraft(); if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(syncRemote,1200); }
-  async function syncRemote(){
-  if (!ROUTE_BIN) return;
-  try {
-    const latest = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
-    const latestVer = (latest?.meta?.routesVersion) || 0;
-
-    // 🚀 Viktig: bruk NØYAKTIG det som ligger i kartet nå (inkl. slettinger)
-    const mine = { type: 'FeatureCollection', features: toGeoJSONMulti() };
-
-    const record = { ...(latest || {}) };
-    record[FIELD] = mine;
-    record.meta = {
-      ...(record.meta || {}),
-      routesVersion: latestVer + 1,
-      lastEditedAt: new Date().toISOString(),
-      lastEditedBy: 'KartTegner'
-    };
-
-    await jsonbinPut(ROUTE_BIN, ROUTE_KEY, record);
-    remoteVersion = record.meta.routesVersion;
-    dirty = false;
-    toast('Lagret');
-  } catch (e) {
-    console.warn('Autosave remote feilet', e);
-    toast('Lagret lokalt (offline)', 1800);
+  function currentFC(){
+    return { type:'FeatureCollection', features: toGeoJSONMulti() };
   }
-}
+  function saveLocalDraft(){
+    try{ localStorage.setItem(LS_DRAFT, JSON.stringify(currentFC())); }catch{}
+  }
+  let saveTimer=null;
+  function markDirtyAndScheduleSave(){
+    dirty=true;
+    saveLocalDraft();
+    if(saveTimer) clearTimeout(saveTimer);
+    saveTimer=setTimeout(syncRemote,1200);
+  }
+
+  async function syncRemote(){
+    if (!ROUTE_BIN) return;
+    try {
+      const latest = await jsonbinGet(ROUTE_BIN, ROUTE_KEY);
+      const latestVer = (latest?.meta?.routesVersion) || 0;
+
+      const mine = { type: 'FeatureCollection', features: toGeoJSONMulti() };
+
+      const record = { ...(latest || {}) };
+      record[FIELD] = mine;
+      record.meta = {
+        ...(record.meta || {}),
+        routesVersion: latestVer + 1,
+        lastEditedAt: new Date().toISOString(),
+        lastEditedBy: 'KartTegner'
+      };
+
+      await jsonbinPut(ROUTE_BIN, ROUTE_KEY, record);
+      remoteVersion = record.meta.routesVersion;
+      dirty = false;
+      toast('Lagret');
+    } catch (e) {
+      console.warn('Autosave remote feilet', e);
+      toast('Lagret lokalt (offline)', 1800);
+    }
+  }
 
   async function safeLoad(){
     let loaded=false;
+    let restoredView = restoreLastView();
+
     try{
       if(ADDR_BIN){
         const dataAddr=await jsonbinGet(ADDR_BIN,ADDR_KEY);
         const list=(dataAddr?.snapshot?.addresses)||dataAddr?.addresses||[];
-        list.forEach(a=>{ if(a.lat && a.lon){ const m=L.marker([a.lat,a.lon]).addTo(addressLayer); m.bindPopup(`<b>${(a.name||a.id||'').replace(/</g,'&lt;')}</b>`); } });
-        if(addressLayer.getLayers().length){ map.fitBounds(addressLayer.getBounds(),{padding:[30,30]}); }
+        list.forEach(a=>{
+          if(a.lat && a.lon){
+            const m=L.marker([a.lat,a.lon]).addTo(addressLayer);
+            m.bindPopup(`<b>${(a.name||a.id||'').replace(/</g,'&lt;')}</b>`);
+          }
+        });
+        if(addressLayer.getLayers().length && !restoredView){
+          map.fitBounds(addressLayer.getBounds(),{padding:[30,30]});
+        }
       }
     }catch(e){}
 
     try{
       if(ROUTE_BIN){
         const dataRoute=await jsonbinGet(ROUTE_BIN,ROUTE_KEY);
-        remoteVersion=(dataRoute?.meta?.routesVersion)||0;
+        const meta=dataRoute?.meta||{};
+        remoteVersion=meta.routesVersion||0;
+
         const stored=dataRoute?.[FIELD];
-        const clearVer=parseInt((dataRoute?.meta?.clearVersion)||0,10)||seenClearVersion; seenClearVersion=clearVer; localStorage.setItem(LS_CLEAR_VER,String(clearVer));
+        const clearVer=parseInt((meta.clearVersion)||0,10)||seenClearVersion;
+        seenClearVersion=clearVer;
+        localStorage.setItem(LS_CLEAR_VER,String(clearVer));
+
         if(stored?.type==='FeatureCollection'){
-          (stored.features||[]).forEach(feat=>{ if(feat.geometry?.type==='LineString'){ const latlngs=feat.geometry.coordinates.map(c=>[c[1],c[0]]); const layer=L.polyline(latlngs,{color:'#ef4444',weight:4}).addTo(drawnLayer); layer.feature=feat; } });
-          if(drawnLayer.getLayers().length) map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
-          recalcRouteStats(); loaded=true;
+          (stored.features||[]).forEach(feat=>{
+            if(feat.geometry?.type==='LineString'){
+              const latlngs=feat.geometry.coordinates.map(c=>[c[1],c[0]]);
+              const layer=L.polyline(latlngs,{color:'#ef4444',weight:4}).addTo(drawnLayer);
+              layer.feature=feat;
+            }
+          });
+          if(drawnLayer.getLayers().length && !restoredView){
+            map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
+          }
+          recalcRouteStats();
+          restoreMyCoverageFromMeta(meta);
+          loaded=true;
         }
-        renderOthersCoverage((dataRoute?.meta||{}).coveredBy);
+
+        renderOthersCoverage(meta.coveredBy);
       }
-    }catch(e){ console.warn('load routes',e); }
+    }catch(e){
+      console.warn('load routes',e);
+    }
 
     if(!loaded){
       try{
         const txt=localStorage.getItem(LS_DRAFT);
         if(txt){
           const fc=JSON.parse(txt);
-          (fc.features||[]).forEach(feat=>{ if(feat.geometry?.type==='LineString'){ const latlngs=feat.geometry.coordinates.map(c=>[c[1],c[0]]); const layer=L.polyline(latlngs,{color:'#ef4444',weight:4}).addTo(drawnLayer); layer.feature=feat; } });
-          if(drawnLayer.getLayers().length) map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
-          recalcRouteStats(); toast('Lastet lokalt utkast',1400);
+          (fc.features||[]).forEach(feat=>{
+            if(feat.geometry?.type==='LineString'){
+              const latlngs=feat.geometry.coordinates.map(c=>[c[1],c[0]]);
+              const layer=L.polyline(latlngs,{color:'#ef4444',weight:4}).addTo(drawnLayer);
+              layer.feature=feat;
+            }
+          });
+          if(drawnLayer.getLayers().length && !restoredView){
+            map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
+          }
+          recalcRouteStats();
+          toast('Lastet lokalt utkast',1400);
         }
       }catch(e){}
     }
   }
 
-  // Legend posisjonerings-fallback ved veldig små skjermer
-  function nudgeLegend(){ const lg=document.querySelector('.legend'); if(!lg) return; const r=lg.getBoundingClientRect(); if(r.top<56){ lg.style.top = `calc(76px + var(--safe-top))`; } }
+  function nudgeLegend(){
+    const lg=document.querySelector('.legend');
+    if(!lg) return;
+    const r=lg.getBoundingClientRect();
+    if(r.top<56){
+      lg.style.top = `calc(76px + var(--safe-top))`;
+    }
+  }
   window.addEventListener('resize', nudgeLegend);
 
-  // Init
-  safeLoad().then(()=>{ nudgeLegend(); toast('Klar'); pollOthersCoverage(); });
+  safeLoad().then(()=>{
+    nudgeLegend();
+    toast('Klar');
+    pollOthersCoverage();
+  });
   if(navigator.onLine===false) toast('Offline-modus');
   window.addEventListener('online', ()=>toast('Online'));
   window.addEventListener('offline',()=>toast('Offline'));
