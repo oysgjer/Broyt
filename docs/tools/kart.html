@@ -14,19 +14,18 @@
       --safe-right: env(safe-area-inset-right, 0px);
 
       --bg-header:#0f172a; --bg-btn:#1e293b; --bd-btn:#334155; --fg:#ffffff;
-      --status-bg:#0b1220; --status-bd:#1f2937;
-      --legend-bg:#ffffff; --legend-bd:#e5e7eb;
-      --pill-bg:#1f2937; --pill-fg:#cbd5e1; --pill-bd:#334155;
-      --accent:#16a34a; --danger:#ef4444; --info:#3b82f6; --others:#8b5cf6;
-    }
-    [data-theme="light"]{
       --status-bg:#f8fafc; --status-bd:#e5e7eb;
-      --pill-bg:#eef2ff; --pill-fg:#3730a3; --pill-bd:#c7d2fe;
       --legend-bg:#ffffff; --legend-bd:#e5e7eb;
+      --pill-bg:#eef2ff; --pill-fg:#3730a3; --pill-bd:#c7d2fe;
+      --accent:#16a34a; --danger:#ef4444; --info:#3b82f6; --others:#8b5cf6;
     }
 
     html,body{height:100%;margin:0}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--status-bg);color:var(--fg)}
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:var(--status-bg);
+      color:#111827;
+    }
     #app{display:grid;grid-template-rows:auto 1fr auto;height:100dvh;overflow:hidden}
 
     header{
@@ -37,8 +36,15 @@
     }
     .brand{display:flex;align-items:center;gap:.6rem}
     .brand h1{margin:0;font-size:1.15rem;font-weight:700}
-    .btn{background:var(--bg-btn);color:var(--fg);border:1px solid var(--bd-btn);padding:.65rem .9rem;border-radius:.8rem;cursor:pointer;font-size:1rem}
+    .btn{
+      background:var(--bg-btn);color:var(--fg);
+      border:1px solid var(--bd-btn);
+      padding:.65rem .9rem;border-radius:.8rem;
+      cursor:pointer;font-size:1rem
+    }
     .btn.active{outline:2px solid var(--accent)}
+    .btn[disabled]{opacity:.6;cursor:default}
+
     .hamburger{width:40px;height:40px;border-radius:10px;border:1px solid var(--bd-btn);background:var(--bg-btn);display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
     .hamburger div{width:18px;height:2px;background:var(--fg);position:relative}
     .hamburger div::before,.hamburger div::after{content:"";position:absolute;left:0;width:18px;height:2px;background:var(--fg)}
@@ -50,16 +56,23 @@
     #statusbar{
       padding:8px 12px calc(8px + var(--safe-bottom));
       background:var(--status-bg);border-top:1px solid var(--status-bd);
-      display:grid;grid-template-columns:1fr;gap:.5rem;color:var(--fg)
+      display:grid;grid-template-columns:1fr;gap:.5rem;color:#111827
     }
     @media (min-width:720px){#statusbar{grid-template-columns:1fr auto}}
-    .progress{height:12px;background:#475569;border-radius:999px;overflow:hidden}
+    .progress{height:12px;background:#e5e7eb;border-radius:999px;overflow:hidden}
     .progress>div{height:100%;width:0%;background:var(--accent);transition:width .3s ease}
     .pill{font-size:.9rem;background:var(--pill-bg);color:var(--pill-fg);border:1px solid var(--pill-bd);padding:.25rem .5rem;border-radius:999px}
 
     .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:1190}
     .backdrop.show{opacity:1;pointer-events:auto}
-    .drawer{position:fixed;top:0;right:0;height:100%;width:min(92vw,460px);background:var(--bg-header);color:var(--fg);transform:translateX(100%);transition:transform .25s;z-index:1200;display:flex;flex-direction:column;padding:calc(10px + var(--safe-top)) 12px calc(14px + var(--safe-bottom)) 12px;border-left:1px solid var(--bd-btn);overflow:auto}
+    .drawer{
+      position:fixed;top:0;right:0;height:100%;width:min(92vw,460px);
+      background:var(--bg-header);color:var(--fg);
+      transform:translateX(100%);transition:transform .25s;z-index:1200;
+      display:flex;flex-direction:column;
+      padding:calc(10px + var(--safe-top)) 12px calc(14px + var(--safe-bottom)) 12px;
+      border-left:1px solid var(--bd-btn);overflow:auto
+    }
     .drawer.open{transform:translateX(0)}
 
     .group{margin:.8rem 0 1.2rem}
@@ -73,7 +86,6 @@
       padding:.6rem; border-radius:.6rem; box-shadow:0 4px 18px rgba(0,0,0,.18);
       z-index:800; color:#111;
     }
-    [data-theme="dark"] .legend{color:#e5e7eb}
     .legend h3{margin:0 0 .5rem 0;font-size:.95rem}
     .legend .row{font-size:.85rem;margin:.15rem 0;display:flex;align-items:center;gap:.35rem}
     .swatch{width:10px;height:10px;border-radius:2px;display:inline-block}
@@ -84,19 +96,26 @@
 
     #toasts{position:fixed;left:50%;bottom:calc(12px + var(--safe-bottom));transform:translateX(-50%);z-index:1400;display:grid;gap:.4rem;width:min(92vw,520px)}
     .toast{background:rgba(17,24,39,.96);color:#fff;padding:.7rem .9rem;border-radius:.7rem;border:1px solid rgba(255,255,255,.08);box-shadow:0 6px 30px rgba(0,0,0,.35);font-size:.95rem}
-    [data-theme="light"] .toast{background:rgba(31,41,55,.96)}
 
     .modal{position:fixed;inset:0;display:none;z-index:5000}
     .modal.show{display:block}
     .modal .shade{position:absolute;inset:0;background:rgba(0,0,0,.4)}
-    .modal .panel{position:absolute;left:50%;top:10vh;transform:translateX(-50%);width:min(92vw,720px);max-height:80vh;overflow:auto;background:var(--legend-bg);color:#111;border:1px solid var(--legend-bd);border-radius:12px;padding:12px}
-    [data-theme="dark"] .modal .panel{color:#e5e7eb}
-    .route-item{border:1px solid var(--legend-bd);border-radius:10px;padding:.6rem .6rem;display:grid;grid-template-columns:1fr auto;align-items:center;gap:.4rem;background:rgba(0,0,0,.02)}
+    .modal .panel{
+      position:absolute;left:50%;top:10vh;transform:translateX(-50%);
+      width:min(92vw,720px);max-height:80vh;overflow:auto;
+      background:var(--legend-bg);color:#111;border:1px solid var(--legend-bd);
+      border-radius:12px;padding:12px
+    }
+    .route-item{
+      border:1px solid var(--legend-bd);border-radius:10px;
+      padding:.6rem .6rem;display:grid;grid-template-columns:1fr auto;
+      align-items:center;gap:.4rem;background:rgba(0,0,0,.02)
+    }
     .btn-sm{padding:.45rem .6rem;font-size:.95rem;border-radius:.6rem;background:var(--bg-btn);color:var(--fg);border:1px solid var(--bd-btn)}
   </style>
 </head>
 <body>
-<div id="app" data-theme="dark">
+<div id="app" data-theme="light">
   <header>
     <div class="brand">
       <div class="hamburger" id="btnMenu"><div></div></div>
@@ -131,8 +150,7 @@
       <button class="btn" id="btnStartGPS">▶️ Start GPS</button>
       <button class="btn" id="btnStopGPS">⏹️ Stopp GPS</button>
       <button class="btn" id="btnCourseUp">🧭 Kurs-opp</button>
-      <button class="btn" id="btnWake">📱 Skjerm på</button>
-      <button class="btn" id="btnTheme">🌙 Natt: Auto</button>
+      <button class="btn" id="btnWake">📱 Skjerm på (alltid)</button>
     </div>
   </div>
 
@@ -152,7 +170,7 @@
   </div>
 
   <div class="group"><h3>Om</h3>
-    <div class="note" id="metaInfo">v3.8 • klikkbar header • auto GPS/Follow/Wake • ruteliste over kart</div>
+    <div class="note" id="metaInfo">v3.8 • lys modus fast • auto GPS/Follow/Wake</div>
   </div>
 </aside>
 
@@ -203,41 +221,12 @@
     localStorage.setItem(LS_USER, USER_ID);
   }
 
-  const appEl = document.getElementById('app');
-  const prefersDark = matchMedia?.('(prefers-color-scheme: dark)');
-  const LS_THEME='KART_THEME_MODE';
-  let themeMode = localStorage.getItem(LS_THEME) || 'auto';
-
+  // Kart, alltid lys
   const map = L.map('map', { zoomControl:true, attributionControl:true }).setView([60.2563,11.1941], 14);
-  const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap'});
-  const darkTiles  = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap, ©Carto'});
-
-  function effectiveDark(){
-    if (themeMode==='dark') return true;
-    if (themeMode==='light') return false;
-    return !!(prefersDark && prefersDark.matches);
-  }
-  function applyThemeToMap(){
-    const dark = effectiveDark();
-    appEl.setAttribute('data-theme', dark?'dark':'light');
-    if (dark){
-      if (map.hasLayer(lightTiles)) map.removeLayer(lightTiles);
-      darkTiles.addTo(map);
-      setTimeout(()=>{ if(!map.hasLayer(darkTiles)){ lightTiles.addTo(map); }}, 1000);
-    } else {
-      if (map.hasLayer(darkTiles)) map.removeLayer(darkTiles);
-      lightTiles.addTo(map);
-    }
-    document.getElementById('btnTheme').textContent =
-      '🌙 Natt: ' + (themeMode==='auto'?'Auto':(themeMode==='dark'?'På':'Av'));
-  }
-  applyThemeToMap();
-  prefersDark?.addEventListener?.('change', applyThemeToMap);
-  document.getElementById('btnTheme').onclick=()=>{
-    themeMode = themeMode==='auto'?'dark':(themeMode==='dark'?'light':'auto');
-    localStorage.setItem(LS_THEME, themeMode);
-    applyThemeToMap();
-  };
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:20,
+    attribution:'&copy; OpenStreetMap'
+  }).addTo(map);
 
   const drawnLayer   = new L.FeatureGroup().addTo(map);
   const coveredLayer = new L.FeatureGroup().addTo(map);
@@ -253,28 +242,7 @@
     edit:{ featureGroup: drawnLayer }
   });
 
-  const VIEW_KEY = ROUTE_BIN ? `KART_LAST_VIEW_${ROUTE_BIN}` : 'KART_LAST_VIEW_DEFAULT';
-  function saveLastView(){
-    const c = map.getCenter();
-    const z = map.getZoom();
-    try{
-      localStorage.setItem(VIEW_KEY, JSON.stringify({lat:c.lat,lng:c.lng,zoom:z}));
-    }catch{}
-  }
-  function restoreLastView(){
-    try{
-      const raw = localStorage.getItem(VIEW_KEY);
-      if (!raw) return false;
-      const v = JSON.parse(raw);
-      if (typeof v.lat==='number' && typeof v.lng==='number' && typeof v.zoom==='number'){
-        map.setView([v.lat,v.lng], v.zoom);
-        return true;
-      }
-    }catch{}
-    return false;
-  }
-  map.on('moveend', saveLastView);
-
+  // Drawer
   const drawer = document.getElementById('drawer');
   const backdrop = document.getElementById('backdrop');
   const btnMenu = document.getElementById('btnMenu');
@@ -308,6 +276,7 @@
     try{ location.assign(BACK_URL); } catch { history.back(); }
   };
 
+  // Follow
   let followEnabled = true;
   const btnFollow = document.getElementById('btnFollow');
   function setFollow(on){
@@ -319,6 +288,7 @@
   btnFollow.onclick=()=>setFollow(!followEnabled);
   setFollow(true);
 
+  // Ruting & redigering
   let dirty=false;
   document.getElementById('btnDraw').onclick = ()=>{
     new L.Draw.Polyline(map, drawControl.options.draw.polyline).enable();
@@ -367,6 +337,7 @@
     markDirtyAndScheduleSave();
   });
 
+  // Ruteliste modal
   const routeModal = document.getElementById('routeModal');
   const routeShade = document.getElementById('routeShade');
   const btnCloseRouteModal = document.getElementById('btnCloseRouteModal');
@@ -399,7 +370,7 @@
     layers.forEach((layer,idx)=>{
       const gj = layer.toGeoJSON();
       const name = (gj.properties && gj.properties.name) || `Uten navn ${idx+1}`;
-      const lenM = Math.round(turf.length(gj,{units:'kilometers'})*1000);
+      const lenM = Math.round(turf.length(gj,{units:'kilometers'}))*1000;
 
       const row=document.createElement('div');
       row.className='route-item';
@@ -466,6 +437,7 @@
     });
   }
 
+  // Coverage sampling
   let samples=[];
   const SAMPLE_EVERY_M=5;
   const TOLERANCE_M=12;
@@ -518,13 +490,13 @@
     indices.forEach(i=>covered.add(i));
 
     const coveredPts = Array.from(covered).sort((a,b)=>a-b).map(i=>samples[i]);
+    coveredLayer.clearLayers();
     if(coveredPts.length){
-      coveredLayer.clearLayers();
       const coords = coveredPts
         .map(pt => pt.geometry.coordinates)
         .map(c=>[c[1],c[0]]);
       L.polyline(coords,{
-        color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#16a34a',
+        color:'#16a34a',
         weight:6, opacity:.6
       }).addTo(coveredLayer);
     }
@@ -557,7 +529,7 @@
       .map(pt => pt.geometry.coordinates)
       .map(c=>[c[1],c[0]]);
     L.polyline(coords,{
-      color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#16a34a',
+      color:'#16a34a',
       weight:6, opacity:.6
     }).addTo(coveredLayer);
 
@@ -567,6 +539,7 @@
     updateUI(pct,totalMeters());
   }
 
+  // GPS + follow
   let watchId=null, gpsPolyline=null, myDot=null, myAccuracy=null, lastLatLng=null, lastHeading=null;
   const gpsCoords=[];
 
@@ -668,6 +641,7 @@
     toast('GPS-spor nullstilt');
   };
 
+  // Kurs-opp
   let courseUp=false;
   const mapEl=document.getElementById('map');
   document.getElementById('btnCourseUp').onclick=()=>{
@@ -682,33 +656,27 @@
     }
   }, 500);
 
+  // Wake Lock – alltid på, ingen av-knapp
+  const btnWake = document.getElementById('btnWake');
+  if(btnWake){
+    btnWake.disabled = true;
+    btnWake.textContent = '📱 Skjerm på (alltid)';
+  }
   let wakeLock=null;
   async function acquireWake(){
     try{
       if('wakeLock' in navigator){
         wakeLock = await navigator.wakeLock.request('screen');
-        document.getElementById('btnWake').textContent='📱 Skjerm på (på)';
-        wakeLock.addEventListener('release',()=>{
-          document.getElementById('btnWake').textContent='📱 Skjerm på';
-        });
       }
     }catch(e){
       console.warn('WakeLock:',e);
     }
   }
-  async function releaseWake(){
-    try{ await wakeLock?.release(); }catch{}
-    wakeLock=null;
-    document.getElementById('btnWake').textContent='📱 Skjerm på';
-  }
-  document.getElementById('btnWake').onclick=()=>{
-    if(wakeLock) releaseWake();
-    else acquireWake();
-  };
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible') acquireWake();
   });
 
+  // Auto-GPS + wake ved første berøring
   async function tryAutoStartGPS(){
     if(document.hidden) return;
     if (navigator.permissions?.query){
@@ -753,6 +721,7 @@
     stopGPS();
   });
 
+  // JSONBin helpers + dekning publisering
   async function jsonbinGet(binId,key){
     const res=await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{
       headers:key?{'X-Master-Key':key}:{}
@@ -818,7 +787,7 @@
         .map(pt=>[pt.geometry.coordinates[1],pt.geometry.coordinates[0]]);
       if(latlngs.length>1){
         L.polyline(latlngs,{
-          color:getComputedStyle(document.documentElement).getPropertyValue('--others').trim()||'#8b5cf6',
+          color:'#8b5cf6',
           weight:5, opacity:.6
         }).addTo(othersLayer);
       }
@@ -897,6 +866,7 @@
   }
   setInterval(pollOthersCoverage,5000);
 
+  // Autosave (local + JSONBin)
   const LS_DRAFT='KARTTEGNER_DRAFT';
   function currentFC(){
     return { type:'FeatureCollection', features: toGeoJSONMulti() };
@@ -941,7 +911,6 @@
 
   async function safeLoad(){
     let loaded=false;
-    let restoredView = restoreLastView();
 
     try{
       if(ADDR_BIN){
@@ -953,7 +922,7 @@
             m.bindPopup(`<b>${(a.name||a.id||'').replace(/</g,'&lt;')}</b>`);
           }
         });
-        if(addressLayer.getLayers().length && !restoredView){
+        if(addressLayer.getLayers().length){
           map.fitBounds(addressLayer.getBounds(),{padding:[30,30]});
         }
       }
@@ -964,7 +933,6 @@
         const dataRoute=await jsonbinGet(ROUTE_BIN,ROUTE_KEY);
         const meta=dataRoute?.meta||{};
         remoteVersion=meta.routesVersion||0;
-
         const stored=dataRoute?.[FIELD];
         const clearVer=parseInt((meta.clearVersion)||0,10)||seenClearVersion;
         seenClearVersion=clearVer;
@@ -978,14 +946,13 @@
               layer.feature=feat;
             }
           });
-          if(drawnLayer.getLayers().length && !restoredView){
+          if(drawnLayer.getLayers().length){
             map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
           }
           recalcRouteStats();
           restoreMyCoverageFromMeta(meta);
           loaded=true;
         }
-
         renderOthersCoverage(meta.coveredBy);
       }
     }catch(e){
@@ -1004,7 +971,7 @@
               layer.feature=feat;
             }
           });
-          if(drawnLayer.getLayers().length && !restoredView){
+          if(drawnLayer.getLayers().length){
             map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
           }
           recalcRouteStats();
