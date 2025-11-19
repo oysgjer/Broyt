@@ -169,7 +169,7 @@
   </div>
 
   <div class="group"><h3>Om</h3>
-    <div class="note" id="metaInfo">v3.8 • lys modus • auto GPS/Follow • manuell skjerm-lås</div>
+    <div class="note" id="metaInfo">v3.8 • lys modus • auto GPS/Follow • skjerm-på som default</div>
   </div>
 </aside>
 
@@ -655,10 +655,10 @@
     }
   }, 500);
 
-  // Wake Lock – manuell toggle
+  // Wake Lock – default PÅ, men kan skrus av
   const btnWake = document.getElementById('btnWake');
   let wakeLock = null;
-  let wakeWanted = false;
+  let wakeWanted = true; // viktig: standard på
 
   function updateWakeBtn(on){
     if(!btnWake) return;
@@ -670,6 +670,7 @@
       btnWake.textContent = '📱 Skjerm på';
     }
   }
+  updateWakeBtn(wakeWanted);
 
   async function acquireWake(){
     if(!('wakeLock' in navigator)){
@@ -684,7 +685,7 @@
         if(!wakeWanted){
           updateWakeBtn(false);
         } else {
-          // forsøk å ta den på nytt hvis bruker fortsatt vil ha
+          // prøv igjen hvis bruker fortsatt ønsker skjerm på
           acquireWake().catch(()=>{});
         }
       });
@@ -722,58 +723,6 @@
         acquireWake();
       }
     }
-  });
-
-  // Auto-GPS ved første berøring
-  async function tryAutoStartGPS(){
-    if(document.hidden) return;
-    if (navigator.permissions?.query){
-      try{
-        const st = await navigator.permissions.query({ name:'geolocation' });
-        if (st.state==='granted'){
-          startGPS();
-          return;
-        }
-        if (st.state==='prompt'){
-          navigator.geolocation.getCurrentPosition(
-            ()=>startGPS(),
-            ()=>{},
-            { enableHighAccuracy:true, maximumAge:0, timeout:6000 }
-          );
-          return;
-        }
-        return;
-      }catch{}
-    }
-    startGPS();
-  }
-
-  const arm = ()=>{
-    tryAutoStartGPS();
-    window.removeEventListener('touchstart',arm,true);
-    window.removeEventListener('mousedown',arm,true);
-  };
-  window.addEventListener('touchstart',arm,true);
-  window.addEventListener('mousedown',arm,true);
-
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden){
-      stopGPS();
-    } else {
-      tryAutoStartGPS();
-      if(wakeWanted && !wakeLock){
-        acquireWake();
-      }
-    }
-  });
-  window.addEventListener('pageshow',()=>{
-    tryAutoStartGPS();
-    if(wakeWanted && !wakeLock){
-      acquireWake();
-    }
-  });
-  window.addEventListener('pagehide',()=>{
-    stopGPS();
   });
 
   // JSONBin helpers + dekning publisering
@@ -1045,6 +994,61 @@
     }
   }
   window.addEventListener('resize', nudgeLegend);
+
+  // Første berøring: start GPS + (om mulig) wakeLock
+  async function tryAutoStartGPS(){
+    if(document.hidden) return;
+    if (navigator.permissions?.query){
+      try{
+        const st = await navigator.permissions.query({ name:'geolocation' });
+        if (st.state==='granted'){
+          startGPS();
+          return;
+        }
+        if (st.state==='prompt'){
+          navigator.geolocation.getCurrentPosition(
+            ()=>startGPS(),
+            ()=>{},
+            { enableHighAccuracy:true, maximumAge:0, timeout:6000 }
+          );
+          return;
+        }
+        return;
+      }catch{}
+    }
+    startGPS();
+  }
+
+  const arm = ()=>{
+    tryAutoStartGPS();
+    if(wakeWanted && !wakeLock){
+      acquireWake();
+    }
+    window.removeEventListener('touchstart',arm,true);
+    window.removeEventListener('mousedown',arm,true);
+  };
+  window.addEventListener('touchstart',arm,true);
+  window.addEventListener('mousedown',arm,true);
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+      stopGPS();
+    } else {
+      tryAutoStartGPS();
+      if(wakeWanted && !wakeLock){
+        acquireWake();
+      }
+    }
+  });
+  window.addEventListener('pageshow',()=>{
+    tryAutoStartGPS();
+    if(wakeWanted && !wakeLock){
+      acquireWake();
+    }
+  });
+  window.addEventListener('pagehide',()=>{
+    stopGPS();
+  });
 
   safeLoad().then(()=>{
     nudgeLegend();
