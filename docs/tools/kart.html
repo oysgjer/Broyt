@@ -166,11 +166,11 @@
       <button class="btn" id="btnClearMine">🧹 Nullstill mine (grønn+blå)</button>
       <button class="btn" id="btnClearAll">🧨 Nullstill alle</button>
     </div>
-    <div class="note" style="margin-top:.4rem">Alt lagres automatisk (lokalt + JSONBin når mulig).</div>
+    <div class="note" style="margin-top:.4rem">Alt lagres automatisk (grønn/lilla i JSONBin, blå lokalt).</div>
   </div>
 
   <div class="group"><h3>Om</h3>
-    <div class="note" id="metaInfo">v3.8 • lys modus fast • auto GPS/Follow/Wake</div>
+    <div class="note" id="metaInfo">v3.9 • lys modus fast • auto GPS/Follow/Wake • grønn dekning lagres til nullstilling</div>
   </div>
 </aside>
 
@@ -206,20 +206,27 @@
     if (navigator.vibrate) navigator.vibrate(8);
   }
 
-  const params = new URLSearchParams(location.hash.replace(/^#/, ''));
-  const ADDR_BIN = params.get('addrBin') || params.get('bin') || '';
-  const ADDR_KEY = params.get('addrKey') || params.get('key') || '';
-  const ROUTE_BIN = params.get('routeBin') || ADDR_BIN;
-  const ROUTE_KEY = params.get('routeKey') || ADDR_KEY;
-  const FIELD     = params.get('field') || 'geojsonRoutes';
-  const BACK_URL  = params.get('backUrl') || 'https://broyt.pages.dev/#work';
+  // URL-parametre (hash)
+  const params   = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const ADDR_BIN = params.get('addrBin')  || params.get('bin')  || '';
+  const ADDR_KEY = params.get('addrKey')  || params.get('key')  || '';
+  const ROUTE_BIN= params.get('routeBin') || ADDR_BIN;
+  const ROUTE_KEY= params.get('routeKey') || ADDR_KEY;
+  const FIELD    = params.get('field')    || 'geojsonRoutes';
+  const BACK_URL = params.get('backUrl')  || 'https://broyt.pages.dev/#work';
 
+  // Identitet pr. enhet
   const LS_USER = 'KARTTEGNER_USER';
   let USER_ID = localStorage.getItem(LS_USER) || params.get('user') || null;
   if (!USER_ID){
     USER_ID = (crypto?.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())).slice(0,8);
     localStorage.setItem(LS_USER, USER_ID);
   }
+
+  // Nøkkel for å lagre "mine" deknings-indekser lokalt (fallback)
+  const LS_COVERED = ROUTE_BIN
+    ? `KART_COV_${ROUTE_BIN}_${USER_ID}`
+    : `KART_COV_DEFAULT_${USER_ID}`;
 
   // Kart, alltid lys
   const map = L.map('map', { zoomControl:true, attributionControl:true }).setView([60.2563,11.1941], 14);
@@ -228,10 +235,10 @@
     attribution:'&copy; OpenStreetMap'
   }).addTo(map);
 
-  const drawnLayer   = new L.FeatureGroup().addTo(map);
-  const coveredLayer = new L.FeatureGroup().addTo(map);
-  const othersLayer  = new L.FeatureGroup().addTo(map);
-  const gpsLayer     = new L.FeatureGroup().addTo(map);
+  const drawnLayer   = new L.FeatureGroup().addTo(map); // røde ruter
+  const coveredLayer = new L.FeatureGroup().addTo(map); // grønn (deg)
+  const othersLayer  = new L.FeatureGroup().addTo(map); // lilla (andre)
+  const gpsLayer     = new L.FeatureGroup().addTo(map); // blå GPS lokalt
   const addressLayer = new L.FeatureGroup().addTo(map);
 
   const drawControl = new L.Control.Draw({
@@ -370,7 +377,7 @@
     layers.forEach((layer,idx)=>{
       const gj = layer.toGeoJSON();
       const name = (gj.properties && gj.properties.name) || `Uten navn ${idx+1}`;
-      const lenM = Math.round(turf.length(gj,{units:'kilometers'}))*1000;
+      const lenM = Math.round(turf.length(gj,{units:'kilometers'})*1000);
 
       const row=document.createElement('div');
       row.className='route-item';
@@ -505,7 +512,7 @@
       ? Math.min(100,(covered.size/samples.length)*100)
       : 0;
     updateUI(pct,totalMeters());
-    schedulePublishMyCoverage();
+    schedulePublishMyCoverage(); // lagre grønn dekning (JSONBin + lokal backup)
   }
 
   function restoreMyCoverageFromMeta(meta){
@@ -539,7 +546,34 @@
     updateUI(pct,totalMeters());
   }
 
-  // GPS + follow
+  function restoreMyCoverageFromLocal(){
+    try{
+      const txt = localStorage.getItem(LS_COVERED);
+      if(!txt) return;
+      const arr = JSON.parse(txt);
+      if(!Array.isArray(arr) || !samples.length) return;
+      covered.clear();
+      arr.forEach(i=>{
+        if(Number.isInteger(i) && i>=0 && i<samples.length) covered.add(i);
+      });
+      if(!covered.size) return;
+      const coveredPts = Array.from(covered).sort((a,b)=>a-b).map(i=>samples[i]);
+      coveredLayer.clearLayers();
+      const coords = coveredPts
+        .map(pt => pt.geometry.coordinates)
+        .map(c=>[c[1],c[0]]);
+      L.polyline(coords,{
+        color:'#16a34a',
+        weight:6, opacity:.6
+      }).addTo(coveredLayer);
+      const pct = samples.length
+        ? Math.min(100,(covered.size/samples.length)*100)
+        : 0;
+      updateUI(pct,totalMeters());
+    }catch(e){}
+  }
+
+  // GPS + follow (lokalt, ikke lagret)
   let watchId=null, gpsPolyline=null, myDot=null, myAccuracy=null, lastLatLng=null, lastHeading=null;
   const gpsCoords=[];
 
@@ -584,6 +618,7 @@
       map.setView(latlng,z,{animate:true});
     }
 
+    // Marker dekning langs røde ruter
     if(samples.length){
       const pt=turf.point([lon,lat]);
       let nearestIdx=0,best=Infinity;
@@ -638,7 +673,7 @@
     gpsCoords.length=0;
     myDot=null;
     myAccuracy=null;
-    toast('GPS-spor nullstilt');
+    toast('GPS-spor nullstilt (grønn dekning beholdes)');
   };
 
   // Kurs-opp
@@ -748,23 +783,46 @@
   function coverageSignature(){
     return `${samples.length||0}:${remoteVersion||0}`;
   }
+
+  function saveCoveredLocal(indices){
+    try{
+      localStorage.setItem(LS_COVERED, JSON.stringify(indices||[]));
+    }catch(e){}
+  }
+
   function schedulePublishMyCoverage(){
-    if(!ROUTE_BIN) return;
+    if(!ROUTE_BIN){
+      // ingen felles bin, men vi kan fortsatt lagre lokalt
+      saveCoveredLocal(Array.from(covered).sort((a,b)=>a-b));
+      return;
+    }
     if(publishTimer) clearTimeout(publishTimer);
     publishTimer=setTimeout(publishMyCoverage,1500);
   }
+
   async function publishMyCoverage(){
+    const indicesArr = Array.from(covered).sort((a,b)=>a-b);
+    // lokal backup uansett
+    saveCoveredLocal(indicesArr);
+
+    if(!ROUTE_BIN) return;
     try{
       const latest=await jsonbinGet(ROUTE_BIN,ROUTE_KEY);
       const record={...(latest||{})};
       const meta=record.meta||{};
       const coveredBy={...(meta.coveredBy||{})};
+      const sig = coverageSignature();
 
-      coveredBy[USER_ID]={
-        sig:coverageSignature(),
-        indices:Array.from(covered).sort((a,b)=>a-b),
-        updatedAt:new Date().toISOString()
-      };
+      if(indicesArr.length){
+        coveredBy[USER_ID]={
+          sig,
+          indices:indicesArr,
+          updatedAt:new Date().toISOString()
+        };
+      }else{
+        // tomt = fjern min dekning
+        delete coveredBy[USER_ID];
+      }
 
       record.meta={...meta, coveredBy};
       await jsonbinPut(ROUTE_BIN,ROUTE_KEY,record);
@@ -806,13 +864,14 @@
     gpsCoords.length=0;
     myDot=null;
     myAccuracy=null;
+    saveCoveredLocal([]); // nullstill lokalt lagret dekning
     updateUI(0,totalMeters());
     if(!silent) toast('Nullstilte dekning + GPS lokalt');
   }
 
   document.getElementById('btnClearMine').onclick=()=>{
     clearCoverageAndGPSLocal();
-    schedulePublishMyCoverage();
+    schedulePublishMyCoverage(); // sender tom indeksliste => fjerner min dekning i JSONBin
   };
 
   document.getElementById('btnClearAll').onclick=async()=>{
@@ -830,13 +889,13 @@
         ...meta,
         clearVersion:nextVer,
         clearAt:new Date().toISOString(),
-        clearBy:USER_ID
+        clearBy:USER_ID,
+        coveredBy:{} // alle dekninger bort
       };
       await jsonbinPut(ROUTE_BIN,ROUTE_KEY,record);
       seenClearVersion=nextVer;
       localStorage.setItem(LS_CLEAR_VER,String(nextVer));
       clearCoverageAndGPSLocal();
-      schedulePublishMyCoverage();
       toast('Nullstilte for alle');
     }catch(e){
       console.warn('Broadcast clear',e);
@@ -866,7 +925,7 @@
   }
   setInterval(pollOthersCoverage,5000);
 
-  // Autosave (local + JSONBin)
+  // Autosave (local + JSONBin) for ruter (røde)
   const LS_DRAFT='KARTTEGNER_DRAFT';
   function currentFC(){
     return { type:'FeatureCollection', features: toGeoJSONMulti() };
@@ -902,7 +961,7 @@
       await jsonbinPut(ROUTE_BIN, ROUTE_KEY, record);
       remoteVersion = record.meta.routesVersion;
       dirty = false;
-      toast('Lagret');
+      toast('Lagret ruter');
     } catch (e) {
       console.warn('Autosave remote feilet', e);
       toast('Lagret lokalt (offline)', 1800);
@@ -950,7 +1009,12 @@
             map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
           }
           recalcRouteStats();
+          // 1: forsøk å lese grønn dekning fra JSONBin
           restoreMyCoverageFromMeta(meta);
+          // 2: hvis ingenting der (f.eks. offline runde) – fallback til lokal lagring
+          if(!covered.size){
+            restoreMyCoverageFromLocal();
+          }
           loaded=true;
         }
         renderOthersCoverage(meta.coveredBy);
@@ -975,6 +1039,7 @@
             map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
           }
           recalcRouteStats();
+          restoreMyCoverageFromLocal();
           toast('Lastet lokalt utkast',1400);
         }
       }catch(e){}
