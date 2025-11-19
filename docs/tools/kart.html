@@ -43,6 +43,7 @@
       cursor:pointer;font-size:1rem
     }
     .btn.active{outline:2px solid var(--accent)}
+    .btn[disabled]{opacity:.6;cursor:default}
 
     .hamburger{width:40px;height:40px;border-radius:10px;border:1px solid var(--bd-btn);background:var(--bg-btn);display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
     .hamburger div{width:18px;height:2px;background:var(--fg);position:relative}
@@ -169,7 +170,7 @@
   </div>
 
   <div class="group"><h3>Om</h3>
-    <div class="note" id="metaInfo">v3.8 • lys modus • auto GPS/Follow • skjerm-på som default</div>
+    <div class="note" id="metaInfo">v3.9 • lys modus • auto GPS/Follow • wake-knapp • grønn dekning lagres</div>
   </div>
 </aside>
 
@@ -205,6 +206,7 @@
     if (navigator.vibrate) navigator.vibrate(8);
   }
 
+  // URL-parametre
   const params = new URLSearchParams(location.hash.replace(/^#/, ''));
   const ADDR_BIN = params.get('addrBin') || params.get('bin') || '';
   const ADDR_KEY = params.get('addrKey') || params.get('key') || '';
@@ -213,6 +215,7 @@
   const FIELD     = params.get('field') || 'geojsonRoutes';
   const BACK_URL  = params.get('backUrl') || 'https://broyt.pages.dev/#work';
 
+  // Identitet
   const LS_USER = 'KARTTEGNER_USER';
   let USER_ID = localStorage.getItem(LS_USER) || params.get('user') || null;
   if (!USER_ID){
@@ -369,7 +372,7 @@
     layers.forEach((layer,idx)=>{
       const gj = layer.toGeoJSON();
       const name = (gj.properties && gj.properties.name) || `Uten navn ${idx+1}`;
-      const lenM = Math.round(turf.length(gj,{units:'kilometers'}) * 1000);
+      const lenM = Math.round(turf.length(gj,{units:'kilometers'})*1000);
 
       const row=document.createElement('div');
       row.className='route-item';
@@ -655,74 +658,97 @@
     }
   }, 500);
 
-  // Wake Lock – default PÅ, men kan skrus av
+  // Wake Lock – via knapp (som resten av appen)
   const btnWake = document.getElementById('btnWake');
-  let wakeLock = null;
-  let wakeWanted = true; // viktig: standard på
-
-  function updateWakeBtn(on){
-    if(!btnWake) return;
-    if(on){
-      btnWake.classList.add('active');
-      btnWake.textContent = '📱 Skjerm på (på)';
-    } else {
-      btnWake.classList.remove('active');
-      btnWake.textContent = '📱 Skjerm på';
-    }
-  }
-  updateWakeBtn(wakeWanted);
+  let wakeLock=null;
+  let wantWake=false;
 
   async function acquireWake(){
-    if(!('wakeLock' in navigator)){
-      console.warn('WakeLock ikke støttet på denne enheten');
-      return;
-    }
+    if(!('wakeLock' in navigator)) return;
     try{
       wakeLock = await navigator.wakeLock.request('screen');
-      updateWakeBtn(true);
-      wakeLock.addEventListener('release', ()=>{
-        wakeLock = null;
-        if(!wakeWanted){
-          updateWakeBtn(false);
+      btnWake.classList.add('active');
+      btnWake.textContent = '📱 Skjerm på (på)';
+      wakeLock.addEventListener('release',()=>{
+        wakeLock=null;
+        if(!wantWake){
+          btnWake.classList.remove('active');
+          btnWake.textContent='📱 Skjerm på';
         } else {
-          // prøv igjen hvis bruker fortsatt ønsker skjerm på
-          acquireWake().catch(()=>{});
+          // Prøv igjen hvis vi fremdeles ønsker wake
+          acquireWake();
         }
       });
     }catch(e){
-      console.warn('WakeLock-feil:', e);
-      updateWakeBtn(false);
+      console.warn('WakeLock:',e);
     }
   }
 
   async function releaseWake(){
-    wakeWanted = false;
-    try{
-      await wakeLock?.release();
-    }catch(e){
-      console.warn('releaseWake', e);
-    }
-    wakeLock = null;
-    updateWakeBtn(false);
+    wantWake = false;
+    try{ await wakeLock?.release(); }catch{}
+    wakeLock=null;
+    btnWake.classList.remove('active');
+    btnWake.textContent='📱 Skjerm på';
   }
 
-  if(btnWake){
-    btnWake.onclick = ()=>{
-      if(!wakeWanted){
-        wakeWanted = true;
-        acquireWake();
-      } else {
-        releaseWake();
-      }
-    };
+  btnWake.onclick = ()=>{
+    if(wakeLock){
+      releaseWake();
+    } else {
+      wantWake = true;
+      acquireWake();
+    }
+  };
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState === 'visible' && wantWake){
+      acquireWake();
+    }
+  });
+
+  // Auto-GPS + wake ved første berøring
+  async function tryAutoStartGPS(){
+    if(document.hidden) return;
+    if (navigator.permissions?.query){
+      try{
+        const st = await navigator.permissions.query({ name:'geolocation' });
+        if (st.state==='granted'){
+          startGPS();
+          return;
+        }
+        if (st.state==='prompt'){
+          navigator.geolocation.getCurrentPosition(
+            ()=>startGPS(),
+            ()=>{},
+            { enableHighAccuracy:true, maximumAge:0, timeout:6000 }
+          );
+          return;
+        }
+        return;
+      }catch{}
+    }
+    startGPS();
   }
 
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.visibilityState === 'visible'){
-      if(wakeWanted && !wakeLock){
-        acquireWake();
-      }
-    }
+  const arm = ()=>{
+    tryAutoStartGPS();
+    window.removeEventListener('touchstart',arm,true);
+    window.removeEventListener('mousedown',arm,true);
+  };
+  window.addEventListener('touchstart',arm,true);
+  window.addEventListener('mousedown',arm,true);
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden) stopGPS();
+    else tryAutoStartGPS();
+  });
+  window.addEventListener('pageshow',()=>{
+    tryAutoStartGPS();
+    if(wantWake) acquireWake();
+  });
+  window.addEventListener('pagehide',()=>{
+    stopGPS();
   });
 
   // JSONBin helpers + dekning publisering
@@ -749,9 +775,6 @@
 
   let remoteVersion=0;
   let publishTimer=null;
-  function coverageSignature(){
-    return `${samples.length||0}:${remoteVersion||0}`;
-  }
   function schedulePublishMyCoverage(){
     if(!ROUTE_BIN) return;
     if(publishTimer) clearTimeout(publishTimer);
@@ -765,7 +788,6 @@
       const coveredBy={...(meta.coveredBy||{})};
 
       coveredBy[USER_ID]={
-        sig:coverageSignature(),
         indices:Array.from(covered).sort((a,b)=>a-b),
         updatedAt:new Date().toISOString()
       };
@@ -779,12 +801,11 @@
 
   function renderOthersCoverage(coveredBy){
     othersLayer.clearLayers();
-    const sig=coverageSignature();
     Object.entries(coveredBy||{}).forEach(([uid,entry])=>{
-      if(uid===USER_ID) return;
-      if(!entry || entry.sig!==sig) return;
-      const arr=Array.isArray(entry.indices)?entry.indices:[];
-      if(!arr.length) return;
+      if(!entry || !Array.isArray(entry.indices)) return;
+      if(uid === USER_ID) return; // min egen dekning håndteres som grønn
+      const arr = entry.indices;
+      if(!arr.length || !samples.length) return;
       const latlngs = arr
         .map(i=>samples[i])
         .filter(Boolean)
@@ -816,7 +837,7 @@
 
   document.getElementById('btnClearMine').onclick=()=>{
     clearCoverageAndGPSLocal();
-    schedulePublishMyCoverage();
+    schedulePublishMyCoverage(); // publiser tomt sett for meg
   };
 
   document.getElementById('btnClearAll').onclick=async()=>{
@@ -834,13 +855,13 @@
         ...meta,
         clearVersion:nextVer,
         clearAt:new Date().toISOString(),
-        clearBy:USER_ID
+        clearBy:USER_ID,
+        coveredBy:{}   // alle dekning fjernes
       };
       await jsonbinPut(ROUTE_BIN,ROUTE_KEY,record);
       seenClearVersion=nextVer;
       localStorage.setItem(LS_CLEAR_VER,String(nextVer));
       clearCoverageAndGPSLocal();
-      schedulePublishMyCoverage();
       toast('Nullstilte for alle');
     }catch(e){
       console.warn('Broadcast clear',e);
@@ -861,7 +882,6 @@
         seenClearVersion=v;
         localStorage.setItem(LS_CLEAR_VER,String(v));
         clearCoverageAndGPSLocal(true);
-        schedulePublishMyCoverage();
         toast('Felles nullstilling mottatt');
       }
     }catch(e){
@@ -954,7 +974,7 @@
             map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
           }
           recalcRouteStats();
-          restoreMyCoverageFromMeta(meta);
+          restoreMyCoverageFromMeta(meta);  // 🔁 Hent tilbake grønn dekning for deg
           loaded=true;
         }
         renderOthersCoverage(meta.coveredBy);
@@ -994,61 +1014,6 @@
     }
   }
   window.addEventListener('resize', nudgeLegend);
-
-  // Første berøring: start GPS + (om mulig) wakeLock
-  async function tryAutoStartGPS(){
-    if(document.hidden) return;
-    if (navigator.permissions?.query){
-      try{
-        const st = await navigator.permissions.query({ name:'geolocation' });
-        if (st.state==='granted'){
-          startGPS();
-          return;
-        }
-        if (st.state==='prompt'){
-          navigator.geolocation.getCurrentPosition(
-            ()=>startGPS(),
-            ()=>{},
-            { enableHighAccuracy:true, maximumAge:0, timeout:6000 }
-          );
-          return;
-        }
-        return;
-      }catch{}
-    }
-    startGPS();
-  }
-
-  const arm = ()=>{
-    tryAutoStartGPS();
-    if(wakeWanted && !wakeLock){
-      acquireWake();
-    }
-    window.removeEventListener('touchstart',arm,true);
-    window.removeEventListener('mousedown',arm,true);
-  };
-  window.addEventListener('touchstart',arm,true);
-  window.addEventListener('mousedown',arm,true);
-
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden){
-      stopGPS();
-    } else {
-      tryAutoStartGPS();
-      if(wakeWanted && !wakeLock){
-        acquireWake();
-      }
-    }
-  });
-  window.addEventListener('pageshow',()=>{
-    tryAutoStartGPS();
-    if(wakeWanted && !wakeLock){
-      acquireWake();
-    }
-  });
-  window.addEventListener('pagehide',()=>{
-    stopGPS();
-  });
 
   safeLoad().then(()=>{
     nudgeLegend();
