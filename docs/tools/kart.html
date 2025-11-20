@@ -445,6 +445,16 @@
   const TOLERANCE_M=12;
   let covered=new Set();
 
+  // 12-timers TTL for kjørte streker (dekning)
+  const MAX_COVERAGE_AGE_HOURS = 12;
+  const MAX_COVERAGE_AGE_MS = MAX_COVERAGE_AGE_HOURS * 60 * 60 * 1000;
+  function isFreshCoverageEntry(entry){
+    if(!entry) return false;
+    const t = Date.parse(entry.updatedAt || entry.at || entry.ts);
+    if (!Number.isFinite(t)) return false;
+    return (Date.now() - t) <= MAX_COVERAGE_AGE_MS;
+  }
+
   function recalcRouteStats(){
     covered.clear();
     coveredLayer.clearLayers();
@@ -514,6 +524,11 @@
     const coveredBy = meta?.coveredBy || {};
     const entry = coveredBy[USER_ID];
     if (!entry || !Array.isArray(entry.indices) || !samples.length) return;
+    if (!isFreshCoverageEntry(entry)){
+      // Egen dekning er eldre enn 12 timer → ignorer
+      updateUI(0, totalMeters());
+      return;
+    }
 
     covered.clear();
     const valid = entry.indices
@@ -541,23 +556,46 @@
     updateUI(pct,totalMeters());
   }
 
-  // GPS + follow
-  let watchId=null, gpsPolyline=null, myDot=null, myAccuracy=null, lastLatLng=null, lastHeading=null;
-  const gpsCoords=[];
+  // GPS + follow – med segmenter (unngå rette streker over lange hopp)
+  let watchId=null,
+      gpsSegments=[],
+      currentGpsSegment=null,
+      myDot=null,
+      myAccuracy=null,
+      lastLatLng=null,
+      lastHeading=null;
 
   function addGpsPoint(lat,lon,heading,accuracy){
     const latlng=[lat,lon];
-    lastLatLng=latlng;
+    const MAX_GPS_GAP_M = 150; // hvis hoppet er større enn dette → ny strek
+
+    // Oppdatér heading
     lastHeading=(typeof heading==='number'&&!Number.isNaN(heading))
       ? heading
       : lastHeading;
 
-    gpsCoords.push(latlng);
-    if(!gpsPolyline){
-      gpsPolyline=L.polyline(gpsCoords,{color:'#3b82f6',weight:3}).addTo(gpsLayer);
+    // Segment-logikk
+    if(!currentGpsSegment){
+      currentGpsSegment = L.polyline([latlng], { color:'#3b82f6', weight:3 }).addTo(gpsLayer);
+      gpsSegments.push(currentGpsSegment);
+    } else if (lastLatLng) {
+      const gap = map.distance(lastLatLng, latlng); // meter
+      if (gap > MAX_GPS_GAP_M) {
+        // stort hopp → start ny strek istedenfor rett linje
+        currentGpsSegment = L.polyline([latlng], { color:'#3b82f6', weight:3 }).addTo(gpsLayer);
+        gpsSegments.push(currentGpsSegment);
+      } else {
+        const pts = currentGpsSegment.getLatLngs();
+        pts.push(latlng);
+        currentGpsSegment.setLatLngs(pts);
+      }
     } else {
-      gpsPolyline.setLatLngs(gpsCoords);
+      // første punkt etter null
+      currentGpsSegment = L.polyline([latlng], { color:'#3b82f6', weight:3 }).addTo(gpsLayer);
+      gpsSegments.push(currentGpsSegment);
     }
+
+    lastLatLng=latlng;
 
     if(!myDot){
       myDot=L.circleMarker(latlng,{
@@ -636,10 +674,12 @@
   document.getElementById('btnStopGPS').onclick=stopGPS;
   document.getElementById('btnClearGPS').onclick=()=>{
     gpsLayer.clearLayers();
-    gpsPolyline=null;
-    gpsCoords.length=0;
+    gpsSegments.length = 0;
+    currentGpsSegment = null;
     myDot=null;
     myAccuracy=null;
+    lastLatLng=null;
+    lastHeading=null;
     toast('GPS-spor nullstilt');
   };
 
@@ -804,6 +844,8 @@
     Object.entries(coveredBy||{}).forEach(([uid,entry])=>{
       if(!entry || !Array.isArray(entry.indices)) return;
       if(uid === USER_ID) return; // min egen dekning håndteres som grønn
+      if(!isFreshCoverageEntry(entry)) return; // eldre enn 12 timer → ikke tegn
+
       const arr = entry.indices;
       if(!arr.length || !samples.length) return;
       const latlngs = arr
@@ -827,10 +869,12 @@
     coveredLayer.clearLayers();
     othersLayer.clearLayers();
     gpsLayer.clearLayers();
-    gpsPolyline=null;
-    gpsCoords.length=0;
+    gpsSegments.length = 0;
+    currentGpsSegment = null;
     myDot=null;
     myAccuracy=null;
+    lastLatLng=null;
+    lastHeading=null;
     updateUI(0,totalMeters());
     if(!silent) toast('Nullstilte dekning + GPS lokalt');
   }
@@ -974,7 +1018,7 @@
             map.fitBounds(drawnLayer.getBounds(),{padding:[20,20]});
           }
           recalcRouteStats();
-          restoreMyCoverageFromMeta(meta);  // 🔁 Hent tilbake grønn dekning for deg
+          restoreMyCoverageFromMeta(meta);  // Hent tilbake grønn dekning for deg (hvis <12t)
           loaded=true;
         }
         renderOthersCoverage(meta.coveredBy);
