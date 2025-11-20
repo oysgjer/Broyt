@@ -1,4 +1,4 @@
-// js/work_log_start_done.js — logger Start/Ferdig til JSONBin (med riktig sjåførnavn)
+// js/work_log_start_done.js — logger Start/Ferdig/Ikke mulig til JSONBin (med riktig sjåførnavn)
 (() => {
   'use strict';
 
@@ -29,9 +29,12 @@
          : Array.isArray(js.record?.reports) ? js.record.reports
          : [];
   }
+
   async function binPutArray(arr){
     const r = await fetch(`${API}/${BIN_HENDELSER}`, {
-      method:'PUT', headers:{ ...headers(true), 'X-Bin-Meta':'false' }, body: JSON.stringify(arr)
+      method:'PUT',
+      headers:{ ...headers(true), 'X-Bin-Meta':'false' },
+      body: JSON.stringify(arr)
     });
     if (!r.ok) throw new Error('JSONBin PUT ' + r.status);
     return r.json();
@@ -50,34 +53,45 @@
             localStorage.getItem('sjaforNavn') || 'Ukjent').trim();
   }
 
-  async function logEvent(type){
-    if (!getMK()) return; // nøkkel ikke satt, hopp stille
+  // Felles logger – kan brukes av andre filer (Uhell m.m.)
+  async function logEvent(type, extra = {}) {
+    if (!getMK()) {
+      console.warn('[work_log_start_done] Ingen master key satt – logger ikke', type);
+      return;
+    }
 
     const addr = activeAddress();
     const evt = {
-      type, // 'start' | 'done'
+      type, // 'start' | 'done' | 'notPossible' | 'uhell' | ...
       addressId: addr?.id || addr?.name || '(ukjent)',
       addressName: addr?.name || '',
       at: new Date().toISOString(),
-      by: driverName()
+      by: driverName(),
+      ...extra
     };
-    try{
+
+    try {
       const arr = await binGetArray();
-      // lagre i "reports" hvis det er formatet som brukes
-      let out = arr;
-      const rec = await binGetArray();
-      const latest = Array.isArray(rec) ? rec : [];
-      out = latest.concat([evt]);
-      await binPutArray(out);
-    }catch(e){
-      console.warn('[work_log_start_done] Klarte ikke å lagre hendelse', e);
+      arr.push(evt);
+      await binPutArray(arr);
+    } catch(e) {
+      console.warn('[work_log_start_done] Klarte ikke å lagre hendelse', type, e);
     }
   }
 
   function wire(){
     document.getElementById('act_start')?.addEventListener('click', () => logEvent('start'));
     document.getElementById('act_done') ?.addEventListener('click', () => logEvent('done'));
+
+    // NY: logg når noe er "Ikke mulig"
+    document.getElementById('act_block')?.addEventListener('click', () => {
+      // her kan vi legge på ekstra felt senere (f.eks. note) hvis vi vil
+      logEvent('notPossible');
+    });
   }
 
   document.addEventListener('DOMContentLoaded', wire);
+
+  // Gjør loggeren tilgjengelig for andre filer (Uhell m.m.)
+  window.logWorkEvent = logEvent;
 })();
