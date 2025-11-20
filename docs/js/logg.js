@@ -1,4 +1,4 @@
-// js/logg.js — Leser report-bin (type=start/done) og bygger logg + samlet brøytetid
+// js/logg.js — Leser report-bin (type=start/done/uhell/notPossible) og bygger logg + samlet brøytetid
 
 (() => {
   'use strict';
@@ -54,7 +54,7 @@
     return [];
   }
 
-  // --- Normaliser til events vi kan jobbe med ---
+  // --- Normaliser til events vi kan jobbe med (for brøytetid) ---
   // Vi støtter både:
   //   { type:"start"/"done", addressId, addressName, at, by }
   //   og evt. { action:"start"/"ferdig", address, ts, driver } fra gammel autologger
@@ -82,6 +82,52 @@
     }
     // Sorter kronologisk
     out.sort((a, b) => a.ts - b.ts);
+    return out;
+  }
+
+  // --- Normaliser uhell / ikke mulig (for egen tabell) ---
+  function normalizeIncidents(raw) {
+    const out = [];
+    for (const r of raw) {
+      const tsStr = r.at || r.ts;
+      const ts = Date.parse(tsStr);
+      if (!Number.isFinite(ts)) continue;
+
+      let kind = null;
+      if (r.type === 'uhell') {
+        kind = 'uhell';
+      } else if (
+        r.type === 'notPossible' ||
+        r.type === 'block' ||
+        r.type === 'ikkeMulig'
+      ) {
+        kind = 'notPossible';
+      } else {
+        continue; // ikke et uhell / ikke mulig
+      }
+
+      const address =
+        r.addressName ||
+        r.addressId ||
+        r.address ||
+        'Ukjent adresse';
+
+      const driver = (r.by || r.driver || 'Ukjent sjåfør').trim();
+
+      const note =
+        (r.note || r.comment || r.merknad || '').toString().trim();
+
+      out.push({
+        kind,     // 'uhell' | 'notPossible'
+        ts,
+        address,
+        driver,
+        note
+      });
+    }
+
+    // Nyeste øverst
+    out.sort((a, b) => b.ts - a.ts);
     return out;
   }
 
@@ -117,7 +163,7 @@
     return jobs;
   }
 
-  // --- Filtrering ---
+  // --- Filtrering (for jobber) ---
   function applyFilters(jobs) {
     const fDriver = $('#f_driver')?.value || '';
     const fAddr   = $('#f_addr')?.value || '';
@@ -135,6 +181,23 @@
     // Begrens hvor mange som vises i detaljert logg
     const limited = list.slice(0, fLimit);
     return { filtered: list, limited };
+  }
+
+  // --- Filtrering for uhell / ikke mulig ---
+  function filterIncidents(incidents) {
+    const fDriver = $('#f_driver')?.value || '';
+    const fAddr   = $('#f_addr')?.value || '';
+
+    let list = incidents;
+
+    if (fDriver) {
+      list = list.filter(i => i.driver === fDriver);
+    }
+    if (fAddr) {
+      list = list.filter(i => i.address === fAddr);
+    }
+
+    return list;
   }
 
   // --- Samlet brøytetid-kort ---
@@ -158,7 +221,7 @@
     if (prevMonthM < 0) { prevMonthM = 11; prevMonthY--; }
     const prevMonthKey = `${prevMonthY}-${prevMonthM}`;
 
-    // Sett mandag denne uken som start (eller søndag, men mandag føles mer norsk)
+    // Sett mandag denne uken som start
     const dayOfWeek = (now.getDay() + 6) % 7; // 0 = mandag
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
     weekStart.setHours(0, 0, 0, 0);
@@ -209,7 +272,7 @@
     `;
   }
 
-  // --- Detaljert logg-tabell ---
+  // --- Detaljert logg-tabell (brøytetid) ---
   function renderJobsTable(jobsLimited) {
     const tbody = $('#jobs_body');
     if (!tbody) return;
@@ -325,6 +388,53 @@
     }
   }
 
+  // --- Uhell / Ikke mulig-tabell ---
+  function renderIncidentsTable(incidents) {
+    const tbody = $('#inc_body');
+    if (!tbody) return; // logg.html har kanskje ikke egen tabell enda
+    tbody.innerHTML = '';
+
+    if (!incidents.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.textContent = 'Ingen uhell eller "ikke mulig" i valgt filter.';
+      td.className = 'muted';
+      td.style.padding = '8px';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    for (const inc of incidents) {
+      const tr = document.createElement('tr');
+      const d = new Date(inc.ts);
+
+      const typeLabel = inc.kind === 'uhell' ? 'UHELL' : 'IKKE MULIG';
+
+      const cells = [
+        fmtDate(d),          // Dato
+        fmtTime(d),          // Tid
+        inc.address,         // Adresse
+        typeLabel,           // Type
+        inc.note || '',      // Merknad
+        inc.driver           // Sjåfør
+      ];
+
+      const aligns = ['left','left','left','left','left','left'];
+
+      cells.forEach((val, idx) => {
+        const td = document.createElement('td');
+        td.textContent = val;
+        td.style.padding = '4px 6px';
+        td.style.textAlign = aligns[idx];
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    }
+  }
+
   // --- Fyll nedtrekkslister for sjåfør / adresse ---
   function populateFilters(jobs) {
     const selDriver = $('#f_driver');
@@ -372,16 +482,20 @@
       console.warn('Klarte ikke å hente reports fra JSONbin', e);
     }
 
-    const events = normalizeEvents(raw);
-    const jobs   = buildJobs(events);
+    const events    = normalizeEvents(raw);
+    const jobs      = buildJobs(events);
+    const incidents = normalizeIncidents(raw);
 
     populateFilters(jobs);
 
     function rerender() {
       const { filtered, limited } = applyFilters(jobs);
+      const incidentsFiltered = filterIncidents(incidents);
+
       renderSamletKort(filtered);
       renderJobsTable(limited);
       renderPerAddress(filtered);
+      renderIncidentsTable(incidentsFiltered);
     }
 
     // Koble filtre
