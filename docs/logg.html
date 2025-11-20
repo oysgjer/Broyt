@@ -146,6 +146,30 @@
         </table>
       </div>
     </section>
+
+    <!-- Uhell / Ikke mulig -->
+    <section class="card" style="margin-bottom:12px;">
+      <h2 style="margin:0 0 4px;">Uhell og «ikke mulig»</h2>
+      <p class="muted" style="margin:0 0 8px;">
+        Viser alle registrerte uhell og tilfeller der oppdraget ikke var mulig å utføre, filtrert på sjåfør/adresse.
+      </p>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Dato</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Tid</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Adresse</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Type</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Merknad</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid var(--sep);">Sjåfør</th>
+            </tr>
+          </thead>
+          <tbody id="inc_body"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <script src="js/logg.js" defer></script>
