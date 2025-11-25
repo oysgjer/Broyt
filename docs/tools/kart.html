@@ -565,6 +565,19 @@
       lastLatLng=null,
       lastHeading=null;
 
+  // NY FUNKSJON: nullstiller kun blå GPS-spor
+  function resetGPSLayer(showToast){
+    gpsLayer.clearLayers();
+    gpsSegments.length = 0;
+    currentGpsSegment = null;
+    myDot=null;
+    myAccuracy=null;
+    lastLatLng=null;
+    lastHeading=null;
+    document.getElementById('fix').textContent='GPS: –';
+    if (showToast) toast('GPS-spor nullstilt');
+  }
+
   function addGpsPoint(lat,lon,heading,accuracy){
     const latlng=[lat,lon];
     const MAX_GPS_GAP_M = 150; // hvis hoppet er større enn dette → ny strek
@@ -673,14 +686,7 @@
   document.getElementById('btnStartGPS').onclick=startGPS;
   document.getElementById('btnStopGPS').onclick=stopGPS;
   document.getElementById('btnClearGPS').onclick=()=>{
-    gpsLayer.clearLayers();
-    gpsSegments.length = 0;
-    currentGpsSegment = null;
-    myDot=null;
-    myAccuracy=null;
-    lastLatLng=null;
-    lastHeading=null;
-    toast('GPS-spor nullstilt');
+    resetGPSLayer(true); // bruker felles funksjon
   };
 
   // Kurs-opp
@@ -783,10 +789,14 @@
     if(document.hidden) stopGPS();
     else tryAutoStartGPS();
   });
+
+  // VIKTIG: hver gang siden vises (inkl. BFCache) starter vi med TOM blå strek
   window.addEventListener('pageshow',()=>{
+    resetGPSLayer(false);
     tryAutoStartGPS();
     if(wantWake) acquireWake();
   });
+
   window.addEventListener('pagehide',()=>{
     stopGPS();
   });
@@ -868,13 +878,7 @@
     covered.clear();
     coveredLayer.clearLayers();
     othersLayer.clearLayers();
-    gpsLayer.clearLayers();
-    gpsSegments.length = 0;
-    currentGpsSegment = null;
-    myDot=null;
-    myAccuracy=null;
-    lastLatLng=null;
-    lastHeading=null;
+    resetGPSLayer(false); // bruker felles GPS-reset
     updateUI(0,totalMeters());
     if(!silent) toast('Nullstilte dekning + GPS lokalt');
   }
